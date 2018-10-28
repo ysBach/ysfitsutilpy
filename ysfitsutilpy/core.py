@@ -4,7 +4,7 @@ import ccdproc
 import re
 
 import numpy as np
-from astropy.table import Table, Column
+from astropy.table import Table
 from astropy.io import fits
 from astropy.nddata import CCDData
 from astropy.wcs import WCS
@@ -96,7 +96,6 @@ def load_if_exists(path, loader, if_not=None, verbose=True, **kwargs):
 #    return path
 
 
-# TODO: Make it better deal with dtypes... it's too stupid now.
 def make_summary(filelist, extension=0, fname_option='relative',
                  output=None, format='ascii.csv',
                  keywords=[], dtypes=[],
@@ -119,8 +118,8 @@ def make_summary(filelist, extension=0, fname_option='relative',
     format: str
         The astropy.table.Table output format.
 
-    keywords: list
-        The list of the keywords to extract (keywords should be in ``str``).
+    keywords: list or str(``"*"``)
+        The list of the keywords to extract (keywords should be in str).
 
     dtypes: list
         The list of dtypes of keywords if you want to specify. If ``[]``,
@@ -158,8 +157,7 @@ def make_summary(filelist, extension=0, fname_option='relative',
             print("Extracting keys: ", keywords)
         str_example_hdr = "Extract example header from {:s}\n\tand save as {:s}"
         str_keywords = "All {:d} keywords will be loaded."
-        str_keyerror_fill = "Key {:s} not found for {:s}, filling with '--'."
-        str_valerror = "Please use 'U80' as the dtype for the key {:s}."
+        str_keyerror_fill = "Key {:s} not found for {:s}, filling with nan."
         str_filesave = 'Saving the summary file to "{:s}"'
 
     # Save example header
@@ -198,50 +196,35 @@ def make_summary(filelist, extension=0, fname_option='relative',
 #                continue
 
     # Initialize
-    if len(dtypes) == 0:
-        dtypes = ['U80'] * len(keywords)
-        # FITS header MUST be within 80 characters! (FITS standard)
-
-    summarytab = Table(names=keywords, dtype=dtypes)
-    fnames = []
+    summarytab = dict(fnames=[])
+    for k in keywords:
+        summarytab[k] = []
 
     # Run through all the fits files
-    for fitsfile in filelist:
-        fnames.append(_get_fname(fitsfile))
-        hdu = fits.open(fitsfile)
+    for fpath in filelist:
+        summarytab["fnames"].append(_get_fname(fpath))
+        hdu = fits.open(fpath)
         hdu.verify('fix')
         hdr = hdu[extension].header
-        row = []
-        for key in keywords:
+        for k in keywords:
             try:
-                row.append(hdr[key])
+                summarytab[k].append(hdr[k])
             except KeyError:
                 if verbose:
-                    print(str_keyerror_fill.format(key, str(fitsfile)))
-                try:
-                    row.append('--')
-                except ValueError:
-                    raise ValueError(str_valerror.format('U80'))
-        summarytab.add_row(row)
+                    print(str_keyerror_fill.format(k, str(fpath)))
+                summarytab[k].append(np.nan)
         hdu.close()
+#                try:
+#                except ValueError:
+#                    raise ValueError(str_valerror.format('U80'))
 
-    # Attache the file name, and then sort.
-    fnames = Column(data=fnames, name='file')
-    summarytab.add_column(fnames, index=0)
-    summarytab.sort(sort_by)
+    summarytab = Table(summarytab)
 
-    tmppath = Path('tmp.csv')
-    summarytab.write(tmppath, format=format)
-    summarytab = Table.read(tmppath, format=format)
-
-    if output is None or output == '':
-        tmppath.unlink()
-
-    else:
+    if output is not None:
         output = Path(output)
         if verbose:
             print(str_filesave.format(str(output)))
-        tmppath.rename(output)
+        summarytab.write(output, format=format)
 
     return summarytab
 
