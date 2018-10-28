@@ -96,6 +96,7 @@ def load_if_exists(path, loader, if_not=None, verbose=True, **kwargs):
 #    return path
 
 
+# TODO: Make it better deal with dtypes... it's too stupid now.
 def make_summary(filelist, extension=0, fname_option='relative',
                  output=None, format='ascii.csv',
                  keywords=[], dtypes=[],
