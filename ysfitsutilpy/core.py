@@ -13,13 +13,11 @@ from astropy import units as u
 
 from . import util
 
-
-__all__ = ['mkdir', 'read_without_newline', 'load_ccd', 'load_if_exists',
-           'make_summary',
-           "fits_newpath", "fitsrenamer",
-           'convert_bit', 'center_coord', "fitsxy2py", "dB2epadu", "epadu2dB",
+__all__ = ["mkdir", "read_without_newline", "load_ccd", "load_if_exists",
+           "make_summary", "fits_newpath", "fitsrenamer",
+           "convert_bit", "center_coord", "fitsxy2py", "dB2epadu", "epadu2dB",
            "CCDData_astype", "make_errmap",
-           'wcsremove', 'stack_FITS']
+           "wcsremove", "stack_FITS"]
 
 
 def mkdir(fpath, mode=0o777, exist_ok=True):
