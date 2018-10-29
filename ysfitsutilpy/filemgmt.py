@@ -53,7 +53,7 @@ def load_if_exists(path, loader, if_not=None, verbose=True, **kwargs):
 
 def make_summary(filelist, extension=0, fname_option='relative',
                  output=None, format='ascii.csv',
-                 keywords=[], dtypes=[],
+                 keywords=[],
                  example_header=None, sort_by='file', verbose=True):
     """ Extracts summary from the headers of FITS files.
     Parameters
@@ -75,11 +75,6 @@ def make_summary(filelist, extension=0, fname_option='relative',
 
     keywords: list or str(``"*"``)
         The list of the keywords to extract (keywords should be in str).
-
-    dtypes: list
-        The list of dtypes of keywords if you want to specify. If ``[]``,
-        ``['U80'] * len(keywords)`` will be used. Otherwise, it should have
-        the same length with ``keywords``.
 
     example_header: str or path-like
         The path including the filename of the output summary text file.
@@ -170,7 +165,8 @@ def make_summary(filelist, extension=0, fname_option='relative',
                 summarytab[k].append(np.nan)
         hdu.close()
 
-    summarytab = Table(summarytab).sort(sort_by)
+    summarytab = Table(summarytab)
+    summarytab.sort(sort_by)
 
     if output is not None:
         output = Path(output)
