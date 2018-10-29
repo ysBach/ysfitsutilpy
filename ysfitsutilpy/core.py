@@ -218,7 +218,7 @@ def make_summary(filelist, extension=0, fname_option='relative',
 #                except ValueError:
 #                    raise ValueError(str_valerror.format('U80'))
 
-    summarytab = Table(summarytab)
+    summarytab = Table(summarytab).sort(sort_by)
 
     if output is not None:
         output = Path(output)
