@@ -16,7 +16,7 @@ classifiers = ["Intended Audience :: Science/Research",
 
 setup(
     name="ysfitsutilpy",
-    version="0.0.1",
+    version="0.0.2.dev",
     author="Yoonsoo P. Bach",
     author_email="dbstn95@gmail.com",
     description="",
