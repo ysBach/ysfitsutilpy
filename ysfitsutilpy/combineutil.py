@@ -13,6 +13,24 @@ from .ccdutil import CCDData_astype
 
 __all__ = ["stack_FITS"]
 
+MEDCOMB_KEYS_INT = dict(dtype='int',
+                        combine_method='median',
+                        reject_method=None,
+                        unit=None,
+                        combine_uncertainty_function=None)
+
+SUMCOMB_KEYS_INT = dict(dtype='int',
+                        combine_method='sum',
+                        reject_method=None,
+                        unit=None,
+                        combine_uncertainty_function=None)
+
+MEDCOMB_KEYS_FLT32 = dict(dtype='float32',
+                          combine_method='median',
+                          reject_method=None,
+                          unit=None,
+                          combine_uncertainty_function=None)
+
 
 def stack_FITS(filelist, extension, unit='adu', trim_fits_section=None,
                type_key=None, type_val=None):
