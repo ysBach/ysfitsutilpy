@@ -25,8 +25,9 @@ savepath = TOPPATH / "summary_20180101.csv"
 allfits = list((TOPPATH / "rawdata").glob("*.fits"))
 # list of all the fits files in Path object
 
-summary = yfu.make_summary(allfits, keywords=keys, output=savepath)
-# The astropy.table foramt.
+summary = yfu.make_summary(allfits, keywords=keys, fname_option='name',
+                           sort_by="DATE-OBS", output=savepath)
+# The astropy.table.Table foramt.
 
 # If you want, you may change it to pandas:
 summary_pd = summary.to_pandas()
