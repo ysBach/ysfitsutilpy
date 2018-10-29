@@ -11,7 +11,8 @@ from astropy.nddata import CCDData
 from .filemgmt import load_if_exists
 from .ccdutil import CCDData_astype
 
-__all__ = ["stack_FITS"]
+__all__ = ["MEDCOMB_KEYS_INT", "SUMCOMB_KEYS_INT", "MEDCOMB_KEYS_FLT32",
+           "stack_FITS", "combine_ccd", ]
 
 MEDCOMB_KEYS_INT = dict(dtype='int',
                         combine_method='median',
