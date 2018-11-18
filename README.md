@@ -7,10 +7,12 @@ $ python setup.py install
 ```
 
 You may import using ``import ysfitsutilpy as yfu``.
+Although the package is subdivided into ``ccdutil``, ``filemgmt``, etc, all the modules' functions are imported to the core package by ``__init__.py``. So you never have to care about the submodules of this package, but just use ``yfu``.
 
 An example usage to make a summary file of FITS files:
 ```python
 import ysfitsutilpy as yfu
+
 from pathlib import Path
 
 keys = ["OBS-TIME", "FILTER", "OBJECT"]  # actually it is case-insensitive

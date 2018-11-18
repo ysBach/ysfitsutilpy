@@ -14,22 +14,22 @@ from .ccdutil import CCDData_astype
 __all__ = ["MEDCOMB_KEYS_INT", "SUMCOMB_KEYS_INT", "MEDCOMB_KEYS_FLT32",
            "stack_FITS", "combine_ccd", ]
 
-MEDCOMB_KEYS_INT = dict(dtype='int',
+MEDCOMB_KEYS_INT = dict(dtype='int16',
                         combine_method='median',
                         reject_method=None,
-                        unit=None,
+                        unit='adu',
                         combine_uncertainty_function=None)
 
-SUMCOMB_KEYS_INT = dict(dtype='int',
+SUMCOMB_KEYS_INT = dict(dtype='int16',
                         combine_method='sum',
                         reject_method=None,
-                        unit=None,
+                        unit='adu',
                         combine_uncertainty_function=None)
 
 MEDCOMB_KEYS_FLT32 = dict(dtype='float32',
                           combine_method='median',
                           reject_method=None,
-                          unit=None,
+                          unit='adu',
                           combine_uncertainty_function=None)
 
 

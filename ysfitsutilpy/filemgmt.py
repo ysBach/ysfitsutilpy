@@ -8,7 +8,7 @@ from pathlib import Path
 import numpy as np
 from astropy.table import Table
 from astropy.io import fits
-from .headerutil import key_mapper
+from .hdrutil import key_mapper
 
 __all__ = ["mkdir", "load_if_exists", "make_summary", "fits_newpath", "fitsrenamer"]
 
@@ -34,6 +34,13 @@ def load_if_exists(path, loader, if_not=None, verbose=True, **kwargs):
     -------
     loaded:
         The loaded file. If the file does not exist, ``None`` is returned.
+
+    Example
+    -------
+    >>> from astropy.nddata import CCDData
+    >>> from pathlib import Path
+    >>> ccd = load_if_exists(Path(".", "test.fits"), loader=CCDData.read, ext=0,
+    >>>       if_not="print('File not found')")
     '''
     path = Path(path)
 
@@ -82,6 +89,24 @@ def make_summary(filelist, extension=0, fname_option='relative',
     sort_by: str
         The column name to sort the results. It can be any element of
         ``keywords`` or ``'file'``, which sorts the table by the file name.
+
+    Example
+    -------
+    >>> from pathlib import Path
+    >>> import ysfitsutilpy as yfu
+    >>> keys = ["OBS-TIME", "FILTER", "O`BJECT"]  # actually it is case-insensitive
+    >>> # The keywords you want to extract (from the headers of FITS files)
+    >>> TOPPATH = Path(".", "observation_2018-01-01")
+    >>> # The toppath
+    >>> savepath = TOPPATH / "summary_20180101.csv"
+    >>> # path to save summary csv file
+    >>> allfits = list((TOPPATH / "rawdata").glob("*.fits"))
+    >>> # list of all the fits files in Path object
+    >>> summary = yfu.make_summary(allfits, keywords=keys, fname_option='name',
+    >>>                         sort_by="DATE-OBS", output=savepath)
+    >>> # The astropy.table.Table format.
+    >>> # If you want, you may change it to pandas:
+    >>> summary_pd = summary.to_pandas()`
     """
 
     if len(filelist) == 0:
@@ -146,13 +171,13 @@ def make_summary(filelist, extension=0, fname_option='relative',
 #                continue
 
     # Initialize
-    summarytab = dict(fnames=[])
+    summarytab = dict(file=[])
     for k in keywords:
         summarytab[k] = []
 
     # Run through all the fits files
     for fpath in filelist:
-        summarytab["fnames"].append(_get_fname(fpath))
+        summarytab["file"].append(_get_fname(fpath))
         hdu = fits.open(fpath)
         hdu.verify('fix')
         hdr = hdu[extension].header

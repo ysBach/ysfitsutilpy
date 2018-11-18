@@ -12,7 +12,7 @@ from astropy.wcs import WCS
 from astropy.coordinates import SkyCoord, EarthLocation, AltAz
 from astropy.time import Time
 
-from .mathutil import calc_airmass
+from .misc import calc_airmass
 
 __all__ = ["key_mapper", "get_from_header", "wcsremove", "center_coord",
            "airmass_obs", "airmass_hdr", "convert_bit"]

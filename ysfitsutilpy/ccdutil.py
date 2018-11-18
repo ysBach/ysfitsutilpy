@@ -24,7 +24,7 @@ def load_ccd(path, extension=0, unit='adu'):
 
 
 def CCDData_astype(ccd, dtype='float32', uncertainty_dtype=None):
-    ''' Assign dtype to the CCDData object.
+    ''' Assign dtype to the CCDData object (numpy uses float64 by default).
     Parameters
     ----------
     ccd: CCDData
@@ -34,6 +34,14 @@ def CCDData_astype(ccd, dtype='float32', uncertainty_dtype=None):
     uncertainty_dtype: dtype-like
         The dtype to be applied to the uncertainty. Be default, use the
         same dtype as data (``uncertainty_dtype = dtype``).
+
+    Example
+    -------
+    >>> from astropy.nddata import CCDData
+    >>> import numpy as np
+    >>> ccd = CCDData.read("bias001.fits", ext=0)
+    >>> ccd.uncertainty = np.sqrt(ccd.data)
+    >>> ccd = yfu.CCDData_astype(ccd, dtype='int16', uncertainty_dtype='float32')
     '''
     nccd = ccd.copy()
     nccd.data = nccd.data.astype(dtype)
@@ -51,14 +59,15 @@ def CCDData_astype(ccd, dtype='float32', uncertainty_dtype=None):
 
 def make_errmap(ccd, gain_epadu=1, rdnoise_electron=0,
                 subtracted_dark=None):
-    ''' Calculate the usual error map.
+    ''' Calculate the simple error map.
     Parameters
     ----------
     ccd: array-like
         The ccd data which will be used to generate error map. It must be bias
-        subtracted. If dark is subtracted, give ``subtracted_dark``. If the
-        amount of this subtracted dark is negligible, you may just set
-        ``subtracted_dark = None`` (default).
+        subtracted. If dark is subtracted, give ``subtracted_dark``. This
+        array will be added to ``ccd.data`` and used to calculate the Poisson
+        noise term. If the amount of this subtracted dark is negligible, you
+        may just set ``subtracted_dark = None`` (default).
     gain: float, array-like, or Quantity, optional.
         The effective gain factor in ``electron/ADU`` unit.
     rdnoise: float, array-like, or Quantity, optional.
@@ -66,6 +75,16 @@ def make_errmap(ccd, gain_epadu=1, rdnoise_electron=0,
         error. This is useful when generating noise map for dark frames.
     subtracted_dark: array-like
         The subtracted dark map.
+
+    Example
+    -------
+    >>> from astropy.nddata import CCDData
+    >>> ccd = CCDData.read("obj001.fits", ext=0)
+    >>> dark = CCDData.read("master_dark.fits", ext=0)
+    >>> params = dict(gain_epadu = ccd.header["GAIN"],
+    >>>               rdnoise_electron = ccd.header["RDNOISE"],
+    >>>               subtracted_dark = dark.data)
+    >>> ccd.uncertainty = make_errmap(ccd, **params)
     '''
     data = ccd.copy()
 
