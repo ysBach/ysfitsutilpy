@@ -8,7 +8,7 @@ from pathlib import Path
 import numpy as np
 from astropy.table import Table
 from astropy.io import fits
-from .hdrutil import key_mapper
+from .hdrutil import key_mapper, key_remover
 
 __all__ = ["mkdir", "load_if_exists", "make_summary", "fits_newpath", "fitsrenamer"]
 
@@ -191,7 +191,8 @@ def make_summary(filelist, extension=0, fname_option='relative',
         hdu.close()
 
     summarytab = Table(summarytab)
-    summarytab.sort(sort_by)
+    if sort_by is not None:
+        summarytab.sort(sort_by)
 
     if output is not None:
         output = Path(output)
@@ -215,8 +216,8 @@ def fits_newpath(fpath, rename_by, mkdir_by=None, header=None, delimiter='_',
         The keys which will be used to make subdirectories to classify files.
         If given, subdirectories will be made with the header value of the keys.
     header: Header object, optional
-        The header to extract ``mkdir_by``. If ``None``, the function will do
-        ``header = fits.getheader(fpath)``.
+        The header to extract ``rename_by`` and mkdir_by``. If ``None``,
+        the function will do ``header = fits.getheader(fpath)``.
     delimiter: str, optional
         The delimiter for the renaming.
     ext: str, optional
@@ -225,12 +226,14 @@ def fits_newpath(fpath, rename_by, mkdir_by=None, header=None, delimiter='_',
     '''
 
     if header is None:
-        header = fits.getheader(fpath)
+        hdr = fits.getheader(fpath)
+    else:
+        hdr = header.copy()
 
     # First make file name without parent path
     newname = ""
     for k in rename_by:
-        newname += str(header[k])
+        newname += str(hdr[k])
         newname += delimiter
 
     newname = newname[:-1] + '.fits'
@@ -239,7 +242,7 @@ def fits_newpath(fpath, rename_by, mkdir_by=None, header=None, delimiter='_',
 
     if mkdir_by is not None:
         for k in mkdir_by:
-            newpath = newpath / header[k]
+            newpath = newpath / hdr[k]
 
     newpath = newpath / newname
 
@@ -248,15 +251,20 @@ def fits_newpath(fpath, rename_by, mkdir_by=None, header=None, delimiter='_',
 
 def fitsrenamer(fpath=None, header=None, newtop=None, rename_by=["OBJECT"],
                 mkdir_by=None, delimiter='_', archive_dir=None, keymap=None,
-                key_deprecation=True,
+                key_deprecation=True, remove_keys=None,
                 verbose=True, add_header=None):
     ''' Renames a FITS file by ``rename_by`` with delimiter.
+    Note
+    ----
+    MEF(Multi-Extension FITS) is not supported.
+
     Parameters
     ----------
     fpath: path-like
         The path to the target FITS file.
     header: Header, optional
-        The header of the fits file. If given, don't open ``fpath``.
+        The header of the fits file, especially if you want to just overwrite
+        the header with this.
     newtop: path-like
         The top path for the new FITS file. If ``None``, the new path will share
         the parent path with ``fpath``.
@@ -278,6 +286,8 @@ def fitsrenamer(fpath=None, header=None, newtop=None, rename_by=["OBJECT"],
         Whether to change the original keywords' comments to contain deprecation
         warning. If ``True``, the original keywords' comments will become
         ``Deprecated. See <standard_key>.``.
+    remove_keys: list of str
+        The header keywords to be removed.
     add_header: header or dict
         The header keyword, value (and comment) to add after the renaming.
     '''
@@ -285,23 +295,28 @@ def fitsrenamer(fpath=None, header=None, newtop=None, rename_by=["OBJECT"],
     # Load fits file
     hdul = fits.open(fpath)
     if header is None:
-        header = hdul[0].header
+        hdr = hdul[0].header
+    else:
+        hdr = header.copy()
 
     # add keyword
     if add_header is not None:
-        header += add_header
+        hdr += add_header
 
     # Copy keys based on KEYMAP
     if keymap is not None:
-        header = key_mapper(header, keymap, deprecation=key_deprecation)
+        hdr = key_mapper(hdr, keymap, deprecation=key_deprecation)
 
-    newhdul = fits.PrimaryHDU(data=hdul[0].data, header=header)
+    if remove_keys is not None:
+        hdr = key_remover(hdr, remove_keys, deepremove=True)
+
+    newhdul = fits.PrimaryHDU(data=hdul[0].data, header=hdr)
 
     # Set the new path
-    newpath = fits_newpath(fpath, rename_by, mkdir_by=mkdir_by, header=header,
+    newpath = fits_newpath(fpath, rename_by, mkdir_by=mkdir_by, header=hdr,
                            delimiter=delimiter, ext='fits')
     if newtop is not None:
-        newpath = Path(newtop) / newpath
+        newpath = Path(newtop) / newpath.name
 
     mkdir(newpath.parent)
 

@@ -7,18 +7,54 @@ from warnings import warn
 import numpy as np
 
 from astropy.io import fits
+from astropy.io.fits import Card
 from astropy import units as u
 from astropy.wcs import WCS
-from astropy.coordinates import SkyCoord, EarthLocation, AltAz
+from astropy.coordinates import SkyCoord, EarthLocation
 from astropy.time import Time
 
-from .misc import calc_airmass
+from .misc import airmass_obs
 
-__all__ = ["key_mapper", "get_from_header", "wcsremove", "center_coord",
-           "airmass_obs", "airmass_hdr", "convert_bit"]
+__all__ = ["key_remover", "key_mapper", "get_from_header", "wcsremove", "center_coord",
+           "airmass_hdr", "convert_bit"]
 
 
-def key_mapper(header, keymap, deprecation=False):
+def key_remover(header, remove_keys, deepremove=True):
+    ''' Removes keywords from the header.
+    Parameters
+    ----------
+    header: Header
+        The header to be modified
+    remove_keys: list of str
+        The header keywords to be removed.
+    deepremove: True, optional
+        FITS standard does not have any specification of duplication of
+        keywords as discussed in the following issue:
+        https://github.com/astropy/ccdproc/issues/464
+        If it is set to ``True``, ALL the keywords having the name specified
+        in ``remove_keys`` will be removed. If not, only the first occurence
+        of each key in ``remove_keys`` will be removed. It is more sensical to
+        set it ``True`` in most of the cases.
+    '''
+    nhdr = header.copy()
+    if deepremove:
+        for key in remove_keys:
+            while True:
+                try:
+                    nhdr.remove(key)
+                except KeyError:
+                    break
+    else:
+        for key in remove_keys:
+            try:
+                nhdr.remove(key)
+            except KeyError:
+                continue
+
+    return nhdr
+
+
+def key_mapper(header, keymap, deprecation=False, remove=False):
     ''' Update the header to meed the standard (keymap).
     Parameters
     ----------
@@ -236,52 +272,6 @@ def center_coord(header, skycoord=False):
     return np.array(center_coo)
 
 
-def airmass_obs(targetcoord, obscoord, ut, exptime, scale=750., full=False):
-    ''' Calculate airmass by nonrefracting radially symmetric atmosphere model.
-    Note
-    ----
-    Wiki:
-        https://en.wikipedia.org/wiki/Air_mass_(astronomy)#Nonrefracting_radially_symmetrical_atmosphere
-    Identical to the airmass calculation for a given observational run of
-    IRAF's asutil.setairmass:
-        http://stsdas.stsci.edu/cgi-bin/gethelp.cgi?setairmass
-    Partly contributed by Kunwoo Kang (Seoul National University) in Apr 2018.
-
-    '''
-    if not isinstance(ut, Time):
-        warn("ut is not Time object. Assume format='isot', scale='utc'.")
-        ut = Time(ut, format='isot', scale='utc')
-    if not isinstance(exptime, u.Quantity):
-        warn("exptime is not astropy Quantity. Assume it is in seconds.")
-        exptime = exptime * u.s
-
-    t_start = ut
-    t_mid = ut + exptime / 2
-    t_final = ut + exptime
-
-    altaz = {"alt": [], "az": [], "zd": [], "airmass": []}
-    for t in [t_start, t_mid, t_final]:
-        C_altaz = AltAz(obstime=t, location=obscoord)
-        target = targetcoord.transform_to(C_altaz)
-        alt = target.alt.to_string(unit=u.deg, sep=':')
-        az = target.az.to_string(unit=u.deg, sep=':')
-        zd = target.zen.to(u.deg).value
-        am = calc_airmass(zd_deg=zd, scale=scale)
-        altaz["alt"].append(alt)
-        altaz["az"].append(az)
-        altaz["zd"].append(zd)
-        altaz["airmass"].append(am)
-
-    am_simpson = (altaz["airmass"][0]
-                  + 4 * altaz["airmass"][1]
-                  + altaz["airmass"][2]) / 6
-
-    if full:
-        return am_simpson, altaz
-
-    return am_simpson
-
-
 # TODO: change key, unit, etc as input dict.
 def airmass_hdr(header, ra=None, dec=None, ut=None, exptime=None,
                 lon=None, lat=None, height=None, equinox=None, frame=None,
@@ -293,7 +283,7 @@ def airmass_hdr(header, ra=None, dec=None, ut=None, exptime=None,
                 exptime_unit=u.s, lon_unit=u.deg, lat_unit=u.deg,
                 height_unit=u.m,
                 ut_format='isot', ut_scale='utc',
-                full=False
+                full=False, return_header=False
                 ):
     ''' Calculate airmass using the header.
     Parameters
@@ -331,6 +321,9 @@ def airmass_hdr(header, ra=None, dec=None, ut=None, exptime=None,
     full: bool, optional
         Whether to return the full calculated results. If ``False``, it returns
         the averaged (Simpson's 1/3-rule calculated) airmass only.
+
+    return_header: bool, optional
+        Whether to return the updated header.
     '''
     # If there is no header keyword matches the ``key``, it should give
     # KeyError. For such reason, I didn't use ``get_from_header`` here.
@@ -342,6 +335,38 @@ def airmass_hdr(header, ra=None, dec=None, ut=None, exptime=None,
                 val = val.to(unit).value
 
         return val
+
+    def _cards_airmass(am, altaz=None):
+        ''' Gives airmass and alt-az related header cards.
+        '''
+        amstr = ("ysfitsutilpy's airmass calculation uses the same algorithm "
+                 + "as IRAF: From 'Some Factors Affecting the Accuracy of "
+                 + "Stellar Photometry with CCDs' by P. Stetson, DAO preprint, "
+                 + "September 1988.")
+
+        # At some times, hdr["AIRMASS"] = am, for example, did not work for some
+        # reasons which I don't know.... So I used Card. - YPBach 2018-05-04
+        if altaz is None:
+            return [Card("AIRMASS", am, "Aaverage airmass (Stetson 1988)")]
+
+        else:
+            cs = [Card("AIRMASS", am, "Aaverage airmass (Stetson 1988)"),
+                  Card("ALT", altaz["alt"][0],
+                       "Altitude (start of the exposure)"),
+                  Card("AZ", altaz["az"][0],
+                       "Azimuth (start of the exposure)"),
+                  Card("ALT_MID", altaz["alt"][1],
+                       "Altitude (midpoint of the exposure)"),
+                  Card("AZ_MID", altaz["az"][1],
+                       "Azimuth (midpoint of the exposure)"),
+                  Card("ALT_END", altaz["alt"][2],
+                       "Altitude (end of the exposure)"),
+                  Card("AZ_END", altaz["az"][2],
+                       "Azimuth (end of the exposure)"),
+                  Card("COMMENT", amstr),
+                  Card("HISTORY", "ALT-AZ calculated from ysfitsutilpy."),
+                  Card("HISTORY", "AIRMASS calculated from ysfitsutilpy.") ]
+            return cs
 
     ra = _conversion(header, ra, ra_key, ra_unit, u.Quantity)
     dec = _conversion(header, dec, dec_key, dec_unit, u.Quantity)
@@ -373,11 +398,26 @@ def airmass_hdr(header, ra=None, dec=None, ut=None, exptime=None,
     result = airmass_obs(targetcoord=targetcoord, obscoord=observcoord, ut=ut,
                          exptime=exptime, scale=scale, full=full)
 
-    return result
+    if return_header:
+        nhdr = header.copy()
+        cards = _cards_airmass(*result)
+        # Remove if there is, e.g., AIRMASS a priori to the original header:
+        for c in cards:
+            try:
+                nhdr.remove(c.keyword)
+            except KeyError:
+                continue
+        nhdr = nhdr + cards
+        return nhdr
+
+    else:
+        return result
 
 
 def convert_bit(fname, original_bit=12, target_bit=16):
     ''' Converts a FIT(S) file's bit.
+    Note
+    ----
     In ASI1600MM, for example, the output data is 12-bit but since FITS
     standard do not accept 12-bit (but the closest integer is 16-bit), so,
     for example, the pixel values can have 0 and 15, but not any integer

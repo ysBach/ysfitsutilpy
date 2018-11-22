@@ -12,14 +12,13 @@ __all__ = ["load_ccd", "CCDData_astype",
            "make_errmap"]
 
 
-# FIXME: remove it when astropy updated.
+# FIXME: remove it when astropy updated:
+#   CCDData.read cannot read TPV WCS
+#   https://github.com/astropy/astropy/issues/7650
 def load_ccd(path, extension=0, unit='adu'):
-    ''' CCDData.read cannot read TPV WCS
-    https://github.com/astropy/astropy/issues/7650
-    '''
     hdu = fits.open(path)[extension]
     ccd = CCDData(data=hdu.data, header=hdu.header, wcs=WCS(hdu.header),
-                  unit='adu')
+                  unit=unit)
     return ccd
 
 
@@ -78,13 +77,13 @@ def make_errmap(ccd, gain_epadu=1, rdnoise_electron=0,
 
     Example
     -------
-    >>> from astropy.nddata import CCDData
+    >>> from astropy.nddata import CCDData, StdDevUncertainty
     >>> ccd = CCDData.read("obj001.fits", ext=0)
     >>> dark = CCDData.read("master_dark.fits", ext=0)
     >>> params = dict(gain_epadu = ccd.header["GAIN"],
     >>>               rdnoise_electron = ccd.header["RDNOISE"],
     >>>               subtracted_dark = dark.data)
-    >>> ccd.uncertainty = make_errmap(ccd, **params)
+    >>> ccd.uncertainty = StdDevUncertainty(make_errmap(ccd, **params))
     '''
     data = ccd.copy()
 

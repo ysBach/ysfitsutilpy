@@ -2,11 +2,17 @@
 Simple mathematical functions that will be used throughout this package. Some
 might be useful outside of this package.
 '''
-import ccdproc
+from warnings import warn
 import numpy as np
-from astropy.visualization import ZScaleInterval, ImageNormalize
 
-__all__ = ["fitsxy2py", "give_stats", "calc_airmass", "dB2epadu", "epadu2dB"]
+from astropy import units as u
+from astropy.time import Time
+from astropy.coordinates import AltAz
+from astropy.visualization import ZScaleInterval, ImageNormalize
+import ccdproc
+
+__all__ = ["fitsxy2py", "give_stats", "calc_airmass", "airmass_obs",
+           "dB2epadu", "epadu2dB"]
 
 
 def fitsxy2py(fits_section):
@@ -113,6 +119,52 @@ def calc_airmass(zd_deg=None, cos_zd=None, scale=750.):
     am = np.sqrt((scale * cos_zd)**2 + 2 * scale + 1) - scale * cos_zd
 
     return am
+
+
+def airmass_obs(targetcoord, obscoord, ut, exptime, scale=750., full=False):
+    ''' Calculate airmass by nonrefracting radially symmetric atmosphere model.
+    Note
+    ----
+    Wiki:
+        https://en.wikipedia.org/wiki/Air_mass_(astronomy)#Nonrefracting_radially_symmetrical_atmosphere
+    Identical to the airmass calculation for a given observational run of
+    IRAF's asutil.setairmass:
+        http://stsdas.stsci.edu/cgi-bin/gethelp.cgi?setairmass
+    Partly contributed by Kunwoo Kang (Seoul National University) in Apr 2018.
+
+    '''
+    if not isinstance(ut, Time):
+        warn("ut is not Time object. Assume format='isot', scale='utc'.")
+        ut = Time(ut, format='isot', scale='utc')
+    if not isinstance(exptime, u.Quantity):
+        warn("exptime is not astropy Quantity. Assume it is in seconds.")
+        exptime = exptime * u.s
+
+    t_start = ut
+    t_mid = ut + exptime / 2
+    t_final = ut + exptime
+
+    altaz = {"alt": [], "az": [], "zd": [], "airmass": []}
+    for t in [t_start, t_mid, t_final]:
+        C_altaz = AltAz(obstime=t, location=obscoord)
+        target = targetcoord.transform_to(C_altaz)
+        alt = target.alt.to_string(unit=u.deg, sep=':')
+        az = target.az.to_string(unit=u.deg, sep=':')
+        zd = target.zen.to(u.deg).value
+        am = calc_airmass(zd_deg=zd, scale=scale)
+        altaz["alt"].append(alt)
+        altaz["az"].append(az)
+        altaz["zd"].append(zd)
+        altaz["airmass"].append(am)
+
+    am_simpson = (altaz["airmass"][0]
+                  + 4 * altaz["airmass"][1]
+                  + altaz["airmass"][2]) / 6
+
+    if full:
+        return am_simpson, altaz
+
+    return am_simpson
 
 
 # FIXME: I am not sure whether these gain conversions are universal or just
