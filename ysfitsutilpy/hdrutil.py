@@ -15,8 +15,45 @@ from astropy.time import Time
 
 from .misc import airmass_obs
 
-__all__ = ["key_remover", "key_mapper", "get_from_header", "wcsremove", "center_coord",
+__all__ = ["center_radec", "key_remover", "key_mapper", "get_from_header", "wcsremove", "center_coord",
            "airmass_hdr", "convert_bit"]
+
+
+def center_radec(header, ra_key="RA", dec_key="DEC",
+                 equinox=None, frame=None, equinox_key="EPOCH",
+                 frame_key="RADECSYS", ra_unit=u.deg, dec_unit=u.deg,
+                 verbose=True, plain=False):
+    ''' Returns the telescope's central ra/dec from header in degrees.
+    Note
+    ----
+    Even though RA or DEC is in sexagesimal, e.g., "20 53 20", astropy
+    correctly reads it in such a form, so no worries.
+
+    Parameters
+    ----------
+    header: Header
+        The header to extract the central RA/DEC
+    equinox, frame: str, optional
+        The ``equinox`` and ``frame`` for SkyCoord. Default (``None``) will
+        use the default of SkyCoord.
+    XX_key: str, optional
+        The header key to find XX if ``XX`` is ``None``.
+    XX_unit: Quantity, optional
+        The unit of ``XX``
+    plain: bool
+        If ``True``, only the values of RA/DEC in degrees will be returned.
+    '''
+    ra = get_from_header(header, ra_key, verbose=verbose)
+    dec = get_from_header(header, dec_key, verbose=verbose)
+    if equinox is None:
+        equinox = get_from_header(header, equinox_key, verbose=verbose, default=None)
+    if frame is None:
+        frame = get_from_header(header, frame_key, verbose=verbose, default=None)
+    coo = SkyCoord(ra=ra, dec=dec, unit=(ra_unit, dec_unit), frame=frame, equinox=equinox)
+
+    if plain:
+        return coo.ra.value, coo.dec.value
+    return coo
 
 
 def key_remover(header, remove_keys, deepremove=True):
@@ -74,6 +111,9 @@ def key_mapper(header, keymap, deprecation=False, remove=False):
     '''
     newhdr = header.copy()
     for k_new, k_old in keymap.items():
+        if k_new == k_old:
+            continue
+
         # if k_new already in the header, only deprecate k_old.
         # if not, copy k_old to k_new and deprecate k_old.
         if k_old is not None:
@@ -113,14 +153,14 @@ def get_from_header(header, key, unit=None, verbose=True,
         given. Otherwise, appropriate type will be assigned.
     '''
 
-    def _change_to_quantity(x, desired=None):
+    def _change_to_quantity(x, unit=None):
         ''' Change the non-Quantity object to astropy Quantity.
         Parameters
         ----------
-        x: object changable to astropy Quantity
+        x: object
             The input to be changed to a Quantity. If a Quantity is given,
-            ``x`` is changed to the ``desired``, i.e., ``x.to(desired)``.
-        desired: astropy Unit, optional
+            ``x`` is changed to the ``unit``, i.e., ``x.to(unit)``.
+        unit: astropy Unit, optional
             The desired unit for ``x``.
 
         Returns
@@ -129,34 +169,30 @@ def get_from_header(header, key, unit=None, verbose=True,
 
         Note
         ----
-        If Quantity, transform to ``desired``. If ``desired = None``, return
-        it as is. If not Quantity, multiply the ``desired``.
-        ``desired = None``, return ``x`` with dimensionless unscaled unit.
+        If Quantity, transform to ``unit``. If ``unit = None``, return
+        it as is. If not Quantity, multiply the ``unit``.
+        ``unit = None``, return ``x`` with dimensionless unscaled unit.
         '''
-        if not isinstance(x, u.quantity.Quantity):
-            if desired is None:
-                ux = x * u.dimensionless_unscaled
-            else:
-                ux = x * desired
+        if unit is None:
+            ux = x  # If it were Quantity, original Quantity will be returned
         else:
-            if desired is None:
-                ux = x
+            if isinstance(x, u.quantity.Quantity):
+                ux = x.to(unit)
             else:
-                ux = x.to(desired)
+                ux = x * unit
         return ux
 
     q = None
 
     try:
-        q = header[key]
-        if unit is not None:
-            q = q * unit
+        q = _change_to_quantity(header[key], unit=unit)
         if verbose:
             print(f"header: {key} = {q}")
     except KeyError:
         if default is not None:
-            q = _change_to_quantity(default, desired=unit)
+            q = _change_to_quantity(default, unit=unit)
             warn(f"{key} not found in header: setting to {default}.")
+        # else: None will be returned
 
     return q
 
@@ -365,7 +401,7 @@ def airmass_hdr(header, ra=None, dec=None, ut=None, exptime=None,
                        "Azimuth (end of the exposure)"),
                   Card("COMMENT", amstr),
                   Card("HISTORY", "ALT-AZ calculated from ysfitsutilpy."),
-                  Card("HISTORY", "AIRMASS calculated from ysfitsutilpy.") ]
+                  Card("HISTORY", "AIRMASS calculated from ysfitsutilpy.")]
             return cs
 
     ra = _conversion(header, ra, ra_key, ra_unit, u.Quantity)
@@ -433,4 +469,3 @@ def convert_bit(fname, original_bit=12, target_bit=16):
     hdul[0].header['BUNIT'] = 'ADU'
 
     return hdul
-

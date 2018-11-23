@@ -5,8 +5,8 @@ Contians convenience funcitons which are
 '''
 
 from pathlib import Path
-import numpy as np
 from astropy.table import Table
+from astropy.nddata import CCDData
 from astropy.io import fits
 from .hdrutil import key_mapper, key_remover
 
@@ -58,43 +58,51 @@ def load_if_exists(path, loader, if_not=None, verbose=True, **kwargs):
     return loaded
 
 
-def make_summary(filelist, extension=0, fname_option='relative',
+def make_summary(fitslist, extension=0, fname_option='relative',
                  output=None, format='ascii.csv',
                  keywords=[],
                  example_header=None, sort_by='file', verbose=True):
     """ Extracts summary from the headers of FITS files.
     Parameters
     ----------
-    filelist: list of str (path-like)
-        The list of file paths relative to the current working directory.
+    fitslist: list of str (path-like) or list of CCDData, optional
+        The list of file paths relative to the current working directory, or
+        the list of ccds to be summarized. It can be useful to give a list of
+        CCDData if you have already stacked/loaded the CCDData into a list.
+        Although it is not a good idea, a mixed list of CCDData and paths to
+        the files is also acceptable.
 
-    extension: int or str
+    extension: int or str, optional
         The extension to be summarized.
 
-    fname_option: str {'absolute', 'relative', 'name'}
+    fname_option: str {'absolute', 'relative', 'name'}, optional
         Whether to save full absolute/relative path or only the filename.
 
-    output: str or path-like
+    output: str or path-like, optional
         The directory and file name of the output summary file.
 
-    format: str
+    format: str, optional
         The astropy.table.Table output format.
 
-    keywords: list or str(``"*"``)
+    keywords: list or str(``"*"``), optional
         The list of the keywords to extract (keywords should be in str).
 
-    example_header: str or path-like
+    example_header: str or path-like, optional
         The path including the filename of the output summary text file.
 
-    sort_by: str
+    sort_by: str, optional
         The column name to sort the results. It can be any element of
         ``keywords`` or ``'file'``, which sorts the table by the file name.
+
+    Return
+    ------
+    summarytab: astropy.Table
 
     Example
     -------
     >>> from pathlib import Path
     >>> import ysfitsutilpy as yfu
-    >>> keys = ["OBS-TIME", "FILTER", "O`BJECT"]  # actually it is case-insensitive
+    >>> keys = ["OBS-TIME", "FILTER", "OBJECT"]  # actually it is case-insensitive
     >>> # The keywords you want to extract (from the headers of FITS files)
     >>> TOPPATH = Path(".", "observation_2018-01-01")
     >>> # The toppath
@@ -102,14 +110,15 @@ def make_summary(filelist, extension=0, fname_option='relative',
     >>> # path to save summary csv file
     >>> allfits = list((TOPPATH / "rawdata").glob("*.fits"))
     >>> # list of all the fits files in Path object
-    >>> summary = yfu.make_summary(allfits, keywords=keys, fname_option='name',
-    >>>                         sort_by="DATE-OBS", output=savepath)
+    >>> summary = yfu.make_summary(pathlist=allfits, keywords=keys,
+    >>>                            fname_option='name',
+    >>>                            sort_by="DATE-OBS", output=savepath)
     >>> # The astropy.table.Table format.
     >>> # If you want, you may change it to pandas:
     >>> summary_pd = summary.to_pandas()`
     """
 
-    if len(filelist) == 0:
+    if len(fitslist) == 0:
         print("No FITS file found.")
         return
 
@@ -121,6 +130,17 @@ def make_summary(filelist, extension=0, fname_option='relative',
         else:
             return path.name
 
+    def _get_hdr(item, extension):
+        ''' Gets header from ``item``.
+        '''
+        if isinstance(item, CCDData):
+            hdr = item.header
+        else:
+            hdul = fits.open(item)
+            hdr = hdul[extension].header
+            hdul.close()
+        return hdr
+
     options = ['absolute', 'relative', 'name']
     if fname_option not in options:
         raise KeyError(f"fname_option must be one of {options}.")
@@ -130,30 +150,27 @@ def make_summary(filelist, extension=0, fname_option='relative',
     if verbose:
         if (keywords != []) and (keywords != '*'):
             print("Extracting keys: ", keywords)
-        str_example_hdr = "Extract example header from {:s}\n\tand save as {:s}"
+        str_example_hdr = "Extract example header from 0-th\n\tand save as {:s}"
         str_keywords = "All {:d} keywords will be loaded."
         str_keyerror_fill = "Key {:s} not found for {:s}, filling with nan."
         str_filesave = 'Saving the summary file to "{:s}"'
 
     # Save example header
     if example_header is not None:
-        example_fits = filelist[0]
+        example_fits = fitslist[0]
         if verbose:
-            print(str_example_hdr.format(str(example_fits), example_header))
-        ex_hdu = fits.open(example_fits)
-        ex_hdr = ex_hdu[extension].header
+            print(str_example_hdr.format(example_header))
+        ex_hdr = _get_hdr(example_fits, extension=extension)
         ex_hdr.totextfile(example_header, overwrite=True)
 
     # load ALL keywords for special cases
     if (keywords == []) or (keywords == '*'):
-        example_fits = filelist[0]
-        ex_hdu = fits.open(example_fits)
-        ex_hdu.verify('fix')
-        ex_hdr = ex_hdu[extension].header
-        N_hdr = len(ex_hdr.cards)
+        example_fits = fitslist[0]
+        ex_hdr = _get_hdr(example_fits, extension=extension)
+        N_hkeys = len(ex_hdr.cards)
         keywords = []
 
-        for i in range(N_hdr):
+        for i in range(N_hkeys):
             key_i = ex_hdr.cards[i][0]
             if (key_i in skip_keys):
                 continue
@@ -176,19 +193,22 @@ def make_summary(filelist, extension=0, fname_option='relative',
         summarytab[k] = []
 
     # Run through all the fits files
-    for fpath in filelist:
-        summarytab["file"].append(_get_fname(fpath))
-        hdu = fits.open(fpath)
-        hdu.verify('fix')
-        hdr = hdu[extension].header
+    for i, item in enumerate(fitslist):
+        if isinstance(item, CCDData):
+            summarytab["file"].append(None)
+        else:
+            summarytab["file"].append(_get_fname(item))
+        hdr = _get_hdr(item, extension=extension)
         for k in keywords:
             try:
                 summarytab[k].append(hdr[k])
             except KeyError:
                 if verbose:
-                    print(str_keyerror_fill.format(k, str(fpath)))
-                summarytab[k].append(np.nan)
-        hdu.close()
+                    if isinstance(item, CCDData):
+                        print(str_keyerror_fill.format(k, f"fitslist[{i}]"))
+                    else:
+                        print(str_keyerror_fill.format(k, str(item)))
+                summarytab[k].append(None)
 
     summarytab = Table(summarytab)
     if sort_by is not None:
@@ -251,7 +271,7 @@ def fits_newpath(fpath, rename_by, mkdir_by=None, header=None, delimiter='_',
 
 def fitsrenamer(fpath=None, header=None, newtop=None, rename_by=["OBJECT"],
                 mkdir_by=None, delimiter='_', archive_dir=None, keymap=None,
-                key_deprecation=True, remove_keys=None,
+                key_deprecation=True, remove_keys=None, overwrite=False,
                 verbose=True, add_header=None):
     ''' Renames a FITS file by ``rename_by`` with delimiter.
     Note
@@ -313,6 +333,20 @@ def fitsrenamer(fpath=None, header=None, newtop=None, rename_by=["OBJECT"],
     newhdul = fits.PrimaryHDU(data=hdul[0].data, header=hdr)
 
     # Set the new path
+    if verbose:
+        print("Renaming file by ", end='')
+        form = ''
+        for rn in rename_by:
+            form = form + f"<{rn:s}>{delimiter:s}"
+        ndelimiter = len(delimiter)
+        print(form[:-ndelimiter])
+        if mkdir_by is not None:
+            print("Make by ", end='')
+            form = ''
+            for md in mkdir_by:
+                form = form + f"<{md:s}>/"
+            print(form[:-1])
+
     newpath = fits_newpath(fpath, rename_by, mkdir_by=mkdir_by, header=hdr,
                            delimiter=delimiter, ext='fits')
     if newtop is not None:
@@ -324,7 +358,7 @@ def fitsrenamer(fpath=None, header=None, newtop=None, rename_by=["OBJECT"],
         print(f"Rename {fpath.name} to {newpath}")
 
     hdul.close()
-    newhdul.writeto(newpath, output_verify='fix')
+    newhdul.writeto(newpath, output_verify='fix', overwrite=overwrite)
 
     if archive_dir is not None:
         archive_dir = Path(archive_dir)

@@ -9,6 +9,7 @@ from astropy import units as u
 from astropy.time import Time
 from astropy.coordinates import AltAz
 from astropy.visualization import ZScaleInterval, ImageNormalize
+from astropy.io import fits
 import ccdproc
 
 __all__ = ["fitsxy2py", "give_stats", "calc_airmass", "airmass_obs",
@@ -32,12 +33,14 @@ def fitsxy2py(fits_section):
     return sl
 
 
-def give_stats(data, percentiles=[1, 99], N_extrema=None):
+def give_stats(item, extension=0, percentiles=[1, 99], N_extrema=None):
     ''' Calculates simple statistics.
     Parameters
     ----------
-    data: array-like
-        The data to be analyzed.
+    item: array-like or path-like
+        The nddata or path to a FITS file to be analyzed.
+    extension: int, str, optional
+        The extension if ``item`` is the path to the FITS file.
     percentiles: list-like, optional
         The percentiles to be calculated.
     N_extrema: int, optinoal
@@ -50,10 +53,15 @@ def give_stats(data, percentiles=[1, 99], N_extrema=None):
     >>> bias = CCDData.read("bias_bin11.fits")
     >>> dark = CCDData.read("pdark_300s_27C_bin11.fits")
     >>> percentiles = [0.1, 1, 5, 95, 99, 99.9]
-    >>> stats.give_stats(bias, percentiles=percentiles, N_extrema=5)
-    >>> stats.give_stats(dark, percentiles=percentiles, N_extrema=5)
+    >>> give_stats(bias, percentiles=percentiles, N_extrema=5)
+    >>> give_stats(dark, percentiles=percentiles, N_extrema=5)
+    Or just simply
+    >>> give_stats("bias_bin11.fits", percentiles=percentiles, N_extrema=5)
     '''
-    data = np.atleast_1d(data)
+    try:
+        data = np.atleast_1d(item)
+    except TypeError:
+        data = fits.open(item)[extension].data
 
     result = {}
 

@@ -4,3 +4,4 @@ from .filemgmt import *
 from .hdrutil import *
 from .misc import *
 from .visutil import *
+from .astrometry import *

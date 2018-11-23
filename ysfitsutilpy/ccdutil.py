@@ -4,18 +4,49 @@ Collection of functions that are quite far from headerutil.
 
 import numpy as np
 from astropy.io import fits
-from astropy.nddata import CCDData
+from astropy.nddata import CCDData, Cutout2D
 from astropy.wcs import WCS
 from astropy import units as u
+from ccdproc import trim_image
 
-__all__ = ["load_ccd", "CCDData_astype",
+__all__ = ["cutout2CCDData", "load_ccd", "CCDData_astype",
            "make_errmap"]
 
 
-# FIXME: remove it when astropy updated:
-#   CCDData.read cannot read TPV WCS
-#   https://github.com/astropy/astropy/issues/7650
+def cutout2CCDData(ccd, position, size, mode='trim', fill_value=np.nan, full=True):
+    ''' Converts the Cutout2D object to proper CCDData.
+    Parameters
+    ----------
+    ccd: CCDData
+        The ccd to be trimmed.
+    position, size, mode, fill_value:
+        See the ``ccdproc.trim_image`` doc.
+    full: bool
+        If ``True`` (default), returns the ``Cutout2D`` object.
+        If ``False``, only the trimmed ccd is returned.
+    '''
+    w = WCS(ccd.header)
+    cut = Cutout2D(data=ccd.data, position=position, size=size, wcs=w,
+                   mode=mode, fill_value=fill_value, copy=True)
+    # Copy True just to avoid any contamination to the original ccd.
+    y1 = cut.ymin_original
+    y2 = cut.ymax_original
+    x1 = cut.xmin_original
+    x2 = cut.xmax_original
+    trimmed_ccd = trim_image(ccd[y1:y2, x1:x2])
+    if full:
+        return trimmed_ccd, cut
+    return trimmed_ccd
+
+
+# FIXME: Remove it in the future.
 def load_ccd(path, extension=0, unit='adu'):
+    '''remove it when astropy updated:
+    Note
+    ----
+    CCDData.read cannot read TPV WCS:
+    https://github.com/astropy/astropy/issues/7650
+    '''
     hdu = fits.open(path)[extension]
     ccd = CCDData(data=hdu.data, header=hdu.header, wcs=WCS(hdu.header),
                   unit=unit)
@@ -48,7 +79,8 @@ def CCDData_astype(ccd, dtype='float32', uncertainty_dtype=None):
     try:
         if uncertainty_dtype is None:
             uncertainty_dtype = dtype
-        nccd.uncertainty.array = nccd.uncertainty.array.astype(dtype)
+        nccd.uncertainty.array = nccd.uncertainty.array.astype(
+            uncertainty_dtype)
     except AttributeError:
         # If there is no uncertainty attribute in the input ``ccd``
         pass
@@ -116,5 +148,3 @@ def make_errmap(ccd, gain_epadu=1, rdnoise_electron=0,
     errmap = np.sqrt(var_Poisson + var_RDnoise)
 
     return errmap
-
-
