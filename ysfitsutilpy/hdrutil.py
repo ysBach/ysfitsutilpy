@@ -21,7 +21,7 @@ __all__ = ["center_radec", "key_remover", "key_mapper", "get_from_header", "wcsr
 
 def center_radec(header, ra_key="RA", dec_key="DEC",
                  equinox=None, frame=None, equinox_key="EPOCH",
-                 frame_key="RADECSYS", ra_unit=u.deg, dec_unit=u.deg,
+                 frame_key="RADECSYS", ra_unit=u.hourangle, dec_unit=u.deg,
                  verbose=True, plain=False):
     ''' Returns the telescope's central ra/dec from header in degrees.
     Note
