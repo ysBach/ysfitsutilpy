@@ -43,18 +43,18 @@ def sstd(a, **kwargs):
     return np.std(a, ddof=1, **kwargs)
 
 
-# # FIXME: Add this to Ccdproc
-# def weighted_mean(ccds, unit='adu'):
-#     datas = []
-#     ws = []  # weights = 1 / sigma**2
-#     for ccd in ccds:
-#         datas.append(ccd.data)
-#         ws.append(1 / ccd.uncertainty.array**2)
-#     wmean = np.average(np.array(datas), axis=0, weights=ws)
-#     wuncert = np.sqrt(1 / np.sum(np.array(ws), axis=0))
-#     nccd = CCDData(data=wmean, header=ccds[0].header, unit=unit)
-#     nccd.uncertainty = StdDevUncertainty(wuncert)
-#     return nccd
+# FIXME: Add this to Ccdproc esp. for mem_limit
+def weighted_mean(ccds, unit='adu'):
+    datas = []
+    ws = []  # weights = 1 / sigma**2
+    for ccd in ccds:
+        datas.append(ccd.data)
+        ws.append(1 / ccd.uncertainty.array**2)
+    wmean = np.average(np.array(datas), axis=0, weights=ws)
+    wuncert = np.sqrt(1 / np.sum(np.array(ws), axis=0))
+    nccd = CCDData(data=wmean, header=ccds[0].header, unit=unit)
+    nccd.uncertainty = StdDevUncertainty(wuncert)
+    return nccd
 
 
 def stack_FITS(fitslist=None, summary_table=None, extension=0,

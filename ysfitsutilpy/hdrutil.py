@@ -19,11 +19,11 @@ __all__ = ["center_radec", "key_remover", "key_mapper", "get_from_header", "wcsr
            "airmass_hdr", "convert_bit"]
 
 
-def center_radec(header, ra_key="RA", dec_key="DEC",
+def center_radec(header, usewcs=False, ra_key="RA", dec_key="DEC",
                  equinox=None, frame=None, equinox_key="EPOCH",
                  frame_key="RADECSYS", ra_unit=u.hourangle, dec_unit=u.deg,
-                 verbose=True, plain=False):
-    ''' Returns the telescope's central ra/dec from header in degrees.
+                 origin=0, mode='all', verbose=True, plain=False):
+    ''' Returns the central ra/dec from header or WCS.
     Note
     ----
     Even though RA or DEC is in sexagesimal, e.g., "20 53 20", astropy
@@ -32,24 +32,47 @@ def center_radec(header, ra_key="RA", dec_key="DEC",
     Parameters
     ----------
     header: Header
-        The header to extract the central RA/DEC
+        The header to extract the central RA/DEC from keywords or WCS.
+    usewcs: bool, optional
+        If ``True``, WCS information will be extracted from the header,
+        rather than relying on the ``ra_key`` and ``dec_key`` keywords
+        directly.
     equinox, frame: str, optional
         The ``equinox`` and ``frame`` for SkyCoord. Default (``None``) will
-        use the default of SkyCoord.
+        use the default of SkyCoord. Important only if ``usewcs=False``.
     XX_key: str, optional
-        The header key to find XX if ``XX`` is ``None``.
+        The header key to find XX if ``XX`` is ``None``. Important only if
+        ``usewcs=False``.
     XX_unit: Quantity, optional
-        The unit of ``XX``
+        The unit of ``XX``. Important only if ``usewcs=False``.
+    origin: int, optional
+        Whether to return 0 or 1-based pixel coordinates. Important only if
+        ``usewcs=True``.
+    mode: 'all' or 'wcs', optional
+        Whether to do the transformation including distortions (``'all'``) or
+        only including only the core WCS transformation (``'wcs'``). Important
+        only if ``usewcs=True``.
     plain: bool
         If ``True``, only the values of RA/DEC in degrees will be returned.
     '''
-    ra = get_from_header(header, ra_key, verbose=verbose)
-    dec = get_from_header(header, dec_key, verbose=verbose)
-    if equinox is None:
-        equinox = get_from_header(header, equinox_key, verbose=verbose, default=None)
-    if frame is None:
-        frame = get_from_header(header, frame_key, verbose=verbose, default=None)
-    coo = SkyCoord(ra=ra, dec=dec, unit=(ra_unit, dec_unit), frame=frame, equinox=equinox)
+    if usewcs:
+        w = WCS(header)
+        nx, ny = header["NAXIS1"], header["NAXIS2"]
+        centx = nx / 2 - 0.5
+        centy = ny / 2 - 0.5
+        coo = SkyCoord.from_pixel(centx, centy, wcs=w,
+                                  origin=origin, mode=mode)
+    else:
+        ra = get_from_header(header, ra_key, verbose=verbose)
+        dec = get_from_header(header, dec_key, verbose=verbose)
+        if equinox is None:
+            equinox = get_from_header(header, equinox_key,
+                                      verbose=verbose, default=None)
+        if frame is None:
+            frame = get_from_header(header, frame_key,
+                                    verbose=verbose, default=None)
+        coo = SkyCoord(ra=ra, dec=dec, unit=(ra_unit, dec_unit),
+                       frame=frame, equinox=equinox)
 
     if plain:
         return coo.ra.value, coo.dec.value
