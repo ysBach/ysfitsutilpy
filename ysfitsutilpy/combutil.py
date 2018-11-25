@@ -7,6 +7,7 @@ import pandas as pd
 from astropy.nddata import CCDData, StdDevUncertainty
 from astropy.table import Table
 from astropy import units as u
+from astropy.io import fits
 from ccdproc import (combine, trim_image, subtract_bias, subtract_dark,
                      flat_correct)
 
@@ -453,7 +454,10 @@ def combine_ccd(fitslist=None, summary_table=None, trim_fits_section=None,
                          type_val=type_val,
                          loadccd=False)
 
-    header = ccdlist[0].header
+    try:
+        header = ccdlist[0].header
+    except AttributeError:
+        header = fits.getheader(ccdlist[0])
 
     if verbose:
         _print_info(combine_method=combine_method,
