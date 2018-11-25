@@ -483,7 +483,7 @@ def combine_ccd(fitslist=None, summary_table=None, trim_fits_section=None,
                                     keywords=[exposure_key],
                                     verbose=False,
                                     sort_by=None)
-            scale = 1 / np.array(exptimes.to_list())
+            scale = 1 / np.array(exptimes[exposure_key].tolist())
 
     # Set rejection switches
     clip_extrema, minmax_clip, sigma_clip = _set_reject_method(reject_method)
