@@ -22,7 +22,7 @@ __all__ = ["center_radec", "key_remover", "key_mapper", "get_from_header", "wcsr
 def center_radec(header, usewcs=False, ra_key="RA", dec_key="DEC",
                  equinox=None, frame=None, equinox_key="EPOCH",
                  frame_key="RADECSYS", ra_unit=u.hourangle, dec_unit=u.deg,
-                 origin=0, mode='all', verbose=True, plain=False):
+                 mode='all', verbose=True, plain=False):
     ''' Returns the central ra/dec from header or WCS.
     Note
     ----
@@ -45,9 +45,6 @@ def center_radec(header, usewcs=False, ra_key="RA", dec_key="DEC",
         ``usewcs=False``.
     XX_unit: Quantity, optional
         The unit of ``XX``. Important only if ``usewcs=False``.
-    origin: int, optional
-        Whether to return 0 or 1-based pixel coordinates. Important only if
-        ``usewcs=True``.
     mode: 'all' or 'wcs', optional
         Whether to do the transformation including distortions (``'all'``) or
         only including only the core WCS transformation (``'wcs'``). Important
@@ -57,11 +54,10 @@ def center_radec(header, usewcs=False, ra_key="RA", dec_key="DEC",
     '''
     if usewcs:
         w = WCS(header)
-        nx, ny = header["NAXIS1"], header["NAXIS2"]
+        nx, ny = float(header["NAXIS1"]), float(header["NAXIS2"])
         centx = nx / 2 - 0.5
         centy = ny / 2 - 0.5
-        coo = SkyCoord.from_pixel(centx, centy, wcs=w,
-                                  origin=origin, mode=mode)
+        coo = SkyCoord.from_pixel(centx, centy, wcs=w, origin=0, mode=mode)
     else:
         ra = get_from_header(header, ra_key, verbose=verbose)
         dec = get_from_header(header, dec_key, verbose=verbose)
@@ -77,6 +73,31 @@ def center_radec(header, usewcs=False, ra_key="RA", dec_key="DEC",
     if plain:
         return coo.ra.value, coo.dec.value
     return coo
+
+
+def fov_radius_deg(header):
+    ''' Calculates the rough radius (cone) of the (square) FOV using WCS.
+    Parameter
+    ---------
+    header: Header
+        The header to extract WCS information.
+
+    Return
+    ------
+    radius: float
+        The radius in degrees
+    '''
+    w = WCS(header)
+    nx, ny = float(header["NAXIS1"]), float(header["NAXIS2"])
+    # Rough calculation, so use mode='wcs'
+    c1 = SkyCoord.from_pixel(0, 0, wcs=w, origin=0, mode='wcs')
+    c2 = SkyCoord.from_pixel(nx, 0, wcs=w, origin=0, mode='wcs')
+    c3 = SkyCoord.from_pixel(0, ny, wcs=w, origin=0, mode='wcs')
+    c4 = SkyCoord.from_pixel(nx, ny, wcs=w, origin=0, mode='wcs')
+    r1 = c1.separation(c3).value / 2
+    r2 = c2.separation(c4).value / 2
+
+    return max(r1, r2)
 
 
 def key_remover(header, remove_keys, deepremove=True):
@@ -310,25 +331,25 @@ def wcsremove(filepath=None, additional_keys=[], extension=0,
     return hdul
 
 
-def center_coord(header, skycoord=False):
-    ''' Gives the sky coordinate of the center of the image field of view.
-    Parameters
-    ----------
-    header: astropy.header.Header
-        The header to be used to extract WCS information (and image size)
-    skycoord: bool
-        Whether to return in the astropy.coordinates.SkyCoord object. If
-        ``False``, a numpy array is returned.
-    '''
-    wcs = WCS(header)
-    cx = float(header['naxis1']) / 2 - 0.5
-    cy = float(header['naxis2']) / 2 - 0.5
-    center_coo = wcs.wcs_pix2world(cx, cy, 0)
+# def center_coord(header, skycoord=False):
+#     ''' Gives the sky coordinate of the center of the image field of view.
+#     Parameters
+#     ----------
+#     header: astropy.header.Header
+#         The header to be used to extract WCS information (and image size)
+#     skycoord: bool
+#         Whether to return in the astropy.coordinates.SkyCoord object. If
+#         ``False``, a numpy array is returned.
+#     '''
+#     wcs = WCS(header)
+#     cx = float(header['naxis1']) / 2 - 0.5
+#     cy = float(header['naxis2']) / 2 - 0.5
+#     center_coo = wcs.wcs_pix2world(cx, cy, 0)
 
-    if skycoord:
-        return SkyCoord(*center_coo, unit='deg')
+#     if skycoord:
+#         return SkyCoord(*center_coo, unit='deg')
 
-    return np.array(center_coo)
+#     return np.array(center_coo)
 
 
 # TODO: change key, unit, etc as input dict.
