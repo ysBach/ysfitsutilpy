@@ -469,7 +469,7 @@ def combine_ccd(fitslist=None, summary_table=None, trim_fits_section=None,
     # Normalize by exposure
     if normalize_exposure or scale is not None:
         header.add_history("Normalized by exposure time.")
-        if scale is not None:
+        if scale is None:
             exptimes = make_summary(fitslist=fitslist,
                                     summary_table=summary_table,
                                     keywords=[exposure_key],
