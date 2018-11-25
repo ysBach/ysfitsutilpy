@@ -481,7 +481,8 @@ def combine_ccd(fitslist=None, summary_table=None, trim_fits_section=None,
         if scale is None:
             exptimes = make_summary(fitslist=fitslist,
                                     keywords=[exposure_key],
-                                    verbose=False)
+                                    verbose=False,
+                                    sort_by=None)
             scale = 1 / np.array(exptimes.tolist())
 
     # Set rejection switches
