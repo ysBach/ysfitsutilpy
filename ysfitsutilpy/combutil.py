@@ -236,8 +236,9 @@ def stack_FITS(fitslist=None, summary_table=None, extension=0,
 def combine_ccd(fitslist=None, summary_table=None, trim_fits_section=None,
                 table_filecol="file", output=None, unit='adu',
                 subtract_frame=None, combine_method='median',
-                reject_method=None, normalize_exposure=False, exposure_key='EXPTIME',
-                combine_uncertainty_function=sstd,
+                reject_method=None, normalize_exposure=False,
+                exposure_key='EXPTIME', weights=None, mem_limit=16e9,
+                combine_uncertainty_function=sstd, scale=None,
                 extension=0, type_key=None, type_val=None,
                 dtype="float32", uncertainty_dtype="float32",
                 output_verify='fix', overwrite=False,
@@ -290,13 +291,27 @@ def combine_ccd(fitslist=None, summary_table=None, trim_fits_section=None,
         ``hdu[extension].header[type_key] == type_val`` among all the ``fitslist``
         will be used.
 
+     scale : function or ``numpy.ndarray``-like or None, optional
+        Scaling factor to be used when combining images.
+        Images are multiplied by scaling prior to combining them. Scaling
+        may be either a function, which will be applied to each image
+        to determine the scaling factor, or a list or array whose length
+        is the number of images in the `Combiner`. Default is ``None``.
+
+    weights : ``numpy.ndarray`` or None, optional
+        Weights to be used when combining images.
+        An array with the weight values. The dimensions should match the
+        the dimensions of the data arrays being combined.
+        Default is ``None``.
+
+    mem_limit : float, optional
+        Maximum memory which should be used while combining (in bytes).
+        Default is ``16e9``.
+
     **kwarg:
         kwargs for the ``ccdproc.combine``. See its documentation.
         This includes (RHS are the default values)
         ```
-        weights=None,
-        scale=None,
-        mem_limit=16000000000.0,
         clip_extrema=False,
         nlow=1,
         nhigh=1,
@@ -347,23 +362,23 @@ def combine_ccd(fitslist=None, summary_table=None, trim_fits_section=None,
         print(dict(**kwargs))
         return
 
-    def _normalize_exptime(ccdlist, exposure_key):
-        _ccdlist = ccdlist.copy()
-        exptimes = []
+    # def _normalize_exptime(ccdlist, exposure_key):
+    #     _ccdlist = ccdlist.copy()
+    #     exptimes = []
 
-        for i in range(len(_ccdlist)):
-            exptime = _ccdlist[i].header[exposure_key]
-            exptimes.append(exptime)
-            _ccdlist[i] = _ccdlist[i].divide(exptime)
+    #     for i in range(len(_ccdlist)):
+    #         exptime = _ccdlist[i].header[exposure_key]
+    #         exptimes.append(exptime)
+    #         _ccdlist[i] = _ccdlist[i].divide(exptime)
 
-        if verbose:
-            if len(np.unique(exptimes)) != 1:
-                print('There are more than one exposure times:\n\t', end=' ')
-                print(np.unique(exptimes), end=' ')
-                print('seconds')
-            print(f'Normalized images by exposure time ("{exposure_key}").')
+    #     if verbose:
+    #         if len(np.unique(exptimes)) != 1:
+    #             print('There are more than one exposure times:\n\t', end=' ')
+    #             print(np.unique(exptimes), end=' ')
+    #             print('seconds')
+    #         print(f'Normalized images by exposure time ("{exposure_key}").')
 
-        return _ccdlist
+    #     return _ccdlist
 
     # def _ccdproc_combine(ccdlist, combine_method, min_value=0,
     #                     combine_uncertainty_function=ccdproc_mad2sigma_func,
@@ -427,6 +442,7 @@ def combine_ccd(fitslist=None, summary_table=None, trim_fits_section=None,
             print(f"{output} already exists:")
             return load_if_exists(output, loader=CCDData.read, if_not=None)
 
+    # Loading CCD here may cause memory blast...
     ccdlist = stack_FITS(fitslist=fitslist,
                          summary_table=summary_table,
                          table_filecol=table_filecol,
@@ -435,7 +451,7 @@ def combine_ccd(fitslist=None, summary_table=None, trim_fits_section=None,
                          trim_fits_section=trim_fits_section,
                          type_key=type_key,
                          type_val=type_val,
-                         loadccd=True)
+                         loadccd=False)
 
     header = ccdlist[0].header
 
@@ -447,9 +463,14 @@ def combine_ccd(fitslist=None, summary_table=None, trim_fits_section=None,
                     **kwargs)
 
     # Normalize by exposure
-    if normalize_exposure:
-        ccdlist = _normalize_exptime(ccdlist, exposure_key)
+    if normalize_exposure or scale is not None:
         header.add_history("Normalized by exposure time.")
+        if scale is not None:
+            exptimes = make_summary(fitslist=fitslist,
+                                    summary_table=summary_table,
+                                    keywords=[exposure_key],
+                                    verbose=False)
+            scale = 1 / np.array(exptimes.tolist())
 
     # Set rejection switches
     clip_extrema, minmax_clip, sigma_clip = _set_reject_method(reject_method)
@@ -457,16 +478,16 @@ def combine_ccd(fitslist=None, summary_table=None, trim_fits_section=None,
     if len(ccdlist) == 1:
         master = ccdlist[0]
     else:
-        if combine_method in ["wmean", "weighted mean", "weighted_mean"]:
-            master = weighted_mean(ccdlist)
-        else:
-            master = combine(img_list=ccdlist,
-                             combine_method=combine_method,
-                             clip_extrema=clip_extrema,
-                             minmax_clip=minmax_clip,
-                             sigma_clip=sigma_clip,
-                             combine_uncertainty_function=combine_uncertainty_function,
-                             **kwargs)
+        master = combine(img_list=ccdlist,
+                         combine_method=combine_method,
+                         clip_extrema=clip_extrema,
+                         minmax_clip=minmax_clip,
+                         sigma_clip=sigma_clip,
+                         weights=weights,
+                         scale=scale,
+                         mem_limit=mem_limit
+                         combine_uncertainty_function=combine_uncertainty_function,
+                         **kwargs)
 
     str_history = '{:d} images with {:s} = {:s} are {:s} combined '
     ncombine = len(ccdlist)
