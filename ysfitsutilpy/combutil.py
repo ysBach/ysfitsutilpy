@@ -178,7 +178,12 @@ def stack_FITS(fitslist=None, summary_table=None, extension=0,
         if isinstance(summary_table, Table):
             summary_table = summary_table.to_pandas()
 
-    print("Done and loading FITS... ")
+    print("Done", end='')
+    if load_ccd:
+        print(" and loading FITS... ")
+    else:
+        print(".")
+
     # Append appropriate CCDs or filepaths to matched
     if grouping:
         for i, row in summary_table.iterrows():
@@ -224,12 +229,16 @@ def stack_FITS(fitslist=None, summary_table=None, extension=0,
             warn('No FITS file found')
     else:
         if grouping:
-            print('{:d} FITS files with "{:s} = {:s}"'
-                  ' are loaded.'.format(len(matched),
-                                        str(type_key),
-                                        str(type_val)))
+            N = len(matched)
+            ks = str(type_key)
+            vs = str(type_val)
+            if load_ccd:
+                print(f'{N} FITS files with "{ks} = {vs}" are loaded.')
+            else:
+                print(f'{N} FITS files with "{ks} = {vs}" are selected.')
         else:
-            print('{:d} FITS files are loaded.'.format(len(matched)))
+            if load_ccd:
+                print('{:d} FITS files are loaded.'.format(len(matched)))
 
     return matched
 
