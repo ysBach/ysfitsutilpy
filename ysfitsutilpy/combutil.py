@@ -480,7 +480,10 @@ def combine_ccd(fitslist=None, summary_table=None, trim_fits_section=None,
     clip_extrema, minmax_clip, sigma_clip = _set_reject_method(reject_method)
 
     if len(ccdlist) == 1:
-        master = ccdlist[0]
+        if isinstance(ccdlist[0], CCDData):
+            master = ccdlist[0]
+        else:
+            master = load_ccd(ccdlist[0], extension=extension, unit=unit)
     else:
         master = combine(img_list=ccdlist,
                          combine_method=combine_method,
@@ -491,6 +494,8 @@ def combine_ccd(fitslist=None, summary_table=None, trim_fits_section=None,
                          scale=scale,
                          mem_limit=mem_limit,
                          combine_uncertainty_function=combine_uncertainty_function,
+                         unit=unit,
+                         hdu=extension,
                          **kwargs)
 
     str_history = '{:d} images with {:s} = {:s} are {:s} combined '
