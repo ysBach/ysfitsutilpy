@@ -471,7 +471,6 @@ def combine_ccd(fitslist=None, summary_table=None, trim_fits_section=None,
         header.add_history("Normalized by exposure time.")
         if scale is None:
             exptimes = make_summary(fitslist=fitslist,
-                                    summary_table=summary_table,
                                     keywords=[exposure_key],
                                     verbose=False)
             scale = 1 / np.array(exptimes.tolist())
