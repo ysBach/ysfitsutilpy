@@ -574,6 +574,7 @@ def bdf_process(ccd, output=None, mbiaspath=None, mdarkpath=None, mflatpath=None
                 gain_unit=u.electron / u.adu, rdnoise_unit=u.electron,
                 dark_exposure=None, data_exposure=None, exposure_key="EXPTIME",
                 exposure_unit=u.s, dark_scale=False, normalize_exposure=False,
+                normalize_average=False,
                 min_value=None, norm_value=None,
                 do_crrej=False, verbose_crrej=False,
                 verbose_bdf=True, output_verify='fix', overwrite=True,
@@ -684,7 +685,14 @@ def bdf_process(ccd, output=None, mbiaspath=None, mdarkpath=None, mflatpath=None
     if normalize_exposure:
         if data_exposure is None:
             data_exposure = hdr_new[exposure_key]
-        proc = proc.divide(data_exposure)
+        proc = proc.divide(data_exposure)  # uncertainty will also be..
+        hdr_new.add_history("Normalized by the exposure time.")
+
+    # If normalize by the mean value
+    if normalize_average:
+        avg = np.mean(proc.data)
+        proc = proc.divide(avg)
+        hdr_new.add_history("Normalized by the average value.")
 
     # Do very simple L.A. Cosmic default crrejection
     # FIXME: This is very vulnerable...
