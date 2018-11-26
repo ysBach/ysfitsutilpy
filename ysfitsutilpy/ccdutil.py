@@ -1,19 +1,18 @@
 '''
 Collection of functions that are quite far from headerutil.
 '''
-
+from warnings import warn
 import numpy as np
 from astropy.io import fits
-from astropy.nddata import CCDData, Cutout2D
+from astropy.nddata import CCDData, Cutout2D, StdDevUncertainty
 from astropy.wcs import WCS
 from astropy import units as u
-from ccdproc import trim_image
 
 __all__ = ["cutout2CCDData", "load_ccd", "CCDData_astype",
            "make_errmap"]
 
 
-def cutout2CCDData(ccd, position, size, mode='trim', fill_value=np.nan, full=True):
+def cutout2CCDData(ccd, position, size, mode='trim', fill_value=np.nan):
     ''' Converts the Cutout2D object to proper CCDData.
     Parameters
     ----------
@@ -21,35 +20,49 @@ def cutout2CCDData(ccd, position, size, mode='trim', fill_value=np.nan, full=Tru
         The ccd to be trimmed.
     position, size, mode, fill_value:
         See the ``ccdproc.trim_image`` doc.
-    full: bool
-        If ``True`` (default), returns the ``Cutout2D`` object.
-        If ``False``, only the trimmed ccd is returned.
     '''
-    w = WCS(ccd.header)
-    cut = Cutout2D(data=ccd.data, position=position, size=size, wcs=w,
-                   mode=mode, fill_value=fill_value, copy=True)
+    hdr_orig = ccd.header
+    w = WCS(hdr_orig)
+    cutout = Cutout2D(data=ccd.data, position=position, size=size, wcs=w,
+                      mode=mode, fill_value=fill_value, copy=True)
     # Copy True just to avoid any contamination to the original ccd.
-    y1 = cut.ymin_original
-    y2 = cut.ymax_original
-    x1 = cut.xmin_original
-    x2 = cut.xmax_original
-    trimmed_ccd = trim_image(ccd[y1:y2, x1:x2])
-    if full:
-        return trimmed_ccd, cut
-    return trimmed_ccd
+
+    nccd = CCDData(data=cutout.data, header=hdr_orig, unit=ccd.unit)
+    nccd.header.update(cutout.wcs.to_header())
+    ny, nx = nccd.data.shape
+    nccd.header["NAXIS1"] = nx
+    nccd.header["NAXIS2"] = ny
+
+    nonlin = False
+    for ctype in ccd.wcs.get_axis_types():
+        if ctype["scale"] != "linear":
+            nonlin = True
+            break
+    if nonlin:
+        warn("Since Cutout2D is for small image crop, astropy do not "
+             + "currently support distortion in WCS. This may result in "
+             + "slightly inaccurate WCS calculation in the future.")
+
+    return nccd
 
 
 # FIXME: Remove it in the future.
-def load_ccd(path, extension=0, unit='adu'):
+def load_ccd(path, extension=0, uncertainty_ext="UNCERT", unit='adu'):
     '''remove it when astropy updated:
     Note
     ----
     CCDData.read cannot read TPV WCS:
     https://github.com/astropy/astropy/issues/7650
     '''
-    hdu = fits.open(path)[extension]
+    hdul = fits.open(path)
+    hdu = hdul[extension]
+    try:
+        unc = StdDevUncertainty(hdul[uncertainty_ext].data)
+    except KeyError:
+        unc = None
+
     ccd = CCDData(data=hdu.data, header=hdu.header, wcs=WCS(hdu.header),
-                  unit=unit)
+                  uncertainty=unc, unit=unit)
     return ccd
 
 

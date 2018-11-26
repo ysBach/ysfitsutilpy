@@ -16,7 +16,7 @@ from .ccdutil import CCDData_astype, load_ccd, make_errmap
 from .hdrutil import get_from_header
 
 __all__ = ["MEDCOMB_KEYS_INT", "SUMCOMB_KEYS_INT", "MEDCOMB_KEYS_FLT32",
-           "stack_FITS", "combine_ccd", "bdf_process"]
+           "sstd", "weighted_mean", "stack_FITS", "combine_ccd", "bdf_process"]
 
 MEDCOMB_KEYS_INT = dict(dtype='int16',
                         combine_method='median',
@@ -247,6 +247,7 @@ def combine_ccd(fitslist=None, summary_table=None, trim_fits_section=None,
                 table_filecol="file", output=None, unit='adu',
                 subtract_frame=None, combine_method='median',
                 reject_method=None, normalize_exposure=False,
+                normalize_average=False,
                 exposure_key='EXPTIME', weights=None, mem_limit=16e9,
                 combine_uncertainty_function=sstd, scale=None,
                 extension=0, type_key=None, type_val=None,
@@ -301,7 +302,19 @@ def combine_ccd(fitslist=None, summary_table=None, trim_fits_section=None,
         ``hdu[extension].header[type_key] == type_val`` among all the ``fitslist``
         will be used.
 
-     scale : function or ``numpy.ndarray``-like or None, optional
+    normalize_exposure: bool, optional
+        Whether to normalize each image by exposure time. If this is ``True``,
+        ``exposure_key`` must be set correctly. Otherwise, it is better to
+        give exposure time (rigorously, inverse of it) explicitely as
+        ``scale``. Default is ``False``.
+
+    normalize_average: bool, optional
+        Whether to normalize the average value to 1 for *each* of the image.
+        This is useful when you took skyflats with different exposure times,
+        so simple median combining or ``normalize_exposure`` does not help,
+        since the sky brightness changes over time.
+
+    scale : function or ``numpy.ndarray``-like or None, optional
         Scaling factor to be used when combining images.
         Images are multiplied by scaling prior to combining them. Scaling
         may be either a function, which will be applied to each image
@@ -452,16 +465,24 @@ def combine_ccd(fitslist=None, summary_table=None, trim_fits_section=None,
             print(f"{output} already exists:")
             return load_if_exists(output, loader=CCDData.read, if_not=None)
 
-    # Loading CCD here may cause memory blast...
+    # Do we really need to accept all three of normalize & scale?
+    # if scale is None:
+    #     scale = np.ones(len(ccdlist))
+    if (((normalize_average) + (normalize_exposure) + (scale is not None)) > 1):
+        raise ValueError("Only up to one of [normalize_average, "
+                         + "normalize_exposure, scale] must be not None.")
+
+    # Select CCDs by
     ccdlist = stack_FITS(fitslist=fitslist,
                          summary_table=summary_table,
                          table_filecol=table_filecol,
                          extension=extension,
                          unit=unit,
-                         trim_fits_section=trim_fits_section,
                          type_key=type_key,
                          type_val=type_val,
                          loadccd=False)
+    #  trim_fits_section=trim_fits_section,
+    # loadccd=False: Loading CCD here may cause memory blast...
 
     try:
         header = ccdlist[0].header
@@ -476,14 +497,22 @@ def combine_ccd(fitslist=None, summary_table=None, trim_fits_section=None,
                     **kwargs)
 
     # Normalize by exposure
-    if normalize_exposure or scale is not None:
-        header.add_history("Normalized by exposure time.")
-        if scale is None:
-            exptimes = make_summary(fitslist=fitslist,
-                                    keywords=[exposure_key],
-                                    verbose=False,
-                                    sort_by=None)
-            scale = 1 / np.array(exptimes[exposure_key].tolist())
+    if normalize_exposure:
+        tmp = make_summary(fitslist=fitslist,
+                           keywords=[exposure_key],
+                           verbose=False,
+                           sort_by=None)
+        exptimes = tmp[exposure_key].tolist()
+        scale = 1 / np.array(exptimes)
+        header.add_history(
+            "Each frame normalized by exposure time before combination.")
+
+    if normalize_average:
+        def invavg(a):
+            return 1 / np.mean(a)
+        scale = invavg
+        header.add_history(
+            "Each frame normalized by average pixel value before combination.")
 
     # Set rejection switches
     clip_extrema, minmax_clip, sigma_clip = _set_reject_method(reject_method)
@@ -519,6 +548,10 @@ def combine_ccd(fitslist=None, summary_table=None, trim_fits_section=None,
         subtract = CCDData(subtract_frame.copy())
         master.data = master.subtract(subtract).data
         header.add_history("Subtracted a user-provided frame")
+
+    if trim_fits_section is not None:
+        master = trim_image(master, fits_section=trim_fits_section)
+        header.add_history(f"Trimmed using {trim_fits_section}")
 
     master.header = header
     master = CCDData_astype(master, dtype=dtype,

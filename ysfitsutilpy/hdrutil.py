@@ -4,8 +4,6 @@ Collection of functions that are rather header-dependent than the data.
 import re
 from warnings import warn
 
-import numpy as np
-
 from astropy.io import fits
 from astropy.io.fits import Card
 from astropy import units as u
@@ -15,7 +13,8 @@ from astropy.time import Time
 
 from .misc import airmass_obs
 
-__all__ = ["center_radec", "key_remover", "key_mapper", "get_from_header", "wcsremove", "center_coord",
+__all__ = ["center_radec", "key_remover", "key_mapper",
+           "get_from_header", "wcsremove", "fov_radius",
            "airmass_hdr", "convert_bit"]
 
 
@@ -75,7 +74,7 @@ def center_radec(header, usewcs=False, ra_key="RA", dec_key="DEC",
     return coo
 
 
-def fov_radius_deg(header):
+def fov_radius(header, unit=u.deg):
     ''' Calculates the rough radius (cone) of the (square) FOV using WCS.
     Parameter
     ---------
@@ -96,8 +95,8 @@ def fov_radius_deg(header):
     c4 = SkyCoord.from_pixel(nx, ny, wcs=w, origin=0, mode='wcs')
     r1 = c1.separation(c3).value / 2
     r2 = c2.separation(c4).value / 2
-
-    return max(r1, r2)
+    r = max(r1, r2) * u.deg
+    return r.to(unit)
 
 
 def key_remover(header, remove_keys, deepremove=True):
@@ -269,9 +268,9 @@ def wcsremove(filepath=None, additional_keys=[], extension=0,
                  'C0[0-9]_[0-9]',  # polynomial CD by imwcs
                  'PC[0-9]_[0-9]',
                  'PV[0-9]_[0-9]',
-                 '[A,B]_[0-9]_[0-9]',  # For SIP
-                 '[A,B][P]?_ORDER',   # For SIP
-                 '[A,B][P]?_DMAX',    # For SIP
+                 '[A,B]_[0-9]_[0-9]',  # astrometry.net
+                 '[A,B][P]?_ORDER',   # astrometry.net
+                 '[A,B][P]?_DMAX',    # astrometry.net
                  'WCS[A-Z]',          # see below
                  'AST_[A-Z]',         # astrometry.net
                  'ASTIRMS[0-9]',      # astrometry.net
