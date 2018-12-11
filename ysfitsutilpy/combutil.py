@@ -541,13 +541,15 @@ def combine_ccd(fitslist=None, summary_table=None, trim_fits_section=None,
                          hdu=extension,
                          **kwargs)
 
-    str_history = '{:d} images with {:s} = {:s} are {:s} combined '
+    str_history = '{:d} images with {:s} = {:s} are {:s} combined using {:s}'
     ncombine = len(ccdlist)
     header["NCOMBINE"] = ncombine
+
     header.add_history(str_history.format(ncombine,
                                           str(type_key),
                                           str(type_val),
-                                          str(combine_method)))
+                                          str(combine_method),
+                                          str(reject_method)))
 
     if subtract_frame is not None:
         subtract = CCDData(subtract_frame.copy())
