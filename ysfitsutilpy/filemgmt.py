@@ -5,12 +5,17 @@ Contians convenience funcitons which are
 '''
 
 from pathlib import Path
+import numpy as np
 from astropy.table import Table
 from astropy.nddata import CCDData
 from astropy.io import fits
+from warnings import warn
+import ccdproc
 from .hdrutil import key_mapper, key_remover
+from .ccdutil import cutout2CCDData
 
-__all__ = ["mkdir", "load_if_exists", "make_summary", "fits_newpath", "fitsrenamer"]
+__all__ = ["mkdir", "load_if_exists",
+           "make_summary", "fits_newpath", "fitsrenamer"]
 
 
 def mkdir(fpath, mode=0o777, exist_ok=True):
@@ -224,7 +229,7 @@ def make_summary(fitslist, extension=0, fname_option='relative',
 
 
 def fits_newpath(fpath, rename_by, mkdir_by=None, header=None, delimiter='_',
-                 ext='fits'):
+                 fillnan="", ext='fits'):
     ''' Gives the new path of the FITS file from header.
     Parameters
     ----------
@@ -240,6 +245,9 @@ def fits_newpath(fpath, rename_by, mkdir_by=None, header=None, delimiter='_',
         the function will do ``header = fits.getheader(fpath)``.
     delimiter: str, optional
         The delimiter for the renaming.
+    fillnan: str, optional
+        The string that will be inserted if the keyword is not found from the
+        header.
     ext: str, optional
         The extension of the file name to be returned. Normally it should be
         ``'fits'`` since this function is ``fits_newname``.
@@ -253,7 +261,10 @@ def fits_newpath(fpath, rename_by, mkdir_by=None, header=None, delimiter='_',
     # First make file name without parent path
     newname = ""
     for k in rename_by:
-        newname += str(hdr[k])
+        try:
+            newname += str(hdr[k])
+        except KeyError:
+            newname += fillnan
         newname += delimiter
 
     newname = newname[:-1] + '.fits'
@@ -272,11 +283,11 @@ def fits_newpath(fpath, rename_by, mkdir_by=None, header=None, delimiter='_',
 def fitsrenamer(fpath=None, header=None, newtop=None, rename_by=["OBJECT"],
                 mkdir_by=None, delimiter='_', archive_dir=None, keymap=None,
                 key_deprecation=True, remove_keys=None, overwrite=False,
-                verbose=True, add_header=None):
+                fillnan="", trim_fits_section=None, verbose=True, add_header=None):
     ''' Renames a FITS file by ``rename_by`` with delimiter.
     Note
     ----
-    MEF(Multi-Extension FITS) is not supported.
+    MEF(Multi-Extension FITS) currently is not supported.
 
     Parameters
     ----------
@@ -306,14 +317,22 @@ def fitsrenamer(fpath=None, header=None, newtop=None, rename_by=["OBJECT"],
         Whether to change the original keywords' comments to contain deprecation
         warning. If ``True``, the original keywords' comments will become
         ``Deprecated. See <standard_key>.``.
+    trim_fits_section : str or None, optional
+        Region of ``ccd`` from which the overscan is extracted; see
+        `~ccdproc.subtract_overscan` for details.
+        Default is ``None``.
+    fillnan: str, optional
+        The string that will be inserted if the keyword is not found from the
+        header.
     remove_keys: list of str
         The header keywords to be removed.
-    add_header: header or dict
+    add_header: header or Card object
         The header keyword, value (and comment) to add after the renaming.
     '''
 
     # Load fits file
     hdul = fits.open(fpath)
+    data = hdul[0].data
     if header is None:
         hdr = hdul[0].header
     else:
@@ -321,6 +340,10 @@ def fitsrenamer(fpath=None, header=None, newtop=None, rename_by=["OBJECT"],
 
     # add keyword
     if add_header is not None:
+        if (not isinstance(add_header, fits.Header)
+                and not isinstance(add_header, fits.header.Card)):
+            warn(
+                "add_header is not either Header or Card. Be careful about possible error.")
         hdr += add_header
 
     # Copy keys based on KEYMAP
@@ -330,7 +353,32 @@ def fitsrenamer(fpath=None, header=None, newtop=None, rename_by=["OBJECT"],
     if remove_keys is not None:
         hdr = key_remover(hdr, remove_keys, deepremove=True)
 
-    newhdul = fits.PrimaryHDU(data=hdul[0].data, header=hdr)
+    # TODO: It is necessary to do this bothersome calculations to preserve
+    #   the WCS information that may reside in the FITS (if use ``trim_image``
+    #   of ccdproc, it will not be preserved).
+    if trim_fits_section is not None:
+        slices = ccdproc.utils.slices.slice_from_string(trim_fits_section,
+                                                        fits_convention=True)
+        # initially guess start and stop indices as 0's and from shape in (ny, nx) order
+        ny, nx = data[slices].shape
+        starts = np.array([0, 0])  # yx order
+        stops = np.array([ny, nx])  # yx order
+
+        for i in range(2):
+            if slices[i].start is not None:
+                starts[i] = slices[i].start
+            if slices[i].stop is not None:
+                stops[i] = slices[i].stop
+
+        cent = np.flip((stops - starts) / 2)  # xy order
+        size = (ny, nx)  # yx order
+        # Make CCDData instance as dummy object
+        _ccd = CCDData(data, header=hdr, unit='adu')
+        _ccd = cutout2CCDData(_ccd, cent, size)
+        data = _ccd.data
+        hdr = _ccd.header
+
+    newhdul = fits.PrimaryHDU(data=data, header=hdr)
 
     # Set the new path
     if verbose:
@@ -348,7 +396,7 @@ def fitsrenamer(fpath=None, header=None, newtop=None, rename_by=["OBJECT"],
             print(form[:-1])
 
     newpath = fits_newpath(fpath, rename_by, mkdir_by=mkdir_by, header=hdr,
-                           delimiter=delimiter, ext='fits')
+                           delimiter=delimiter, fillnan=fillnan, ext='fits')
     if newtop is not None:
         newpath = Path(newtop) / newpath.name
 

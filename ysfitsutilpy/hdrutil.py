@@ -240,6 +240,7 @@ def get_from_header(header, key, unit=None, verbose=True,
     return q
 
 
+# TODO: do not load data extension if not explicitly ordered
 def wcsremove(filepath=None, additional_keys=[], extension=0,
               output=None, verify='fix', overwrite=False, verbose=True):
     ''' Remove most WCS related keywords from the header.
@@ -253,13 +254,20 @@ def wcsremove(filepath=None, additional_keys=[], extension=0,
     # Define header keywords to be deleted in regex:
     re2remove = ['CD[0-9]_[0-9]',  # Coordinate Description matrix
                  'CTYPE[0-9]',  # e.g., 'RA---TAN' and 'DEC--TAN'
+                 'C[0-9]YPE[0-9]',  # FOCAS
                  'CUNIT[0-9]',  # e.g., 'deg'
+                 'C[0-9]NIT[0-9]',  # FOCAS
                  'CRPIX[0-9]',  # The reference pixels in image coordinate
+                 'C[0-9]PIX[0-9]',  # FOCAS
                  'CRVAL[0-9]',  # The world cooordinate values at CRPIX[1, 2]
-                 'CROTA[0-9]',  # The angle between image Y and world Y axes
+                 'C[0-9]VAL[0-9]',  # FOCAS
                  'CDELT[0-9]',  # with CROTA, older version of CD matrix.
+                 'C[0-9]ELT[0-9]',  # FOCAS
+                 'CROTA[0-9]',  # The angle between image Y and world Y axes
                  'CRDELT[0-9]',
                  'CFINT[0-9]',
+                 'RADE[C]?SYS*'  # RA/DEC system (frame)
+                 'WCS-ORIG',  # FOCAS
                  'LTM[0-9]_[0-9]',
                  'LTV[0-9]*',
                  'PIXXMIT',
@@ -267,6 +275,7 @@ def wcsremove(filepath=None, additional_keys=[], extension=0,
                  'WAT[0-9]_[0-9]',  # For TNX and ZPX, e.g., "WAT1_001"
                  'C0[0-9]_[0-9]',  # polynomial CD by imwcs
                  'PC[0-9]_[0-9]',
+                 'P[A-Z]?[0-9]?[0-9][0-9][0-9][0-9][0-9][0-9]',  # FOCAS
                  'PV[0-9]_[0-9]',
                  '[A,B]_[0-9]_[0-9]',  # astrometry.net
                  '[A,B][P]?_ORDER',   # astrometry.net
@@ -305,7 +314,7 @@ def wcsremove(filepath=None, additional_keys=[], extension=0,
         com = hdr.comments[k]
         deleted = False
         for re_i in re2remove:
-            if re.match(re_i, k) is not None:
+            if re.match(re_i, k) is not None and not deleted:
                 hdr.remove(k)
                 deleted = True
                 if verbose:

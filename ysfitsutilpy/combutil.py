@@ -277,6 +277,11 @@ def combine_ccd(fitslist=None, summary_table=None, trim_fits_section=None,
         ``loadccd=True``, you must not have ``None`` or ``NaN`` value in the
         ``summary_table[table_filecol]``.
 
+    trim_fits_section : str or None, optional
+        Region of ``ccd`` from which the overscan is extracted; see
+        `~ccdproc.subtract_overscan` for details.
+        Default is ``None``.
+
     table_filecol: str
         The column name of the ``summary_table`` which contains the path to
         the FITS files.
@@ -569,7 +574,7 @@ def combine_ccd(fitslist=None, summary_table=None, trim_fits_section=None,
 
 # TODO: put an option such that the crrej can be done either before/after the preprocessing..?
 def bdf_process(ccd, output=None, mbiaspath=None, mdarkpath=None, mflatpath=None,
-                fits_section=None, calc_err=False, unit='adu', gain=None,
+                trim_fits_section=None, calc_err=False, unit='adu', gain=None,
                 rdnoise=None, gain_key="GAIN", rdnoise_key="RDNOISE",
                 gain_unit=u.electron / u.adu, rdnoise_unit=u.electron,
                 dark_exposure=None, data_exposure=None, exposure_key="EXPTIME",
@@ -624,13 +629,13 @@ def bdf_process(ccd, output=None, mbiaspath=None, mdarkpath=None, mflatpath=None
         hdr_new["PROCESS"] += "F"
         hdr_new.add_history(f"Flat corrected using {mflatpath}")
 
-    if fits_section is not None:
-        proc = trim_image(proc, fits_section)
-        mbias = trim_image(mbias, fits_section)
-        mdark = trim_image(mdark, fits_section)
-        mflat = trim_image(mflat, fits_section)
+    if trim_fits_section is not None:
+        proc = trim_image(proc, trim_fits_section)
+        mbias = trim_image(mbias, trim_fits_section)
+        mdark = trim_image(mdark, trim_fits_section)
+        mflat = trim_image(mflat, trim_fits_section)
         hdr_new["PROCESS"] += "T"
-        hdr_new.add_history(f"Trim by FITS section {fits_section}")
+        hdr_new.add_history(f"Trim by FITS section {trim_fits_section}")
 
     if do_bias:
         proc = subtract_bias(proc, mbias)

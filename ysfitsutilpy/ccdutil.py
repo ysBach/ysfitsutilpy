@@ -18,8 +18,61 @@ def cutout2CCDData(ccd, position, size, mode='trim', fill_value=np.nan):
     ----------
     ccd: CCDData
         The ccd to be trimmed.
-    position, size, mode, fill_value:
-        See the ``ccdproc.trim_image`` doc.
+
+    position : tuple or `~astropy.coordinates.SkyCoord`
+        The position of the cutout array's center with respect to
+        the ``data`` array.  The position can be specified either as
+        a ``(x, y)`` tuple of pixel coordinates or a
+        `~astropy.coordinates.SkyCoord`, in which case ``wcs`` is a
+        required input.
+
+    size : int, array-like, `~astropy.units.Quantity`
+        The size of the cutout array along each axis.  If ``size``
+        is a scalar number or a scalar `~astropy.units.Quantity`,
+        then a square cutout of ``size`` will be created.  If
+        ``size`` has two elements, they should be in ``(ny, nx)``
+        order.  Scalar numbers in ``size`` are assumed to be in
+        units of pixels.  ``size`` can also be a
+        `~astropy.units.Quantity` object or contain
+        `~astropy.units.Quantity` objects.  Such
+        `~astropy.units.Quantity` objects must be in pixel or
+        angular units.  For all cases, ``size`` will be converted to
+        an integer number of pixels, rounding the the nearest
+        integer.  See the ``mode`` keyword for additional details on
+        the final cutout size.
+
+        .. note::
+            If ``size`` is in angular units, the cutout size is
+            converted to pixels using the pixel scales along each
+            axis of the image at the ``CRPIX`` location.  Projection
+            and other non-linear distortions are not taken into
+            account.
+
+    wcs : `~astropy.wcs.WCS`, optional
+        A WCS object associated with the input ``data`` array.  If
+        ``wcs`` is not `None`, then the returned cutout object will
+        contain a copy of the updated WCS for the cutout data array.
+
+    mode : {'trim', 'partial', 'strict'}, optional
+        The mode used for creating the cutout data array.  For the
+        ``'partial'`` and ``'trim'`` modes, a partial overlap of the
+        cutout array and the input ``data`` array is sufficient.
+        For the ``'strict'`` mode, the cutout array has to be fully
+        contained within the ``data`` array, otherwise an
+        `~astropy.nddata.utils.PartialOverlapError` is raised.   In
+        all modes, non-overlapping arrays will raise a
+        `~astropy.nddata.utils.NoOverlapError`.  In ``'partial'``
+        mode, positions in the cutout array that do not overlap with
+        the ``data`` array will be filled with ``fill_value``.  In
+        ``'trim'`` mode only the overlapping elements are returned,
+        thus the resulting cutout array may be smaller than the
+        requested ``shape``.
+
+    fill_value : number, optional
+        If ``mode='partial'``, the value to fill pixels in the
+        cutout array that do not overlap with the input ``data``.
+        ``fill_value`` must have the same ``dtype`` as the input
+        ``data`` array.
     '''
     hdr_orig = ccd.header
     w = WCS(hdr_orig)
@@ -27,17 +80,23 @@ def cutout2CCDData(ccd, position, size, mode='trim', fill_value=np.nan):
                       mode=mode, fill_value=fill_value, copy=True)
     # Copy True just to avoid any contamination to the original ccd.
 
-    nccd = CCDData(data=cutout.data, header=hdr_orig, unit=ccd.unit)
-    nccd.header.update(cutout.wcs.to_header())
+    nccd = CCDData(data=cutout.data,
+                   header=hdr_orig,
+                   wcs=cutout.wcs,
+                   unit=ccd.unit)
     ny, nx = nccd.data.shape
     nccd.header["NAXIS1"] = nx
     nccd.header["NAXIS2"] = ny
 
     nonlin = False
-    for ctype in ccd.wcs.get_axis_types():
-        if ctype["scale"] != "linear":
-            nonlin = True
-            break
+    try:
+        for ctype in ccd.wcs.get_axis_types():
+            if ctype["scale"] != "linear":
+                nonlin = True
+                break
+    except AttributeError:
+        nonlin = False
+
     if nonlin:
         warn("Since Cutout2D is for small image crop, astropy do not "
              + "currently support distortion in WCS. This may result in "
@@ -47,7 +106,8 @@ def cutout2CCDData(ccd, position, size, mode='trim', fill_value=np.nan):
 
 
 # FIXME: Remove it in the future.
-def load_ccd(path, extension=0, uncertainty_ext="UNCERT", unit='adu'):
+def load_ccd(path, extension=0, usewcs=True, uncertainty_ext="UNCERT",
+             unit='adu'):
     '''remove it when astropy updated:
     Note
     ----
@@ -61,7 +121,11 @@ def load_ccd(path, extension=0, uncertainty_ext="UNCERT", unit='adu'):
     except KeyError:
         unc = None
 
-    ccd = CCDData(data=hdu.data, header=hdu.header, wcs=WCS(hdu.header),
+    w = None
+    if usewcs:
+        w = WCS(hdu.header)
+
+    ccd = CCDData(data=hdu.data, header=hdu.header, wcs=w,
                   uncertainty=unc, unit=unit)
     return ccd
 
