@@ -1,6 +1,17 @@
 # ysfitsutilpy
 Convenience utilities made by ysBach especially for dealing FITS files in astronomical sciences.
 
+Install by
+
+```
+$ cd <where you want to download this package>
+$ git clone https://github.com/ysBach/ysphotutilpy
+$ cd ysphotutilpy
+$ python setup.py install
+```
+
+
+
 This package is made to be used for
 * Preprocessing (= bias, dark, and flat) of imaging data (not tested for spectroscopy yet)
 * Simple analysis of FITS files by making summary csv file, getting statistics (``misc.give_stats``), zscale imshow (``visutil.zimshow``), etc.
@@ -9,13 +20,8 @@ This package is made to be used for
 
 It is **not** designed for very general use, e.g., MEF (multi-extension FITS) and radio data, for instance. MEF is somewhat treatable in current version, but not satisfactorily yet.
 
-
-Install by
-```
-$ python setup.py install
-```
-
 You may import using ``import ysfitsutilpy as yfu``.
+
 Although the package is subdivided into ``ccdutil``, ``filemgmt``, etc, all the modules' functions are imported to the core package by ``__init__.py``. So you never have to care about the submodules of this package, but just use ``yfu``.
 
 An example usage to make a summary file of FITS files:
