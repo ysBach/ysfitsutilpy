@@ -8,7 +8,9 @@ from astropy.nddata import CCDData, Cutout2D, StdDevUncertainty
 from astropy.wcs import WCS
 from astropy import units as u
 
-__all__ = ["cutout2CCDData", "load_ccd", "CCDData_astype",
+from .misc import binning
+
+__all__ = ["cutout2CCDData", "bin_ccd", "load_ccd", "CCDData_astype",
            "make_errmap"]
 
 
@@ -103,6 +105,19 @@ def cutout2CCDData(ccd, position, size, mode='trim', fill_value=np.nan):
              + "slightly inaccurate WCS calculation in the future.")
 
     return nccd
+
+
+def bin_ccd(ccd, factor_x=1, factor_y=1):
+    if factor_x == 1 and factor_y == 1:
+        return ccd
+    _ccd = ccd.copy()
+    _ccd.data = binning(_ccd.data, factor_x=factor_x, factor_y=factor_y)
+    hdr = _ccd.header
+    hdr.add_history(f"Binned by (xbin, ybin) = ({factor_x}, {factor_y})")
+    hdr["XBINFCT"] = (factor_x, "Binning done after the observation in X direction")
+    hdr["YBINFCT"] = (factor_y, "Binning done after the observation in Y direction")
+    _ccd.header = hdr
+    return _ccd
 
 
 # FIXME: Remove it in the future.

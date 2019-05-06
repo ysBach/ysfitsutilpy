@@ -130,7 +130,7 @@ def stack_FITS(fitslist=None, summary_table=None, extension=0,
 
     if ((fitslist is not None) + (summary_table is not None) != 1):
         raise ValueError(
-            "One and only one of filelist or summary_table must be not None.")
+            "One and only one of fitslist or summary_table must be not None.")
 
     # If fitslist
     if (fitslist is not None) and (not isinstance(fitslist, list)):
@@ -140,8 +140,8 @@ def stack_FITS(fitslist=None, summary_table=None, extension=0,
 
     # If summary_table
     if summary_table is not None:
-        if ((not isinstance(summary_table, Table)) and
-                (not isinstance(summary_table, pd.DataFrame))):
+        if ((not isinstance(summary_table, Table))
+                and (not isinstance(summary_table, pd.DataFrame))):
             raise TypeError(
                 f"summary_table must be an astropy Table or Pandas DataFrame. It's now {type(summary_table)}.")
 
@@ -443,7 +443,7 @@ def combine_ccd(fitslist=None, summary_table=None, trim_fits_section=None,
     # Give only one
     if ((fitslist is not None) + (summary_table is not None) != 1):
         raise ValueError(
-            "One and only one of [filelist, summary_table, ccdlist] must be not None.")
+            "One and only one of [fitslist, summary_table, ccdlist] must be not None.")
 
     # If fitslist
     if fitslist is not None:
@@ -453,8 +453,8 @@ def combine_ccd(fitslist=None, summary_table=None, trim_fits_section=None,
 
     # If summary_table
     if summary_table is not None:
-        if ((not isinstance(summary_table, Table)) and
-                (not isinstance(summary_table, pd.DataFrame))):
+        if ((not isinstance(summary_table, Table))
+                and (not isinstance(summary_table, pd.DataFrame))):
             raise TypeError(
                 f"summary_table must be an astropy Table or Pandas DataFrame. It's now {type(summary_table)}.")
 

@@ -12,8 +12,37 @@ from astropy.visualization import ZScaleInterval, ImageNormalize
 from astropy.io import fits
 import ccdproc
 
-__all__ = ["fitsxy2py", "give_stats", "calc_airmass", "airmass_obs",
+__all__ = ["binning", "fitsxy2py", "give_stats", "calc_airmass", "airmass_obs",
            "dB2epadu", "epadu2dB"]
+
+
+def binning(arr, factor_x=1, factor_y=1, binfunc=np.mean, trim_end=False):
+    ''' Bins the given CCD frame.
+    Paramters
+    ---------
+    ccd: CCDData
+        The ccd to be binned
+    factor_x, factor_y: int
+        The binning factors in x, y direction.
+    binfunc : funciton object
+        The function to be applied for binning, such as ``np.sum``,
+        ``np.mean``, and ``np.median``.
+    trim_end: bool
+        Whether to trim the end of x, y axes such that binning is done without
+        error.
+    '''
+    binned = arr.copy()
+    if trim_end:
+        ny, nx = binned.shape
+        iy_max = ny - (ny % factor_y)
+        ix_max = nx - (nx % factor_x)
+        binned = binned[:iy_max, :ix_max]
+    ny, nx = binned.shape
+    nby = ny // factor_y
+    nbx = nx // factor_x
+    binned = binned.reshape(nby, factor_y, nbx, factor_x)
+    binned = binfunc(binned, axis=(-1, 1))
+    return binned
 
 
 def fitsxy2py(fits_section):
@@ -59,9 +88,9 @@ def give_stats(item, extension=0, percentiles=[1, 99], N_extrema=None):
     >>> give_stats("bias_bin11.fits", percentiles=percentiles, N_extrema=5)
     '''
     try:
-        data = np.atleast_1d(item)
-    except TypeError:
         data = fits.open(item)[extension].data
+    except:
+        data = np.atleast_1d(item)
 
     result = {}
 
