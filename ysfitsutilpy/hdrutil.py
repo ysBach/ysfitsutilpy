@@ -66,6 +66,7 @@ def center_radec(header, usewcs=False, ra_key="RA", dec_key="DEC",
         if frame is None:
             frame = get_from_header(header, frame_key,
                                     verbose=verbose, default=None)
+            frame = frame.lower()
         coo = SkyCoord(ra=ra, dec=dec, unit=(ra_unit, dec_unit),
                        frame=frame, equinox=equinox)
 
