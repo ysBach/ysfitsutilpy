@@ -12,7 +12,7 @@ from astropy.io import fits
 from warnings import warn
 import ccdproc
 from .hdrutil import key_mapper, key_remover
-from .ccdutil import cutout2CCDData
+from .ccdutil import cutccd
 
 __all__ = ["mkdir", "load_if_exists",
            "make_summary", "fits_newpath", "fitsrenamer"]
@@ -386,7 +386,7 @@ def fitsrenamer(fpath=None, header=None, newtop=None, rename_by=["OBJECT"],
         size = (ny, nx)  # yx order
         # Make CCDData instance as dummy object
         _ccd = CCDData(data, header=hdr, unit='adu')
-        _ccd = cutout2CCDData(_ccd, cent, size)
+        _ccd = cutccd(_ccd, cent, size)
         data = _ccd.data
         hdr = _ccd.header
 
