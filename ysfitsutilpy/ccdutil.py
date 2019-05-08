@@ -10,11 +10,12 @@ from astropy import units as u
 
 from .misc import binning
 
-__all__ = ["cutout2CCDData", "bin_ccd", "load_ccd", "CCDData_astype",
+__all__ = ["cutccd", "bin_ccd", "load_ccd", "CCDData_astype",
            "make_errmap"]
 
 
-def cutout2CCDData(ccd, position, size, mode='trim', fill_value=np.nan):
+# TODO: add LTV-like keys to the header.
+def cutccd(ccd, position, size, mode='trim', fill_value=np.nan):
     ''' Converts the Cutout2D object to proper CCDData.
     Parameters
     ----------
