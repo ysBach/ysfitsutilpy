@@ -147,11 +147,13 @@ def key_mapper(header, keymap, deprecation=False, remove=False):
     ''' Update the header to meed the standard (keymap).
     Parameters
     ----------
-    header: Header
+    header : Header
         The header to be modified
-    keymap: dict
+
+    keymap : dict
         The dictionary contains ``{<standard_key>:<original_key>}`` information
-    deprecation: bool, optional
+
+    deprecation : bool, optional
         Whether to change the original keywords' comments to contain
         deprecation warning. If ``True``, the original keywords' comments will
         become ``Deprecated. See <standard_key>.``.

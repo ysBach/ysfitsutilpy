@@ -291,41 +291,53 @@ def fitsrenamer(fpath=None, header=None, newtop=None, rename_by=["OBJECT"],
 
     Parameters
     ----------
-    fpath: path-like
+    fpath : path-like
         The path to the target FITS file.
-    header: Header, optional
+
+    header : Header, optional
         The header of the fits file, especially if you want to just overwrite
         the header with this.
-    newtop: path-like
+
+    newtop : path-like
         The top path for the new FITS file. If ``None``, the new path will share
         the parent path with ``fpath``.
-    rename_by: list of str, optional
+
+    rename_by : list of str, optional
         The keywords of the FITS header to rename by.
-    mkdir_by: list of str, optional
+
+    mkdir_by : list of str, optional
         The keys which will be used to make subdirectories to classify files.
         If given, subdirectories will be made with the header value of the keys.
-    delimiter: str, optional
+
+    delimiter : str, optional
         The delimiter for the renaming.
-    archive_dir: path-like or None, optional
+
+    archive_dir : path-like or None, optional
         Where to move the original FITS file. If ``None``, the original file
         will remain there. Deleting original FITS is dangerous so it is only
         supported to move the files. You may delete files manually if needed.
-    keymap: dict or None, optional
+
+    keymap : dict or None, optional
         If not ``None``, the keymapping is done by using the dict of ``keymap``
         in the format of ``{<standard_key>:<original_key>}``.
-    key_deprecation: bool, optional
+
+    key_deprecation : bool, optional
         Whether to change the original keywords' comments to contain deprecation
         warning. If ``True``, the original keywords' comments will become
         ``Deprecated. See <standard_key>.``.
+
     trim_fits_section : str or None, optional
         Region of ``ccd`` from which the overscan is extracted; see
         `~ccdproc.subtract_overscan` for details.
         Default is ``None``.
-    fillnan: str, optional
+
+    fillnan : str, optional
         The string that will be inserted if the keyword is not found from the
         header.
-    remove_keys: list of str
+
+    remove_keys : list of str
         The header keywords to be removed.
+
     add_header: header or Card object
         The header keyword, value (and comment) to add after the renaming.
     '''

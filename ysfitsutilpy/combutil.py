@@ -248,7 +248,7 @@ def combine_ccd(fitslist=None, summary_table=None, trim_fits_section=None,
                 subtract_frame=None, combine_method='median',
                 reject_method=None, normalize_exposure=False,
                 normalize_average=False,
-                exposure_key='EXPTIME', weights=None, mem_limit=16e9,
+                exposure_key='EXPTIME', weights=None, mem_limit=2e9,
                 combine_uncertainty_function=sstd, scale=None,
                 extension=0, type_key=None, type_val=None,
                 dtype="float32", uncertainty_dtype="float32",
@@ -257,49 +257,67 @@ def combine_ccd(fitslist=None, summary_table=None, trim_fits_section=None,
     ''' Combining images
     Slight variant from ccdproc.
     # TODO: accept the input like ``sigma_clip_func='median'``, etc.
+    # TODO: normalize maybe useless..
     Parameters
     ----------
-    fitslist: path-like, list of path-like, or list of CCDData
-        The list of path to FITS files or the list of CCDData to be stacked.
-        It is useful to give list of CCDData if you have already stacked/loaded
-        FITS file into a list by your own criteria. If ``None`` (default),
-        you must give ``fitslist`` or ``summary_table``. If it is not ``None``,
-        this function will do very similar job to that of ``ccdproc.combine``.
-        Although it is not a good idea, a mixed list of CCDData and paths to
-        the files is also acceptable.
-
-    summary_table: pandas.DataFrame or astropy.table.Table
-        The table which contains the metadata of files. If there are many
-        FITS files and you want to use stacking many times, it is better to
-        make a summary table by ``filemgmt.make_summary`` and use that instead
-        of opening FITS files' headers every time you call this function. If
-        you want to use ``summary_table`` instead of ``fitslist`` and have set
-        ``loadccd=True``, you must not have ``None`` or ``NaN`` value in the
-        ``summary_table[table_filecol]``.
+    fitslist: list of str, path-like
+        list of FITS files.
 
     trim_fits_section : str or None, optional
+        The ``fits_section`` of ``ccdproc.trim_image``.
         Region of ``ccd`` from which the overscan is extracted; see
         `~ccdproc.subtract_overscan` for details.
         Default is ``None``.
 
-    table_filecol: str
-        The column name of the ``summary_table`` which contains the path to
-        the FITS files.
+    output : path-like or None, optional.
+        The path if you want to save the resulting ``ccd`` object.
+        Default is ``None``.
 
-    subtract_frame: CCDData, array-like
-        The user-specified frame to be subtracted from combined CCD. It is
-        better not to use bias frame here, because this is for a special
-        subtraction rather than regular bias.
+    unit : `~astropy.units.Unit` or str, optional.
+        The units of the data.
+        Default is ``'adu'``.
 
-    combine: str
-        The ``method`` for ``ccdproc.combine``, i.e., {'average', 'median', 'sum'},
-        or 'wmean', 'weighted mean', or 'weighted_mean' for weighted mean.
+    subtract_frame : array-like, optional.
+        The frame you want to subtract from the image after the combination.
+        It can be, e.g., dark frame, because it is easier to calculate Poisson
+        error before the dark subtraction and subtract the dark later.
+        TODO: This maybe unnecessary.
+        Default is ``None``.
 
-    reject: str
+    combine_method : str or None, optinal.
+        The ``method`` for ``ccdproc.combine``, i.e., {'average', 'median', 'sum'}
+        Default is ``None``.
+
+    reject_method : str
         Made for simple use of ``ccdproc.combine``,
-        {None, 'minmax', 'sigclip' == 'sigma_clip', 'extrema'}. Automatically turns
-        on the option, e.g., ``clip_extrema = True`` or ``sigma_clip = True``.
+        {None, 'minmax', 'sigclip' == 'sigma_clip', 'extrema'}. Automatically
+        turns on the option, e.g., ``clip_extrema = True`` or
+        ``sigma_clip = True``.
         Leave it blank for no rejection.
+        Default is ``None``.
+
+    normalize_exposure : bool, optional.
+        Whether to normalize the values by the exposure time before combining.
+        Default is ``False``.
+
+    exposure_key : str, optional
+        The header keyword for the exposure time.
+        Default is ``"EXPTIME"``.
+
+    combine_uncertainty_function : callable, None, optional
+        The uncertainty calculation function of ``ccdproc.combine``.
+        If ``None`` use the default uncertainty func when using average,
+        median or sum combine, otherwise use the function provided.
+        Default is ``None``.
+
+    extension: int or str, optional
+        The extension to be used.
+        Default is ``0``.
+
+    dtype : str or `numpy.dtype` or None, optional
+        Allows user to set dtype. See `numpy.array` ``dtype`` parameter
+        description. If ``None`` it uses ``np.float64``.
+        Default is ``None``.
 
     type_key, type_val: str, list of str
         The header keyword for the ccd type, and the value you want to match.
@@ -307,39 +325,21 @@ def combine_ccd(fitslist=None, summary_table=None, trim_fits_section=None,
         ``hdu[extension].header[type_key] == type_val`` among all the ``fitslist``
         will be used.
 
-    normalize_exposure: bool, optional
-        Whether to normalize each image by exposure time. If this is ``True``,
-        ``exposure_key`` must be set correctly. Otherwise, it is better to
-        give exposure time (rigorously, inverse of it) explicitely as
-        ``scale``. Default is ``False``.
-
-    normalize_average: bool, optional
-        Whether to normalize the average value to 1 for *each* of the image.
-        This is useful when you took skyflats with different exposure times,
-        so simple median combining or ``normalize_exposure`` does not help,
-        since the sky brightness changes over time.
-
-    scale : function or ``numpy.ndarray``-like or None, optional
-        Scaling factor to be used when combining images.
-        Images are multiplied by scaling prior to combining them. Scaling
-        may be either a function, which will be applied to each image
-        to determine the scaling factor, or a list or array whose length
-        is the number of images in the `Combiner`. Default is ``None``.
-
-    weights : ``numpy.ndarray`` or None, optional
-        Weights to be used when combining images.
-        An array with the weight values. The dimensions should match the
-        the dimensions of the data arrays being combined.
-        Default is ``None``.
-
-    mem_limit : float, optional
-        Maximum memory which should be used while combining (in bytes).
-        Default is ``16e9``.
+    output_verify : str
+        Output verification option.  Must be one of ``"fix"``, ``"silentfix"``,
+        ``"ignore"``, ``"warn"``, or ``"exception"``.  May also be any
+        combination of ``"fix"`` or ``"silentfix"`` with ``"+ignore"``,
+        ``+warn``, or ``+exception" (e.g. ``"fix+warn"``).  See the astropy
+        documentation below:
+        http://docs.astropy.org/en/stable/io/fits/api/verification.html#verify
 
     **kwarg:
         kwargs for the ``ccdproc.combine``. See its documentation.
         This includes (RHS are the default values)
         ```
+        weights=None,
+        scale=None,
+        mem_limit=16000000000.0,
         clip_extrema=False,
         nlow=1,
         nhigh=1,
@@ -359,24 +359,22 @@ def combine_ccd(fitslist=None, summary_table=None, trim_fits_section=None,
     -------
     master: astropy.nddata.CCDData
         Resulting combined ccd.
-
     '''
-
     def _set_reject_method(reject_method):
         ''' Convenience function for ccdproc.combine reject switches
         '''
         clip_extrema, minmax_clip, sigma_clip = False, False, False
 
-        if reject_method == 'extrema':
+        if reject_method in ['extrema', 'ext']:
             clip_extrema = True
-        elif reject_method == 'minmax':
+        elif reject_method in ['minmax']:
             minmax_clip = True
-        elif ((reject_method == 'sigma_clip') or (reject_method == 'sigclip')):
+        elif reject_method in ['sigma_clip' 'sigclip']:
             sigma_clip = True
         else:
             if reject_method is not None:
                 raise KeyError("reject must be one of "
-                               "{None, 'minmax', 'sigclip' == 'sigma_clip', 'extrema'}")
+                               "{None, 'minmax', 'sigclip' == 'sigma_clip', 'extrema' == 'ext}")
 
         return clip_extrema, minmax_clip, sigma_clip
 
@@ -574,7 +572,8 @@ def combine_ccd(fitslist=None, summary_table=None, trim_fits_section=None,
     return master
 
 
-# TODO: put an option such that the crrej can be done either before/after the preprocessing..?
+# NOTE: crrej should be done AFTER bias/dark and flat correction:
+# http://www.astro.yale.edu/dokkum/lacosmic/notes.html
 def bdf_process(ccd, output=None, mbiaspath=None, mdarkpath=None, mflatpath=None,
                 trim_fits_section=None, calc_err=False, unit='adu', gain=None,
                 rdnoise=None, gain_key="GAIN", rdnoise_key="RDNOISE",
@@ -591,8 +590,90 @@ def bdf_process(ccd, output=None, mbiaspath=None, mdarkpath=None, mflatpath=None
     ----------
     ccd: array-like
         The ccd to be processed.
-    output: str or path-like
-        Saving path
+
+    output : path-like or None, optional.
+        The path if you want to save the resulting ``ccd`` object.
+        Default is ``None``.
+
+    mbiaspath, mdarkpath, mflatpath : path-like, optional.
+        The path to master bias, dark, flat FITS files. If ``None``, the
+        corresponding process is not done.
+
+    fits_section: str, optional
+        Region of ``ccd`` to be trimmed; see ``ccdproc.subtract_overscan`` for
+        details. Default is ``None``.
+
+    calc_err : bool, optional.
+        Whether to calculate the error map based on Poisson and readnoise
+        error propagation.
+
+    unit : `~astropy.units.Unit` or str, optional.
+        The units of the data.
+        Default is ``'adu'``.
+
+    gain, rdnoise : None, float, optional
+        The gain and readnoise value. These are all ignored if ``calc_err=False``.
+        If ``calc_err=True``, it automatically seeks for suitable gain and
+        readnoise value. If ``gain`` or ``readnoise`` is specified, they are
+        interpreted with ``gain_unit`` and ``rdnoise_unit``, respectively.
+        If they are not specified, this function will seek for the header
+        with keywords of ``gain_key`` and ``rdnoise_key``, and interprete the
+        header value in the unit of ``gain_unit`` and ``rdnoise_unit``,
+        respectively.
+
+    gain_key, rdnoise_key : str, optional
+        See ``gain``, ``rdnoise`` explanation above.
+        These are all ignored if ``calc_err=False``.
+
+    gain_unit, rdnoise_unit : astropy Unit, optional
+        See ``gain``, ``rdnoise`` explanation above.
+        These are all ignored if ``calc_err=False``.
+
+    dark_exposure, data_exposure : None, float, astropy Quantity, optional
+        The exposure times of dark and data frame, respectively. They should
+        both be specified or both ``None``.
+        These are all ignored if ``mdarkpath=None``.
+        If both are not specified while ``mdarkpath`` is given, then the code
+        automatically seeks for header's ``exposure_key``. Then interprete the
+        value as the quantity with unit ``exposure_unit``.
+
+        If ``mdkarpath`` is not ``None``, then these are passed to
+        ``ccdproc.subtract_dark``.
+
+    exposure_key : str, optional
+        The header keyword for exposure time.
+        Ignored if ``mdarkpath=None``.
+
+    exposure_unit : astropy Unit, optional.
+        The unit of the exposure time.
+        Ignored if ``mdarkpath=None``.
+
+    flat_min_value : float or None, optional
+        min_value of `ccdproc.flat_correct`.
+        Minimum value for flat field. The value can either be None and no
+        minimum value is applied to the flat or specified by a float which
+        will replace all values in the flat by the min_value.
+        Default is ``None``.
+
+    flat_norm_value : float or None, optional
+        norm_value of `ccdproc.flat_correct`.
+        If not ``None``, normalize flat field by this argument rather than the
+        mean of the image. This allows fixing several different flat fields to
+        have the same scale. If this value is negative or 0, a ``ValueError``
+        is raised. Default is ``None``.
+
+    output_verify : str
+        Output verification option.  Must be one of ``"fix"``, ``"silentfix"``,
+        ``"ignore"``, ``"warn"``, or ``"exception"``.  May also be any
+        combination of ``"fix"`` or ``"silentfix"`` with ``"+ignore"``,
+        ``+warn``, or ``+exception" (e.g. ``"fix+warn"``).  See the astropy
+        documentation below:
+        http://docs.astropy.org/en/stable/io/fits/api/verification.html#verify
+
+    dtype : str or `numpy.dtype` or None, optional
+        Allows user to set dtype. See `numpy.array` ``dtype`` parameter
+        description. If ``None`` it uses ``np.float64``.
+        Default is ``None``.
     '''
 
     proc = CCDData(ccd)
