@@ -18,7 +18,7 @@ __all__ = ["center_radec", "key_remover", "key_mapper",
            "airmass_hdr", "convert_bit"]
 
 
-def center_radec(header, usewcs=False, ra_key="RA", dec_key="DEC",
+def center_radec(header, center_of_image=True, ra_key="RA", dec_key="DEC",
                  equinox=None, frame=None, equinox_key="EPOCH",
                  frame_key="RADECSYS", ra_unit=u.hourangle, dec_unit=u.deg,
                  mode='all', verbose=True, plain=False):
@@ -30,28 +30,36 @@ def center_radec(header, usewcs=False, ra_key="RA", dec_key="DEC",
 
     Parameters
     ----------
-    header: Header
+    header : Header
         The header to extract the central RA/DEC from keywords or WCS.
-    usewcs: bool, optional
+
+    center_of_image : bool, optional
         If ``True``, WCS information will be extracted from the header,
         rather than relying on the ``ra_key`` and ``dec_key`` keywords
-        directly.
-    equinox, frame: str, optional
+        directly. If ``False``, ``ra_key`` and ``dec_key`` from the header
+        will be understood as the "center" and the RA, DEC of that location
+        will be returned.
+
+    equinox, frame : str, optional
         The ``equinox`` and ``frame`` for SkyCoord. Default (``None``) will
         use the default of SkyCoord. Important only if ``usewcs=False``.
-    XX_key: str, optional
+
+    XX_key : str, optional
         The header key to find XX if ``XX`` is ``None``. Important only if
         ``usewcs=False``.
-    XX_unit: Quantity, optional
+
+    XX_unit : Quantity, optional
         The unit of ``XX``. Important only if ``usewcs=False``.
-    mode: 'all' or 'wcs', optional
+
+    mode : 'all' or 'wcs', optional
         Whether to do the transformation including distortions (``'all'``) or
         only including only the core WCS transformation (``'wcs'``). Important
         only if ``usewcs=True``.
-    plain: bool
+
+    plain : bool
         If ``True``, only the values of RA/DEC in degrees will be returned.
     '''
-    if usewcs:
+    if center_of_image:
         w = WCS(header)
         nx, ny = float(header["NAXIS1"]), float(header["NAXIS2"])
         centx = nx / 2 - 0.5
