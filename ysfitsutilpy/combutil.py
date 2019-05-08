@@ -290,8 +290,8 @@ def combine_ccd(fitslist=None, summary_table=None, trim_fits_section=None,
 
     reject_method : str
         Made for simple use of ``ccdproc.combine``,
-        {None, 'minmax', 'sigclip' == 'sigma_clip', 'extrema'}. Automatically
-        turns on the option, e.g., ``clip_extrema = True`` or
+        [None, 'minmax', 'sigclip' == 'sigma_clip', 'extrema' == 'ext'].
+        Automatically turns on the option, e.g., ``clip_extrema = True`` or
         ``sigma_clip = True``.
         Leave it blank for no rejection.
         Default is ``None``.
