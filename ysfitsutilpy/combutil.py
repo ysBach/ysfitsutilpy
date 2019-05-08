@@ -529,7 +529,7 @@ def combine_ccd(fitslist=None, summary_table=None, trim_fits_section=None,
             master = load_ccd(ccdlist[0], extension=extension, unit=unit)
     else:
         master = combine(img_list=ccdlist,
-                         combine_method=combine_method,
+                         method=combine_method,
                          clip_extrema=clip_extrema,
                          minmax_clip=minmax_clip,
                          sigma_clip=sigma_clip,
