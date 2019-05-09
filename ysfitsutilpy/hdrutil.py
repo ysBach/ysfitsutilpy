@@ -15,7 +15,7 @@ from .misc import airmass_obs
 
 __all__ = ["center_radec", "key_remover", "key_mapper",
            "get_from_header", "wcsremove", "fov_radius",
-           "airmass_hdr", "convert_bit"]
+           "airmass_from_hdr", "convert_bit"]
 
 
 def center_radec(header, center_of_image=True, ra_key="RA", dec_key="DEC",
@@ -255,6 +255,8 @@ def get_from_header(header, key, unit=None, verbose=True,
 def wcsremove(filepath=None, additional_keys=[], extension=0,
               output=None, verify='fix', overwrite=False, verbose=True):
     ''' Remove most WCS related keywords from the header.
+    Paramters
+    ---------
     additional_keys : list of regex str, optional
         Additional keys given by the user to be 'reset'. It must be in regex
         expression. Of course regex accepts just string, like 'NAXIS1'.
@@ -264,27 +266,27 @@ def wcsremove(filepath=None, additional_keys=[], extension=0,
     '''
     # Define header keywords to be deleted in regex:
     re2remove = ['CD[0-9]_[0-9]',  # Coordinate Description matrix
-                 'CTYPE[0-9]',  # e.g., 'RA---TAN' and 'DEC--TAN'
+                 'CTYPE[0-9]',      # e.g., 'RA---TAN' and 'DEC--TAN'
                  'C[0-9]YPE[0-9]',  # FOCAS
-                 'CUNIT[0-9]',  # e.g., 'deg'
+                 'CUNIT[0-9]',      # e.g., 'deg'
                  'C[0-9]NIT[0-9]',  # FOCAS
-                 'CRPIX[0-9]',  # The reference pixels in image coordinate
+                 'CRPIX[0-9]',      # The reference pixels in image coordinate
                  'C[0-9]PIX[0-9]',  # FOCAS
-                 'CRVAL[0-9]',  # The world cooordinate values at CRPIX[1, 2]
+                 'CRVAL[0-9]',      # The world cooordinate values at CRPIX[1, 2]
                  'C[0-9]VAL[0-9]',  # FOCAS
-                 'CDELT[0-9]',  # with CROTA, older version of CD matrix.
+                 'CDELT[0-9]',      # with CROTA, older version of CD matrix.
                  'C[0-9]ELT[0-9]',  # FOCAS
-                 'CROTA[0-9]',  # The angle between image Y and world Y axes
+                 'CROTA[0-9]',      # The angle between image Y and world Y axes
                  'CRDELT[0-9]',
                  'CFINT[0-9]',
-                 'RADE[C]?SYS*'  # RA/DEC system (frame)
-                 'WCS-ORIG',  # FOCAS
+                 'RADE[C]?SYS*'     # RA/DEC system (frame)
+                 'WCS-ORIG',        # FOCAS
                  'LTM[0-9]_[0-9]',
                  'LTV[0-9]*',
                  'PIXXMIT',
                  'PIXOFFST',
                  'WAT[0-9]_[0-9]',  # For TNX and ZPX, e.g., "WAT1_001"
-                 'C0[0-9]_[0-9]',  # polynomial CD by imwcs
+                 'C0[0-9]_[0-9]',   # polynomial CD by imwcs
                  'PC[0-9]_[0-9]',
                  'P[A-Z]?[0-9]?[0-9][0-9][0-9][0-9][0-9][0-9]',  # FOCAS
                  'PV[0-9]_[0-9]',
@@ -372,18 +374,18 @@ def wcsremove(filepath=None, additional_keys=[], extension=0,
 
 
 # TODO: change key, unit, etc as input dict.
-def airmass_hdr(header, ra=None, dec=None, ut=None, exptime=None,
-                lon=None, lat=None, height=None, equinox=None, frame=None,
-                scale=750.,
-                ra_key="RA", dec_key="DEC", ut_key="DATE-OBS",
-                exptime_key="EXPTIME", lon_key="LONGITUD", lat_key="LATITUDE",
-                height_key="HEIGHT", equinox_key="EPOCH", frame_key="RADECSYS",
-                ra_unit=u.hourangle, dec_unit=u.deg,
-                exptime_unit=u.s, lon_unit=u.deg, lat_unit=u.deg,
-                height_unit=u.m,
-                ut_format='isot', ut_scale='utc',
-                full=False, return_header=False
-                ):
+def airmass_from_hdr(header, ra=None, dec=None, ut=None, exptime=None,
+                     lon=None, lat=None, height=None, equinox=None, frame=None,
+                     scale=750.,
+                     ra_key="RA", dec_key="DEC", ut_key="DATE-OBS",
+                     exptime_key="EXPTIME", lon_key="LONGITUD", lat_key="LATITUDE",
+                     height_key="HEIGHT", equinox_key="EPOCH", frame_key="RADECSYS",
+                     ra_unit=u.hourangle, dec_unit=u.deg,
+                     exptime_unit=u.s, lon_unit=u.deg, lat_unit=u.deg,
+                     height_unit=u.m,
+                     ut_format='isot', ut_scale='utc',
+                     full=False, return_header=False
+                     ):
     ''' Calculate airmass using the header.
     Parameters
     ----------
@@ -426,7 +428,7 @@ def airmass_hdr(header, ra=None, dec=None, ut=None, exptime=None,
     '''
     # If there is no header keyword matches the ``key``, it should give
     # KeyError. For such reason, I didn't use ``get_from_header`` here.
-    def _conversion(header, val, key, unit=None, instance=None):
+    def _conversion(header, val, key, unit=None, instance=u.Quantity):
         if val is None:
             val = header[key]
         elif (instance is not None) and (unit is not None):
@@ -467,15 +469,14 @@ def airmass_hdr(header, ra=None, dec=None, ut=None, exptime=None,
                   Card("HISTORY", "AIRMASS calculated from ysfitsutilpy.")]
             return cs
 
-    ra = _conversion(header, ra, ra_key, ra_unit, u.Quantity)
-    dec = _conversion(header, dec, dec_key, dec_unit, u.Quantity)
-    exptime = _conversion(header, exptime, exptime_key,
-                          exptime_unit, u.Quantity)
-    lon = _conversion(header, lon, lon_key, lon_unit, u.Quantity)
-    lat = _conversion(header, lat, lat_key, lat_unit, u.Quantity)
-    height = _conversion(header, height, height_key, height_unit, u.Quantity)
-    equinox = _conversion(header, equinox, equinox_key)
-    frame = _conversion(header, frame, frame_key)
+    ra      = _conversion(header, ra     , ra_key     , ra_unit     )
+    dec     = _conversion(header, dec    , dec_key    , dec_unit    )
+    exptime = _conversion(header, exptime, exptime_key, exptime_unit)
+    lon     = _conversion(header, lon    , lon_key    , lon_unit    )
+    lat     = _conversion(header, lat    , lat_key    , lat_unit    )
+    height  = _conversion(header, height , height_key , height_unit )
+    equinox = _conversion(header, equinox, equinox_key              )
+    frame   = _conversion(header, frame  , frame_key                )
 
     if ut is None:
         ut = header[ut_key]
@@ -484,18 +485,27 @@ def airmass_hdr(header, ra=None, dec=None, ut=None, exptime=None,
         # ut_format = 'isot'
         # ut_scale = 'utc'
 
-    targetcoord = SkyCoord(ra=ra, dec=dec, unit=(ra_unit, dec_unit),
-                           frame=frame, equinox=equinox)
+    targetcoord = SkyCoord(ra=ra,
+                           dec=dec,
+                           unit=(ra_unit, dec_unit),
+                           frame=frame,
+                           equinox=equinox)
 
     try:
-        observcoord = EarthLocation(lon=lon * lon_unit, lat=lat * lat_unit,
+        observcoord = EarthLocation(lon=lon * lon_unit,
+                                    lat=lat * lat_unit,
                                     height=height * height_unit)
     except ValueError:
-        observcoord = EarthLocation(lon=lon, lat=lat,
-                                    height=height * height_unit)
+        observcoord = EarthLocation(lon=lon,
+                                    lat=lat,
+                                    height=height)
 
-    result = airmass_obs(targetcoord=targetcoord, obscoord=observcoord, ut=ut,
-                         exptime=exptime, scale=scale, full=full)
+    result = airmass_obs(targetcoord=targetcoord,
+                         obscoord=observcoord,
+                         ut=ut,
+                         exptime=exptime * exptime_unit,
+                         scale=scale,
+                         full=full)
 
     if return_header:
         nhdr = header.copy()

@@ -12,8 +12,35 @@ from astropy.visualization import ZScaleInterval, ImageNormalize
 from astropy.io import fits
 import ccdproc
 
-__all__ = ["binning", "fitsxy2py", "give_stats", "calc_airmass", "airmass_obs",
+__all__ = ["MEDCOMB_KEYS_INT", "SUMCOMB_KEYS_INT", "MEDCOMB_KEYS_FLT32",
+           "LACOSMIC_KEYS",
+           "binning", "fitsxy2py", "give_stats", "calc_airmass", "airmass_obs",
            "dB2epadu", "epadu2dB"]
+
+
+MEDCOMB_KEYS_INT = dict(dtype='int16',
+                        combine_method='median',
+                        reject_method=None,
+                        unit=u.adu,
+                        combine_uncertainty_function=None)
+
+SUMCOMB_KEYS_INT = dict(dtype='int16',
+                        combine_method='sum',
+                        reject_method=None,
+                        unit=u.adu,
+                        combine_uncertainty_function=None)
+
+MEDCOMB_KEYS_FLT32 = dict(dtype='float32',
+                          combine_method='median',
+                          reject_method=None,
+                          unit=u.adu,
+                          combine_uncertainty_function=None)
+
+# I skipped two params in LACOSMIC: gain=1.0, readnoise=6.5
+LACOSMIC_KEYS = dict(sigclip=4.5, sigfrac=0.3, objlim=5.0,
+                     satlevel=np.inf, pssl=0.0, niter=4, sepmed=False,
+                     cleantype='medmask', fsmode='median', psfmodel='gauss',
+                     psffwhm=2.5, psfsize=7, psfk=None, psfbeta=4.765)
 
 
 def binning(arr, factor_x=1, factor_y=1, binfunc=np.mean, trim_end=False):
@@ -132,17 +159,19 @@ def calc_airmass(zd_deg=None, cos_zd=None, scale=750.):
     ----
     Wiki:
         https://en.wikipedia.org/wiki/Air_mass_(astronomy)#Nonrefracting_radially_symmetrical_atmosphere
-    Identical to the airmass calculation at a given ZD of IRAF's
-    asutil.setairmass:
+    Identical to the airmass calculation for a given observational run of
+    IRAF's asutil.setairmass:
         http://stsdas.stsci.edu/cgi-bin/gethelp.cgi?setairmass
 
     Parameters
     ----------
-    zd_deg: float, optional
+    zd_deg : float, optional
         The zenithal distance in degrees
-    cos_zd: float, optional
+
+    cos_zd : float, optional
         The cosine of zenithal distance. If given, ``zd_deg`` is not used.
-    scale: float, optional
+
+    scale : float, optional
         Earth radius divided by the atmospheric height (usually scale height)
         of the atmosphere. In IRAF documentation, it is mistakenly written that
         this ``scale`` is the "scale height".
@@ -167,7 +196,26 @@ def airmass_obs(targetcoord, obscoord, ut, exptime, scale=750., full=False):
     Identical to the airmass calculation for a given observational run of
     IRAF's asutil.setairmass:
         http://stsdas.stsci.edu/cgi-bin/gethelp.cgi?setairmass
-    Partly contributed by Kunwoo Kang (Seoul National University) in Apr 2018.
+    Partly contributed by Geonwoo Kang (Seoul National University) in Apr 2018.
+
+    Parameters
+    ----------
+    targetcoord: astropy.SkyCoord
+        The target's coorndinate.
+
+    obscoord : astropy.EarthLocation
+        The observer's location.
+
+    ut : astropy.Time
+        The time when the exposure is started.
+
+    exptime : astropy.Quantity
+        The exposure time.
+
+    scale : float, optional
+        Earth radius divided by the atmospheric height (usually scale height)
+        of the atmosphere. In IRAF documentation, it is mistakenly written that
+        this ``scale`` is the "scale height".
 
     '''
     if not isinstance(ut, Time):

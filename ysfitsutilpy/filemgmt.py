@@ -229,28 +229,37 @@ def make_summary(fitslist, extension=0, fname_option='relative',
 
 
 def fits_newpath(fpath, rename_by, mkdir_by=None, header=None, delimiter='_',
-                 fillnan="", ext='fits'):
+                 fillnan="", fileext='.fits'):
     ''' Gives the new path of the FITS file from header.
     Parameters
     ----------
-    fpath: path-like
+    fpath : path-like
         The path to the original FITS file.
-    rename_by: list of str, optional
+
+    rename_by : list of str, optional
         The keywords of the FITS header to rename by.
-    mkdir_by: list of str, optional
+
+    mkdir_by : list of str, optional
         The keys which will be used to make subdirectories to classify files.
         If given, subdirectories will be made with the header value of the keys.
-    header: Header object, optional
+
+    header : Header object, optional
         The header to extract ``rename_by`` and mkdir_by``. If ``None``,
         the function will do ``header = fits.getheader(fpath)``.
-    delimiter: str, optional
+
+    delimiter : str, optional
         The delimiter for the renaming.
-    fillnan: str, optional
+
+    fillnan : str, optional
         The string that will be inserted if the keyword is not found from the
         header.
-    ext: str, optional
+
+    fileext : str, optional
         The extension of the file name to be returned. Normally it should be
-        ``'fits'`` since this function is ``fits_newname``.
+        ``'fits'`` since this function is ``fits_newname``, but you may prefer,
+        e.g., ``'fit'`` for some reason. If ``fileext`` does not start with
+        ``"."``, the dot is automatically added to the final file name in front
+        of the ``fileext``.
     '''
 
     if header is None:
@@ -266,8 +275,12 @@ def fits_newpath(fpath, rename_by, mkdir_by=None, header=None, delimiter='_',
         except KeyError:
             newname += fillnan
         newname += delimiter
+    ndel = len(delimiter)
+    newname = newname[:-ndel]
 
-    newname = newname[:-1] + '.fits'
+    if not fileext.startswith('.'):
+        fileext = f".{fileext}"
+    newname = newname + fileext
 
     newpath = Path(fpath.parent)
 
@@ -368,6 +381,8 @@ def fitsrenamer(fpath=None, header=None, newtop=None, rename_by=["OBJECT"],
     # TODO: It is necessary to do this bothersome calculations to preserve
     #   the WCS information that may reside in the FITS (if use ``trim_image``
     #   of ccdproc, it will not be preserved).
+    # TODO: Maybe I can put some LTV-like keys to the header, rather than this
+    #   crazy code...? (ysBach 2019-05-09)
     if trim_fits_section is not None:
         slices = ccdproc.utils.slices.slice_from_string(trim_fits_section,
                                                         fits_convention=True)
