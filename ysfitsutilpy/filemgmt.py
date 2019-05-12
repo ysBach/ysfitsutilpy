@@ -158,10 +158,10 @@ def make_summary(fitslist, extension=0, fname_option='relative',
     skip_keys = ['COMMENT', 'HISTORY']
     str_example_hdr = "Extract example header from 0-th\n\tand save as {:s}"
     str_keywords = "All {:d} keywords will be loaded."
-    str_keyerror_fill = "Key {:s} not found for {:s}, filling with nan."
+    str_keyerror_fill = "Key {:s} not found for {:s}, filling with None."
     str_filesave = 'Saving the summary file to "{:s}"'
     str_duplicate = ("Key {:s} is duplicated! "
-                    + "Only the first one will be saved.")
+                     + "Only the first one will be saved.")
 
     if verbose:
         if (keywords != []) and (keywords != '*'):
@@ -214,10 +214,11 @@ def make_summary(fitslist, extension=0, fname_option='relative',
             try:
                 summarytab[k].append(hdr[k])
             except KeyError:
-                if isinstance(item, CCDData):
-                    warn(str_keyerror_fill.format(k, f"fitslist[{i}]"))
-                else:
-                    warn(str_keyerror_fill.format(k, str(item)))
+                if verbose:
+                    if isinstance(item, CCDData):
+                        warn(str_keyerror_fill.format(k, f"fitslist[{i}]"))
+                    else:
+                        warn(str_keyerror_fill.format(k, str(item)))
                 summarytab[k].append(None)
 
     if pandas:
@@ -290,7 +291,7 @@ def fits_newpath(fpath, rename_by, mkdir_by=None, header=None, delimiter='_',
     hdrvals = []
     for k in rename_by:
         try:
-            hdrvals.append(hdr[k])
+            hdrvals.append(str(hdr[k]))
         except KeyError:
             hdrvals.append(fillnan)
 
@@ -439,8 +440,13 @@ def fitsrenamer(fpath=None, header=None, newtop=None, rename_by=["OBJECT"],
                 form = form + f"<{md:s}>/"
             print(form[:-1])
 
-    newpath = fits_newpath(fpath, rename_by, mkdir_by=mkdir_by, header=hdr,
-                           delimiter=delimiter, fillnan=fillnan, ext='fits')
+    newpath = fits_newpath(fpath,
+                           rename_by,
+                           mkdir_by=mkdir_by,
+                           header=hdr,
+                           delimiter=delimiter,
+                           fillnan=fillnan,
+                           fileext='fits')
     if newtop is not None:
         newpath = Path(newtop) / newpath.name
 
