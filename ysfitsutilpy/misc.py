@@ -74,10 +74,14 @@ def binning(arr, factor_x=1, factor_y=1, binfunc=np.mean, trim_end=False):
 
 def fitsxy2py(fits_section):
     ''' Given FITS section in str, returns the slices in python convention.
+    Parameters
+    ----------
+    fits_section : str
+        The section specified by FITS convention, i.e., bracket embraced,
+        comma separated, XY order, 1-indexing, and including the end index.
     Note
     ----
-    >>> np.eye(5)[ccdproc.utils.slices.slice_from_string('[1:2,:]',
-        fits_convention=True)]
+    >>> np.eye(5)[fitsxy2py('[1:2,:]')]
     # array([[1., 0.],
     #       [0., 1.],
     #       [0., 0.],
@@ -229,7 +233,7 @@ def airmass_obs(targetcoord, obscoord, ut, exptime, scale=750., full=False):
     t_mid = ut + exptime / 2
     t_final = ut + exptime
 
-    altaz = {"alt": [], "az": [], "zd": [], "airmass": []}
+    alldict = {"alt": [], "az": [], "zd": [], "airmass": []}
     for t in [t_start, t_mid, t_final]:
         C_altaz = AltAz(obstime=t, location=obscoord)
         target = targetcoord.transform_to(C_altaz)
@@ -237,19 +241,19 @@ def airmass_obs(targetcoord, obscoord, ut, exptime, scale=750., full=False):
         az = target.az.to_string(unit=u.deg, sep=':')
         zd = target.zen.to(u.deg).value
         am = calc_airmass(zd_deg=zd, scale=scale)
-        altaz["alt"].append(alt)
-        altaz["az"].append(az)
-        altaz["zd"].append(zd)
-        altaz["airmass"].append(am)
+        alldict["alt"].append(alt)
+        alldict["az"].append(az)
+        alldict["zd"].append(zd)
+        alldict["airmass"].append(am)
 
-    am_simpson = (altaz["airmass"][0]
-                  + 4 * altaz["airmass"][1]
-                  + altaz["airmass"][2]) / 6
+    am_eff = (alldict["airmass"][0]
+                  + 4 * alldict["airmass"][1]
+                  + alldict["airmass"][2]) / 6
 
     if full:
-        return am_simpson, altaz
+        return am_eff, alldict
 
-    return am_simpson
+    return am_eff
 
 
 # FIXME: I am not sure whether these gain conversions are universal or just
