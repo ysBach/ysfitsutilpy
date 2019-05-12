@@ -12,6 +12,7 @@ from ccdproc import combine, trim_image
 
 from .filemgmt import load_if_exists, make_summary
 from .ccdutil import CCDData_astype, load_ccd
+from .misc import chk_keyval
 
 __all__ = ["sstd", "weighted_mean", "stack_FITS", "combine_ccd"]
 
@@ -36,7 +37,7 @@ def weighted_mean(ccds, unit='adu'):
     return nccd
 
 
-def group_FITS(summary_table, type_key, type_val, group_key=None):
+def group_FITS(summary_table, type_key=None, type_val=None, group_key=None):
     ''' Organize the group_by and type_key for stack_FITS
     Parameters
     ----------
@@ -45,10 +46,10 @@ def group_FITS(summary_table, type_key, type_val, group_key=None):
         the astropy table format, it will be converted to `~pandas.DataFrame`
         object.
 
-    type_key, type_val: str, list of str
+    type_key, type_val: None, str, list of str, optional
         The header keyword for the ccd type, and the value you want to match.
 
-    group_key : None, str, list of str
+    group_key : None, str, list of str, optional
         The header keyword which will be used to make groups for the CCDs
         that have selected from ``type_key`` and ``type_val``.
         If ``None`` (default), no grouping will occur, but it will return
@@ -60,13 +61,10 @@ def group_FITS(summary_table, type_key, type_val, group_key=None):
     grouped : ~pandas.DataFrameGroupBy
         The table after the grouping process.
 
-    stack_type_key : list of str
+    group_type_key : list of str
         The ``type_key`` that can directly be used for ``stack_FITS`` for each
         element of ``grouped.groups``.
-
-    stack_type_vals : list of str, int, float, mixture of these, etc.
-        The ``type_val`` that can directly be used for ``stack_FITS`` for each
-        element of ``grouped.groups``.
+        Basically this is ``type_key + group_key``.
 
     Example
     -------
@@ -75,14 +73,14 @@ def group_FITS(summary_table, type_key, type_val, group_key=None):
     >>> type_key = ["OBJECT"]
     >>> type_val = ["dark"]
     >>> group_key = ["EXPTIME"]
-    >>> gs, g_type_key, g_type_val = group_FITS(summary_table,
-    ...                                         type_key,
-    ...                                         type_val,
-    ...                                         group_key)
-    >>> for i, g in enumerate(gs):
-    >>>     _ = combine_ccd(g["file"],
-    ...                     type_key=g_type_key[i],
-    ...                     type_val=g_type_val[i])
+    >>> gs, g_key = group_FITS(summary_table,
+    ...                        type_key,
+    ...                        type_val,
+    ...                        group_key)
+    >>> for g_val, group in gs:
+    >>>     _ = combine_ccd(group["file"],
+    ...                     type_key=g_key,
+    ...                     type_val=g_val)
     '''
     if ((not isinstance(summary_table, Table))
             and (not isinstance(summary_table, pd.DataFrame))):
@@ -93,57 +91,19 @@ def group_FITS(summary_table, type_key, type_val, group_key=None):
     else:
         st = summary_table.copy()
 
-    # Make type_key to list
-    if type_key is None:
-        raise ValueError("type_key must be given")
-    elif isinstance(type_key, str):
-        type_key = [type_key]
-    elif isinstance(type_key, list):
-        if not all(isinstance(x, str) for x in type_key):
-            raise TypeError("Some of type_key are not str.")
-    else:
-        raise TypeError("type_key should be str or list of str.")
-
-    # Make type_val to list
-    if type_val is None:
-        raise ValueError("type_val must be given")
-    elif isinstance(type_val, str):
-        type_val = [type_val]
-    elif isinstance(type_val, list):
-        if not all(isinstance(x, str) for x in type_val):
-            raise TypeError("Some of type_val are not str.")
-    else:
-        raise TypeError("type_val should be str or list of str.")
-
-    # Make group_key to list
-    if group_key is None:
-        group_key = []
-    elif isinstance(group_key, str):
-        group_key = [group_key]
-    elif isinstance(group_key, list):
-        if not all(isinstance(x, str) for x in group_key):
-            raise TypeError("Some of group_key are not str.")
-    else:
-        raise TypeError("group_key should be str or list of str.")
-
-    # If there is overlap, raise error
-    overlap = set(type_key).intersection(set(group_key))
-    if len(overlap) > 0:
-        raise ValueError("type_key and group_key overlap! Remove "
-                         + f"keys {overlap} from either or both of them.")
+    type_key, type_val, group_key = chk_keyval(type_key=type_key,
+                                               type_val=type_val,
+                                               group_key=group_key)
 
     # For simplicity, crop the original data by type_key and type_val first.
     for k, v in zip(type_key, type_val):
         st = st[st[k] == v]
 
-    stack_type_key = type_key + group_key
-    stack_type_vals = []
+    group_type_key = type_key + group_key
+    group_type_vals = []
     grouped = st.groupby(group_key)
 
-    for group_val, group in grouped:
-        stack_type_vals.append(type_key + group_val)
-
-    return grouped, stack_type_key, stack_type_vals
+    return grouped, group_type_key
 
 
 def stack_FITS(fitslist=None, summary_table=None, extension=0,
@@ -152,7 +112,7 @@ def stack_FITS(fitslist=None, summary_table=None, extension=0,
     ''' Stacks the FITS files specified in fitslist
     Parameters
     ----------
-    fitslist: path-like, list of path-like, or list of CCDData
+    fitslist: None, list of path-like, or list of CCDData
         The list of path to FITS files or the list of CCDData to be stacked.
         It is useful to give list of CCDData if you have already stacked/loaded
         FITS file into a list by your own criteria. If ``None`` (default),
@@ -161,7 +121,7 @@ def stack_FITS(fitslist=None, summary_table=None, extension=0,
         Although it is not a good idea, a mixed list of CCDData and paths to
         the files is also acceptable.
 
-    summary_table: pandas.DataFrame or astropy.table.Table
+    summary_table: None, pandas.DataFrame or astropy.table.Table
         The table which contains the metadata of files. If there are many
         FITS files and you want to use stacking many times, it is better to
         make a summary table by ``filemgmt.make_summary`` and use that instead
@@ -232,41 +192,37 @@ def stack_FITS(fitslist=None, summary_table=None, extension=0,
                          + "be not None.")
 
     # If fitslist
-    if (fitslist is not None) and (not isinstance(fitslist, list)):
-        fitslist = [fitslist]
-        # raise TypeError(
-        #     f"fitslist must be a list. It's now {type(fitslist)}.")
+    if fitslist is not None:
+        table_mode = False
+        if not isinstance(fitslist, list):
+            raise TypeError(
+                f"fitslist must be a list. It's now {type(fitslist)}.")
 
     # If summary_table
     if summary_table is not None:
+        table_mode = True
         if ((not isinstance(summary_table, Table))
                 and (not isinstance(summary_table, pd.DataFrame))):
             raise TypeError("summary_table must be an astropy Table or Pandas "
                             + f"DataFrame. It's now {type(summary_table)}.")
 
     # Check for type_key and type_val
-    if ((type_key is None) ^ (type_val is None)):
-        raise ValueError("type_key and type_val must be both specified or "
-                         + "both None.")
+    type_key, type_val, _ = chk_keyval(type_key=type_key,
+                                       type_val=type_val,
+                                       group_key=None)
 
     # Setting whether to group
     grouping = False
-    if type_key is not None:
-        if len(type_key) != len(type_val):
-            raise ValueError("type_key and type_val length differ.")
-
+    if len(type_key) > 0:
         grouping = True
-
-        # If str, change to list:
-        if isinstance(type_key, str):
-            type_key = [type_key]
-
-        if isinstance(type_val, str):
-            type_val = [type_val]
 
     print("Analyzing FITS... ", end='')
     # Set fitslist and summary_table based on the given input and grouping.
-    if fitslist is not None:
+    if table_mode:
+        if isinstance(summary_table, Table):
+            summary_table = summary_table.to_pandas()
+        fitslist = summary_table[table_filecol].tolist()
+    else:
         if grouping:
             summary_table = make_summary(fitslist,
                                          extension=extension,
@@ -275,14 +231,11 @@ def stack_FITS(fitslist=None, summary_table=None, extension=0,
                                          keywords=type_key,
                                          sort_by=None,
                                          pandas=True)
-    elif summary_table is not None:
-        if isinstance(summary_table, Table):
-            summary_table = summary_table.to_pandas()
-        fitslist = summary_table[table_filecol].tolist()
+        # else: no need to make summary_table.
 
     print("Done", end='')
 
-    if load_ccd:
+    if loadccd:
         print(" and loading FITS... ")
     else:
         print(".")
@@ -290,14 +243,14 @@ def stack_FITS(fitslist=None, summary_table=None, extension=0,
     matched = []
 
     # Append appropriate CCDs or filepaths to matched
-    if grouping:
+    if grouping:  # summary_table is used.
         for i, row in summary_table.iterrows():
             mismatch = _check_mismatch(row)
             if mismatch:  # skip this row (file)
                 continue
 
             # if not skipped:
-            # TODO: Is is better to remove Path here?
+            # TODO: Is it better to remove Path here?
             if isinstance(fitslist[i], CCDData):
                 matched.append(fitslist[i])
             else:  # it must be a path to the file
@@ -310,7 +263,7 @@ def stack_FITS(fitslist=None, summary_table=None, extension=0,
                     matched.append(ccd_i)
                 else:
                     matched.append(fpath)
-    else:
+    else:  # summary_table is not used.
         for item in fitslist:
             if isinstance(item, CCDData):
                 matched.append(item)
@@ -337,12 +290,12 @@ def stack_FITS(fitslist=None, summary_table=None, extension=0,
             N = len(matched)
             ks = str(type_key)
             vs = str(type_val)
-            if load_ccd:
+            if loadccd:
                 print(f'{N} FITS files with "{ks} = {vs}" are loaded.')
             else:
                 print(f'{N} FITS files with "{ks} = {vs}" are selected.')
         else:
-            if load_ccd:
+            if loadccd:
                 print('{:d} FITS files are loaded.'.format(len(matched)))
 
     return matched

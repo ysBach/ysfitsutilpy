@@ -15,7 +15,7 @@ import ccdproc
 __all__ = ["MEDCOMB_KEYS_INT", "SUMCOMB_KEYS_INT", "MEDCOMB_KEYS_FLT32",
            "LACOSMIC_KEYS",
            "binning", "fitsxy2py", "give_stats", "calc_airmass", "airmass_obs",
-           "dB2epadu", "epadu2dB"]
+           "chk_keyval"]
 
 
 MEDCOMB_KEYS_INT = dict(dtype='int16',
@@ -247,8 +247,8 @@ def airmass_obs(targetcoord, obscoord, ut, exptime, scale=750., full=False):
         alldict["airmass"].append(am)
 
     am_eff = (alldict["airmass"][0]
-                  + 4 * alldict["airmass"][1]
-                  + alldict["airmass"][2]) / 6
+              + 4 * alldict["airmass"][1]
+              + alldict["airmass"][2]) / 6
 
     if full:
         return am_eff, alldict
@@ -264,3 +264,70 @@ def dB2epadu(gain_dB):
 
 def epadu2dB(gain_epadu):
     return 20 * np.log10(5 / gain_epadu)
+
+
+def chk_keyval(type_key, type_val, group_key):
+    ''' Checks the validity of key and values used heavily in combutil.
+    Parameters
+    ----------
+    type_key, type_val: None, str, list of str, optional
+        The header keyword for the ccd type, and the value you want to match.
+
+    group_key : None, str, list of str, optional
+        The header keyword which will be used to make groups for the CCDs
+        that have selected from ``type_key`` and ``type_val``.
+        If ``None`` (default), no grouping will occur, but it will return
+        the `~pandas.DataFrameGroupBy` object will be returned for the sake
+        of consistency.
+
+    Return
+    ------
+    type_key, type_val, group_key
+    '''
+    # Make type_key to list
+    if type_key is None:
+        type_key = []
+    elif isinstance(type_key, str):
+        type_key = [type_key]
+    elif isinstance(type_key, list):
+        if not all(isinstance(x, str) for x in type_key):
+            raise TypeError("Some of type_key are not str.")
+    else:
+        raise TypeError("type_key should be str or list of str.")
+
+    # Make type_val to list
+    if type_val is None:
+        type_val = []
+    elif isinstance(type_val, str):
+        type_val = [type_val]
+    elif isinstance(type_val, list):
+        if not all(isinstance(x, str) for x in type_val):
+            raise TypeError("Some of type_val are not str.")
+    else:
+        raise TypeError("type_val should be str or list of str.")
+
+    # Make group_key to list
+    if group_key is None:
+        group_key = []
+    elif isinstance(group_key, str):
+        group_key = [group_key]
+    elif isinstance(group_key, list):
+        if not all(isinstance(x, str) for x in group_key):
+            raise TypeError("Some of group_key are not str.")
+    else:
+        raise TypeError("group_key should be str or list of str.")
+
+    if len(type_key) != len(type_val):
+        raise ValueError("type_key and type_val must have the same length!")
+
+    if len(group_key + type_key) == 0:
+        raise ValueError("At least one of type_key and group_key should not "
+                         + "be empty!")
+
+    # If there is overlap
+    overlap = set(type_key).intersection(set(group_key))
+    if len(overlap) > 0:
+        warn(f"{overlap} appear in both type_key and group_key. It may not "
+             + "be harmful but better to avoid.")
+
+    return type_key, type_val, group_key
