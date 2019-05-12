@@ -6,6 +6,7 @@ Contians convenience funcitons which are
 
 from pathlib import Path
 import numpy as np
+
 from astropy.table import Table
 from astropy.nddata import CCDData
 from astropy.io import fits
@@ -65,8 +66,8 @@ def load_if_exists(path, loader, if_not=None, verbose=True, **kwargs):
 
 def make_summary(fitslist, extension=0, fname_option='relative',
                  output=None, format='ascii.csv',
-                 keywords=[],
-                 example_header=None, sort_by='file', verbose=True):
+                 keywords=[], example_header=None, sort_by='file',
+                 pandas=False, verbose=True):
     """ Extracts summary from the headers of FITS files.
     Parameters
     ----------
@@ -87,13 +88,20 @@ def make_summary(fitslist, extension=0, fname_option='relative',
         The directory and file name of the output summary file.
 
     format: str, optional
-        The astropy.table.Table output format.
+        The astropy.table.Table output format. Only works if ``pandas`` is
+        ``False``.
 
     keywords: list or str(``"*"``), optional
         The list of the keywords to extract (keywords should be in str).
 
-    example_header: str or path-like, optional
+    example_header: None or path-like, optional
         The path including the filename of the output summary text file.
+        If specified, the header of the 0-th element of ``fitslist`` will be
+        extracted and saved to ``example_header``.
+
+    pandas : bool, optional
+        Whether to return pandas. If ``False``, astropy table object is
+        returned. It will save csv format regardless of ``format``.
 
     sort_by: str, optional
         The column name to sort the results. It can be any element of
@@ -115,12 +123,9 @@ def make_summary(fitslist, extension=0, fname_option='relative',
     >>> # path to save summary csv file
     >>> allfits = list((TOPPATH / "rawdata").glob("*.fits"))
     >>> # list of all the fits files in Path object
-    >>> summary = yfu.make_summary(pathlist=allfits, keywords=keys,
-    >>>                            fname_option='name',
+    >>> summary = yfu.make_summary(fitslist=allfits, keywords=keys,
+    >>>                            fname_option='name', pandas=True,
     >>>                            sort_by="DATE-OBS", output=savepath)
-    >>> # The astropy.table.Table format.
-    >>> # If you want, you may change it to pandas:
-    >>> summary_pd = summary.to_pandas()`
     """
 
     if len(fitslist) == 0:
@@ -132,7 +137,7 @@ def make_summary(fitslist, extension=0, fname_option='relative',
             return str(path)
         elif fname_option == 'absolute':
             return str(path.absolute())
-        else:
+        elif fname_option == 'name':
             return path.name
 
     def _get_hdr(item, extension):
@@ -146,19 +151,21 @@ def make_summary(fitslist, extension=0, fname_option='relative',
             hdul.close()
         return hdr
 
-    options = ['absolute', 'relative', 'name']
-    if fname_option not in options:
-        raise KeyError(f"fname_option must be one of {options}.")
+    _valid_options = ['absolute', 'relative', 'name']
+    if fname_option not in _valid_options:
+        raise KeyError(f"fname_option must be one of {_valid_options}.")
 
     skip_keys = ['COMMENT', 'HISTORY']
+    str_example_hdr = "Extract example header from 0-th\n\tand save as {:s}"
+    str_keywords = "All {:d} keywords will be loaded."
+    str_keyerror_fill = "Key {:s} not found for {:s}, filling with nan."
+    str_filesave = 'Saving the summary file to "{:s}"'
+    str_duplicate = ("Key {:s} is duplicated! "
+                    + "Only the first one will be saved.")
 
     if verbose:
         if (keywords != []) and (keywords != '*'):
             print("Extracting keys: ", keywords)
-        str_example_hdr = "Extract example header from 0-th\n\tand save as {:s}"
-        str_keywords = "All {:d} keywords will be loaded."
-        str_keyerror_fill = "Key {:s} not found for {:s}, filling with nan."
-        str_filesave = 'Saving the summary file to "{:s}"'
 
     # Save example header
     if example_header is not None:
@@ -180,8 +187,7 @@ def make_summary(fitslist, extension=0, fname_option='relative',
             if (key_i in skip_keys):
                 continue
             elif (key_i in keywords):
-                str_duplicate = "Key {:s} is duplicated! Only first one will be saved."
-                print(str_duplicate.format(key_i))
+                warn(str_duplicate.format(key_i))
                 continue
             keywords.append(key_i)
 
@@ -208,22 +214,35 @@ def make_summary(fitslist, extension=0, fname_option='relative',
             try:
                 summarytab[k].append(hdr[k])
             except KeyError:
-                if verbose:
-                    if isinstance(item, CCDData):
-                        print(str_keyerror_fill.format(k, f"fitslist[{i}]"))
-                    else:
-                        print(str_keyerror_fill.format(k, str(item)))
+                if isinstance(item, CCDData):
+                    warn(str_keyerror_fill.format(k, f"fitslist[{i}]"))
+                else:
+                    warn(str_keyerror_fill.format(k, str(item)))
                 summarytab[k].append(None)
 
-    summarytab = Table(summarytab)
-    if sort_by is not None:
-        summarytab.sort(sort_by)
+    if pandas:
+        import pandas as pd
+        summarytab = pd.DataFrame.from_dict(summarytab)
+        if sort_by is not None:
+            summarytab.sort_values(sort_by, inplace=True)
+        summarytab.reset_index(drop=True, inplace=True)
 
-    if output is not None:
-        output = Path(output)
-        if verbose:
-            print(str_filesave.format(str(output)))
-        summarytab.write(output, format=format)
+        if output is not None:
+            output = Path(output)
+            if verbose:
+                print(str_filesave.format(str(output)))
+            summarytab.to_csv(output, index=False)
+
+    else:
+        summarytab = Table(summarytab)
+        if sort_by is not None:
+            summarytab.sort(sort_by)
+
+        if output is not None:
+            output = Path(output)
+            if verbose:
+                print(str_filesave.format(str(output)))
+            summarytab.write(output, format=format)
 
     return summarytab
 
@@ -268,20 +287,18 @@ def fits_newpath(fpath, rename_by, mkdir_by=None, header=None, delimiter='_',
         hdr = header.copy()
 
     # First make file name without parent path
-    newname = ""
+    hdrvals = []
     for k in rename_by:
         try:
-            newname += str(hdr[k])
+            hdrvals.append(hdr[k])
         except KeyError:
-            newname += fillnan
-        newname += delimiter
-    ndel = len(delimiter)
-    newname = newname[:-ndel]
+            hdrvals.append(fillnan)
 
     if not fileext.startswith('.'):
         fileext = f".{fileext}"
-    newname = newname + fileext
 
+    newname = delimiter.join(hdrvals)
+    newname = newname + fileext
     newpath = Path(fpath.parent)
 
     if mkdir_by is not None:
