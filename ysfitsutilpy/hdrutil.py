@@ -272,11 +272,13 @@ def wcsremove(filepath=None, additional_keys=[], extension=0,
                  'C[0-9]NIT[0-9]',  # FOCAS
                  'CRPIX[0-9]',      # The reference pixels in image coordinate
                  'C[0-9]PIX[0-9]',  # FOCAS
-                 'CRVAL[0-9]',      # The world cooordinate values at CRPIX[1, 2]
+                 # The world cooordinate values at CRPIX[1, 2]
+                 'CRVAL[0-9]',
                  'C[0-9]VAL[0-9]',  # FOCAS
                  'CDELT[0-9]',      # with CROTA, older version of CD matrix.
                  'C[0-9]ELT[0-9]',  # FOCAS
-                 'CROTA[0-9]',      # The angle between image Y and world Y axes
+                 # The angle between image Y and world Y axes
+                 'CROTA[0-9]',
                  'CRDELT[0-9]',
                  'CFINT[0-9]',
                  'RADE[C]?SYS*'     # RA/DEC system (frame)
@@ -384,7 +386,7 @@ def airmass_from_hdr(header, ra=None, dec=None, ut=None, exptime=None,
                      exptime_unit=u.s, lon_unit=u.deg, lat_unit=u.deg,
                      height_unit=u.m,
                      ut_format='isot', ut_scale='utc',
-                     full=False, return_header=False
+                     return_header=False
                      ):
     ''' Calculate airmass using the header.
     Parameters
@@ -419,25 +421,21 @@ def airmass_from_hdr(header, ra=None, dec=None, ut=None, exptime=None,
     ut_format, ut_scale: str, optional
         The ``format`` and ``scale`` for Time.
 
-    full: bool, optional
-        Whether to return the full calculated results. If ``False``, it returns
-        the averaged (Simpson's 1/3-rule calculated) airmass only.
-
     return_header: bool, optional
         Whether to return the updated header.
     '''
     # If there is no header keyword matches the ``key``, it should give
     # KeyError. For such reason, I didn't use ``get_from_header`` here.
-    def _conversion(header, val, key, unit=None, instance=u.Quantity):
+    def _conversion(header, val, key, unit=None):
         if val is None:
-            val = header[key]
-        elif (instance is not None) and (unit is not None):
-            if isinstance(val, instance):
+            val = header[key]  # assume it is in the unit of ``unit``.
+        elif unit is not None:
+            if isinstance(val, u.Quantity):
                 val = val.to(unit).value
-
+            # else: just return ``val``.
         return val
 
-    def _cards_airmass(am, altaz=None):
+    def _cards_airmass(am_eff, alldict):
         ''' Gives airmass and alt-az related header cards.
         '''
         amstr = ("ysfitsutilpy's airmass calculation uses the same algorithm "
@@ -447,36 +445,38 @@ def airmass_from_hdr(header, ra=None, dec=None, ut=None, exptime=None,
 
         # At some times, hdr["AIRMASS"] = am, for example, did not work for some
         # reasons which I don't know.... So I used Card. - YPBach 2018-05-04
-        if altaz is None:
-            return [Card("AIRMASS", am, "Aaverage airmass (Stetson 1988)")]
+        cs = [Card("AIRMASS", am_eff, "Effective airmass (Stetson 1988)"),
+              Card("ZD", alldict["zd"][0],
+                   "Zenithal distance (start of the exposure)"),
+              Card("ALT", alldict["alt"][0],
+                   "Altitude (start of the exposure)"),
+              Card("AZ", alldict["az"][0],
+                   "Azimuth (start of the exposure)"),
+              Card("ALT_MID", alldict["alt"][1],
+                   "Altitude (midpoint of the exposure)"),
+              Card("AZ_MID", alldict["az"][1],
+                   "Azimuth (midpoint of the exposure)"),
+              Card("ZD", alldict["zd"][1],
+                   "Zenithal distance (midpoint of the exposure)"),
+              Card("ALT_END", alldict["alt"][2],
+                   "Altitude (end of the exposure)"),
+              Card("AZ_END", alldict["az"][2],
+                   "Azimuth (end of the exposure)"),
+              Card("ZD_END", alldict["zd"][2],
+                   "Zenithal distance (end of the exposure)"),
+              Card("COMMENT", amstr),
+              Card("HISTORY", "ALT-AZ calculated from ysfitsutilpy."),
+              Card("HISTORY", "AIRMASS calculated from ysfitsutilpy.")]
+        return cs
 
-        else:
-            cs = [Card("AIRMASS", am, "Aaverage airmass (Stetson 1988)"),
-                  Card("ALT", altaz["alt"][0],
-                       "Altitude (start of the exposure)"),
-                  Card("AZ", altaz["az"][0],
-                       "Azimuth (start of the exposure)"),
-                  Card("ALT_MID", altaz["alt"][1],
-                       "Altitude (midpoint of the exposure)"),
-                  Card("AZ_MID", altaz["az"][1],
-                       "Azimuth (midpoint of the exposure)"),
-                  Card("ALT_END", altaz["alt"][2],
-                       "Altitude (end of the exposure)"),
-                  Card("AZ_END", altaz["az"][2],
-                       "Azimuth (end of the exposure)"),
-                  Card("COMMENT", amstr),
-                  Card("HISTORY", "ALT-AZ calculated from ysfitsutilpy."),
-                  Card("HISTORY", "AIRMASS calculated from ysfitsutilpy.")]
-            return cs
-
-    ra      = _conversion(header, ra     , ra_key     , ra_unit     )
-    dec     = _conversion(header, dec    , dec_key    , dec_unit    )
+    ra = _conversion(header, ra, ra_key, ra_unit)
+    dec = _conversion(header, dec, dec_key, dec_unit)
     exptime = _conversion(header, exptime, exptime_key, exptime_unit)
-    lon     = _conversion(header, lon    , lon_key    , lon_unit    )
-    lat     = _conversion(header, lat    , lat_key    , lat_unit    )
-    height  = _conversion(header, height , height_key , height_unit )
-    equinox = _conversion(header, equinox, equinox_key              )
-    frame   = _conversion(header, frame  , frame_key                )
+    lon = _conversion(header, lon, lon_key, lon_unit)
+    lat = _conversion(header, lat, lat_key, lat_unit)
+    height = _conversion(header, height, height_key, height_unit)
+    equinox = _conversion(header, equinox, equinox_key)
+    frame = _conversion(header, frame, frame_key)
 
     if ut is None:
         ut = header[ut_key]
@@ -491,7 +491,7 @@ def airmass_from_hdr(header, ra=None, dec=None, ut=None, exptime=None,
                            frame=frame,
                            equinox=equinox)
 
-    try:
+    try: # It should work here but just in case I put except...
         observcoord = EarthLocation(lon=lon * lon_unit,
                                     lat=lat * lat_unit,
                                     height=height * height_unit)
@@ -500,16 +500,16 @@ def airmass_from_hdr(header, ra=None, dec=None, ut=None, exptime=None,
                                     lat=lat,
                                     height=height)
 
-    result = airmass_obs(targetcoord=targetcoord,
-                         obscoord=observcoord,
-                         ut=ut,
-                         exptime=exptime * exptime_unit,
-                         scale=scale,
-                         full=full)
+    am_eff, alldict = airmass_obs(targetcoord=targetcoord,
+                                  obscoord=observcoord,
+                                  ut=ut,
+                                  exptime=exptime * exptime_unit,
+                                  scale=scale,
+                                  full=True)
 
     if return_header:
         nhdr = header.copy()
-        cards = _cards_airmass(*result)
+        cards = _cards_airmass(am_eff, alldict)
         # Remove if there is, e.g., AIRMASS a priori to the original header:
         for c in cards:
             try:
@@ -520,7 +520,7 @@ def airmass_from_hdr(header, ra=None, dec=None, ut=None, exptime=None,
         return nhdr
 
     else:
-        return result
+        return am_eff, alldict
 
 
 def convert_bit(fname, original_bit=12, target_bit=16):
