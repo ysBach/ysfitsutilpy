@@ -100,7 +100,6 @@ def group_FITS(summary_table, type_key=None, type_val=None, group_key=None):
         st = st[st[k] == v]
 
     group_type_key = type_key + group_key
-    group_type_vals = []
     grouped = st.groupby(group_key)
 
     return grouped, group_type_key
@@ -194,9 +193,11 @@ def stack_FITS(fitslist=None, summary_table=None, extension=0,
     # If fitslist
     if fitslist is not None:
         table_mode = False
-        if not isinstance(fitslist, list):
-            raise TypeError(
-                f"fitslist must be a list. It's now {type(fitslist)}.")
+        try:
+            fitslist = list(fitslist)
+        except TypeError:
+            raise TypeError("fitslist must be convertable to list. "
+                            + f"It's now {type(fitslist)}.")
 
     # If summary_table
     if summary_table is not None:
@@ -457,7 +458,7 @@ def combine_ccd(fitslist=None, summary_table=None, table_filecol="file",
         elif reject_method in ['sigma_clip' 'sigclip']:
             sigma_clip = True
         else:
-            if reject_method is not None:
+            if reject_method not in [None, 'no']:
                 raise KeyError("reject must be one of "
                                "{None, 'minmax', 'sigclip' == 'sigma_clip', 'extrema' == 'ext}")
 
@@ -467,7 +468,7 @@ def combine_ccd(fitslist=None, summary_table=None, table_filecol="file",
         if reject_method is None:
             reject_method = 'no'
 
-        info_str = ('"{:s}" combine {:d} images by "{:s}" rejection\n')
+        info_str = ('"{:s}" combine {:d} images by "{:s}" rejection')
 
         print(info_str.format(combine_method, Nccd, reject_method))
         print(dict(**kwargs))
@@ -502,9 +503,11 @@ def combine_ccd(fitslist=None, summary_table=None, table_filecol="file",
 
     # If fitslist
     if fitslist is not None:
-        if not isinstance(fitslist, list):
-            raise TypeError(
-                f"fitslist must be a list. It's now {type(fitslist)}.")
+        try:
+            fitslist = list(fitslist)
+        except TypeError:
+            raise TypeError("fitslist must be convertable to list. "
+                            + f"It's now {type(fitslist)}.")
 
     # If summary_table
     if summary_table is not None:
@@ -534,7 +537,7 @@ def combine_ccd(fitslist=None, summary_table=None, table_filecol="file",
 
     # Set history messages
     str_history = ('{:d} images with {:s} = {:s} are "{:s}" combined '
-                   + 'using "{:s}" rejection with {}')
+                   + 'using "{:s}" rejection (additional kwargs: {})')
     str_nexp = "Each frame normalized by exposure time before combination."
     str_navg = "Each frame normalized by average value before combination."
     str_subt = "Subtracted a user-provided frame"
