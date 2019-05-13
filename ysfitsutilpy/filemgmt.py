@@ -298,7 +298,7 @@ def fits_newpath(fpath, rename_by, mkdir_by=None, header=None, delimiter='_',
     if not fileext.startswith('.'):
         fileext = f".{fileext}"
 
-    newname = delimiter.join(hdrvals)
+    newname = delimiter.join(list(hdrvals))  # just in case, re-listify...
     newname = newname + fileext
     newpath = Path(fpath.parent)
 
