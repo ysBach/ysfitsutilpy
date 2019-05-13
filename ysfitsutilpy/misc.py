@@ -270,8 +270,12 @@ def chk_keyval(type_key, type_val, group_key):
     ''' Checks the validity of key and values used heavily in combutil.
     Parameters
     ----------
-    type_key, type_val: None, str, list of str, optional
-        The header keyword for the ccd type, and the value you want to match.
+    type_key : None, str, list of str, optional
+        The header keyword for the ccd type you want to use for match.
+
+    type_val : None, int, str, float, etc and list of such
+        The header keyword values for the ccd type you want to match.
+
 
     group_key : None, str, list of str, optional
         The header keyword which will be used to make groups for the CCDs
@@ -289,33 +293,37 @@ def chk_keyval(type_key, type_val, group_key):
         type_key = []
     elif isinstance(type_key, str):
         type_key = [type_key]
-    elif isinstance(type_key, list):
-        if not all(isinstance(x, str) for x in type_key):
-            raise TypeError("Some of type_key are not str.")
     else:
-        raise TypeError("type_key should be str or list of str.")
+        try:
+            type_key = list(type_key)
+            if not all(isinstance(x, str) for x in type_key):
+                raise TypeError("Some of type_key are not str.")
+        except TypeError:
+            raise TypeError("type_key should be str or convertible to list.")
 
     # Make type_val to list
     if type_val is None:
         type_val = []
     elif isinstance(type_val, str):
         type_val = [type_val]
-    elif isinstance(type_val, list):
-        if not all(isinstance(x, str) for x in type_val):
-            raise TypeError("Some of type_val are not str.")
     else:
-        raise TypeError("type_val should be str or list of str.")
+        try:
+            type_val = list(type_val)
+        except TypeError:
+            raise TypeError("type_val should be str or convertible to list.")
 
     # Make group_key to list
     if group_key is None:
         group_key = []
     elif isinstance(group_key, str):
         group_key = [group_key]
-    elif isinstance(group_key, list):
-        if not all(isinstance(x, str) for x in group_key):
-            raise TypeError("Some of group_key are not str.")
     else:
-        raise TypeError("group_key should be str or list of str.")
+        try:
+            group_key = list(group_key)
+            if not all(isinstance(x, str) for x in group_key):
+                raise TypeError("Some of group_key are not str.")
+        except TypeError:
+            raise TypeError("group_key should be str or convertible to list.")
 
     if len(type_key) != len(type_val):
         raise ValueError("type_key and type_val must have the same length!")
