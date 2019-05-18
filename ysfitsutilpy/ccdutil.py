@@ -135,6 +135,8 @@ def bin_ccd(ccd, factor_x=1, factor_y=1, binfunc=np.mean):
                         binfunc=binfunc)
     _ccd.header.add_history(
         f"Binned by (xbin, ybin) = ({factor_x}, {factor_y})")
+    _ccd.header["BINFUNC"] = (
+        binfunc.__name__, "The function used for binning.")
     _ccd.header["XBINNING"] = (
         factor_x, "Binning done after the observation in X direction")
     _ccd.header["YBINNING"] = (
