@@ -36,19 +36,19 @@ MEDCOMB_KEYS_FLT32 = dict(dtype='float32',
                           unit=u.adu,
                           combine_uncertainty_function=None)
 
-# I skipped two params in LACOSMIC: gain=1.0, readnoise=6.5
-LACOSMIC_KEYS = dict(sigclip=4.5, sigfrac=0.3, objlim=5.0,
+# I skipped two params in IRAF LACOSMIC: gain=2.0, readnoise=6.
+LACOSMIC_KEYS = dict(sigclip=4.5, sigfrac=0.5, objlim=1.0,
                      satlevel=np.inf, pssl=0.0, niter=4, sepmed=False,
                      cleantype='medmask', fsmode='median', psfmodel='gauss',
                      psffwhm=2.5, psfsize=7, psfk=None, psfbeta=4.765)
 
 
 def binning(arr, factor_x=1, factor_y=1, binfunc=np.mean, trim_end=False):
-    ''' Bins the given CCD frame.
+    ''' Bins the given arr frame.
     Paramters
     ---------
-    ccd: CCDData
-        The ccd to be binned
+    arr: 2d array
+        The array to be binned
     factor_x, factor_y: int
         The binning factors in x, y direction.
     binfunc : funciton object
