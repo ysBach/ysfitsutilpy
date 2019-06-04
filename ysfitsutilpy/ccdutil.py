@@ -205,7 +205,7 @@ def CCDData_astype(ccd, dtype='float32', uncertainty_dtype=None):
 
 
 def make_errmap(ccd, gain_epadu=1, rdnoise_electron=0,
-                subtracted_dark=None):
+                flat_err=0.0, subtracted_dark=None):
     ''' Calculate the simple error map.
     Parameters
     ----------
@@ -220,6 +220,11 @@ def make_errmap(ccd, gain_epadu=1, rdnoise_electron=0,
     rdnoise: float, array-like, or Quantity, optional.
         The readout noise. Put ``rdnoise=0`` will calculate only the Poissonian
         error. This is useful when generating noise map for dark frames.
+    flat_err : float, array-like optional.
+        The uncertainty from the flat fielding (see, e.g., eq 10 of StetsonPB
+        1987, PASP, 99, 191). Stetson used 0.0075 (0.75% fractional
+        uncertainty).
+
     subtracted_dark: array-like
         The subtracted dark map.
 
@@ -250,6 +255,8 @@ def make_errmap(ccd, gain_epadu=1, rdnoise_electron=0,
     elif isinstance(rdnoise_electron, str):
         rdnoise_electron = float(rdnoise_electron)
 
+    var_flat = (data * flat_err)**2
+
     # Get Poisson noise
     if subtracted_dark is not None:
         dark = subtracted_dark.copy()
@@ -261,6 +268,7 @@ def make_errmap(ccd, gain_epadu=1, rdnoise_electron=0,
     var_Poisson = data / gain_epadu  # (data * gain) / gain**2 to make it ADU
     var_RDnoise = (rdnoise_electron / gain_epadu)**2
 
-    errmap = np.sqrt(var_Poisson + var_RDnoise)
+
+    errmap = np.sqrt(var_Poisson + var_RDnoise + var_flat)
 
     return errmap
