@@ -11,6 +11,9 @@ from .hdrutil import get_from_header
 from .misc import LACOSMIC_KEYS
 
 
+__all__ = ["bdf_process"]
+
+
 # NOTE: crrej should be done AFTER bias/dark and flat correction:
 # http://www.astro.yale.edu/dokkum/lacosmic/notes.html
 def bdf_process(ccd, output=None, mbiaspath=None, mdarkpath=None, mflatpath=None,

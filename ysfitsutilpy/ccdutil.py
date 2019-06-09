@@ -223,7 +223,7 @@ def make_errmap(ccd, gain_epadu=1, rdnoise_electron=0,
     flat_err : float, array-like optional.
         The uncertainty from the flat fielding (see, e.g., eq 10 of StetsonPB
         1987, PASP, 99, 191). Stetson used 0.0075 (0.75% fractional
-        uncertainty).
+        uncertainty) and IRAF DAOPHOT used 0.01 (http://stsdas.stsci.edu/cgi-bin/gethelp.cgi?daopars)
 
     subtracted_dark: array-like
         The subtracted dark map.
@@ -267,7 +267,6 @@ def make_errmap(ccd, gain_epadu=1, rdnoise_electron=0,
 
     var_Poisson = data / gain_epadu  # (data * gain) / gain**2 to make it ADU
     var_RDnoise = (rdnoise_electron / gain_epadu)**2
-
 
     errmap = np.sqrt(var_Poisson + var_RDnoise + var_flat)
 

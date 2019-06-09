@@ -491,7 +491,7 @@ def airmass_from_hdr(header, ra=None, dec=None, ut=None, exptime=None,
                            frame=frame,
                            equinox=equinox)
 
-    try: # It should work here but just in case I put except...
+    try:  # It should work here but just in case I put except...
         observcoord = EarthLocation(lon=lon * lon_unit,
                                     lat=lat * lat_unit,
                                     height=height * height_unit)
