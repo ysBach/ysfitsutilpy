@@ -120,7 +120,7 @@ def give_stats(item, extension=0, percentiles=[1, 99], N_extrema=None):
     '''
     try:
         data = fits.open(item)[extension].data
-    except (FileNotFoundError, IndentationError, AttributeError):
+    except (FileNotFoundError, IndentationError, AttributeError, ValueError):
         data = np.atleast_1d(item)
 
     result = {}
