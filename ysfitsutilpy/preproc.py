@@ -1,32 +1,30 @@
+from warnings import warn
+import ccdproc
 import numpy as np
-
 from astropy import units as u
 from astropy.nddata import CCDData, StdDevUncertainty
+from ccdproc import flat_correct, subtract_bias, subtract_dark, trim_image
 
-import ccdproc
-from ccdproc import trim_image, subtract_bias, subtract_dark, flat_correct
-
-from .ccdutil import make_errmap, CCDData_astype
+from .ccdutil import CCDData_astype, make_errmap
 from .hdrutil import get_from_header
-from .misc import LACOSMIC_KEYS
-
 
 __all__ = ["bdf_process"]
 
 
 # NOTE: crrej should be done AFTER bias/dark and flat correction:
 # http://www.astro.yale.edu/dokkum/lacosmic/notes.html
-def bdf_process(ccd, output=None, mbiaspath=None, mdarkpath=None, mflatpath=None,
-                trim_fits_section=None, calc_err=False, unit='adu', gain=None,
-                rdnoise=None, gain_key="GAIN", rdnoise_key="RDNOISE",
-                gain_unit=u.electron / u.adu, rdnoise_unit=u.electron,
+def bdf_process(ccd, output=None,
+                mbiaspath=None, mdarkpath=None, mflatpath=None,
+                trim_fits_section=None, calc_err=False, unit='adu',
+                gain=None, gain_key="GAIN", gain_unit=u.electron/u.adu,
+                rdnoise=None, rdnoise_key="RDNOISE", rdnoise_unit=u.electron,
                 dark_exposure=None, data_exposure=None, exposure_key="EXPTIME",
-                exposure_unit=u.s, dark_scale=False, normalize_exposure=False,
-                normalize_average=False,
+                exposure_unit=u.s, dark_scale=False,
+                normalize_exposure=False, normalize_average=False,
                 flat_min_value=None, flat_norm_value=None,
-                do_crrej=False, verbose_crrej=False,
-                verbose_bdf=True, output_verify='fix', overwrite=True,
-                dtype="float32", uncertainty_dtype="float32"):
+                do_crrej=False, crrej_kwargs=None, propagate_crmask=False,
+                verbose_crrej=False, verbose_bdf=True, output_verify='fix',
+                overwrite=True, dtype="float32", uncertainty_dtype="float32"):
     ''' Do bias, dark and flat process.
     Parameters
     ----------
@@ -42,8 +40,8 @@ def bdf_process(ccd, output=None, mbiaspath=None, mdarkpath=None, mflatpath=None
         corresponding process is not done.
 
     trim_fits_section: str, optional
-        Region of ``ccd`` to be trimmed; see ``ccdproc.subtract_overscan`` for
-        details. Default is ``None``.
+        Region of ``ccd`` to be trimmed; see
+        ``ccdproc.subtract_overscan`` for details. Default is ``None``.
 
     calc_err : bool, optional.
         Whether to calculate the error map based on Poisson and readnoise
@@ -54,12 +52,13 @@ def bdf_process(ccd, output=None, mbiaspath=None, mdarkpath=None, mflatpath=None
         Default is ``'adu'``.
 
     gain, rdnoise : None, float, optional
-        The gain and readnoise value. These are all ignored if ``calc_err=False``.
-        If ``calc_err=True``, it automatically seeks for suitable gain and
-        readnoise value. If ``gain`` or ``readnoise`` is specified, they are
-        interpreted with ``gain_unit`` and ``rdnoise_unit``, respectively.
-        If they are not specified, this function will seek for the header
-        with keywords of ``gain_key`` and ``rdnoise_key``, and interprete the
+        The gain and readnoise value. These are all ignored if
+        ``calc_err=False``. If ``calc_err=True``, it automatically seeks
+        for suitable gain and readnoise value. If ``gain`` or
+        ``readnoise`` is specified, they are interpreted with
+        ``gain_unit`` and ``rdnoise_unit``, respectively. If they are
+        not specified, this function will seek for the header with
+        keywords of ``gain_key`` and ``rdnoise_key``, and interprete the
         header value in the unit of ``gain_unit`` and ``rdnoise_unit``,
         respectively.
 
@@ -72,12 +71,13 @@ def bdf_process(ccd, output=None, mbiaspath=None, mdarkpath=None, mflatpath=None
         These are all ignored if ``calc_err=False``.
 
     dark_exposure, data_exposure : None, float, astropy Quantity, optional
-        The exposure times of dark and data frame, respectively. They should
-        both be specified or both ``None``.
+        The exposure times of dark and data frame, respectively. They
+        should both be specified or both ``None``.
         These are all ignored if ``mdarkpath=None``.
-        If both are not specified while ``mdarkpath`` is given, then the code
-        automatically seeks for header's ``exposure_key``. Then interprete the
-        value as the quantity with unit ``exposure_unit``.
+        If both are not specified while ``mdarkpath`` is given, then the
+        code automatically seeks for header's ``exposure_key``. Then
+        interprete the value as the quantity with unit
+        ``exposure_unit``.
 
         If ``mdkarpath`` is not ``None``, then these are passed to
         ``ccdproc.subtract_dark``.
@@ -92,24 +92,42 @@ def bdf_process(ccd, output=None, mbiaspath=None, mdarkpath=None, mflatpath=None
 
     flat_min_value : float or None, optional
         min_value of `ccdproc.flat_correct`.
-        Minimum value for flat field. The value can either be None and no
-        minimum value is applied to the flat or specified by a float which
-        will replace all values in the flat by the min_value.
+        Minimum value for flat field. The value can either be None and
+        no minimum value is applied to the flat or specified by a float
+        which will replace all values in the flat by the min_value.
         Default is ``None``.
 
     flat_norm_value : float or None, optional
         norm_value of `ccdproc.flat_correct`.
-        If not ``None``, normalize flat field by this argument rather than the
-        mean of the image. This allows fixing several different flat fields to
-        have the same scale. If this value is negative or 0, a ``ValueError``
+        If not ``None``, normalize flat field by this argument rather
+        than the mean of the image. This allows fixing several different
+        flat fields to have the same scale. If this value is negative or
+        0, a ``ValueError``
         is raised. Default is ``None``.
 
+    crrej_kwargs : dict or None, optional
+        If ``None`` (default), uses some default values defined in
+        ``~.misc.LACOSMIC_KEYS``. It is always discouraged to use
+        default except for quick validity-checking, because even the
+        official L.A. Cosmic codes in different versions (IRAF, IDL,
+        Python, etc) have different default parameters, i.e., there is
+        nothing which can be regarded as default.
+        To see all possible keywords, do
+        ``print(astroscrappy.detect_cosmics.__doc__)``
+        Also refer to
+        https://nbviewer.jupyter.org/github/ysbach/AO2019/blob/master/Notebooks/07-Cosmic_Ray_Rejection.ipynb
+
+    propagate_crmask : bool, optional
+        Whether to save (propagate) the mask from CR rejection
+        (``astroscrappy``) to the CCD's mask.
+        Default is ``False``.
+
     output_verify : str
-        Output verification option.  Must be one of ``"fix"``, ``"silentfix"``,
-        ``"ignore"``, ``"warn"``, or ``"exception"``.  May also be any
-        combination of ``"fix"`` or ``"silentfix"`` with ``"+ignore"``,
-        ``+warn``, or ``+exception" (e.g. ``"fix+warn"``).  See the astropy
-        documentation below:
+        Output verification option.  Must be one of ``"fix"``,
+        ``"silentfix"``, ``"ignore"``, ``"warn"``, or ``"exception"``.
+        May also be any combination of ``"fix"`` or ``"silentfix"`` with
+        ``"+ignore"``, ``+warn``, or ``+exception" (e.g.
+        ``"fix+warn"``).  See the astropy documentation below:
         http://docs.astropy.org/en/stable/io/fits/api/verification.html#verify
 
     dtype : str or `numpy.dtype` or None, optional
@@ -130,12 +148,14 @@ def bdf_process(ccd, output=None, mbiaspath=None, mdarkpath=None, mflatpath=None
     str_trim = "Trim by FITS section {}"
     str_grd = "From {}, {} = {:.3f} [{}]"
     # str_grd.format(user/header_key, gain/rdnoise, val, unit)
-    str_e0 = "Readnoise propagated with Poisson noise (using gain above) of source."
+    str_e0 = ("Readnoise propagated with Poisson noise (using gain above)"
+              + " of source.")
     str_ed = "Poisson noise from subtracted dark was propagated."
     str_ef = "Flat uncertainty was propagated."
     str_nexp = "Normalized by the exposure time."
     str_navg = "Normalized by the average value of the frame."
-    str_cr = "Cosmic-Ray rejected by astroscrappy (v {}), LACOSMIC default setting: {}"
+    str_cr = ("Cosmic-Ray rejected by astroscrappy (v {}), "
+              + "with parameters: {}")
 
     # Initial setting
     proc = CCDData(ccd)
@@ -188,7 +208,7 @@ def bdf_process(ccd, output=None, mbiaspath=None, mdarkpath=None, mflatpath=None
             gain_Q = get_from_header(hdr_new,
                                      gain_key,
                                      unit=gain_unit,
-                                     verbose=verbose_bdf,
+                                     verbose=False,
                                      default=1.)
             gain_from = gain_key
         else:
@@ -198,14 +218,17 @@ def bdf_process(ccd, output=None, mbiaspath=None, mdarkpath=None, mflatpath=None
                 gain_Q = gain
             gain_from = "User"
 
-        _add_and_print(str_grd.format(gain_from, "gain", gain_Q.value, gain_Q.unit),
+        _add_and_print(str_grd.format(gain_from,
+                                      "gain",
+                                      gain_Q.value,
+                                      gain_Q.unit),
                        hdr_new, verbose_bdf)
 
         if rdnoise is None:
             rdnoise_Q = get_from_header(hdr_new,
                                         rdnoise_key,
                                         unit=rdnoise_unit,
-                                        verbose=verbose_bdf,
+                                        verbose=False,
                                         default=1.)
             rdnoise_from = rdnoise_key
         else:
@@ -215,7 +238,10 @@ def bdf_process(ccd, output=None, mbiaspath=None, mdarkpath=None, mflatpath=None
                 rdnoise_Q = rdnoise
             rdnoise_from = "User"
 
-        _add_and_print(str_grd.format(rdnoise_from, "rdnoise", rdnoise_Q.value, rdnoise_Q.unit),
+        _add_and_print(str_grd.format(rdnoise_from,
+                                      "rdnoise",
+                                      rdnoise_Q.value,
+                                      rdnoise_Q.unit),
                        hdr_new, verbose_bdf)
 
     # Do TRIM
@@ -286,23 +312,39 @@ def bdf_process(ccd, output=None, mbiaspath=None, mdarkpath=None, mflatpath=None
     if do_crrej:
         import astroscrappy
         from astroscrappy import detect_cosmics
+        from .misc import LACOSMIC_KEYS
+
+        if crrej_kwargs is None:
+            crrej_kwargs = LACOSMIC_KEYS
+            warn("You are not specifying CR-rejection parameters and blindly"
+                 + " using defaults. It can be dangerous.")
+
+        if (("B" in hdr_new["PROCESS"])
+                + ("D" in hdr_new["PROCESS"])
+                + ("F" in hdr_new["PROCESS"])) < 2:
+            warn("L.A. Cosmic should be run AFTER B/D/F process. "
+                 + f"You are running it with {hdr_new['PROCESS']}. "
+                 + "See http://www.astro.yale.edu/dokkum/lacosmic/notes.html")
 
         # remove the fucxing cosmic rays
         crmask, cleanarr = detect_cosmics(proc.data,
                                           inmask=proc.mask,
-                                          gain=gain,
-                                          readnoise=rdnoise,
-                                          **LACOSMIC_KEYS,
+                                          gain=gain_Q.value,
+                                          readnoise=rdnoise_Q.value,
+                                          **crrej_kwargs,
                                           verbose=verbose_crrej)
 
         # create the new ccd data object
-        proc.data = cleanarr
-        if proc.mask is None:
-            proc.mask = crmask
-        else:
-            proc.mask = proc.mask + crmask
+        #   astroscrappy automatically does the gain correction, so return
+        #   back to avoid confusion.
+        proc.data = cleanarr / gain_Q.value
+        if propagate_crmask:
+            if proc.mask is None:
+                proc.mask = crmask
+            else:
+                proc.mask = proc.mask + crmask
         hdr_new["PROCESS"] += "C"
-        _add_and_print(str_cr.format(astroscrappy.__version__, LACOSMIC_KEYS),
+        _add_and_print(str_cr.format(astroscrappy.__version__, crrej_kwargs),
                        hdr_new, verbose_crrej)
 
     proc = CCDData_astype(proc, dtype=dtype,
