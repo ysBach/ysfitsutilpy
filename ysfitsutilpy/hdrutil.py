@@ -380,8 +380,9 @@ def airmass_from_hdr(header, ra=None, dec=None, ut=None, exptime=None,
                      lon=None, lat=None, height=None, equinox=None, frame=None,
                      scale=750.,
                      ra_key="RA", dec_key="DEC", ut_key="DATE-OBS",
-                     exptime_key="EXPTIME", lon_key="LONGITUD", lat_key="LATITUDE",
-                     height_key="HEIGHT", equinox_key="EPOCH", frame_key="RADECSYS",
+                     exptime_key="EXPTIME", lon_key="LONGITUD",
+                     lat_key="LATITUDE", height_key="HEIGHT",
+                     equinox_key="EPOCH", frame_key="RADECSYS",
                      ra_unit=u.hourangle, dec_unit=u.deg,
                      exptime_unit=u.s, lon_unit=u.deg, lat_unit=u.deg,
                      height_unit=u.m,
@@ -392,8 +393,8 @@ def airmass_from_hdr(header, ra=None, dec=None, ut=None, exptime=None,
     Parameters
     ----------
     ra, dec: float or Quantity, optional
-        The RA and DEC of the target. If not specified, it tries to find them
-        in the header using ``ra_key`` and ``dec_key``.
+        The RA and DEC of the target. If not specified, it tries to find
+        them in the header using ``ra_key`` and ``dec_key``.
 
     ut: str or Time, optional
         The *starting* time of the observation in UT.
@@ -409,8 +410,8 @@ def airmass_from_hdr(header, ra=None, dec=None, ut=None, exptime=None,
         The ``equinox`` and ``frame`` for SkyCoord.
 
     scale: float, optional
-        Earth radius divided by the atmospheric height (usually scale height)
-        of the atmosphere.
+        Earth radius divided by the atmospheric height (usually scale
+        height) of the atmosphere.
 
     XX_key: str, optional
         The header key to find XX if ``XX`` is ``None``.
@@ -440,12 +441,14 @@ def airmass_from_hdr(header, ra=None, dec=None, ut=None, exptime=None,
         '''
         amstr = ("ysfitsutilpy's airmass calculation uses the same algorithm "
                  + "as IRAF: From 'Some Factors Affecting the Accuracy of "
-                 + "Stellar Photometry with CCDs' by P. Stetson, DAO preprint, "
-                 + "September 1988.")
+                 + "Stellar Photometry with CCDs' by P. Stetson, DAO preprint,"
+                 + " September 1988.")
 
-        # At some times, hdr["AIRMASS"] = am, for example, did not work for some
-        # reasons which I don't know.... So I used Card. - YPBach 2018-05-04
-        cs = [Card("AIRMASS", am_eff, "Effective airmass (Stetson 1988; see COMMENT)"),
+        # At some times, hdr["AIRMASS"] = am, for example, did not work
+        # for some reasons which I don't know.... So I used Card. -
+        # YPBach 2018-05-04
+        cs = [Card("AIRMASS", am_eff,
+                   "Effective airmass (Stetson 1988; see COMMENT)"),
               Card("ZD", alldict["zd"][0],
                    "[deg] Zenithal distance (start of the exposure)"),
               Card("ALT", alldict["alt"][0],
