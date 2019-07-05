@@ -20,7 +20,7 @@ def zimshow(ax, image, stretch=LinearStretch(), cmap=None, **kwargs):
 
 def colorbaring(fig, ax, im, fmt="%.0f", orientation='horizontal',
                 formatter=FormatStrFormatter):
-    cb = fig.colorbar(im, ax=ax, orientation='horizontal',
+    cb = fig.colorbar(im, ax=ax, orientation=orientation,
                       format=FormatStrFormatter(fmt))
 
     return cb
