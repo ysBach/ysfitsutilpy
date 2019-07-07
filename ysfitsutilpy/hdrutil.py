@@ -92,7 +92,7 @@ def fov_radius(header, unit=u.deg):
 
     Return
     ------
-    radius: float
+    radius: `~astropy.Quantity`
         The radius in degrees
     '''
     w = WCS(header)
