@@ -2,11 +2,12 @@
 Collection of functions that are quite far from headerutil.
 '''
 from warnings import warn
+
 import numpy as np
+from astropy import units as u
 from astropy.io import fits
 from astropy.nddata import CCDData, Cutout2D, StdDevUncertainty
 from astropy.wcs import WCS
-from astropy import units as u
 
 from .misc import binning
 
@@ -23,26 +24,25 @@ def cutccd(ccd, position, size, mode='trim', fill_value=np.nan):
         The ccd to be trimmed.
 
     position : tuple or `~astropy.coordinates.SkyCoord`
-        The position of the cutout array's center with respect to
-        the ``data`` array.  The position can be specified either as
-        a ``(x, y)`` tuple of pixel coordinates or a
+        The position of the cutout array's center with respect to the
+        ``data`` array.  The position can be specified either as a ``(x,
+        y)`` tuple of pixel coordinates or a
         `~astropy.coordinates.SkyCoord`, in which case ``wcs`` is a
         required input.
 
     size : int, array-like, `~astropy.units.Quantity`
-        The size of the cutout array along each axis.  If ``size``
-        is a scalar number or a scalar `~astropy.units.Quantity`,
-        then a square cutout of ``size`` will be created.  If
-        ``size`` has two elements, they should be in ``(ny, nx)``
-        order.  Scalar numbers in ``size`` are assumed to be in
-        units of pixels.  ``size`` can also be a
-        `~astropy.units.Quantity` object or contain
+        The size of the cutout array along each axis.  If ``size`` is a
+        scalar number or a scalar `~astropy.units.Quantity`, then a
+        square cutout of ``size`` will be created.  If ``size`` has two
+        elements, they should be in ``(ny, nx)`` order.  Scalar numbers
+        in ``size`` are assumed to be in units of pixels.  ``size`` can
+        also be a `~astropy.units.Quantity` object or contain
         `~astropy.units.Quantity` objects.  Such
-        `~astropy.units.Quantity` objects must be in pixel or
-        angular units.  For all cases, ``size`` will be converted to
-        an integer number of pixels, rounding the the nearest
-        integer.  See the ``mode`` keyword for additional details on
-        the final cutout size.
+        `~astropy.units.Quantity` objects must be in pixel or angular
+        units.  For all cases, ``size`` will be converted to an integer
+        number of pixels, rounding the the nearest integer.  See the
+        ``mode`` keyword for additional details on the final cutout
+        size.
 
         .. note::
             If ``size`` is in angular units, the cutout size is
@@ -59,21 +59,21 @@ def cutccd(ccd, position, size, mode='trim', fill_value=np.nan):
     mode : {'trim', 'partial', 'strict'}, optional
         The mode used for creating the cutout data array.  For the
         ``'partial'`` and ``'trim'`` modes, a partial overlap of the
-        cutout array and the input ``data`` array is sufficient.
-        For the ``'strict'`` mode, the cutout array has to be fully
-        contained within the ``data`` array, otherwise an
-        `~astropy.nddata.utils.PartialOverlapError` is raised.   In
-        all modes, non-overlapping arrays will raise a
-        `~astropy.nddata.utils.NoOverlapError`.  In ``'partial'``
-        mode, positions in the cutout array that do not overlap with
-        the ``data`` array will be filled with ``fill_value``.  In
-        ``'trim'`` mode only the overlapping elements are returned,
-        thus the resulting cutout array may be smaller than the
-        requested ``shape``.
+        cutout array and the input ``data`` array is sufficient. For the
+        ``'strict'`` mode, the cutout array has to be fully contained
+        within the ``data`` array, otherwise an
+        `~astropy.nddata.utils.PartialOverlapError` is raised.   In all
+        modes, non-overlapping arrays will raise a
+        `~astropy.nddata.utils.NoOverlapError`.  In ``'partial'`` mode,
+        positions in the cutout array that do not overlap with the
+        ``data`` array will be filled with ``fill_value``.  In
+        ``'trim'`` mode only the overlapping elements are returned, thus
+        the resulting cutout array may be smaller than the requested
+        ``shape``.
 
     fill_value : number, optional
-        If ``mode='partial'``, the value to fill pixels in the
-        cutout array that do not overlap with the input ``data``.
+        If ``mode='partial'``, the value to fill pixels in the cutout
+        array that do not overlap with the input ``data``.
         ``fill_value`` must have the same ``dtype`` as the input
         ``data`` array.
     '''
@@ -120,8 +120,8 @@ def bin_ccd(ccd, factor_x=1, factor_y=1, binfunc=np.mean):
         The function to be applied for binning, such as ``np.sum``,
         ``np.mean``, and ``np.median``.
     trim_end: bool
-        Whether to trim the end of x, y axes such that binning is done without
-        error.
+        Whether to trim the end of x, y axes such that binning is done
+        without error.
     '''
     if not isinstance(ccd, CCDData):
         raise TypeError("ccd must be CCDData object.")
@@ -187,7 +187,8 @@ def CCDData_astype(ccd, dtype='float32', uncertainty_dtype=None):
     >>> import numpy as np
     >>> ccd = CCDData.read("bias001.fits", ext=0)
     >>> ccd.uncertainty = np.sqrt(ccd.data)
-    >>> ccd = yfu.CCDData_astype(ccd, dtype='int16', uncertainty_dtype='float32')
+    >>> ccd = yfu.CCDData_astype(ccd, dtype='int16',
+    >>>                          uncertainty_dtype='float32')
     '''
     nccd = ccd.copy()
     nccd.data = nccd.data.astype(dtype)
@@ -210,20 +211,23 @@ def make_errmap(ccd, gain_epadu=1, rdnoise_electron=0,
     Parameters
     ----------
     ccd: array-like
-        The ccd data which will be used to generate error map. It must be bias
-        subtracted. If dark is subtracted, give ``subtracted_dark``. This
-        array will be added to ``ccd.data`` and used to calculate the Poisson
-        noise term. If the amount of this subtracted dark is negligible, you
-        may just set ``subtracted_dark = None`` (default).
+        The ccd data which will be used to generate error map. It must
+        be bias subtracted. If dark is subtracted, give
+        ``subtracted_dark``. This array will be added to ``ccd.data``
+        and used to calculate the Poisson noise term. If the amount of
+        this subtracted dark is negligible, you may just set
+        ``subtracted_dark = None`` (default).
     gain: float, array-like, or Quantity, optional.
         The effective gain factor in ``electron/ADU`` unit.
     rdnoise: float, array-like, or Quantity, optional.
-        The readout noise. Put ``rdnoise=0`` will calculate only the Poissonian
-        error. This is useful when generating noise map for dark frames.
+        The readout noise. Put ``rdnoise=0`` will calculate only the
+        Poissonian error. This is useful when generating noise map for
+        dark frames.
     flat_err : float, array-like optional.
-        The uncertainty from the flat fielding (see, e.g., eq 10 of StetsonPB
-        1987, PASP, 99, 191). Stetson used 0.0075 (0.75% fractional
-        uncertainty) and IRAF DAOPHOT used 0.01 (http://stsdas.stsci.edu/cgi-bin/gethelp.cgi?daopars)
+        The uncertainty from the flat fielding (see, e.g., eq 10 of
+        StetsonPB 1987, PASP, 99, 191). Stetson used 0.0075 (0.75%
+        fractional uncertainty), and the same is implemented to IRAF
+        DAOPHOT: http://stsdas.stsci.edu/cgi-bin/gethelp.cgi?daopars
 
     subtracted_dark: array-like
         The subtracted dark map.
