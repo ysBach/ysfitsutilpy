@@ -4,18 +4,36 @@ Collection of functions that are rather header-dependent than the data.
 import re
 from warnings import warn
 
+import numpy as np
+from astropy import units as u
+from astropy import wcs as astropywcs
+from astropy.coordinates import EarthLocation, SkyCoord
 from astropy.io import fits
 from astropy.io.fits import Card
-from astropy import units as u
-from astropy.wcs import WCS
-from astropy.coordinates import SkyCoord, EarthLocation
 from astropy.time import Time
+from astropy.wcs import WCS
 
 from .misc import airmass_obs
 
-__all__ = ["center_radec", "key_remover", "key_mapper",
+__all__ = ["wcs_crota", "center_radec", "key_remover", "key_mapper",
            "get_from_header", "wcsremove", "fov_radius",
            "airmass_from_hdr", "convert_bit"]
+
+
+def wcs_crota(wcs, degree=True):
+    if isinstance(wcs, astropywcs.WCS):
+        wcsprm = wcs.wcs
+    elif isinstance(wcs, astropywcs.Wcsprm):
+        wcsprm = wcs
+    else:
+        raise TypeError("wcs type not understood. It must be either "
+                        + "astropy.wcs.wcs.WCS or astropy.wcs.Wcsprm")
+
+    crota = np.arctan2(wcsprm.cd[1, 0], wcsprm.cd[1, 1])
+    if degree:
+        crota = np.rad2deg(crota)
+
+    return crota
 
 
 def center_radec(header, center_of_image=True, ra_key="RA", dec_key="DEC",
