@@ -19,8 +19,8 @@ def zimshow(ax, image, stretch=LinearStretch(), cmap=None, **kwargs):
 
 
 def colorbaring(fig, ax, im, fmt="%.0f", orientation='horizontal',
-                formatter=FormatStrFormatter):
+                formatter=FormatStrFormatter, **kwargs):
     cb = fig.colorbar(im, ax=ax, orientation=orientation,
-                      format=FormatStrFormatter(fmt))
+                      format=FormatStrFormatter(fmt), **kwargs)
 
     return cb
