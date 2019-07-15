@@ -170,7 +170,7 @@ def load_ccd(path, extension=0, usewcs=True, uncertainty_ext="UNCERT",
 
 
 def CCDData_astype(ccd, dtype='float32', uncertainty_dtype=None):
-    ''' Assign dtype to the CCDData object (numpy uses float64 by default).
+    ''' Assign dtype to the CCDData object (numpy uses float64 default).
     Parameters
     ----------
     ccd: CCDData
@@ -266,14 +266,15 @@ def make_errmap(ccd, gain_epadu=1, rdnoise_electron=0,
         dark = subtracted_dark.copy()
         if isinstance(dark, CCDData):
             dark = dark.data
-        # If subtracted dark is negative, this may cause negative pixel in ``data``:
+        # If subtracted dark is negative, this may cause negative pixel
+        # in ``data``:
         data += dark
 
     var_Poisson = data / gain_epadu  # (data * gain) / gain**2 to make it ADU
     var_RDnoise = (rdnoise_electron / gain_epadu)**2
 
-    # The digitization noise (eq 12 of MerlineWJ+HowellSB, 1995, Exp. Astron.,
-    # 6, 163)
+    # The digitization noise (eq 12 of MerlineWJ+HowellSB, 1995, Exp.
+    # Astron., 6, 163)
     var_digit = 1 / 12
 
     errmap = np.sqrt(var_Poisson + var_RDnoise + var_flat + var_digit)
