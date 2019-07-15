@@ -21,6 +21,12 @@ __all__ = ["wcs_crota", "center_radec", "key_remover", "key_mapper",
 
 
 def wcs_crota(wcs, degree=True):
+    '''
+    Note
+    ----
+    https://iraf.net/forum/viewtopic.php?showtopic=108893
+    CROTA2 = arctan (-CD1_2 / CD2_2) = arctan ( CD2_1 / CD1_1)
+    '''
     if isinstance(wcs, astropywcs.WCS):
         wcsprm = wcs.wcs
     elif isinstance(wcs, astropywcs.Wcsprm):
@@ -29,7 +35,8 @@ def wcs_crota(wcs, degree=True):
         raise TypeError("wcs type not understood. It must be either "
                         + "astropy.wcs.wcs.WCS or astropy.wcs.Wcsprm")
 
-    crota = np.arctan2(wcsprm.cd[1, 0], wcsprm.cd[1, 1])
+    # numpy arctan2 gets y-coord (numerator) and then x-coord(denominator)
+    crota = np.arctan2(wcsprm.cd[0, 0], wcsprm.cd[1, 0])
     if degree:
         crota = np.rad2deg(crota)
 
