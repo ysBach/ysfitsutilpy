@@ -328,10 +328,6 @@ def chk_keyval(type_key, type_val, group_key):
     if len(type_key) != len(type_val):
         raise ValueError("type_key and type_val must have the same length!")
 
-    if len(group_key + type_key) == 0:
-        raise ValueError("At least one of type_key and group_key should not "
-                         + "be empty!")
-
     # If there is overlap
     overlap = set(type_key).intersection(set(group_key))
     if len(overlap) > 0:

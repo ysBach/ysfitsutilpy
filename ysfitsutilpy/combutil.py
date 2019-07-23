@@ -96,6 +96,10 @@ def group_FITS(summary_table, type_key=None, type_val=None, group_key=None):
                                                type_val=type_val,
                                                group_key=group_key)
 
+    if len(group_key + type_key) == 0:
+        raise ValueError("At least one of type_key and group_key should not "
+                         + "be empty!")
+
     # For simplicity, crop the original data by type_key and type_val first.
     for k, v in zip(type_key, type_val):
         st = st[st[k] == v]
@@ -463,7 +467,7 @@ def combine_ccd(fitslist=None, summary_table=None, table_filecol="file",
             clip_extrema = True
         elif reject_method in ['minmax']:
             minmax_clip = True
-        elif reject_method in ['sigma_clip' 'sigclip']:
+        elif reject_method in ['sigma_clip', 'sigclip']:
             sigma_clip = True
         else:
             if reject_method not in [None, 'no']:
@@ -615,6 +619,7 @@ def combine_ccd(fitslist=None, summary_table=None, table_filecol="file",
                          unit=unit,
                          hdu=extension,
                          scale=scale,
+                         dtype=dtype,
                          **kwargs)
 
     ncombine = len(ccdlist)
