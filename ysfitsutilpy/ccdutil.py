@@ -166,6 +166,7 @@ def load_ccd(path, extension=0, usewcs=True, uncertainty_ext="UNCERT",
 
     ccd = CCDData(data=hdu.data, header=hdu.header, wcs=w,
                   uncertainty=unc, unit=unit)
+    hdul.close()
     return ccd
 
 

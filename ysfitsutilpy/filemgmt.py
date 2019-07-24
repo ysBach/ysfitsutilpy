@@ -388,6 +388,7 @@ def fitsrenamer(fpath=None, header=None, newtop=None, rename_by=["OBJECT"],
         hdr = hdul[0].header
     else:
         hdr = header.copy()
+    hdul.close()
 
     # add keyword
     if add_header is not None:
@@ -464,7 +465,6 @@ def fitsrenamer(fpath=None, header=None, newtop=None, rename_by=["OBJECT"],
     if verbose:
         print(f"Rename {fpath.name} to {newpath}")
 
-    hdul.close()
     newhdul.writeto(newpath, output_verify='fix', overwrite=overwrite)
 
     if archive_dir is not None:

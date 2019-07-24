@@ -568,5 +568,5 @@ def convert_bit(fname, original_bit=12, target_bit=16):
     # hdul[0].header['BITPIX'] = target_bit
     # FITS ``BITPIX`` cannot have, e.g., 12, so the above is redundant line.
     hdul[0].header['BUNIT'] = 'ADU'
-
+    hdul.close()
     return hdul
