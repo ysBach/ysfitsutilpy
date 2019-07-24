@@ -162,7 +162,10 @@ def bdf_process(ccd, output=None,
     hdr_new = proc.header
 
     # Add PROCESS key
-    hdr_new["PROCESS"] = ("", "The processed history: see comment.")
+    try:
+        _ = hdr_new["PROCESS"]
+    except KeyError:
+        hdr_new["PROCESS"] = ("", "The processed history: see comment.")
     hdr_new["PROCVER"] = (ccdproc.__version__,
                           "ccdproc version used for processing.")
     hdr_new.add_comment("PROCESS key can be B (bias), D (dark), F (flat), "
