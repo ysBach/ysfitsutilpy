@@ -59,6 +59,19 @@ def linearticker(ax_list, xmajlocs, xminlocs, ymajlocs, yminlocs,
     yminloc = np.atleast_1d(yminlocs)
     xmajfmt = np.atleast_1d(xmajfmts)
     ymajfmt = np.atleast_1d(ymajfmts)
+    if xmajloc.shape[0] != n_axis:
+        xmajloc = np.repeat(xmajloc, n_axis)
+    if xminloc.shape[0] != n_axis:
+        xminloc = np.repeat(xminloc, n_axis)
+    if ymajloc.shape[0] != n_axis:
+        ymajloc = np.repeat(ymajloc, n_axis)
+    if yminloc.shape[0] != n_axis:
+        yminloc = np.repeat(yminloc, n_axis)
+    if xmajfmt.shape[0] != n_axis:
+        xmajfmt = np.repeat(xmajfmt, n_axis)
+    if ymajfmt.shape[0] != n_axis:
+        ymajfmt = np.repeat(ymajfmt, n_axis)
+
     if not isinstance(xmajlocators, (tuple, list, np.ndarray)):
         xmajlocators = [xmajlocators] * n_axis
     if not isinstance(xminlocators, (tuple, list, np.ndarray)):
