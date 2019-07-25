@@ -119,7 +119,9 @@ def give_stats(item, extension=0, percentiles=[1, 99], N_extrema=None):
     >>> give_stats("bias_bin11.fits", percentiles=percentiles, N_extrema=5)
     '''
     try:
-        data = fits.open(item)[extension].data
+        hdul = fits.open(item)
+        data = hdul[extension].data
+        hdul.close()
     except (FileNotFoundError, IndentationError, AttributeError, ValueError):
         data = np.atleast_1d(item)
 
