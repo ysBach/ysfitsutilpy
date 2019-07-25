@@ -278,7 +278,8 @@ def get_from_header(header, key, unit=None, verbose=True,
 
 # TODO: do not load data extension if not explicitly ordered
 def wcsremove(filepath=None, additional_keys=[], extension=0,
-              output=None, verify='fix', overwrite=False, verbose=True):
+              output=None, verify='fix', overwrite=False, verbose=True,
+              close=True):
     ''' Remove most WCS related keywords from the header.
     Paramters
     ---------
@@ -376,7 +377,11 @@ def wcsremove(filepath=None, additional_keys=[], extension=0,
     if output is not None:
         hdul.writeto(output, output_verify=verify, overwrite=overwrite)
 
-    return hdul
+    if close:
+        hdul.close()
+        return
+    else:
+        return hdul
 
 
 # def center_coord(header, skycoord=False):
