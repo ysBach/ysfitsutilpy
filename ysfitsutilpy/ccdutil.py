@@ -145,7 +145,7 @@ def bin_ccd(ccd, factor_x=1, factor_y=1, binfunc=np.mean):
 
 
 # FIXME: Remove it in the future.
-def load_ccd(path, extension=0, usewcs=True, uncertainty_ext="UNCERT",
+def load_ccd(path, extension=0, usewcs=True, hdu_uncertainty="UNCERT",
              unit='adu'):
     '''remove it when astropy updated:
     Note
@@ -153,20 +153,20 @@ def load_ccd(path, extension=0, usewcs=True, uncertainty_ext="UNCERT",
     CCDData.read cannot read TPV WCS:
     https://github.com/astropy/astropy/issues/7650
     '''
-    hdul = fits.open(path)
-    hdu = hdul[extension]
-    try:
-        unc = StdDevUncertainty(hdul[uncertainty_ext].data)
-    except KeyError:
-        unc = None
+    with fits.open(path) as hdul:
+        hdul = fits.open(path)
+        hdu = hdul[extension]
+        try:
+            unc = StdDevUncertainty(hdul[hdu_uncertainty].data)
+        except KeyError:
+            unc = None
 
-    w = None
-    if usewcs:
-        w = WCS(hdu.header)
+        w = None
+        if usewcs:
+            w = WCS(hdu.header)
 
-    ccd = CCDData(data=hdu.data, header=hdu.header, wcs=w,
-                  uncertainty=unc, unit=unit)
-    hdul.close()
+        ccd = CCDData(data=hdu.data, header=hdu.header, wcs=w,
+                      uncertainty=unc, unit=unit)
     return ccd
 
 
@@ -207,7 +207,7 @@ def CCDData_astype(ccd, dtype='float32', uncertainty_dtype=None):
 
 
 def make_errmap(ccd, gain_epadu=1, rdnoise_electron=0,
-                flat_err=0.0, subtracted_dark=None):
+                flat_err=0.0, subtracted_dark=None, return_variance=False):
     ''' Calculate the simple error map in ADU unit.
     Parameters
     ----------
@@ -232,6 +232,11 @@ def make_errmap(ccd, gain_epadu=1, rdnoise_electron=0,
 
     subtracted_dark: array-like
         The subtracted dark map.
+
+    return_variance: bool, optional
+        Whether to return as variance map. Default is ``False``, i.e.,
+        return the square-rooted standard deviation map. It's better to
+        use variance for large image size (computation speed issue).
 
     Example
     -------
@@ -278,6 +283,9 @@ def make_errmap(ccd, gain_epadu=1, rdnoise_electron=0,
     # Astron., 6, 163)
     var_digit = 1 / 12
 
-    errmap = np.sqrt(var_Poisson + var_RDnoise + var_flat + var_digit)
-
-    return errmap
+    varmap = var_Poisson + var_RDnoise + var_flat + var_digit
+    if return_variance:
+        return varmap
+    else:
+        errmap = np.sqrt(varmap)
+        return errmap
