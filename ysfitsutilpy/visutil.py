@@ -3,9 +3,8 @@ from warnings import warn
 import numpy as np
 from astropy.visualization import (ImageNormalize, LinearStretch,
                                    ZScaleInterval, simple_norm)
-from matplotlib.ticker import (FormatStrFormatter, Formatter, Locator,
-                               LogFormatterSciNotation, LogLocator,
-                               MultipleLocator, NullFormatter)
+from matplotlib.ticker import (FormatStrFormatter, LogFormatterSciNotation,
+                               LogLocator, MultipleLocator, NullFormatter)
 
 __all__ = ["znorm", "zimshow", "norm_imshow", "colorbaring",
            "mplticker", "linticker", "logticker", "logxticker", "logyticker",
