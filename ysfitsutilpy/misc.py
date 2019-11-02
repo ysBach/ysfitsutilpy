@@ -57,6 +57,19 @@ def binning(arr, factor_x=1, factor_y=1, binfunc=np.mean, trim_end=False):
     trim_end: bool
         Whether to trim the end of x, y axes such that binning is done without
         error.
+
+    Note
+    ----
+    This is ~ 10-20 times faster than astropy.nddata.block_reduce:
+    >>> from astropy.nddata import block_reduce
+    >>> import ysfitsutilpy as yfu
+    >>> %%timeit
+    >>> block_reduce(ccd, block_size=5)
+    >>> # 161 +- 1.96 us (7 runs, 10000 loops each)
+    >>> %%timeit
+    >>> yfu.binning(ccd.data, 5, 5, np.sum, True)
+    >>> # 10.9 +- 0.216 us (7 runs, 100000 loops each)
+    Tested on MBP 15" 2018, macOS 10.14.6, 2.6 GHz i7
     '''
     binned = arr.copy()
     if trim_end:
