@@ -39,7 +39,7 @@ def bdf_process(ccd, output=None,
         The path to master bias, dark, flat FITS files. If ``None``, the
         corresponding process is not done.
 
-    trim_fits_section: str, optional
+    trim_fits_section: str, optional.
         Region of ``ccd`` to be trimmed; see
         ``ccdproc.subtract_overscan`` for details. Default is ``None``.
 
@@ -51,7 +51,7 @@ def bdf_process(ccd, output=None,
         The units of the data.
         Default is ``'adu'``.
 
-    gain, rdnoise : None, float, optional
+    gain, rdnoise : None, float, optional.
         The gain and readnoise value. These are all ignored if
         ``calc_err=False``. If ``calc_err=True``, it automatically seeks
         for suitable gain and readnoise value. If ``gain`` or
@@ -62,27 +62,26 @@ def bdf_process(ccd, output=None,
         header value in the unit of ``gain_unit`` and ``rdnoise_unit``,
         respectively.
 
-    gain_key, rdnoise_key : str, optional
+    gain_key, rdnoise_key : str, optional.
         See ``gain``, ``rdnoise`` explanation above.
         These are all ignored if ``calc_err=False``.
 
-    gain_unit, rdnoise_unit : astropy Unit, optional
+    gain_unit, rdnoise_unit : astropy Unit, optional.
         See ``gain``, ``rdnoise`` explanation above.
         These are all ignored if ``calc_err=False``.
 
-    dark_exposure, data_exposure : None, float, astropy Quantity, optional
+    dark_exposure, data_exposure : None, float, astropy Quantity, optional.
         The exposure times of dark and data frame, respectively. They
-        should both be specified or both ``None``.
-        These are all ignored if ``mdarkpath=None``.
-        If both are not specified while ``mdarkpath`` is given, then the
-        code automatically seeks for header's ``exposure_key``. Then
-        interprete the value as the quantity with unit
-        ``exposure_unit``.
+        should both be specified or both ``None``. These are all ignored
+        if ``mdarkpath=None``. If both are not specified while
+        ``mdarkpath`` is given, then the code automatically seeks for
+        header's ``exposure_key``. Then interprete the value as the
+        quantity with unit ``exposure_unit``.
 
         If ``mdkarpath`` is not ``None``, then these are passed to
         ``ccdproc.subtract_dark``.
 
-    exposure_key : str, optional
+    exposure_key : str, optional.
         The header keyword for exposure time.
         Ignored if ``mdarkpath=None``.
 
@@ -90,14 +89,14 @@ def bdf_process(ccd, output=None,
         The unit of the exposure time.
         Ignored if ``mdarkpath=None``.
 
-    flat_min_value : float or None, optional
+    flat_min_value : float or None, optional.
         min_value of `ccdproc.flat_correct`.
         Minimum value for flat field. The value can either be None and
         no minimum value is applied to the flat or specified by a float
         which will replace all values in the flat by the min_value.
         Default is ``None``.
 
-    flat_norm_value : float or None, optional
+    flat_norm_value : float or None, optional.
         norm_value of `ccdproc.flat_correct`.
         If not ``None``, normalize flat field by this argument rather
         than the mean of the image. This allows fixing several different
@@ -105,7 +104,7 @@ def bdf_process(ccd, output=None,
         0, a ``ValueError``
         is raised. Default is ``None``.
 
-    crrej_kwargs : dict or None, optional
+    crrej_kwargs : dict or None, optional.
         If ``None`` (default), uses some default values defined in
         ``~.misc.LACOSMIC_KEYS``. It is always discouraged to use
         default except for quick validity-checking, because even the
@@ -117,7 +116,7 @@ def bdf_process(ccd, output=None,
         Also refer to
         https://nbviewer.jupyter.org/github/ysbach/AO2019/blob/master/Notebooks/07-Cosmic_Ray_Rejection.ipynb
 
-    propagate_crmask : bool, optional
+    propagate_crmask : bool, optional.
         Whether to save (propagate) the mask from CR rejection
         (``astroscrappy``) to the CCD's mask.
         Default is ``False``.
@@ -130,7 +129,7 @@ def bdf_process(ccd, output=None,
         ``"fix+warn"``).  See the astropy documentation below:
         http://docs.astropy.org/en/stable/io/fits/api/verification.html#verify
 
-    dtype : str or `numpy.dtype` or None, optional
+    dtype : str or `numpy.dtype` or None, optional.
         Allows user to set dtype. See `numpy.array` ``dtype`` parameter
         description. If ``None`` it uses ``np.float64``.
         Default is ``None``.
