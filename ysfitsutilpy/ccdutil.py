@@ -1,6 +1,7 @@
 '''
 Collection of functions that are quite far from headerutil.
 '''
+from pathlib import Path
 from warnings import warn
 
 import numpy as np
@@ -8,6 +9,7 @@ from astropy import units as u
 from astropy.io import fits
 from astropy.nddata import CCDData, Cutout2D, StdDevUncertainty
 from astropy.wcs import WCS
+from ccdproc import trim_image
 
 from .misc import binning
 
@@ -108,20 +110,35 @@ def cutccd(ccd, position, size, mode='trim', fill_value=np.nan):
     return nccd
 
 
-def bin_ccd(ccd, factor_x=1, factor_y=1, binfunc=np.mean):
+def bin_ccd(ccd, factor_x=1, factor_y=1, binfunc=np.mean, trim_end=False,
+            update_header=True):
     ''' Bins the given ccd.
     Paramters
     ---------
     ccd: CCDData
         The ccd to be binned
-    factor_x, factor_y: int
+    factor_x, factor_y: int, optional.
         The binning factors in x, y direction.
-    binfunc : funciton object
+    binfunc : funciton object, optional.
         The function to be applied for binning, such as ``np.sum``,
         ``np.mean``, and ``np.median``.
-    trim_end: bool
+    trim_end: bool, optional.
         Whether to trim the end of x, y axes such that binning is done
         without error.
+    update_header: bool, optional.
+        Whether to update header. Defaults to True.
+    Note
+    ----
+    This is ~ 10-20 times faster than astropy.nddata.block_reduce:
+    >>> from astropy.nddata import block_reduce
+    >>> import ysfitsutilpy as yfu
+    >>> %%timeit
+    >>> block_reduce(ccd, block_size=5)
+    >>> # 161 +- 1.96 us (7 runs, 10000 loops each)
+    >>> %%timeit
+    >>> yfu.binning(ccd.data, 5, 5, np.sum, True)
+    >>> # 10.9 +- 0.216 us (7 runs, 100000 loops each)
+    Tested on MBP 15" 2018, macOS 10.14.6, 2.6 GHz i7
     '''
     if not isinstance(ccd, CCDData):
         raise TypeError("ccd must be CCDData object.")
@@ -132,15 +149,17 @@ def bin_ccd(ccd, factor_x=1, factor_y=1, binfunc=np.mean):
     _ccd.data = binning(_ccd.data,
                         factor_x=factor_x,
                         factor_y=factor_y,
-                        binfunc=binfunc)
-    _ccd.header.add_history(
-        f"Binned by (xbin, ybin) = ({factor_x}, {factor_y})")
-    _ccd.header["BINFUNC"] = (
-        binfunc.__name__, "The function used for binning.")
-    _ccd.header["XBINNING"] = (
-        factor_x, "Binning done after the observation in X direction")
-    _ccd.header["YBINNING"] = (
-        factor_y, "Binning done after the observation in Y direction")
+                        binfunc=binfunc,
+                        trim_end=trim_end)
+    if update_header:
+        _ccd.header.add_history(
+            f"Binned by (xbin, ybin) = ({factor_x}, {factor_y})")
+        _ccd.header["BINFUNC"] = (
+            binfunc.__name__, "The function used for binning.")
+        _ccd.header["XBINNING"] = (
+            factor_x, "Binning done after the observation in X direction")
+        _ccd.header["YBINNING"] = (
+            factor_y, "Binning done after the observation in Y direction")
     return _ccd
 
 
@@ -157,7 +176,8 @@ def load_ccd(path, extension=0, usewcs=True, hdu_uncertainty="UNCERT",
         hdul = fits.open(path)
         hdu = hdul[extension]
         try:
-            unc = StdDevUncertainty(hdul[hdu_uncertainty].data)
+            uncdata = hdul[hdu_uncertainty].data
+            unc = StdDevUncertainty(uncdata)
         except KeyError:
             unc = None
 
@@ -168,6 +188,129 @@ def load_ccd(path, extension=0, usewcs=True, hdu_uncertainty="UNCERT",
         ccd = CCDData(data=hdu.data, header=hdu.header, wcs=w,
                       uncertainty=unc, unit=unit)
     return ccd
+
+
+def imcopy(fpaths, fits_sections=None, outputs=None, return_ccd=True,
+           **kwargs):
+    ''' Similar to IRAF imcopy
+    Parameters
+    ----------
+    fpaths: path-like or array-like of such.
+        The path(s) to the original FITS file(s).
+    fits_sections: str or array-like of such, optional.
+        The section specified by FITS convention, i.e., bracket
+        embraced, comma separated, XY order, 1-indexing, and including
+        the end index. If given as array-like format of length ``N``,
+        all such sections in all FITS files will be extracted.
+    outputs: path-like or array-like of such, optional.
+        The output paths of each FITS file to be copied. If array-like,
+        it must have the shape of ``(M, N)`` where ``M`` and ``N`` are
+        the sizes of ``fpaths`` and ``fits_sections``, respectively.
+    return_ccd: bool, optional.
+        Whether to load the FITS files as ``CCDData`` and return it.
+    kwargs: optionals
+        The keyword arguments for ``CCDData.write``.
+
+    Return
+    ------
+    results: CCDData or list of CCDData
+        Only if ``return_ccd`` is set ``True``.
+        A sinlge ``CCDData`` will be returned if only one was input.
+        Otherwise, the same number of ``CCDData`` will be gathered as a
+        list and returned.
+    Note
+    ----
+    Due to the memory issue, it is generally better NOT to load all the
+    FITS files and pass them to this function. Therefore, as it is in
+    IRAF, I made this function to accept only the file paths, not the
+    pre-loaded CCDData objects. I here will load the
+
+    All the inputs will be flattened if they are higher than 1-d. I
+    think it will only increase the complexity of the code if I accept
+    that...?
+
+    Example
+    -------
+    >>> from ysfitsutilpy import imcopy
+    >>> from pathlib import Path
+    >>>
+    >>> datapath = Path("./data")
+    >>> files = datapath.glob("*.pcr.fits")
+    >>> sections = ["[50:100, 50:100]", "[50:100, 50:150]"]
+    >>> outputs = [datapath/"test1.fits", datapath/"test2.fits"]
+    >>>
+    >>> # single file, single section
+    >>> trim = imcopy(pcrfits[0], sections[0])
+    >>>
+    >>> # single file, multi sections
+    >>> trims = imcopy(pcrfits[0], sections)
+    >>>
+    >>> # only save (no return to reduce memory burden) with overwrite option
+    >>> imcopy(pcrfits[0], sections, outputs=outputs, overwrite=True)
+    >>>
+    >>> # multi file multi section
+    >>> trims2d = imcopy(pcrfits[:2], fits_sections=sections, outputs=None)
+    '''
+    to_trim = False
+    to_save = False
+
+    str_flat = ("{} with dimension higher than 2-d is not supported yet. "
+                + "Currently it's {}-d. Flattening...")
+    str_save = ("If outputs is array-like, it's shape must have the shape "
+                + "of (fpaths.size, fits_sections.size) = ({}, {}). "
+                + "Now it's ({}, {}).")
+    fpaths = np.atleast_1d(fpaths)
+
+    if fpaths.ndim > 1:
+        print(str_flat.format("fpaths", fpaths.ndim))
+        fpaths = fpaths.flatten()
+    m = fpaths.shape[0]
+
+    if fits_sections is not None:
+        sects = np.atleast_1d(fits_sections)
+        to_trim = True
+        if sects.ndim > 1:
+            print(str_flat.format("fits_sections", sects.ndim))
+            sects = sects.flatten()
+        n = sects.shape[0]
+    else:
+        n = 1
+
+    if outputs is not None:
+        outputs = np.atleast_2d(outputs)
+        to_save = True
+        if outputs.ndim > 2:
+            raise ValueError("outputs should be lower than 3-d.")
+        if outputs.shape != (m, n):
+            raise ValueError(str_save.format(m, n, *outputs.shape))
+
+    if return_ccd:
+        results = []
+
+    for i, fpath in enumerate(fpaths):
+        ccd = load_ccd(fpath)
+        result = []
+        if to_trim:
+            for sect in sects:
+                result.append(trim_image(ccd, fits_section=sect))
+        else:
+            result.append(ccd)
+
+        if to_save:
+            for j, res in enumerate(result):
+                res.write(outputs[i, j], **kwargs)
+
+        if return_ccd:
+            if len(result) == 1:
+                results.append(result[0])
+            else:
+                results.append(result)
+
+    if return_ccd:
+        if len(results) == 1:
+            return results[0]
+        else:
+            return np.array(results, dtype=object)
 
 
 def CCDData_astype(ccd, dtype='float32', uncertainty_dtype=None):
