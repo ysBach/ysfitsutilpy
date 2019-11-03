@@ -1,7 +1,6 @@
 '''
 Collection of functions that are quite far from headerutil.
 '''
-from pathlib import Path
 from warnings import warn
 
 import numpy as np
