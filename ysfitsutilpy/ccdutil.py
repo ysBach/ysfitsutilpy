@@ -12,7 +12,7 @@ from ccdproc import trim_image
 
 from .misc import binning
 
-__all__ = ["cutccd", "bin_ccd", "load_ccd", "CCDData_astype",
+__all__ = ["cutccd", "bin_ccd", "load_ccd", "imcopy", "CCDData_astype",
            "make_errmap"]
 
 
