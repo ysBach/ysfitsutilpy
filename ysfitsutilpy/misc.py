@@ -60,15 +60,22 @@ def binning(arr, factor_x=1, factor_y=1, binfunc=np.mean, trim_end=False):
 
     Note
     ----
-    This is ~ 10-20 times faster than astropy.nddata.block_reduce:
+    This is ~ 20-30 to upto 10^5 times faster than astropy.nddata's
+    block_reduce:
     >>> from astropy.nddata import block_reduce
     >>> import ysfitsutilpy as yfu
-    >>> %%timeit
-    >>> block_reduce(ccd, block_size=5)
-    >>> # 161 +- 1.96 us (7 runs, 10000 loops each)
-    >>> %%timeit
-    >>> yfu.binning(ccd.data, 5, 5, np.sum, True)
+    >>> from astropy.nddata import CCDData
+    >>> import numpy as np
+    >>> ccd = CCDData(data=np.arange(1000).reshape(20, 50), unit='adu')
+    >>> kw = dict(factor_x=5, factor_y=5, binfunc=np.sum, trim_end=True)
+    >>> %timeit yfu.binning(ccd.data, **kw)
     >>> # 10.9 +- 0.216 us (7 runs, 100000 loops each)
+    >>> %timeit yfu.bin_ccd(ccd, **kw, update_header=False)
+    >>> # 32.9 µs +- 878 ns per loop (7 runs, 10000 loops each)
+    >>> %timeit -r 1 -n 1 block_reduce(ccd, block_size=5)
+    >>> # 518 ms, 2.13 ms, 250 us, 252 us, 257 us, 267 us
+    >>> # 5.e+5   ...      ...     ...     ...     27  -- times slower
+    >>> # some strange chaching happens?
     Tested on MBP 15" 2018, macOS 10.14.6, 2.6 GHz i7
     '''
     binned = arr.copy()
