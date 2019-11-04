@@ -190,24 +190,26 @@ def load_ccd(path, extension=0, usewcs=True, hdu_uncertainty="UNCERT",
 
 
 def imcopy(fpaths, fits_sections=None, outputs=None, return_ccd=True,
-           **kwargs):
+           dtype='float32', **kwargs):
     ''' Similar to IRAF imcopy
     Parameters
     ----------
-    fpaths: path-like or array-like of such.
+    fpaths : path-like or array-like of such.
         The path(s) to the original FITS file(s).
-    fits_sections: str or array-like of such, optional.
+    fits_sections : str or array-like of such, optional.
         The section specified by FITS convention, i.e., bracket
         embraced, comma separated, XY order, 1-indexing, and including
         the end index. If given as array-like format of length ``N``,
         all such sections in all FITS files will be extracted.
-    outputs: path-like or array-like of such, optional.
+    outputs : path-like or array-like of such, optional.
         The output paths of each FITS file to be copied. If array-like,
         it must have the shape of ``(M, N)`` where ``M`` and ``N`` are
         the sizes of ``fpaths`` and ``fits_sections``, respectively.
-    return_ccd: bool, optional.
+    return_ccd : bool, optional.
         Whether to load the FITS files as ``CCDData`` and return it.
-    kwargs: optionals
+    dtype : dtype, optional.
+        The dtype for the ``outputs`` or returning ccds.
+    kwargs : optionals
         The keyword arguments for ``CCDData.write``.
 
     Return
@@ -289,11 +291,14 @@ def imcopy(fpaths, fits_sections=None, outputs=None, return_ccd=True,
     for i, fpath in enumerate(fpaths):
         ccd = load_ccd(fpath)
         result = []
-        if to_trim:
+        if to_trim:  # n CCDData will be in ``result``
             for sect in sects:
-                result.append(trim_image(ccd, fits_section=sect))
-        else:
-            result.append(ccd)
+                nccd = trim_image(ccd, fits_section=sect)
+                nccd = CCDData_astype(nccd, dtype=dtype)
+                result.append(nccd)
+        else:  # only one single CCDData will be in ``result``
+            nccd = CCDData_astype(ccd, dtype=dtype)
+            result.append(nccd)
 
         if to_save:
             for j, res in enumerate(result):
