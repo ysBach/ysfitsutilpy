@@ -127,7 +127,6 @@ def give_stats(item, extension=0, percentiles=[1, 99], N_extrema=None):
         The number of low and high elements to be returned when the whole data
         are sorted. If ``None``, it will not be calculated. If ``1``, it is
         identical to min/max values.
-
     Example
     -------
     >>> bias = CCDData.read("bias_bin11.fits")
@@ -145,27 +144,19 @@ def give_stats(item, extension=0, percentiles=[1, 99], N_extrema=None):
     except (FileNotFoundError, IndentationError, AttributeError, ValueError):
         data = np.atleast_1d(item)
 
-    result = {}
-
-    d_num = np.size(data)
-    d_min = np.min(data)
+    result = dict(num=np.size(data),
+                  min=np.min(data),
+                  max=np.max(data),
+                  avg=np.mean(data),
+                  med=np.median(data),
+                  std=np.std(data, ddof=1))
     d_pct = np.percentile(data, percentiles)
-    d_max = np.max(data)
-    d_avg = np.mean(data)
-    d_med = np.median(data)
-    d_std = np.std(data, ddof=1)
+    for i, pct in enumerate(percentiles):
+        result[f"percentile_{round(pct, 4)}"] = d_pct[i]
 
     zs = ImageNormalize(data, interval=ZScaleInterval())
     d_zmin = zs.vmin
     d_zmax = zs.vmax
-
-    result["N"] = d_num
-    result["min"] = d_min
-    result["max"] = d_max
-    result["avg"] = d_avg
-    result["med"] = d_med
-    result["std"] = d_std
-    result["percentiles"] = d_pct
     result["zmin"] = d_zmin
     result["zmax"] = d_zmax
 
