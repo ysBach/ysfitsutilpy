@@ -10,6 +10,7 @@ from astropy.time import Time
 from astropy.coordinates import AltAz
 from astropy.visualization import ZScaleInterval, ImageNormalize
 from astropy.io import fits
+from astropy.nddata import CCDData
 import ccdproc
 
 __all__ = ["MEDCOMB_KEYS_INT", "SUMCOMB_KEYS_INT", "MEDCOMB_KEYS_FLT32",
@@ -113,20 +114,34 @@ def fitsxy2py(fits_section):
     return sl
 
 
-def give_stats(item, extension=0, percentiles=[1, 99], N_extrema=None):
+def give_stats(item, extension=0, percentiles=[1, 99], N_extrema=None,
+               update_header=False):
     ''' Calculates simple statistics.
     Parameters
     ----------
-    item: array-like or path-like
-        The nddata or path to a FITS file to be analyzed.
+    item: array-like, CCDData, HDUList, PrimaryHDU, ImageHDU, or path-like
+        The data or path to a FITS file to be analyzed.
     extension: int, str, optional
-        The extension if ``item`` is the path to the FITS file.
+        The extension if ``item`` is the path to the FITS file or
+        ``HDUList``.
     percentiles: list-like, optional
         The percentiles to be calculated.
     N_extrema: int, optinoal
-        The number of low and high elements to be returned when the whole data
-        are sorted. If ``None``, it will not be calculated. If ``1``, it is
-        identical to min/max values.
+        The number of low and high elements to be returned when the
+        whole data are sorted. If ``None``, it will not be calculated.
+        If ``1``, it is identical to min/max values.
+    update_header : bool, optional.
+        Works only if you gave ``item`` as FITS file path or
+        ``CCDData``. The statistics information will be added to the
+        header and the updated header will be returned.
+    Return
+    ------
+    result : dict
+        The dict which contains all the statistics.
+    hdr : Header
+        The updated header. Returned only if ``update_header`` is
+        ``True`` and ``item`` is FITS file path or has ``header``
+        attribute (e.g., ``CCDData`` or ``hdu``)
     Example
     -------
     >>> bias = CCDData.read("bias_bin11.fits")
@@ -136,23 +151,47 @@ def give_stats(item, extension=0, percentiles=[1, 99], N_extrema=None):
     >>> give_stats(dark, percentiles=percentiles, N_extrema=5)
     Or just simply
     >>> give_stats("bias_bin11.fits", percentiles=percentiles, N_extrema=5)
+    To update the header
+    >>> ccd = CCDDAta.read("bias_bin11.fits", unit='adu')
+    >>> _, hdr = (ccd, N_extrema=10, update_header=True)
+    >>> ccd.header = hdr
+    To read the stringfied list into python list (e.g., percentiles):
+    >>> import json
+    >>> percentiles = json.loads(ccd.header['percentiles'])
     '''
-    try:
-        hdul = fits.open(item)
-        data = hdul[extension].data
-        hdul.close()
-    except (FileNotFoundError, IndentationError, AttributeError, ValueError):
+    if isinstance(item, fits.HDUList):
+        data = item[extension].data
+        hdr = item[extension].header.copy()  # copy just in case
+    elif isinstance(item, (fits.PrimaryHDU, fits.ImageHDU, CCDData)):
+        data = item.data
+        hdr = item.header.copy()  # copy just in case
+    else:
         data = np.atleast_1d(item)
+
+    # try:
+    #     hdul = fits.open(item)
+    #     data = hdul[extension].data
+    #     hdr = hdul[extension].header
+    #     hdul.close()
+    # except (FileNotFoundError, IndentationError, AttributeError, ValueError):
+    #     data = np.atleast_1d(item)
+    #     try:
+    #         hdr = item.header
+    #     except AttributeError:
+    #         hdr = None
 
     result = dict(num=np.size(data),
                   min=np.min(data),
                   max=np.max(data),
                   avg=np.mean(data),
                   med=np.median(data),
-                  std=np.std(data, ddof=1))
-    d_pct = np.percentile(data, percentiles)
-    for i, pct in enumerate(percentiles):
-        result[f"percentile_{round(pct, 4)}"] = d_pct[i]
+                  std=np.std(data, ddof=1),
+                  percents_pos=percentiles,
+                  pct=np.percentile(data, percentiles)
+                  )
+    # d_pct = np.percentile(data, percentiles)
+    # for i, pct in enumerate(percentiles):
+    #     result[f"percentile_{round(pct, 4)}"] = d_pct[i]
 
     zs = ImageNormalize(data, interval=ZScaleInterval())
     d_zmin = zs.vmin
@@ -161,12 +200,44 @@ def give_stats(item, extension=0, percentiles=[1, 99], N_extrema=None):
     result["zmax"] = d_zmax
 
     if N_extrema is not None:
+        if 2*N_extrema > result['num']:
+            warn("There will be extrema overlaps because "
+                 + f"2*N_extrema ({2*N_extrema}) > N_pix ({result['num']})")
         data_flatten = np.sort(data, axis=None)  # axis=None will do flatten.
         d_los = data_flatten[:N_extrema]
-        d_his = data_flatten[-1 * N_extrema:]
+        d_his = data_flatten[-1*N_extrema:]
         result["ext_lo"] = d_los
         result["ext_hi"] = d_his
 
+    if update_header and hdr is not None:
+        hdr["STATNPIX"] = (result['num'],
+                           "Number of pixels used in statistics below")
+        hdr["STATMIN"] = (result['min'],
+                          "Minimum value of the pixels")
+        hdr["STATMAX"] = (result['max'],
+                          "Maximum value of the pixels")
+        hdr["STATAVG"] = (result['avg'],
+                          "Average value of the pixels")
+        hdr["STATMED"] = (result['med'],
+                          "Median value of the pixels")
+        hdr["STATSTD"] = (result['std'],
+                          "Sample standard deviation value of the pixels")
+        hdr["STATMED"] = (result['zmin'],
+                          "Median value of the pixels")
+        hdr["STATZMIN"] = (result['zmin'],
+                           "zscale minimum value of the pixels")
+        hdr["STATZMAX"] = (result['zmax'],
+                           "zscale minimum value of the pixels")
+        hdr["STATPCT"] = (str(list(result['pct'])),
+                          "Percentile values (see PERCENTS)")
+        hdr["PERCENTS"] = (str(list(percentiles)),
+                           "The percentiles used in STATPCT")
+        if N_extrema is not None:
+            hdr["STATEXLO"] = (str(list(result['ext_lo'])),
+                               f"Lower extreme values (N_extrema={N_extrema})")
+            hdr["STATEXHI"] = (str(list(result['ext_hi'])),
+                               f"Upper extreme values (N_extrema={N_extrema})")
+        return result, hdr
     return result
 
 
