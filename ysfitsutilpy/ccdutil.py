@@ -340,8 +340,6 @@ def CCDData_astype(ccd, dtype='float32', uncertainty_dtype=None):
     -------
     >>> from astropy.nddata import CCDData
     >>> import numpy as np
-    >>> ccd_bias = CCDData.read("bias001.fits", ext=0)
-    >>> ccd_bias = yfu.CCDData_astype(ccd_bias, 'int16')
     >>> ccd = CCDData.read("image_unitygain001.fits", ext=0)
     >>> ccd.uncertainty = np.sqrt(ccd.data)
     >>> ccd = yfu.CCDData_astype(ccd, dtype='int16',
