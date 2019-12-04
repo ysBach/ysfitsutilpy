@@ -433,11 +433,7 @@ def make_errmap(ccd, gain_epadu=1, rdnoise_electron=0,
     var_Poisson = data / gain_epadu  # (data * gain) / gain**2 to make it ADU
     var_RDnoise = (rdnoise_electron / gain_epadu)**2
 
-    # The digitization noise (eq 12 of MerlineWJ+HowellSB, 1995, Exp.
-    # Astron., 6, 163)
-    var_digit = 1 / 12
-
-    varmap = var_Poisson + var_RDnoise + var_flat + var_digit
+    varmap = var_Poisson + var_RDnoise + var_flat
     if return_variance:
         return varmap
     else:
