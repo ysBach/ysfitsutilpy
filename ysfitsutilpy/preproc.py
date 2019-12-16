@@ -5,11 +5,10 @@ from astropy import units as u
 from astropy.nddata import CCDData, StdDevUncertainty
 from ccdproc import flat_correct, subtract_bias, subtract_dark, trim_image
 
-from .ccdutil import CCDData_astype, make_errmap
+from .ccdutil import CCDData_astype, make_errmap, load_ccd
 from .hdrutil import get_from_header
 
 __all__ = ["bdf_process"]
-
 
 # NOTE: crrej should be done AFTER bias/dark and flat correction:
 # http://www.astro.yale.edu/dokkum/lacosmic/notes.html
@@ -170,7 +169,9 @@ def bdf_process(ccd, output=None,
               + "with parameters: {}")
 
     # Initial setting
-    proc = CCDData(ccd)
+    if not isinstance(ccd, CCDData):
+        raise TypeError(f"ccd must be CCDData (now it is {type(ccd)})")
+    proc = ccd.copy()
     hdr_new = proc.header
 
     # Add PROCESS key
@@ -186,20 +187,20 @@ def bdf_process(ccd, output=None,
     # Set for BIAS
     if mbiaspath is None:
         do_bias = False
-        mbias = CCDData(np.zeros_like(ccd), unit=proc.unit)
+        mbias = CCDData(np.zeros_like(ccd), unit=unit)
     else:
         do_bias = True
-        mbias = CCDData.read(mbiaspath, unit=unit)
+        mbias = load_ccd(mbiaspath, unit=unit)
         hdr_new["PROCESS"] += "B"
         _add_and_print(str_bias.format(mbiaspath), hdr_new, verbose_bdf)
 
     # Set for DARK
     if mdarkpath is None:
         do_dark = False
-        mdark = CCDData(np.zeros_like(ccd), unit=proc.unit)
+        mdark = CCDData(np.zeros_like(ccd), unit=unit)
     else:
         do_dark = True
-        mdark = CCDData.read(mdarkpath, unit=unit)
+        mdark = load_ccd(mdarkpath, unit=unit)
         hdr_new["PROCESS"] += "D"
         _add_and_print(str_dark.format(mdarkpath), hdr_new, verbose_bdf)
 
@@ -210,10 +211,10 @@ def bdf_process(ccd, output=None,
     # Set for FLAT
     if mflatpath is None:
         do_flat = False
-        mflat = CCDData(np.ones_like(ccd), unit=proc.unit)
+        mflat = CCDData(np.ones_like(ccd), unit=unit)
     else:
         do_flat = True
-        mflat = CCDData.read(mflatpath)
+        mflat = load_ccd(mflatpath, unit=unit)
         hdr_new["PROCESS"] += "F"
         _add_and_print(str_flat.format(mflatpath), hdr_new, verbose_bdf)
 
