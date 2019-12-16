@@ -10,6 +10,7 @@ from .hdrutil import get_from_header
 
 __all__ = ["bdf_process"]
 
+
 # NOTE: crrej should be done AFTER bias/dark and flat correction:
 # http://www.astro.yale.edu/dokkum/lacosmic/notes.html
 def bdf_process(ccd, output=None,
@@ -191,6 +192,8 @@ def bdf_process(ccd, output=None,
     else:
         do_bias = True
         mbias = load_ccd(mbiaspath, unit=unit)
+        if not calc_err:
+            mbias.uncertainty = None
         hdr_new["PROCESS"] += "B"
         _add_and_print(str_bias.format(mbiaspath), hdr_new, verbose_bdf)
 
@@ -201,6 +204,8 @@ def bdf_process(ccd, output=None,
     else:
         do_dark = True
         mdark = load_ccd(mdarkpath, unit=unit)
+        if not calc_err:
+            mdark.uncertainty = None
         hdr_new["PROCESS"] += "D"
         _add_and_print(str_dark.format(mdarkpath), hdr_new, verbose_bdf)
 
@@ -215,6 +220,8 @@ def bdf_process(ccd, output=None,
     else:
         do_flat = True
         mflat = load_ccd(mflatpath, unit=unit)
+        if not calc_err:
+            mflat.uncertainty = None
         hdr_new["PROCESS"] += "F"
         _add_and_print(str_flat.format(mflatpath), hdr_new, verbose_bdf)
 
@@ -262,10 +269,10 @@ def bdf_process(ccd, output=None,
 
     # Do TRIM
     if trim_fits_section is not None:
-        proc = trim_image(proc, trim_fits_section)
-        mbias = trim_image(mbias, trim_fits_section)
-        mdark = trim_image(mdark, trim_fits_section)
-        mflat = trim_image(mflat, trim_fits_section)
+        proc = trim_image(proc, fits_section=trim_fits_section)
+        mbias = trim_image(mbias, fits_section=trim_fits_section)
+        mdark = trim_image(mdark, fits_section=trim_fits_section)
+        mflat = trim_image(mflat, fits_section=trim_fits_section)
         hdr_new["PROCESS"] += "T"
 
         _add_and_print(str_trim.format(trim_fits_section),
