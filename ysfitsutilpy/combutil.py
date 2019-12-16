@@ -315,7 +315,7 @@ def combine_ccd(fitslist=None, summary_table=None, table_filecol="file",
                 trim_fits_section=None, output=None, unit='adu',
                 subtract_frame=None, combine_method='median',
                 reject_method=None, normalize_exposure=False,
-                normalize_average=False,
+                normalize_average=False, normalize_median=False,
                 exposure_key='EXPTIME', mem_limit=2e9,
                 combine_uncertainty_function=None,
                 extension=0, type_key=None, type_val=None,
@@ -390,9 +390,10 @@ def combine_ccd(fitslist=None, summary_table=None, table_filecol="file",
         frame before combining.
         Default is ``False``.
 
-    normalize_average : bool, optional.
-        Whether to normalize the values by the average value of each
-        frame before combining.
+    normalize_average, normalize_median : bool, optional.
+        Whether to normalize the values by the average or median value
+        of each frame before combining. Only up to one of these must be
+        True.
         Default is ``False``.
 
     exposure_key : str, optional
@@ -543,15 +544,17 @@ def combine_ccd(fitslist=None, summary_table=None, table_filecol="file",
     # Do we really need to accept all three of normalize & scale?
     # if scale is None:
     #     scale = np.ones(len(ccdlist))
-    if (((normalize_average) + (normalize_exposure)) > 1):
-        raise ValueError("Only up to one of [normalize_average, "
-                         + "normalize_exposure] must be not None.")
+    if (((normalize_average) + (normalize_exposure) + (normalize_median)) > 1):
+        raise ValueError(
+            "Only up to one of [normalize_average, normalize_exposure, "
+            + "normalize_median] must be not None, for now.")
 
     # Set history messages
     str_history = ('{:d} images with {:s} = {:s} are "{:s}" combined '
                    + 'using "{:s}" rejection (additional kwargs: {})')
     str_nexp = "Each frame normalized by exposure time before combination."
     str_navg = "Each frame normalized by average value before combination."
+    str_nmed = "Each frame normalized by median value before combination."
     str_subt = "Subtracted a user-provided frame"
     str_trim = "Trim by FITS section {}"
 
@@ -599,6 +602,13 @@ def combine_ccd(fitslist=None, summary_table=None, table_filecol="file",
             return 1 / np.mean(a)
         scale = invavg
         _add_and_print(str_navg, header, verbose)
+
+    # Normalize by pixel median
+    if normalize_median:
+        def invmed(a):
+            return 1 / np.median(a)
+        scale = invmed
+        _add_and_print(str_nmed, header, verbose)
 
     # Set rejection switches
     clip_extrema, minmax_clip, sigma_clip = _set_reject_method(reject_method)
