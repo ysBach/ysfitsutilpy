@@ -20,7 +20,8 @@ def bdf_process(ccd, output=None,
                 rdnoise=None, rdnoise_key="RDNOISE", rdnoise_unit=u.electron,
                 dark_exposure=None, data_exposure=None, exposure_key="EXPTIME",
                 exposure_unit=u.s, dark_scale=False,
-                normalize_exposure=False, normalize_average=False,
+                normalize_exposure=False,
+                normalize_average=False, normalize_median=False,
                 flat_min_value=None, flat_norm_value=None,
                 do_crrej=False, crrej_kwargs=None, propagate_crmask=False,
                 verbose_crrej=False, verbose_bdf=True, output_verify='fix',
@@ -89,6 +90,17 @@ def bdf_process(ccd, output=None,
         The unit of the exposure time.
         Ignored if ``mdarkpath=None``.
 
+    normalize_exposure : bool, optional.
+        Whether to normalize the values by the exposure time of each
+        frame. Maybe useful for long exposure darks to make 1-sec darks.
+        Default is ``False``.
+
+    normalize_average, normalize_median : bool, optional.
+        Whether to normalize the values by the average or median value
+        of each frame before combining. Only up to one of these must be
+        True. Maybe useful for flat.
+        Default is ``False``.
+
     flat_min_value : float or None, optional.
         min_value of `ccdproc.flat_correct`.
         Minimum value for flat field. The value can either be None and
@@ -153,6 +165,7 @@ def bdf_process(ccd, output=None,
     str_ef = "Flat uncertainty was propagated."
     str_nexp = "Normalized by the exposure time."
     str_navg = "Normalized by the average value of the frame."
+    str_nmed = "Normalized by the median value of the frame."
     str_cr = ("Cosmic-Ray rejected by astroscrappy (v {}), "
               + "with parameters: {}")
 
@@ -309,6 +322,12 @@ def bdf_process(ccd, output=None,
         avg = np.mean(proc.data)
         proc = proc.divide(avg)
         _add_and_print(str_navg, hdr_new, verbose_bdf)
+
+    # Normalize by the median value
+    if normalize_median:
+        med = np.median(proc.data)
+        proc = proc.divide(med)
+        _add_and_print(str_nmed, hdr_new, verbose_bdf)
 
     # Do CRREJ
     if do_crrej:
