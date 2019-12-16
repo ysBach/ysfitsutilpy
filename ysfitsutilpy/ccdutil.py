@@ -233,7 +233,7 @@ def imcopy(fpaths, fits_sections=None, outputs=None, return_ccd=True,
     IRAF, I made this function to accept only the file paths, not the
     pre-loaded CCDData objects. I here will load the
 
-    All the inputs will be flattened if they are higher than 1-d. I
+    All the sections will be flattened if they are higher than 1-d. I
     think it will only increase the complexity of the code if I accept
     that...?
 
