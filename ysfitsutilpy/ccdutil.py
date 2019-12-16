@@ -191,8 +191,16 @@ def load_ccd(path, extension=0, usewcs=True, hdu_uncertainty="UNCERT",
         if usewcs:
             w = WCS(hdu.header)
 
-        ccd = CCDData(data=hdu.data, header=hdu.header, wcs=w,
-                      uncertainty=unc, unit=unit)
+        if unit not in ['adu', u.adu]:
+            ccd = CCDData(data=hdu.data, header=hdu.header, wcs=w,
+                          uncertainty=unc, unit=unit)
+        else:
+            try:
+                ccd = CCDData(data=hdu.data, header=hdu.header, wcs=w,
+                              uncertainty=unc)
+            except ValueError:
+                ccd = CCDData(data=hdu.data, header=hdu.header, wcs=w,
+                              uncertainty=unc, unit=unit)
     return ccd
 
 
