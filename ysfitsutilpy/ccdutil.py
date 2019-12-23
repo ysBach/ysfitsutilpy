@@ -10,10 +10,30 @@ from astropy.nddata import CCDData, Cutout2D, StdDevUncertainty
 from astropy.wcs import WCS
 from ccdproc import trim_image
 
-from .misc import binning
+from .misc import binning, fitsxy2py
 
-__all__ = ["cutccd", "bin_ccd", "load_ccd", "imcopy", "CCDData_astype",
+__all__ = ["trim_ccd", "cutccd", "bin_ccd", "load_ccd", "imcopy", "CCDData_astype",
            "make_errmap"]
+
+
+# TODO: Remove when https://github.com/astropy/ccdproc/issues/718 is solved
+def trim_ccd(ccd, fits_section=None, add_keyword=True):
+    trimmed_ccd = trim_image(ccd, fits_section=fits_section,
+                             add_keyword=add_keyword)
+    ny, nx = ccd.data.shape
+    if fits_section:
+        trim_slice = fitsxy2py(fits_section)
+        ltv1 = -1*trim_slice[1].indices(nx)[0]
+        ltv2 = -1*trim_slice[0].indices(ny)[0]
+    else:
+        ltv1 = 0.
+        ltv2 = 0.
+
+    trimmed_ccd.header["LTV1"] = ltv1
+    trimmed_ccd.header["LTV2"] = ltv2
+    trimmed_ccd.header["LTM1_1"] = 1.
+    trimmed_ccd.header["LTM2_2"] = 1.
+    return trimmed_ccd
 
 
 # TODO: add LTV-like keys to the header.
@@ -171,7 +191,7 @@ def bin_ccd(ccd, factor_x=1, factor_y=1, binfunc=np.mean, trim_end=False,
 
 # FIXME: Remove it in the future.
 def load_ccd(path, extension=0, usewcs=True, hdu_uncertainty="UNCERT",
-             unit='adu'):
+             unit='adu', prefer_bunit=True):
     '''remove it when astropy updated:
     Note
     ----
@@ -191,16 +211,15 @@ def load_ccd(path, extension=0, usewcs=True, hdu_uncertainty="UNCERT",
         if usewcs:
             w = WCS(hdu.header)
 
-        if unit not in ['adu', u.adu]:
-            ccd = CCDData(data=hdu.data, header=hdu.header, wcs=w,
-                          uncertainty=unc, unit=unit)
-        else:
-            try:
-                ccd = CCDData(data=hdu.data, header=hdu.header, wcs=w,
-                              uncertainty=unc)
-            except ValueError:
-                ccd = CCDData(data=hdu.data, header=hdu.header, wcs=w,
-                              uncertainty=unc, unit=unit)
+        if prefer_bunit:
+            try:  # if BUNIT exists, ignore ``unit`` given by the user.
+                unit = hdu.header['BUNIT'].lower()
+            except KeyError:
+                pass
+
+        ccd = CCDData(data=hdu.data, header=hdu.header, wcs=w,
+                      uncertainty=unc, unit=unit)
+
     return ccd
 
 
