@@ -281,8 +281,8 @@ def stack_FITS(fitslist=None, summary_table=None, extension=0,
                 if loadccd:
                     ccd_i = load_ccd(item, extension=extension, unit=unit)
                     if trim_fits_section is not None:
-                        ccd_i = trim_image(
-                            ccd_i, fits_section=trim_fits_section)
+                        ccd_i = trim_image(ccd_i,
+                                           fits_section=trim_fits_section)
                     matched.append(ccd_i)
                 else:  # TODO: Is is better to remove Path here?
                     matched.append(Path(item))
@@ -562,14 +562,15 @@ def combine_ccd(fitslist=None, summary_table=None, table_filecol="file",
         reject_method = 'no'
 
     # Select CCDs by
-    ccdlist = stack_FITS(fitslist=fitslist,
-                         summary_table=summary_table,
-                         table_filecol=table_filecol,
-                         extension=extension,
-                         unit=unit,
-                         type_key=type_key,
-                         type_val=type_val,
-                         loadccd=False)
+    ccdlist = stack_FITS(
+        fitslist=fitslist,
+        summary_table=summary_table,
+        table_filecol=table_filecol,
+        extension=extension,
+        unit=unit,
+        type_key=type_key,
+        type_val=type_val,
+        loadccd=False)
     #  trim_fits_section=trim_fits_section,
     # loadccd=False: Loading CCD here may cause memory blast...
 
@@ -579,11 +580,12 @@ def combine_ccd(fitslist=None, summary_table=None, table_filecol="file",
         header = fits.getheader(ccdlist[0])
 
     if verbose:
-        _print_info(combine_method=combine_method,
-                    Nccd=len(ccdlist),
-                    reject_method=reject_method,
-                    dtype=dtype,
-                    **kwargs)
+        _print_info(
+            combine_method=combine_method,
+            Nccd=len(ccdlist),
+            reject_method=reject_method,
+            dtype=dtype,
+            **kwargs)
 
     scale = None
     # Normalize by exposure
@@ -619,18 +621,19 @@ def combine_ccd(fitslist=None, summary_table=None, table_filecol="file",
         else:
             master = load_ccd(ccdlist[0], extension=extension, unit=unit)
     else:
-        master = combine(img_list=ccdlist,
-                         method=combine_method,
-                         clip_extrema=clip_extrema,
-                         minmax_clip=minmax_clip,
-                         sigma_clip=sigma_clip,
-                         mem_limit=mem_limit,
-                         combine_uncertainty_function=combine_uncertainty_function,
-                         unit=unit,
-                         hdu=extension,
-                         scale=scale,
-                         dtype=dtype,
-                         **kwargs)
+        master = combine(
+            img_list=ccdlist,
+            method=combine_method,
+            clip_extrema=clip_extrema,
+            minmax_clip=minmax_clip,
+            sigma_clip=sigma_clip,
+            mem_limit=mem_limit,
+            combine_uncertainty_function=combine_uncertainty_function,
+            unit=unit,
+            hdu=extension,
+            scale=scale,
+            dtype=dtype,
+            **kwargs)
 
     ncombine = len(ccdlist)
     header["COMBVER"] = (ccdproc.__version__,
