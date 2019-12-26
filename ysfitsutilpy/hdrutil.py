@@ -16,7 +16,7 @@ from astropy.wcs import WCS
 from .misc import airmass_obs
 
 __all__ = ["wcs_crota", "center_radec", "key_remover", "key_mapper",
-           "get_from_header", "wcsremove", "fov_radius",
+           "change_to_quantity", "get_from_header", "wcsremove", "fov_radius",
            "airmass_from_hdr", "convert_bit"]
 
 
@@ -211,6 +211,62 @@ def key_mapper(header, keymap, deprecation=False, remove=False):
     return newhdr
 
 
+def change_to_quantity(x, desired='', to_value=False):
+    ''' Change the non-Quantity object to astropy Quantity.
+    Parameters
+    ----------
+    x : object changable to astropy Quantity
+        The input to be changed to a Quantity. If a Quantity is given,
+        ``x`` is changed to the ``desired``, i.e., ``x.to(desired)``.
+    desired : str or astropy Unit
+        The desired unit for ``x``.
+    to_value : bool, optional.
+        Whether to return as scalar value. If ``True``, just the
+        value(s) of the ``desired`` unit will be returned after
+        conversion.
+
+    Return
+    ------
+    ux: Quantity
+
+    Note
+    ----
+    If Quantity, transform to ``desired``. If ``desired = None``, return
+    it as is. If not Quantity, multiply the ``desired``. ``desired =
+    None``, return ``x`` with dimensionless unscaled unit.
+    '''
+    def _copy(xx):
+        try:
+            xcopy = xx.copy()
+        except AttributeError:
+            import copy
+            xcopy = copy.deepcopy(xx)
+        return xcopy
+
+    try:
+        ux = x.to(desired)
+        if to_value:
+            ux = ux.value
+    except AttributeError:
+        if not to_value:
+            if isinstance(desired, str):
+                desired = u.Unit(desired)
+            try:
+                ux = x*desired
+            except TypeError:
+                ux = _copy(x)
+        else:
+            ux = _copy(x)
+    except TypeError:
+        ux = _copy(x)
+    except u.UnitConversionError:
+        raise ValueError("If you use astropy.Quantity, you should use "
+                         + f"unit convertible to `desired`. \nYou gave "
+                         + f'"{x.unit}", unconvertible with "{desired}".')
+
+    return ux
+
+
 def get_from_header(header, key, unit=None, verbose=True,
                     default=0):
     ''' Get a variable from the header object.
@@ -232,44 +288,44 @@ def get_from_header(header, key, unit=None, verbose=True,
         given. Otherwise, appropriate type will be assigned.
     '''
 
-    def _change_to_quantity(x, unit=None):
-        ''' Change the non-Quantity object to astropy Quantity.
-        Parameters
-        ----------
-        x: object
-            The input to be changed to a Quantity. If a Quantity is given,
-            ``x`` is changed to the ``unit``, i.e., ``x.to(unit)``.
-        unit: astropy Unit, optional
-            The desired unit for ``x``.
+    # def _change_to_quantity(x, unit=None):
+    #     ''' Change the non-Quantity object to astropy Quantity.
+    #     Parameters
+    #     ----------
+    #     x: object
+    #         The input to be changed to a Quantity. If a Quantity is given,
+    #         ``x`` is changed to the ``unit``, i.e., ``x.to(unit)``.
+    #     unit: astropy Unit, optional
+    #         The desired unit for ``x``.
 
-        Returns
-        -------
-        ux: Quantity
+    #     Returns
+    #     -------
+    #     ux: Quantity
 
-        Note
-        ----
-        If Quantity, transform to ``unit``. If ``unit = None``, return
-        it as is. If not Quantity, multiply the ``unit``.
-        ``unit = None``, return ``x`` with dimensionless unscaled unit.
-        '''
-        if unit is None:
-            ux = x  # If it were Quantity, original Quantity will be returned
-        else:
-            if isinstance(x, u.quantity.Quantity):
-                ux = x.to(unit)
-            else:
-                ux = x * unit
-        return ux
+    #     Note
+    #     ----
+    #     If Quantity, transform to ``unit``. If ``unit = None``, return
+    #     it as is. If not Quantity, multiply the ``unit``.
+    #     ``unit = None``, return ``x`` with dimensionless unscaled unit.
+    #     '''
+    #     if unit is None:
+    #         ux = x  # If it were Quantity, original Quantity will be returned
+    #     else:
+    #         if isinstance(x, u.quantity.Quantity):
+    #             ux = x.to(unit)
+    #         else:
+    #             ux = x * unit
+    #     return ux
 
     q = None
 
     try:
-        q = _change_to_quantity(header[key], unit=unit)
+        q = change_to_quantity(header[key], unit=unit)
         if verbose:
             print(f"header: {key} = {q}")
     except KeyError:
         if default is not None:
-            q = _change_to_quantity(default, unit=unit)
+            q = change_to_quantity(default, unit=unit)
             warn(f"{key} not found in header: setting to {default}.")
         # else: None will be returned
 
