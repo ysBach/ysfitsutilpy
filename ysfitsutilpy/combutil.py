@@ -112,7 +112,7 @@ def group_FITS(summary_table, type_key=None, type_val=None, group_key=None):
 
 def stack_FITS(fitslist=None, summary_table=None, extension=0,
                unit='adu', table_filecol="file", trim_fits_section=None,
-               loadccd=True, type_key=None, type_val=None):
+               loadccd=True, type_key=None, type_val=None, verbose=True):
     ''' Stacks the FITS files specified in fitslist
     Parameters
     ----------
@@ -226,11 +226,16 @@ def stack_FITS(fitslist=None, summary_table=None, extension=0,
     if len(type_key) > 0:
         grouping = True
 
-    print("Analyzing FITS... ", end='')
+    if verbose:
+        print("Analyzing FITS... ", end='')
     # Set fitslist and summary_table based on the given input and grouping.
     if table_mode:
         if isinstance(summary_table, Table):
             summary_table = summary_table.to_pandas()
+        try:
+            summary_table.reset_index(inplace=True)
+        except ValueError:
+            pass
         fitslist = summary_table[table_filecol].tolist()
     else:
         if grouping:
@@ -243,12 +248,12 @@ def stack_FITS(fitslist=None, summary_table=None, extension=0,
                                          pandas=True)
         # else: no need to make summary_table.
 
-    print("Done", end='')
-
-    if loadccd:
-        print(" and loading FITS... ")
-    else:
-        print(".")
+    if verbose:
+        print("Done", end='')
+        if loadccd:
+            print(" and loading FITS... ")
+        else:
+            print(".")
 
     matched = []
 
@@ -300,12 +305,13 @@ def stack_FITS(fitslist=None, summary_table=None, extension=0,
             N = len(matched)
             ks = str(type_key)
             vs = str(type_val)
-            if loadccd:
-                print(f'{N} FITS files with "{ks} = {vs}" are loaded.')
-            else:
-                print(f'{N} FITS files with "{ks} = {vs}" are selected.')
+            if verbose:
+                if loadccd:
+                    print(f'{N} FITS files with "{ks} = {vs}" are loaded.')
+                else:
+                    print(f'{N} FITS files with "{ks} = {vs}" are selected.')
         else:
-            if loadccd:
+            if verbose and loadccd:
                 print('{:d} FITS files are loaded.'.format(len(matched)))
 
     return matched
@@ -459,6 +465,21 @@ def combine_ccd(fitslist=None, summary_table=None, table_filecol="file",
     master: astropy.nddata.CCDData
         Resulting combined ccd.
     '''
+    # def _normalize_exptime(ccdlist, exposure_key):
+    #     _ccdlist = ccdlist.copy()
+    #     exptimes = []
+    #     for i in range(len(_ccdlist)):
+    #         exptime = _ccdlist[i].header[exposure_key]
+    #         exptimes.append(exptime)
+    #         _ccdlist[i] = _ccdlist[i].divide(exptime)
+    #     if verbose:
+    #         if len(np.unique(exptimes)) != 1:
+    #             print('There are more than one exposure times:\n\t', end=' ')
+    #             print(np.unique(exptimes), end=' ')
+    #             print('seconds')
+    #         print(f'Normalized images by exposure time ("{exposure_key}").')
+    #     return _ccdlist
+
     def _set_reject_method(reject_method):
         ''' Convenience function for ccdproc.combine reject switches
         '''
@@ -487,28 +508,11 @@ def combine_ccd(fitslist=None, summary_table=None, table_filecol="file",
         print(dict(**kwargs))
         return
 
-    # def _normalize_exptime(ccdlist, exposure_key):
-    #     _ccdlist = ccdlist.copy()
-    #     exptimes = []
-
-    #     for i in range(len(_ccdlist)):
-    #         exptime = _ccdlist[i].header[exposure_key]
-    #         exptimes.append(exptime)
-    #         _ccdlist[i] = _ccdlist[i].divide(exptime)
-
-    #     if verbose:
-    #         if len(np.unique(exptimes)) != 1:
-    #             print('There are more than one exposure times:\n\t', end=' ')
-    #             print(np.unique(exptimes), end=' ')
-    #             print('seconds')
-    #         print(f'Normalized images by exposure time ("{exposure_key}").')
-
-    #     return _ccdlist
-
     def _add_and_print(s, header, verbose):
         header.add_history(s)
         if verbose:
             print(s)
+
     # Give only one
     if ((fitslist is not None) + (summary_table is not None) != 1):
         raise ValueError(
@@ -519,15 +523,17 @@ def combine_ccd(fitslist=None, summary_table=None, table_filecol="file",
         try:
             fitslist = list(fitslist)
         except TypeError:
-            raise TypeError("fitslist must be convertable to list. "
-                            + f"It's now {type(fitslist)}.")
+            raise TypeError(
+                "fitslist must be convertable to list. "
+                + f"It's now {type(fitslist)}.")
 
     # If summary_table
     if summary_table is not None:
         if ((not isinstance(summary_table, Table))
                 and (not isinstance(summary_table, pd.DataFrame))):
-            raise TypeError("summary_table must be an astropy Table or Pandas "
-                            + f"DataFrame. It's now {type(summary_table)}.")
+            raise TypeError(
+                "summary_table must be an astropy Table or Pandas DataFrame. "
+                + f"It's now {type(summary_table)}.")
 
     # Check for type_key and type_val
     if ((type_key is None) ^ (type_val is None)):
@@ -570,7 +576,9 @@ def combine_ccd(fitslist=None, summary_table=None, table_filecol="file",
         unit=unit,
         type_key=type_key,
         type_val=type_val,
-        loadccd=False)
+        loadccd=False,
+        verbose=verbose
+    )
     #  trim_fits_section=trim_fits_section,
     # loadccd=False: Loading CCD here may cause memory blast...
 
@@ -589,6 +597,7 @@ def combine_ccd(fitslist=None, summary_table=None, table_filecol="file",
 
     scale = None
     # Normalize by exposure
+    # TODO: Let it accept summary table as well as fitslist
     if normalize_exposure:
         tmp = make_summary(fitslist=fitslist,
                            keywords=[exposure_key],
@@ -629,7 +638,7 @@ def combine_ccd(fitslist=None, summary_table=None, table_filecol="file",
             sigma_clip=sigma_clip,
             mem_limit=mem_limit,
             combine_uncertainty_function=combine_uncertainty_function,
-            unit=unit,
+            unit=None,  # user-given unit is already applied by stack_FITS
             hdu=extension,
             scale=scale,
             dtype=dtype,
