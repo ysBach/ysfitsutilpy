@@ -3,18 +3,18 @@ Simple mathematical functions that will be used throughout this package. Some
 might be useful outside of this package.
 '''
 from warnings import warn
-import numpy as np
 
+import ccdproc
+import numpy as np
 from astropy import units as u
-from astropy.time import Time
 from astropy.coordinates import AltAz
-from astropy.visualization import ZScaleInterval, ImageNormalize
 from astropy.io import fits
 from astropy.nddata import CCDData
-import ccdproc
+from astropy.time import Time
+from astropy.visualization import ImageNormalize, ZScaleInterval
 
 __all__ = ["MEDCOMB_KEYS_INT", "SUMCOMB_KEYS_INT", "MEDCOMB_KEYS_FLT32",
-           "LACOSMIC_KEYS",
+           "LACOSMIC_KEYS", "change_to_quantity",
            "binning", "fitsxy2py", "give_stats", "calc_airmass", "airmass_obs",
            "chk_keyval"]
 
@@ -42,6 +42,62 @@ LACOSMIC_KEYS = dict(sigclip=4.5, sigfrac=0.5, objlim=1.0,
                      satlevel=np.inf, pssl=0.0, niter=4, sepmed=False,
                      cleantype='medmask', fsmode='median', psfmodel='gauss',
                      psffwhm=2.5, psfsize=7, psfk=None, psfbeta=4.765)
+
+
+def change_to_quantity(x, desired='', to_value=False):
+    ''' Change the non-Quantity object to astropy Quantity.
+    Parameters
+    ----------
+    x : object changable to astropy Quantity
+        The input to be changed to a Quantity. If a Quantity is given,
+        ``x`` is changed to the ``desired``, i.e., ``x.to(desired)``.
+    desired : str or astropy Unit
+        The desired unit for ``x``.
+    to_value : bool, optional.
+        Whether to return as scalar value. If ``True``, just the
+        value(s) of the ``desired`` unit will be returned after
+        conversion.
+
+    Return
+    ------
+    ux: Quantity
+
+    Note
+    ----
+    If Quantity, transform to ``desired``. If ``desired = None``, return
+    it as is. If not Quantity, multiply the ``desired``. ``desired =
+    None``, return ``x`` with dimensionless unscaled unit.
+    '''
+    def _copy(xx):
+        try:
+            xcopy = xx.copy()
+        except AttributeError:
+            import copy
+            xcopy = copy.deepcopy(xx)
+        return xcopy
+
+    try:
+        ux = x.to(desired)
+        if to_value:
+            ux = ux.value
+    except AttributeError:
+        if not to_value:
+            if isinstance(desired, str):
+                desired = u.Unit(desired)
+            try:
+                ux = x*desired
+            except TypeError:
+                ux = _copy(x)
+        else:
+            ux = _copy(x)
+    except TypeError:
+        ux = _copy(x)
+    except u.UnitConversionError:
+        raise ValueError("If you use astropy.Quantity, you should use "
+                         + f"unit convertible to `desired`. \nYou gave "
+                         + f'"{x.unit}", unconvertible with "{desired}".')
+
+    return ux
 
 
 def binning(arr, factor_x=1, factor_y=1, binfunc=np.mean, trim_end=False):
