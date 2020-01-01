@@ -4,19 +4,184 @@ Collection of functions that are quite far from headerutil.
 from warnings import warn
 
 import numpy as np
-from astropy import units as u
 from astropy.io import fits
 from astropy.nddata import CCDData, Cutout2D, StdDevUncertainty
 from astropy.wcs import WCS
+from astropy import units as u
 from ccdproc import trim_image
+from copy import deepcopy
 
 from .misc import binning, fitsxy2py
+from .hdrutil import get_if_none
 
-__all__ = ["trim_ccd", "cutccd", "bin_ccd", "load_ccd", "imcopy", "CCDData_astype",
-           "make_errmap"]
+__all__ = [
+    "set_ccd_attribute", "set_ccd_gain_rdnoise",
+    "propagate_ccdmask", "datahdr_parse",
+    "trim_ccd", "cutccd", "bin_ccd", "load_ccd",
+    "imcopy", "CCDData_astype", "make_errmap"]
 
 
-# TODO: Remove when https://github.com/astropy/ccdproc/issues/718 is solved
+def set_ccd_attribute(ccd, name, value=None, key=None, default=None,
+                      unit=None, header_comment=None,
+                      update_header=True, verbose=True,
+                      wrapper=None, wrapper_kw={}):
+    ''' Set attributes from given paramters.
+    Parameters
+    ----------
+    ccd : CCDData
+        The ccd to add attribute.
+    value : Any, optional.
+        The value to be set as the attribute. If ``None``, the
+        ``ccd.header[key]`` will be searched.
+    name : str, optional.
+        The name of the attribute.
+    key : str, optional.
+        The key in the ``ccd.header`` to be searched if ``value=None``.
+    unit : astropy.Unit, optional.
+        The unit that will be applied to the found value.
+    header_comment : str, optional.
+        The comment string to the header if ``update_header=True``. If
+        ``None`` (default), search for existing comment in the original
+        header by ``ccd.comments[key]`` and only overwrite the value by
+        ``ccd.header[key]=found_value``. If it's not ``None``, the
+        comments will also be overwritten if ``update_header=True``.
+    wrapper : function object, None, optional.
+        The wrapper function that will be applied to the found value.
+        Other keyword arguments should be given as a dict to
+        ``wrapper_kw``.
+    wrapper_kw : dict, optional.
+        The keyword argument to ``wrapper``.
+
+    Example
+    -------
+    >>> set_ccd_attribute(ccd, 'gain', value=2, unit='electron/adu')
+    >>> set_ccd_attribute(ccd, 'ra', key='RA', unit=u.deg, default=0)
+
+    Note
+    ----
+    '''
+    str_history = "From {}, {} = {} [unit = {}]"
+    #                   value_from, name, value_Q.value, value_Q.unit
+
+    if unit is None:
+        try:
+            unit = value.unit
+        except AttributeError:
+            unit = u.dimensionless_unscaled
+
+    value_Q, value_from = get_if_none(
+        value=value,
+        header=ccd.header,
+        key=key,
+        unit=unit,
+        verbose=verbose,
+        default=default
+    )
+    if wrapper is not None:
+        value_Q = wrapper(value_Q, **wrapper_kw)
+
+    if update_header:
+        ccd.header.add_history(str_history.format(value_from,
+                                                  name,
+                                                  value_Q.value,
+                                                  value_Q.unit))
+        if key is not None:
+            if header_comment is None:
+                try:
+                    header_comment = ccd.header.comments[key]
+                except (KeyError, ValueError):
+                    header_comment = ''
+
+            try:
+                v = ccd.header[key]
+                ccd.header.add_history(f"Original {key} = {v} is overwritten.")
+            except (KeyError, ValueError):
+                pass
+
+            ccd.header[key] = (value_Q.value, header_comment)
+
+    setattr(ccd, name, value_Q)
+
+
+# TODO: This is quite much overlapping with get_gain_rdnoise...
+def set_ccd_gain_rdnoise(ccd, gain=None, gain_key="GAIN",
+                         gain_unit=u.electron/u.adu,
+                         rdnoise=None, rdnoise_key="RDNOISE",
+                         rdnoise_unit=u.electron,
+                         verbose=True, update_header=True):
+    """ A convenience set_ccd_attribute for gain and readnoise.
+    Parameters
+    ----------
+    gain, rdnoise : None, float, astropy.Quantity, optional.
+        The gain and readnoise value. If ``gain`` or ``readnoise`` is
+        specified, they are interpreted with ``gain_unit`` and
+        ``rdnoise_unit``, respectively. If they are not specified, this
+        function will seek for the header with keywords of ``gain_key``
+        and ``rdnoise_key``, and interprete the header value in the unit
+        of ``gain_unit`` and ``rdnoise_unit``, respectively.
+
+    gain_key, rdnoise_key : str, optional.
+        See ``gain``, ``rdnoise`` explanation above.
+
+    gain_unit, rdnoise_unit : str, astropy.Unit, optional.
+        See ``gain``, ``rdnoise`` explanation above.
+
+    verbose : bool, optional.
+        The verbose option.
+
+    update_header : bool, optional
+        Whether to update the given header.
+    """
+    gain_str = f"[{gain_unit:s}] Gain of the detector"
+    rdn_str = f"[{rdnoise_unit:s}] Readout noise of the detector"
+    set_ccd_attribute(ccd=ccd, name='gain', value=gain, key=gain_key,
+                      unit=gain_unit, default=1.0,
+                      header_comment=gain_str,
+                      update_header=update_header, verbose=verbose)
+    set_ccd_attribute(ccd=ccd, name='rdnoise', value=rdnoise, key=rdnoise_key,
+                      unit=rdnoise_unit, default=0.0,
+                      header_comment=rdn_str,
+                      update_header=update_header, verbose=verbose)
+
+
+def propagate_ccdmask(ccd, additional_mask=None):
+    ''' Propagate the CCDData's mask and additional mask.
+    Parameters
+    ----------
+    ccd : CCDData
+        The ccd to extract mask
+    additional_mask: mask-like, None
+        The mask to be propagated.
+
+    Note
+    ----
+    The original ``ccd.mask`` is not modified. To do so,
+    >>> ccd.mask = propagate_ccdmask(ccd, additional_mask=mask2)
+    '''
+    if additional_mask is None:
+        mask = ccd.mask.copy()
+    else:
+        try:
+            mask = ccd.mask | additional_mask
+        except TypeError:  # i.e., if ccd.mask is None:
+            mask = deepcopy(additional_mask)
+    return mask
+
+
+def datahdr_parse(ccd_like_object):
+    if isinstance(ccd_like_object, (CCDData, fits.PrimaryHDU, fits.ImageHDU)):
+        data = ccd_like_object.data.copy()
+        hdr = ccd_like_object.header.copy()
+    elif isinstance(ccd_like_object, fits.HDUList):
+        data = ccd_like_object[0].data.copy()
+        hdr = ccd_like_object[0].header.copy()
+    else:
+        data = ccd_like_object.copy()
+        hdr = None
+    return data, hdr
+
+
+# FIXME: Remove when https://github.com/astropy/ccdproc/issues/718 is solved
 def trim_ccd(ccd, fits_section=None, add_keyword=True):
     trimmed_ccd = trim_image(ccd, fits_section=fits_section,
                              add_keyword=add_keyword)
@@ -327,7 +492,8 @@ def imcopy(fpaths, fits_sections=None, outputs=None, return_ccd=True,
         result = []
         if to_trim:  # n CCDData will be in ``result``
             for sect in sects:
-                nccd = trim_image(ccd, fits_section=sect)
+                # FIXME: use ccdproc.trim_image when trim_ccd is removed.
+                nccd = trim_ccd(ccd, fits_section=sect)
                 nccd = CCDData_astype(nccd, dtype=dtype)
                 result.append(nccd)
         else:  # only one single CCDData will be in ``result``
@@ -388,7 +554,9 @@ def CCDData_astype(ccd, dtype='float32', uncertainty_dtype=None):
 
 
 def make_errmap(ccd, gain_epadu=1, rdnoise_electron=0,
-                flat_err=0.0, subtracted_dark=None, return_variance=False):
+                flat_err=0.0, subtracted_dark=None,
+                return_variance=False,
+                detail=False):
     ''' Calculate the simple error map in ADU unit.
     Parameters
     ----------
@@ -429,11 +597,7 @@ def make_errmap(ccd, gain_epadu=1, rdnoise_electron=0,
     >>>               subtracted_dark = dark.data)
     >>> ccd.uncertainty = StdDevUncertainty(make_errmap(ccd, **params))
     '''
-    data = ccd.copy()
-
-    if isinstance(data, CCDData):
-        data = data.data
-
+    data, _ = datahdr_parse(ccd)
     data[data < 0] = 0  # make all negative pixel to 0
 
     if isinstance(gain_epadu, u.Quantity):
@@ -466,3 +630,6 @@ def make_errmap(ccd, gain_epadu=1, rdnoise_electron=0,
     else:
         errmap = np.sqrt(varmap)
         return errmap
+
+
+def errormap(ccd)
