@@ -14,7 +14,8 @@ from astropy.time import Time
 from astropy.visualization import ImageNormalize, ZScaleInterval
 
 __all__ = ["MEDCOMB_KEYS_INT", "SUMCOMB_KEYS_INT", "MEDCOMB_KEYS_FLT32",
-           "LACOSMIC_KEYS", "change_to_quantity",
+           "LACOSMIC_KEYS",
+           "str_now", "change_to_quantity",
            "binning", "fitsxy2py", "give_stats", "calc_airmass", "airmass_obs",
            "chk_keyval"]
 
@@ -52,6 +53,24 @@ LACOSMIC_KEYS = {'sigclip': 4.5,
                  'psfsize': 7,
                  'psfk': None,
                  'psfbeta': 4.765}
+
+
+def str_now(precision=3, fmt="{:.>72s}"):
+    ''' Get stringfied time now in UT ISOT format.
+    Parameters
+    ----------
+    precision : int
+        The precision of the isot format time.
+    fmt : str
+        The Python 3 format string to format the time.
+        Examples:
+          * ``"{:s}"``: plain time ``2020-01-01T01:01:01.23``
+          * ``"({:s})"``: plain time in parentheses
+            ``(2020-01-01T01:01:01.23)``
+          * ``"{:_^72s}"``: center align, filling with ``_``.
+    '''
+    now = Time(Time.now(), precision=precision)
+    return fmt.format(now.isot)
 
 
 def change_to_quantity(x, desired='', to_value=False):
