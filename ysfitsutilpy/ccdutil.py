@@ -150,8 +150,9 @@ def propagate_ccdmask(ccd, additional_mask=None):
     ''' Propagate the CCDData's mask and additional mask.
     Parameters
     ----------
-    ccd : CCDData
-        The ccd to extract mask
+    ccd : CCDData, ndarray
+        The ccd to extract mask. If ndarray, it will only return a copy
+        of ``additional_mask``.
     additional_mask: mask-like, None
         The mask to be propagated.
 
@@ -165,7 +166,7 @@ def propagate_ccdmask(ccd, additional_mask=None):
     else:
         try:
             mask = ccd.mask | additional_mask
-        except TypeError:  # i.e., if ccd.mask is None:
+        except (TypeError, AttributeError):  # i.e., if ccd.mask is None:
             mask = deepcopy(additional_mask)
     return mask
 
