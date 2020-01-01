@@ -236,9 +236,7 @@ def crrej(ccd, mask=None, propagate_crmask=False, update_header=True,
     rdnoise = change_to_quantity(rdnoise, u.electron, to_value=True)
 
     # remove the fucxing cosmic rays
-    crmask, cleanarr = detect_cosmics(
-        data,
-        inmask=inmask,
+    crrej_kwargs = dict(
         gain=gain,
         readnoise=rdnoise,
         sigclip=sigclip,
@@ -254,8 +252,13 @@ def crrej(ccd, mask=None, propagate_crmask=False, update_header=True,
         psffwhm=psffwhm,
         psfsize=psfsize,
         psfk=psfk,
-        psfbeta=psfbeta,
-        verbose=verbose)
+        psfbeta=psfbeta
+    )
+    crmask, cleanarr = detect_cosmics(
+        data,
+        inmask=inmask,
+        verbose=verbose,
+        **crrej_kwargs)
 
     # create the new ccd data object
     #   astroscrappy automatically does the gain correction, so return
@@ -269,7 +272,7 @@ def crrej(ccd, mask=None, propagate_crmask=False, update_header=True,
     except KeyError:
         hdr["PROCESS"] = "C"
 
-    _add_and_print(str_cr.format(astroscrappy.__version__, locals()),
+    _add_and_print(str_cr.format(astroscrappy.__version__, crrej_kwargs),
                    hdr, verbose, update_header=update_header)
     _ccd.header = hdr
 
