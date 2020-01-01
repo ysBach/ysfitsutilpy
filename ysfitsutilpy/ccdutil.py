@@ -11,7 +11,7 @@ from astropy import units as u
 from ccdproc import trim_image
 from copy import deepcopy
 
-from .misc import binning, fitsxy2py
+from .misc import binning, fitsxy2py, add_to_header
 from .hdrutil import get_if_none
 
 __all__ = [
@@ -62,8 +62,8 @@ def set_ccd_attribute(ccd, name, value=None, key=None, default=None,
     Note
     ----
     '''
-    str_history = "From {}, {} = {} [unit = {}]"
-    #                   value_from, name, value_Q.value, value_Q.unit
+    str_history = "From {}, {} = {} [unit = {}] ({})"
+    #                   value_from, name, value_Q.value, value_Q.unit, time
 
     if unit is None:
         try:
@@ -83,10 +83,9 @@ def set_ccd_attribute(ccd, name, value=None, key=None, default=None,
         value_Q = wrapper(value_Q, **wrapper_kw)
 
     if update_header:
-        ccd.header.add_history(str_history.format(value_from,
-                                                  name,
-                                                  value_Q.value,
-                                                  value_Q.unit))
+        # add as history
+        s = str_history.format(value_from, name, value_Q.value, value_Q.unit)
+        add_to_header(ccd.header, 'h', s)
         if key is not None:
             if header_comment is None:
                 try:
@@ -96,7 +95,8 @@ def set_ccd_attribute(ccd, name, value=None, key=None, default=None,
 
             try:
                 v = ccd.header[key]
-                ccd.header.add_history(f"Original {key} = {v} is overwritten.")
+                ccd.header.add_history(
+                    f"(Original {key} = {v} is overwritten.)")
             except (KeyError, ValueError):
                 pass
 
@@ -346,8 +346,9 @@ def bin_ccd(ccd, factor_x=1, factor_y=1, binfunc=np.mean, trim_end=False,
                         binfunc=binfunc,
                         trim_end=trim_end)
     if update_header:
-        _ccd.header.add_history(
-            f"Binned by (xbin, ybin) = ({factor_x}, {factor_y})")
+        # add as history
+        add_to_header(_ccd.header, 'h',
+                      f"Binned by (xbin, ybin) = ({factor_x}, {factor_y}) ")
         _ccd.header["BINFUNC"] = (
             binfunc.__name__, "The function used for binning.")
         _ccd.header["XBINNING"] = (

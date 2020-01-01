@@ -10,19 +10,17 @@ from ccdproc import flat_correct, subtract_bias, subtract_dark
 
 from .ccdutil import (CCDData_astype, datahdr_parse, load_ccd, make_errmap,
                       propagate_ccdmask, trim_ccd, set_ccd_gain_rdnoise)
-from .misc import LACOSMIC_KEYS, change_to_quantity
+from .misc import LACOSMIC_KEYS, change_to_quantity, add_to_header
 
 __all__ = [
     "crrej", "bdf_process"]
 
 # Set strings for header history & print (if verbose)
-str_bias = "Bias subtracted using {}"
-str_dark = "Dark subtracted using {}"
+str_bias = "Bias subtracted (see BIASPATH)"
+str_dark = "Dark subtracted (see DARKPATH)"
 str_dscale = "Dark scaling {} using {}"
-str_flat = "Flat corrected using {}"
-str_trim = "Trim by FITS section {}"
-str_grd = "From {}, {} = {:.3f} [{}]"
-# str_grd.format(user/header_key, gain/rdnoise, val, unit)
+str_flat = "Flat corrected (see FLATPATH)"
+str_trim = "Trim by FITS section {} (see LTV, LTM, TRIMIM)"
 str_e0 = ("Readnoise propagated with Poisson noise (using gain above)"
           + " of source.")
 str_ed = "Poisson noise from subtracted dark was propagated."
@@ -36,7 +34,8 @@ str_cr = ("Cosmic-Ray rejected by astroscrappy (v {}), "
 
 def _add_and_print(s, header, verbose, update_header=True):
     if update_header:
-        header.add_history(s)
+        # add as history
+        add_to_header(header, 'h', s)
     if verbose:
         print(s)
 
