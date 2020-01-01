@@ -18,7 +18,9 @@ __all__ = [
     "set_ccd_attribute", "set_ccd_gain_rdnoise",
     "propagate_ccdmask", "datahdr_parse",
     "trim_ccd", "cutccd", "bin_ccd", "load_ccd",
-    "imcopy", "CCDData_astype", "make_errmap"]
+    "imcopy", "CCDData_astype", "make_errmap",
+    "errormap"
+    ]
 
 
 def set_ccd_attribute(ccd, name, value=None, key=None, default=None,
@@ -557,7 +559,7 @@ def make_errmap(ccd, gain_epadu=1, rdnoise_electron=0,
                 flat_err=0.0, subtracted_dark=None,
                 return_variance=False,
                 detail=False):
-    ''' Calculate the simple error map in ADU unit.
+    ''' Calculate the simple error map. Use ``errormap`` instead.
     Parameters
     ----------
     ccd: array-like
@@ -567,12 +569,9 @@ def make_errmap(ccd, gain_epadu=1, rdnoise_electron=0,
         and used to calculate the Poisson noise term. If the amount of
         this subtracted dark is negligible, you may just set
         ``subtracted_dark = None`` (default).
-    gain: float, array-like, or Quantity, optional.
-        The effective gain factor in ``electron/ADU`` unit.
-    rdnoise: float, array-like, or Quantity, optional.
-        The readout noise. Put ``rdnoise=0`` will calculate only the
-        Poissonian error. This is useful when generating noise map for
-        dark frames.
+    gain_epadu, rdnoise_electron: float, array-like, or Quantity, optional.
+        The effective gain factor in ``electron/ADU`` unit and the
+        readout noise in ``electron`` unit.
     flat_err : float, array-like optional.
         The uncertainty from the flat fielding (see, e.g., eq 10 of
         StetsonPB 1987, PASP, 99, 191). Stetson used 0.0075 (0.75%
@@ -632,4 +631,90 @@ def make_errmap(ccd, gain_epadu=1, rdnoise_electron=0,
         return errmap
 
 
-def errormap(ccd)
+def errormap(ccd_biassub, gain_epadu=1, rdnoise_electron=0,
+             subtracted_dark=None, flat=None, dark_std=None, flat_err=None,
+             return_variance=False):
+    ''' Calculate the detailed pixel-wise error map in ADU unit.
+    Parameters
+    ----------
+    ccd : CCDData, PrimaryHDU, ImageHDU, ndarray.
+        The ccd data which will be used to generate error map. It must
+        be **bias subtracted**. If dark is subtracted, give
+        ``subtracted_dark``. This array will be added to ``ccd.data``
+        and used to calculate the Poisson noise term. If the amount of
+        this subtracted dark is negligible, you may just set
+        ``subtracted_dark = None`` (default).
+    gain_epadu, rdnoise_electron: float, array-like, or Quantity, optional.
+        The effective gain factor in ``electron/ADU`` unit and the
+        readout noise in ``electron`` unit.
+    subtracted_dark : array-like
+        The subtracted dark map.
+    flat : ndarray, optional.
+        The flat field value. There is no need that flat values are
+        normalized. If ``None`` (default), a constant flat of value
+        ``1`` is used.
+    flat_err : float, array-like optional.
+        The uncertainty of the flat, which is obtained by the central
+        limit theorem (sample standard deviation of the pixel divided by
+        the square root of the number of flat frames).
+        An example in IRAF and DAOPHOT: the uncertainty from the flat
+        fielding ``flat_err/flat`` is set as a constant (see, e.g., eq
+        10 of StetsonPB 1987, PASP, 99, 191) set as Stetson used 0.0075
+        (0.75% fractional uncertainty), and the same is implemented to
+        IRAF DAOPHOT:
+        http://stsdas.stsci.edu/cgi-bin/gethelp.cgi?daopars
+    dark_std : float, array-like, optional.
+        The sample standard deviation of dark pixels. It **should not be
+        divided by the number of dark frames**, because we are
+        interested in the uncertainty in the dark (prediction), not the
+        confidence interval of the *mean* of the dark. If ``None``, it
+        is assumed dark has no uncertainty.
+    return_variance: bool, optional
+        Whether to return as variance map. Default is ``False``, i.e.,
+        return the square-rooted standard deviation map. It's better to
+        use variance for large image size (computation speed issue).
+
+    Example
+    '''
+    data, _ = datahdr_parse(ccd_biassub)
+    data[data < 0] = 0  # make all negative pixel to 0
+
+    if isinstance(gain_epadu, u.Quantity):
+        gain_epadu = gain_epadu.to(u.electron / u.adu).value
+    elif isinstance(gain_epadu, str):
+        gain_epadu = float(gain_epadu)
+
+    if isinstance(rdnoise_electron, u.Quantity):
+        rdnoise_electron = rdnoise_electron.to(u.electron)
+    elif isinstance(rdnoise_electron, str):
+        rdnoise_electron = float(rdnoise_electron)
+
+    # restore dark for Poisson term calculation
+    if subtracted_dark is not None:
+        data += subtracted_dark
+
+    if flat is None:
+        flat = np.ones_like(data)
+
+    var = data / (gain_epadu * flat**2)
+    var += (rdnoise_electron/(gain_epadu*flat))**2
+
+    if dark_std is not None:
+        dark_std = np.ones_like(data) * dark_std
+        rd_adu = rdnoise_electron/gain_epadu
+        dark_std[dark_std < rd_adu] = rd_adu
+        var += (dark_std/flat)**2
+
+    if flat_err is not None:
+        flat_err = np.ones_like(data) * flat_err
+        var += data**2*(flat_err/flat)**2
+
+    if return_variance:
+        return var
+    else:
+        return np.sqrt(var)
+
+    # var_pois = data / (gain_epadu * flat**2)
+    # var_rdn = (rdnoise_electron/(gain_epadu*flat))**2
+    # var_flat_err = data**2*(flat_err/flat)**2
+    # var_dark_err = (dark_err/flat)**2
