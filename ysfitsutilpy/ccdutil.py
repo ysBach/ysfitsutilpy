@@ -605,7 +605,7 @@ def make_errmap(ccd, gain_epadu=1, rdnoise_electron=0,
         gain_epadu = float(gain_epadu)
 
     if isinstance(rdnoise_electron, u.Quantity):
-        rdnoise_electron = rdnoise_electron.to(u.electron)
+        rdnoise_electron = rdnoise_electron.to(u.electron).value
     elif isinstance(rdnoise_electron, str):
         rdnoise_electron = float(rdnoise_electron)
 
@@ -690,7 +690,7 @@ def errormap(ccd_biassub, gain_epadu=1, rdnoise_electron=0,
         gain_epadu = float(gain_epadu)
 
     if isinstance(rdnoise_electron, u.Quantity):
-        rdnoise_electron = rdnoise_electron.to(u.electron)
+        rdnoise_electron = rdnoise_electron.to(u.electron).value
     elif isinstance(rdnoise_electron, str):
         rdnoise_electron = float(rdnoise_electron)
 
