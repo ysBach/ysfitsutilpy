@@ -16,7 +16,7 @@ from astropy.wcs import WCS
 from .misc import airmass_obs, change_to_quantity
 
 __all__ = ["wcs_crota", "center_radec", "key_remover", "key_mapper",
-           "get_from_header", "wcsremove", "fov_radius",
+           "get_from_header", "get_if_none", "wcsremove", "fov_radius",
            "airmass_from_hdr", "convert_bit"]
 
 
@@ -231,36 +231,6 @@ def get_from_header(header, key, unit=None, verbose=True,
         The extracted quantity from the header. It's a Quantity if the unit is
         given. Otherwise, appropriate type will be assigned.
     '''
-
-    # def _change_to_quantity(x, unit=None):
-    #     ''' Change the non-Quantity object to astropy Quantity.
-    #     Parameters
-    #     ----------
-    #     x: object
-    #         The input to be changed to a Quantity. If a Quantity is given,
-    #         ``x`` is changed to the ``unit``, i.e., ``x.to(unit)``.
-    #     unit: astropy Unit, optional
-    #         The desired unit for ``x``.
-
-    #     Returns
-    #     -------
-    #     ux: Quantity
-
-    #     Note
-    #     ----
-    #     If Quantity, transform to ``unit``. If ``unit = None``, return
-    #     it as is. If not Quantity, multiply the ``unit``.
-    #     ``unit = None``, return ``x`` with dimensionless unscaled unit.
-    #     '''
-    #     if unit is None:
-    #         ux = x  # If it were Quantity, original Quantity will be returned
-    #     else:
-    #         if isinstance(x, u.quantity.Quantity):
-    #             ux = x.to(unit)
-    #         else:
-    #             ux = x * unit
-    #     return ux
-
     q = None
 
     try:
@@ -274,6 +244,23 @@ def get_from_header(header, key, unit=None, verbose=True,
         # else: None will be returned
 
     return q
+
+
+def get_if_none(value, header, key, unit=None, verbose=True, default=0):
+    ''' Similar to get_from_header, but a convenience wrapper.
+    '''
+    if value is None:
+        value_Q = get_from_header(header,
+                                  key,
+                                  unit=unit,
+                                  verbose=verbose,
+                                  default=default)
+        value_from = f"{key} in header"
+    else:
+        value_Q = change_to_quantity(value, unit, to_value=False)
+        value_from = "the user"
+
+    return value_Q, value_from
 
 
 # TODO: do not load data extension if not explicitly ordered
