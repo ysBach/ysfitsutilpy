@@ -62,8 +62,8 @@ def set_ccd_attribute(ccd, name, value=None, key=None, default=None,
     Note
     ----
     '''
-    str_history = "From {}, {} = {} [unit = {}] ({})"
-    #                   value_from, name, value_Q.value, value_Q.unit, time
+    str_history = "From {}, {} = {} [unit = {}]"
+    #                   value_from, name, value_Q.value, value_Q.unit
 
     if unit is None:
         try:
