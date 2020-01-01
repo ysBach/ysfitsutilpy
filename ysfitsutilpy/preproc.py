@@ -4,6 +4,7 @@ import astroscrappy
 import ccdproc
 import numpy as np
 from astropy import units as u
+from astropy.time import Time
 from astropy.nddata import CCDData, StdDevUncertainty
 from astroscrappy import detect_cosmics
 from ccdproc import flat_correct, subtract_bias, subtract_dark
@@ -11,7 +12,7 @@ from ccdproc import flat_correct, subtract_bias, subtract_dark
 from .ccdutil import (CCDData_astype, datahdr_parse, load_ccd, make_errmap,
                       propagate_ccdmask, set_ccd_gain_rdnoise, trim_ccd)
 from .hdrutil import add_to_header
-from .misc import LACOSMIC_KEYS, change_to_quantity
+from .misc import LACOSMIC_KEYS, change_to_quantity, str_now
 
 __all__ = [
     "crrej", "bdf_process"]
@@ -33,12 +34,12 @@ str_cr = ("Cosmic-Ray rejected by astroscrappy (v {}), "
           + "with parameters: {}")
 
 
-def _add_and_print(s, header, verbose, update_header=True):
+def _add_and_print(s, header, verbose, update_header=True, t_ref=None):
     if update_header:
         # add as history
-        add_to_header(header, 'h', s)
+        add_to_header(header, 'h', s, t_ref=t_ref)
     if verbose:
-        print(s)
+        print(str_now(fmt='{}'), s)
 
 
 # # TODO: This is quite much overlapping with set_ccd_gain_rdnoise...
@@ -211,6 +212,8 @@ def crrej(ccd, mask=None, propagate_crmask=False, update_header=True,
     >>> yfu.ccdutil.set_ccd_gain_rdnoise(ccd)
     >>> nccd, mask = crrej(ccd)
     """
+    _t_start = Time.now()
+
     if gain is None:
         try:
             gain = ccd.gain
@@ -273,7 +276,7 @@ def crrej(ccd, mask=None, propagate_crmask=False, update_header=True,
         hdr["PROCESS"] = "C"
 
     _add_and_print(str_cr.format(astroscrappy.__version__, crrej_kwargs),
-                   hdr, verbose, update_header=update_header)
+                   hdr, verbose, update_header=update_header, t_ref=_t_start)
     _ccd.header = hdr
 
     return _ccd, crmask
@@ -428,8 +431,9 @@ def bdf_process(ccd, output=None,
         hdr_new["PROCESS"] = ("", "The processed history: see comment.")
         hdr_new["CCDPROCV"] = (ccdproc.__version__,
                                "ccdproc version used for processing.")
-        hdr_new.add_comment("PROCESS key can be B (bias), D (dark), F (flat), "
-                            + "T (trim), W (WCS astrometry), C(CRrej).")
+        add_to_header(hdr_new, 'c',
+                      "PROCESS key can be B (bias), D (dark), F (flat), "
+                      + "T (trim), W (WCS astrometry), C(CRrej).")
 
     # Set for BIAS
     if mbiaspath is None:
@@ -441,8 +445,7 @@ def bdf_process(ccd, output=None,
         if not calc_err:
             mbias.uncertainty = None
         hdr_new["PROCESS"] += "B"
-        hdr_new["BIASNAME"] = (str(mbiaspath), "Path to the used bias file")
-        _add_and_print(str_bias.format(mbiaspath), hdr_new, verbose_bdf)
+        hdr_new["BIASPATH"] = (str(mbiaspath), "Path to the used bias file")
 
     # Set for DARK
     if mdarkpath is None:
@@ -455,7 +458,6 @@ def bdf_process(ccd, output=None,
             mdark.uncertainty = None
         hdr_new["PROCESS"] += "D"
         hdr_new["DARKPATH"] = (str(mdarkpath), "Path to the used dark file")
-        _add_and_print(str_dark.format(mdarkpath), hdr_new, verbose_bdf)
 
         if dark_scale:
             _add_and_print(str_dscale.format(dark_scale, exposure_key),
@@ -472,7 +474,6 @@ def bdf_process(ccd, output=None,
             mflat.uncertainty = None
         hdr_new["PROCESS"] += "F"
         hdr_new["FLATPATH"] = (str(mflatpath), "Path to the used flat file")
-        _add_and_print(str_flat.format(mflatpath), hdr_new, verbose_bdf)
 
     # Set gain and rdnoise if at least one of calc_err and do_crrej is True.
     if calc_err or do_crrej:
@@ -491,6 +492,7 @@ def bdf_process(ccd, output=None,
 
     # Do TRIM
     if trim_fits_section is not None:
+        _t_start = Time.now()
         proc = trim_ccd(proc, fits_section=trim_fits_section)
         mbias = trim_ccd(mbias, fits_section=trim_fits_section)
         mdark = trim_ccd(mdark, fits_section=trim_fits_section)
@@ -498,14 +500,18 @@ def bdf_process(ccd, output=None,
         hdr_new["PROCESS"] += "T"
 
         _add_and_print(str_trim.format(trim_fits_section),
-                       hdr_new, verbose_bdf)
+                       hdr_new, verbose_bdf, t_ref=_t_start)
 
     # Do BIAS
     if do_bias:
+        _t_start = Time.now()
         proc = subtract_bias(proc, mbias)
+        _add_and_print(str_bias.format(mbiaspath),
+                       hdr_new, verbose_bdf, t_ref=_t_start)
 
     # Do DARK
     if do_dark:
+        _t_start = Time.now()
         proc = subtract_dark(proc,
                              mdark,
                              dark_exposure=dark_exposure,
@@ -513,51 +519,61 @@ def bdf_process(ccd, output=None,
                              exposure_time=exposure_key,
                              exposure_unit=exposure_unit,
                              scale=dark_scale)
+        _add_and_print(str_dark.format(mdarkpath),
+                       hdr_new, verbose_bdf, t_ref=_t_start)
 
     # Make UNCERT extension before doing FLAT
     #   It is better to make_errmap a priori because of mathematical and
     #   computational convenience. See ``if do_flat:`` clause below.
     if calc_err:
+        _t_start = Time.now()
         err = make_errmap(proc,
                           gain_epadu=gain,
                           subtracted_dark=mdark)
 
         proc.uncertainty = StdDevUncertainty(err)
-        _add_and_print(str_e0, hdr_new, verbose_bdf)
 
+        s = [str_e0]
         if do_dark:
-            _add_and_print(str_ed, hdr_new, verbose_bdf)
+            s.append(str_ed)
+        _add_and_print(s, hdr_new, verbose_bdf, t_ref=_t_start)
 
     # Do FLAT
     if do_flat:
         # Flat error propagation is done automatically by
         # ``ccdproc.flat_correct``if it has the uncertainty attribute.
+        _t_start = Time.now()
         proc = flat_correct(proc,
                             mflat,
                             min_value=flat_min_value,
                             norm_value=flat_norm_value)
-
+        s = [str_flat.format(mflatpath)]
         if calc_err and mflat.uncertainty is not None:
-            _add_and_print(str_ef, hdr_new, verbose_bdf)
+            s.append(str_ef)
+
+        _add_and_print(s, hdr_new, verbose_bdf, t_ref=_t_start)
 
     # Normalize by the exposure time (e.g., ADU per sec)
     if normalize_exposure:
+        _t_start = Time.now()
         if data_exposure is None:
             data_exposure = hdr_new[exposure_key]
         proc = proc.divide(data_exposure)  # uncertainty will also be..
-        _add_and_print(str_nexp, hdr_new, verbose_bdf)
+        _add_and_print(str_nexp, hdr_new, verbose_bdf, t_ref=_t_start)
 
     # Normalize by the mean value
     if normalize_average:
+        _t_start = Time.now()
         avg = np.mean(proc.data)
         proc = proc.divide(avg)
-        _add_and_print(str_navg, hdr_new, verbose_bdf)
+        _add_and_print(str_navg, hdr_new, verbose_bdf, t_ref=_t_start)
 
     # Normalize by the median value
     if normalize_median:
+        _t_start = Time.now()
         med = np.median(proc.data)
         proc = proc.divide(med)
-        _add_and_print(str_nmed, hdr_new, verbose_bdf)
+        _add_and_print(str_nmed, hdr_new, verbose_bdf, t_ref=_t_start)
 
     # Do CRREJ
     if do_crrej:

@@ -21,7 +21,8 @@ __all__ = ["add_to_header",
            "airmass_from_hdr", "convert_bit"]
 
 
-def add_to_header(header, histcomm, s, precision=3, fmt="{:.>72s}"):
+def add_to_header(header, histcomm, s, precision=3,
+                  fmt="{:.>72s}", t_ref=None, dt_fmt="(dt = {:.3f} s)"):
     ''' Automatically add timestamp as well as history string
     Parameters
     ----------
@@ -29,7 +30,7 @@ def add_to_header(header, histcomm, s, precision=3, fmt="{:.>72s}"):
         The header.
     histcomm : str in ['h', 'hist', 'history', 'c', 'comm', 'comment']
         Whether to add history or comment.
-    s : str
+    s : str or list of str
         The string to add as history or comment.
     precision : int
         The precision of the isot format time.
@@ -40,13 +41,24 @@ def add_to_header(header, histcomm, s, precision=3, fmt="{:.>72s}"):
           * ``"({:s})"``: plain time in parentheses
             ``(2020-01-01T01:01:01.23)``
           * ``"{:_^72s}"``: center align, filling with ``_``.
+    t_ref : Time
+        The reference time. If not ``None``, delta time is calculated.
+    dt_fmt : str
+        The Python 3 format string to format the delta time.
     '''
+    if isinstance(s, str):
+        s = [s]
+
     if histcomm.lower() in ['h', 'hist', 'history']:
-        header.add_history(s)
-        header.add_history(str_now(precision=precision, fmt=fmt))
+        for _s in s:
+            header.add_history(_s)
+        header.add_history(str_now(precision=precision, fmt=fmt,
+                                   t_ref=t_ref, dt_fmt=dt_fmt))
     elif histcomm.lower() in ['c', 'comm', 'comment']:
-        header.add_comment(s)
-        header.add_comment(str_now(precision=precision, fmt=fmt))
+        for _s in s:
+            header.add_comment(s)
+        header.add_comment(str_now(precision=precision, fmt=fmt,
+                                   t_ref=t_ref, dt_fmt=dt_fmt))
 
 
 def wcs_crota(wcs, degree=True):

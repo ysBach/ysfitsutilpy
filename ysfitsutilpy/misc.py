@@ -55,7 +55,8 @@ LACOSMIC_KEYS = {'sigclip': 4.5,
                  'psfbeta': 4.765}
 
 
-def str_now(precision=3, fmt="{:.>72s}"):
+def str_now(precision=3, fmt="{:.>72s}", t_ref=None,
+            dt_fmt="(dt = {:.3f} s)"):
     ''' Get stringfied time now in UT ISOT format.
     Parameters
     ----------
@@ -68,9 +69,18 @@ def str_now(precision=3, fmt="{:.>72s}"):
           * ``"({:s})"``: plain time in parentheses
             ``(2020-01-01T01:01:01.23)``
           * ``"{:_^72s}"``: center align, filling with ``_``.
+    t_ref : Time
+        The reference time. If not ``None``, delta time is calculated.
+    dt_fmt : str
+        The Python 3 format string to format the delta time.
     '''
     now = Time(Time.now(), precision=precision)
-    return fmt.format(now.isot)
+    timestr = now.isot
+    if t_ref is not None:
+        now = Time(Time.now())
+        dt = (now - Time(t_ref)).sec  # float in seconds unit
+        timestr = dt_fmt.format(dt) + " " + timestr
+    return fmt.format(timestr)
 
 
 def change_to_quantity(x, desired='', to_value=False):

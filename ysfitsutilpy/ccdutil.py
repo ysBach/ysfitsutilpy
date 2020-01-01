@@ -1,18 +1,19 @@
 '''
 Collection of functions that are quite far from headerutil.
 '''
+from copy import deepcopy
 from warnings import warn
 
 import numpy as np
+from astropy import units as u
 from astropy.io import fits
 from astropy.nddata import CCDData, Cutout2D, StdDevUncertainty
+from astropy.time import Time
 from astropy.wcs import WCS
-from astropy import units as u
 from ccdproc import trim_image
-from copy import deepcopy
 
+from .hdrutil import add_to_header, get_if_none
 from .misc import binning, fitsxy2py
-from .hdrutil import get_if_none, add_to_header
 
 __all__ = [
     "set_ccd_attribute", "set_ccd_gain_rdnoise",
@@ -62,6 +63,7 @@ def set_ccd_attribute(ccd, name, value=None, key=None, default=None,
     Note
     ----
     '''
+    _t_start = Time.now()
     str_history = "From {}, {} = {} [unit = {}]"
     #                   value_from, name, value_Q.value, value_Q.unit
 
@@ -83,9 +85,7 @@ def set_ccd_attribute(ccd, name, value=None, key=None, default=None,
         value_Q = wrapper(value_Q, **wrapper_kw)
 
     if update_header:
-        # add as history
-        s = str_history.format(value_from, name, value_Q.value, value_Q.unit)
-        add_to_header(ccd.header, 'h', s)
+        s = [str_history.format(value_from, name, value_Q.value, value_Q.unit)]
         if key is not None:
             if header_comment is None:
                 try:
@@ -95,12 +95,13 @@ def set_ccd_attribute(ccd, name, value=None, key=None, default=None,
 
             try:
                 v = ccd.header[key]
-                ccd.header.add_history(
-                    f"(Original {key} = {v} is overwritten.)")
+                s.append(f"(Original {key} = {v} is overwritten.)")
             except (KeyError, ValueError):
                 pass
 
             ccd.header[key] = (value_Q.value, header_comment)
+        # add as history
+        add_to_header(ccd.header, 'h', s, t_ref=_t_start)
 
     setattr(ccd, name, value_Q)
 
@@ -334,6 +335,8 @@ def bin_ccd(ccd, factor_x=1, factor_y=1, binfunc=np.mean, trim_end=False,
     >>> # some strange chaching happens?
     Tested on MBP 15" 2018, macOS 10.14.6, 2.6 GHz i7
     '''
+    _t_start = Time.now()
+
     if not isinstance(ccd, CCDData):
         raise TypeError("ccd must be CCDData object.")
 
@@ -346,15 +349,16 @@ def bin_ccd(ccd, factor_x=1, factor_y=1, binfunc=np.mean, trim_end=False,
                         binfunc=binfunc,
                         trim_end=trim_end)
     if update_header:
-        # add as history
-        add_to_header(_ccd.header, 'h',
-                      f"Binned by (xbin, ybin) = ({factor_x}, {factor_y}) ")
         _ccd.header["BINFUNC"] = (
             binfunc.__name__, "The function used for binning.")
         _ccd.header["XBINNING"] = (
             factor_x, "Binning done after the observation in X direction")
         _ccd.header["YBINNING"] = (
             factor_y, "Binning done after the observation in Y direction")
+        # add as history
+        add_to_header(_ccd.header, 'h',
+                      f"Binned by (xbin, ybin) = ({factor_x}, {factor_y}) ",
+                      t_ref=_t_start)
     return _ccd
 
 
