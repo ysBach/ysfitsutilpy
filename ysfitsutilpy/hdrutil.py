@@ -13,11 +13,40 @@ from astropy.io.fits import Card
 from astropy.time import Time
 from astropy.wcs import WCS
 
-from .misc import airmass_obs, change_to_quantity
+from .misc import airmass_obs, change_to_quantity, str_now
 
-__all__ = ["wcs_crota", "center_radec", "key_remover", "key_mapper",
+__all__ = ["add_to_header",
+           "wcs_crota", "center_radec", "key_remover", "key_mapper",
            "get_from_header", "get_if_none", "wcsremove", "fov_radius",
            "airmass_from_hdr", "convert_bit"]
+
+
+def add_to_header(header, histcomm, s, precision=3, fmt="{:.>72s}"):
+    ''' Automatically add timestamp as well as history string
+    Parameters
+    ----------
+    header : Header
+        The header.
+    histcomm : str in ['h', 'hist', 'history', 'c', 'comm', 'comment']
+        Whether to add history or comment.
+    s : str
+        The string to add as history or comment.
+    precision : int
+        The precision of the isot format time.
+    fmt : str
+        The Python 3 format string to format the time.
+        Examples:
+          * ``"{:s}"``: plain time ``2020-01-01T01:01:01.23``
+          * ``"({:s})"``: plain time in parentheses
+            ``(2020-01-01T01:01:01.23)``
+          * ``"{:_^72s}"``: center align, filling with ``_``.
+    '''
+    if histcomm.lower() in ['h', 'hist', 'history']:
+        header.add_history(s)
+        header.add_history(str_now(precision=precision, fmt=fmt))
+    elif histcomm.lower() in ['c', 'comm', 'comment']:
+        header.add_comment(s)
+        header.add_comment(str_now(precision=precision, fmt=fmt))
 
 
 def wcs_crota(wcs, degree=True):
