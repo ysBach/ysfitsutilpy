@@ -1,14 +1,280 @@
 from warnings import warn
+
+import astroscrappy
 import ccdproc
 import numpy as np
 from astropy import units as u
 from astropy.nddata import CCDData, StdDevUncertainty
-from ccdproc import flat_correct, subtract_bias, subtract_dark, trim_image
+from astroscrappy import detect_cosmics
+from ccdproc import flat_correct, subtract_bias, subtract_dark
 
-from .ccdutil import CCDData_astype, make_errmap, load_ccd
-from .hdrutil import get_from_header
+from .ccdutil import (CCDData_astype, datahdr_parse, load_ccd, make_errmap,
+                      propagate_ccdmask, trim_ccd, set_ccd_gain_rdnoise)
+from .hdrutil import get_if_none
+from .misc import LACOSMIC_KEYS, change_to_quantity
 
-__all__ = ["bdf_process"]
+__all__ = [
+    "bdf_process"]
+
+# Set strings for header history & print (if verbose)
+str_bias = "Bias subtracted using {}"
+str_dark = "Dark subtracted using {}"
+str_dscale = "Dark scaling {} using {}"
+str_flat = "Flat corrected using {}"
+str_trim = "Trim by FITS section {}"
+str_grd = "From {}, {} = {:.3f} [{}]"
+# str_grd.format(user/header_key, gain/rdnoise, val, unit)
+str_e0 = ("Readnoise propagated with Poisson noise (using gain above)"
+          + " of source.")
+str_ed = "Poisson noise from subtracted dark was propagated."
+str_ef = "Flat uncertainty was propagated."
+str_nexp = "Normalized by the exposure time."
+str_navg = "Normalized by the average value of the frame."
+str_nmed = "Normalized by the median value of the frame."
+str_cr = ("Cosmic-Ray rejected by astroscrappy (v {}), "
+          + "with parameters: {}")
+
+
+def _add_and_print(s, header, verbose, update_header=True):
+    if update_header:
+        header.add_history(s)
+    if verbose:
+        print(s)
+
+
+# # TODO: This is quite much overlapping with set_ccd_gain_rdnoise...
+# def get_gain_readnoise(ccd, gain=None, gain_key="GAIN",
+#                        gain_unit=u.electron/u.adu,
+#                        rdnoise=None, rdnoise_key="RDNOISE",
+#                        rdnoise_unit=u.electron, verbose=True,
+#                        update_header=True):
+#     ''' Get gain and readnoise from given paramters.
+#     gain, rdnoise : None, float, astropy.Quantity, optional.
+#         The gain and readnoise value. If ``gain`` or ``readnoise`` is
+#         specified, they are interpreted with ``gain_unit`` and
+#         ``rdnoise_unit``, respectively. If they are not specified, this
+#         function will seek for the header with keywords of ``gain_key``
+#         and ``rdnoise_key``, and interprete the header value in the unit
+#         of ``gain_unit`` and ``rdnoise_unit``, respectively.
+
+#     gain_key, rdnoise_key : str, optional.
+#         See ``gain``, ``rdnoise`` explanation above.
+
+#     gain_unit, rdnoise_unit : str, astropy.Unit, optional.
+#         See ``gain``, ``rdnoise`` explanation above.
+
+#     verbose : bool, optional.
+#         The verbose option.
+
+#     update_header : bool, optional
+#         Whether to update the given header.
+
+#     Note
+#     ----
+#     If gain and readout noise are not found properly, the default values
+#     of 1.0 and 0.0 with corresponding units will be returned.
+#     '''
+#     gain_Q, gain_from = get_if_none(
+#         gain, ccd.header, key=gain_key, unit=gain_unit,
+#         verbose=verbose, default=1.0)
+#     rdnoise_Q, rdnoise_from = get_if_none(
+#         rdnoise, ccd.header, key=rdnoise_key, unit=rdnoise_unit,
+#         verbose=False, default=0.0)
+
+#     _add_and_print(str_grd.format(gain_from,
+#                                   "gain",
+#                                   gain_Q.value,
+#                                   gain_Q.unit),
+#                    ccd.header, verbose, update_header=update_header)
+#     _add_and_print(str_grd.format(rdnoise_from,
+#                                   "rdnoise",
+#                                   rdnoise_Q.value,
+#                                   rdnoise_Q.unit),
+#                    ccd.header, verbose, update_header=update_header)
+#     return gain_Q, rdnoise_Q
+
+
+def crrej(ccd, mask=None, propagate_crmask=False, update_header=True,
+          gain=None, rdnoise=None, verbose=True,
+          sigclip=4.5, sigfrac=0.5, objlim=1.0, satlevel=np.inf,
+          pssl=0.0, niter=4, sepmed=False, cleantype='medmask',
+          fsmode='median', psfmodel='gauss', psffwhm=2.5, psfsize=7,
+          psfk=None, psfbeta=4.765):
+    """ Do cosmic-ray rejection using L.A.Cosmic default parameters.
+    Parameters
+    ----------
+    ccd : CCDData
+        The ccd to be processed. The data must be in ADU, not electrons.
+
+    propagate_crmask : bool, optional.
+        Whether to save (propagate) the mask from CR rejection
+        (``astroscrappy``) to the CCD's mask.
+        Default is ``False``.
+
+    gain, rdnoise : None, float, astropy.Quantity, optional.
+        The gain and readnoise value. If not ``Quantity``, they must be
+        in electrons per adu and electron unit, respectively.
+
+    sigclip : float, optional
+        Laplacian-to-noise limit for cosmic ray detection. Lower values
+        will flag more pixels as cosmic rays. Default: 4.5.
+
+    sigfrac : float, optional
+        Fractional detection limit for neighboring pixels. For cosmic
+        ray neighbor pixels, a lapacian-to-noise detection limit of
+        sigfrac * sigclip will be used. Default: 0.5.
+
+    objlim : float, optional
+        Minimum contrast between Laplacian image and the fine structure
+        image. Increase this value if cores of bright stars are flagged
+        as cosmic rays. Default: 1.0.
+
+    pssl : float, optional
+        Previously subtracted sky level in ADU. We always need to work
+        in electrons for cosmic ray detection, so we need to know the
+        sky level that has been subtracted so we can add it back in.
+        Default: 0.0.
+
+    satlevel : float, optional
+        Saturation of level of the image (electrons). This value is used
+        to detect saturated stars and pixels at or above this level are
+        added to the mask. Default: ``np.inf``.
+
+    niter : int, optional
+        Number of iterations of the LA Cosmic algorithm to perform.
+        Default: 4.
+
+    sepmed : boolean, optional
+        Use the separable median filter instead of the full median
+        filter. The separable median is not identical to the full median
+        filter, but they are approximately the same and the separable
+        median filter is significantly faster and still detects cosmic
+        rays well. Default: True
+
+    cleantype : {'median', 'medmask', 'meanmask', 'idw'}, optional
+        Set which clean algorithm is used:
+
+        * ``'median'``: An umasked 5x5 median filter
+        * ``'medmask'``: A masked 5x5 median filter
+        * ``'meanmask'``: A masked 5x5 mean filter
+        * ``'idw'``: A masked 5x5 inverse distance weighted interpolation
+
+        Default: ``"meanmask"``.
+
+    fsmode : {'median', 'convolve'}, optional
+        Method to build the fine structure image:
+        * ``'median'``: Use the median filter in the standard LA Cosmic
+        algorithm
+        * ``'convolve'``: Convolve the image with the psf kernel
+        to calculate the fine structure image.
+        Default: ``'median'``.
+
+    psfmodel : {'gauss', 'gaussx', 'gaussy', 'moffat'}, optional
+        Model to use to generate the psf kernel if ``fsmode='convolve'``
+        and ``psfk`` is ``None``. The current choices are Gaussian and
+        Moffat profiles. ``'gauss'`` and ``'moffat'`` produce circular
+        PSF kernels. The ``'gaussx'`` and ``'gaussy'`` produce Gaussian
+        kernels in the x and y directions respectively. Default:
+        ``"gauss"``.
+
+    psffwhm : float, optional
+        Full Width Half Maximum of the PSF to use to generate the kernel.
+        Default: 2.5.
+
+    psfsize : int, optional
+        Size of the kernel to calculate. Returned kernel will have size
+        psfsize x psfsize. psfsize should be odd. Default: 7.
+
+    psfk : float numpy array, optional
+        PSF kernel array to use for the fine structure image if
+        ``fsmode='convolve'``. If ``None`` and ``fsmode == 'convolve'``,
+        we calculate the psf kernel using ``'psfmodel'``. Default:
+        ``None``.
+
+    psfbeta : float, optional
+        Moffat beta parameter. Only used if ``fsmode='convolve'`` and
+        ``psfmodel='moffat'``. Default: 4.765.
+
+    verbose : boolean, optional
+        Print to the screen or not. Default: ``False``.
+
+    Notes
+    -----
+    All defaults are based on IRAF version of L.A. Cosmic (Note the
+    default parameters of L.A. Cosmic differ from version to version, so
+    I took the IRAF version written by van Dokkum.)
+    See the docstring of astroscrappy by
+    >>> import astroscrappy
+    >>> astroscrappy.detect_cosmics?
+
+    Example
+    -------
+    >>> yfu.ccdutil.set_ccd_gain_rdnoise(ccd)
+    >>> nccd, mask = crrej(ccd)
+    """
+    if gain is None:
+        try:
+            gain = ccd.gain
+        except AttributeError:
+            raise ValueError(
+                "Gain must be given or accessible as ``ccd.gain``. "
+                "Use, e.g., yfu.set_ccd_gain_rdnoise(ccd).")
+
+    if rdnoise is None:
+        try:
+            rdnoise = ccd.rdnoise
+        except AttributeError:
+            raise ValueError(
+                "Readnoise must be given or accessible as ``ccd.rdnoise``. "
+                "Use, e.g., yfu.set_ccd_gain_rdnoise(ccd).")
+
+    _ccd = ccd.copy()
+    data, hdr = datahdr_parse(_ccd)
+    inmask = propagate_ccdmask(_ccd, additional_mask=mask)
+
+    # The L.A. Cosmic accepts only the gain in e/adu and rdnoise in e.
+    gain = change_to_quantity(gain, u.electron/u.adu, to_value=True)
+    rdnoise = change_to_quantity(rdnoise, u.electron, to_value=True)
+
+    # remove the fucxing cosmic rays
+    crmask, cleanarr = detect_cosmics(
+        data,
+        inmask=inmask,
+        gain=gain,
+        readnoise=rdnoise,
+        sigclip=sigclip,
+        sigfrac=sigfrac,
+        objlim=objlim,
+        satlevel=satlevel,
+        pssl=pssl,
+        niter=niter,
+        sepmed=sepmed,
+        cleantype=cleantype,
+        fsmode=fsmode,
+        psfmodel=psfmodel,
+        psffwhm=psffwhm,
+        psfsize=psfsize,
+        psfk=psfk,
+        psfbeta=psfbeta,
+        verbose=verbose)
+
+    # create the new ccd data object
+    #   astroscrappy automatically does the gain correction, so return
+    #   back to avoid confusion.
+    _ccd.data = cleanarr / gain
+    if propagate_crmask:
+        _ccd.mask = propagate_ccdmask(_ccd, additional_mask=crmask)
+
+    try:
+        hdr["PROCESS"] += "C"
+    except KeyError:
+        hdr["PROCESS"] = "C"
+
+    _add_and_print(str_cr.format(astroscrappy.__version__, locals()),
+                   hdr, verbose, update_header=update_header)
+    _ccd.header = hdr
+
+    return _ccd, crmask
 
 
 # NOTE: crrej should be done AFTER bias/dark and flat correction:
@@ -45,20 +311,22 @@ def bdf_process(ccd, output=None,
         ``ccdproc.subtract_overscan`` for details. Default is ``None``.
 
     calc_err : bool, optional.
-        Whether to calculate the error map based on Poisson and readnoise
-        error propagation.
+        Whether to calculate the error map based on Poisson and
+        readnoise error propagation.
+        * NOTE: Currently it's encouraged to make error-map manually, as
+        the API is not stable.
 
     unit : `~astropy.units.Unit` or str, optional.
         The units of the data.
         Default is ``'adu'``.
 
-    gain, rdnoise : None, float, optional.
+    gain, rdnoise : None, float, astropy.Quantity, optional.
         The gain and readnoise value. These are all ignored if
-        ``calc_err=False``. If ``calc_err=True``, it automatically seeks
-        for suitable gain and readnoise value. If ``gain`` or
-        ``readnoise`` is specified, they are interpreted with
-        ``gain_unit`` and ``rdnoise_unit``, respectively. If they are
-        not specified, this function will seek for the header with
+        ``calc_err=False`` and ``do_crrej=False``. If ``calc_err=True``,
+        it automatically seeks for suitable gain and readnoise value. If
+        ``gain`` or ``readnoise`` is specified, they are interpreted
+        with ``gain_unit`` and ``rdnoise_unit``, respectively. If they
+        are not specified, this function will seek for the header with
         keywords of ``gain_key`` and ``rdnoise_key``, and interprete the
         header value in the unit of ``gain_unit`` and ``rdnoise_unit``,
         respectively.
@@ -67,7 +335,7 @@ def bdf_process(ccd, output=None,
         See ``gain``, ``rdnoise`` explanation above.
         These are all ignored if ``calc_err=False``.
 
-    gain_unit, rdnoise_unit : astropy Unit, optional.
+    gain_unit, rdnoise_unit : str, astropy.Unit, optional.
         See ``gain``, ``rdnoise`` explanation above.
         These are all ignored if ``calc_err=False``.
 
@@ -117,15 +385,13 @@ def bdf_process(ccd, output=None,
         is raised. Default is ``None``.
 
     crrej_kwargs : dict or None, optional.
-        If ``None`` (default), uses some default values defined in
-        ``~.misc.LACOSMIC_KEYS``. It is always discouraged to use
-        default except for quick validity-checking, because even the
-        official L.A. Cosmic codes in different versions (IRAF, IDL,
-        Python, etc) have different default parameters, i.e., there is
-        nothing which can be regarded as default.
-        To see all possible keywords, do
-        ``print(astroscrappy.detect_cosmics.__doc__)``
-        Also refer to
+        If ``None`` (default), uses some default values (see ``crrej``).
+        It is always discouraged to use default except for quick
+        validity-checking, because even the official L.A. Cosmic codes
+        in different versions (IRAF, IDL, Python, etc) have different
+        default parameters, i.e., there is nothing which can be regarded
+        as _the default_. To see all possible keywords, do
+        ``print(astroscrappy.detect_cosmics.__doc__)`` Also refer to
         https://nbviewer.jupyter.org/github/ysbach/AO2019/blob/master/Notebooks/07-Cosmic_Ray_Rejection.ipynb
 
     propagate_crmask : bool, optional.
@@ -146,28 +412,6 @@ def bdf_process(ccd, output=None,
         description. If ``None`` it uses ``np.float64``.
         Default is ``None``.
     '''
-    def _add_and_print(s, header, verbose):
-        header.add_history(s)
-        if verbose:
-            print(s)
-
-    # Set strings for header history & print (if verbose_bdf)
-    str_bias = "Bias subtracted using {}"
-    str_dark = "Dark subtracted using {}"
-    str_dscale = "Dark scaling {} using {}"
-    str_flat = "Flat corrected using {}"
-    str_trim = "Trim by FITS section {}"
-    str_grd = "From {}, {} = {:.3f} [{}]"
-    # str_grd.format(user/header_key, gain/rdnoise, val, unit)
-    str_e0 = ("Readnoise propagated with Poisson noise (using gain above)"
-              + " of source.")
-    str_ed = "Poisson noise from subtracted dark was propagated."
-    str_ef = "Flat uncertainty was propagated."
-    str_nexp = "Normalized by the exposure time."
-    str_navg = "Normalized by the average value of the frame."
-    str_nmed = "Normalized by the median value of the frame."
-    str_cr = ("Cosmic-Ray rejected by astroscrappy (v {}), "
-              + "with parameters: {}")
 
     # Initial setting
     if not isinstance(ccd, CCDData):
@@ -180,10 +424,10 @@ def bdf_process(ccd, output=None,
         _ = hdr_new["PROCESS"]
     except KeyError:
         hdr_new["PROCESS"] = ("", "The processed history: see comment.")
-    hdr_new["PROCVER"] = (ccdproc.__version__,
-                          "ccdproc version used for processing.")
-    hdr_new.add_comment("PROCESS key can be B (bias), D (dark), F (flat), "
-                        + "T (trim), W (WCS astrometry), C(CRrej).")
+        hdr_new["CCDPROCV"] = (ccdproc.__version__,
+                               "ccdproc version used for processing.")
+        hdr_new.add_comment("PROCESS key can be B (bias), D (dark), F (flat), "
+                            + "T (trim), W (WCS astrometry), C(CRrej).")
 
     # Set for BIAS
     if mbiaspath is None:
@@ -195,6 +439,7 @@ def bdf_process(ccd, output=None,
         if not calc_err:
             mbias.uncertainty = None
         hdr_new["PROCESS"] += "B"
+        hdr_new["BIASPATH"] = (mbiaspath, "Path to the used bias file")
         _add_and_print(str_bias.format(mbiaspath), hdr_new, verbose_bdf)
 
     # Set for DARK
@@ -207,6 +452,7 @@ def bdf_process(ccd, output=None,
         if not calc_err:
             mdark.uncertainty = None
         hdr_new["PROCESS"] += "D"
+        hdr_new["DARKPATH"] = (mdarkpath, "Path to the used dark file")
         _add_and_print(str_dark.format(mdarkpath), hdr_new, verbose_bdf)
 
         if dark_scale:
@@ -223,56 +469,30 @@ def bdf_process(ccd, output=None,
         if not calc_err:
             mflat.uncertainty = None
         hdr_new["PROCESS"] += "F"
+        hdr_new["FLATPATH"] = (mflatpath, "Path to the used flat file")
         _add_and_print(str_flat.format(mflatpath), hdr_new, verbose_bdf)
 
     # Set gain and rdnoise if at least one of calc_err and do_crrej is True.
     if calc_err or do_crrej:
-        if gain is None:
-            gain_Q = get_from_header(hdr_new,
-                                     gain_key,
-                                     unit=gain_unit,
-                                     verbose=False,
-                                     default=1.)
-            gain_from = gain_key
-        else:
-            if not isinstance(gain, u.Quantity):
-                gain_Q = gain * gain_unit
-            else:
-                gain_Q = gain
-            gain_from = "User"
-
-        _add_and_print(str_grd.format(gain_from,
-                                      "gain",
-                                      gain_Q.value,
-                                      gain_Q.unit),
-                       hdr_new, verbose_bdf)
-
-        if rdnoise is None:
-            rdnoise_Q = get_from_header(hdr_new,
-                                        rdnoise_key,
-                                        unit=rdnoise_unit,
-                                        verbose=False,
-                                        default=1.)
-            rdnoise_from = rdnoise_key
-        else:
-            if not isinstance(rdnoise, u.Quantity):
-                rdnoise_Q = rdnoise * rdnoise_unit
-            else:
-                rdnoise_Q = rdnoise
-            rdnoise_from = "User"
-
-        _add_and_print(str_grd.format(rdnoise_from,
-                                      "rdnoise",
-                                      rdnoise_Q.value,
-                                      rdnoise_Q.unit),
-                       hdr_new, verbose_bdf)
+        set_ccd_gain_rdnoise(proc,
+                             gain=gain,
+                             gain_key=gain_key,
+                             gain_unit=gain_unit,
+                             rdnoise=rdnoise,
+                             rdnoise_key=rdnoise_key,
+                             rdnoise_unit=rdnoise_unit,
+                             verbose=verbose_bdf,
+                             update_header=True
+                             )
+        gain_Q = proc.gain
+        rdnoise_Q = proc.rdnoise
 
     # Do TRIM
     if trim_fits_section is not None:
-        proc = trim_image(proc, fits_section=trim_fits_section)
-        mbias = trim_image(mbias, fits_section=trim_fits_section)
-        mdark = trim_image(mdark, fits_section=trim_fits_section)
-        mflat = trim_image(mflat, fits_section=trim_fits_section)
+        proc = trim_ccd(proc, fits_section=trim_fits_section)
+        mbias = trim_ccd(mbias, fits_section=trim_fits_section)
+        mdark = trim_ccd(mdark, fits_section=trim_fits_section)
+        mflat = trim_ccd(mflat, fits_section=trim_fits_section)
         hdr_new["PROCESS"] += "T"
 
         _add_and_print(str_trim.format(trim_fits_section),
@@ -339,42 +559,27 @@ def bdf_process(ccd, output=None,
 
     # Do CRREJ
     if do_crrej:
-        import astroscrappy
-        from astroscrappy import detect_cosmics
-        from .misc import LACOSMIC_KEYS
-
         if crrej_kwargs is None:
             crrej_kwargs = LACOSMIC_KEYS
-            warn("You are not specifying CR-rejection parameters and blindly"
-                 + " using defaults. It can be dangerous.")
+            warn("You are not specifying CR-rejection parameters! It can be"
+                 + " dangerous to use defaults blindly.")
 
         if (("B" in hdr_new["PROCESS"])
                 + ("D" in hdr_new["PROCESS"])
                 + ("F" in hdr_new["PROCESS"])) < 2:
-            warn("L.A. Cosmic should be run AFTER B/D/F process. "
-                 + f"You are running it with {hdr_new['PROCESS']}. "
+            warn("L.A. Cosmic should be run AFTER bias, dark, flat process. "
+                 + f"You have only done {hdr_new['PROCESS']}. "
                  + "See http://www.astro.yale.edu/dokkum/lacosmic/notes.html")
 
-        # remove the fucxing cosmic rays
-        crmask, cleanarr = detect_cosmics(proc.data,
-                                          inmask=proc.mask,
-                                          gain=gain_Q.value,
-                                          readnoise=rdnoise_Q.value,
-                                          **crrej_kwargs,
-                                          verbose=verbose_crrej)
-
-        # create the new ccd data object
-        #   astroscrappy automatically does the gain correction, so return
-        #   back to avoid confusion.
-        proc.data = cleanarr / gain_Q.value
-        if propagate_crmask:
-            if proc.mask is None:
-                proc.mask = crmask
-            else:
-                proc.mask = proc.mask + crmask
-        hdr_new["PROCESS"] += "C"
-        _add_and_print(str_cr.format(astroscrappy.__version__, crrej_kwargs),
-                       hdr_new, verbose_crrej)
+        proc, crmask = crrej(
+            proc,
+            propagate_crmask=propagate_crmask,
+            update_header=True,
+            gain=gain_Q,        # already parsed from local variables above
+            rdnoise=rdnoise_Q,  # already parsed from local variables above
+            verbose=verbose_crrej,
+            **crrej_kwargs)
+        hdr_new = proc.header
 
     proc = CCDData_astype(proc, dtype=dtype,
                           uncertainty_dtype=uncertainty_dtype)
