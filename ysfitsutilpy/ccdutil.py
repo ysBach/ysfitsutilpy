@@ -11,8 +11,8 @@ from astropy import units as u
 from ccdproc import trim_image
 from copy import deepcopy
 
-from .misc import binning, fitsxy2py, add_to_header
-from .hdrutil import get_if_none
+from .misc import binning, fitsxy2py
+from .hdrutil import get_if_none, add_to_header
 
 __all__ = [
     "set_ccd_attribute", "set_ccd_gain_rdnoise",
