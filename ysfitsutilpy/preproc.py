@@ -9,8 +9,9 @@ from astroscrappy import detect_cosmics
 from ccdproc import flat_correct, subtract_bias, subtract_dark
 
 from .ccdutil import (CCDData_astype, datahdr_parse, load_ccd, make_errmap,
-                      propagate_ccdmask, trim_ccd, set_ccd_gain_rdnoise)
-from .misc import LACOSMIC_KEYS, change_to_quantity, add_to_header
+                      propagate_ccdmask, set_ccd_gain_rdnoise, trim_ccd)
+from .hdrutil import add_to_header
+from .misc import LACOSMIC_KEYS, change_to_quantity
 
 __all__ = [
     "crrej", "bdf_process"]
