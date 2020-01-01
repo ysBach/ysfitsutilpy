@@ -10,11 +10,10 @@ from ccdproc import flat_correct, subtract_bias, subtract_dark
 
 from .ccdutil import (CCDData_astype, datahdr_parse, load_ccd, make_errmap,
                       propagate_ccdmask, trim_ccd, set_ccd_gain_rdnoise)
-from .hdrutil import get_if_none
 from .misc import LACOSMIC_KEYS, change_to_quantity
 
 __all__ = [
-    "bdf_process"]
+    "crrej", "bdf_process"]
 
 # Set strings for header history & print (if verbose)
 str_bias = "Bias subtracted using {}"
@@ -439,7 +438,7 @@ def bdf_process(ccd, output=None,
         if not calc_err:
             mbias.uncertainty = None
         hdr_new["PROCESS"] += "B"
-        hdr_new["BIASPATH"] = (mbiaspath, "Path to the used bias file")
+        hdr_new["BIASNAME"] = (str(mbiaspath), "Path to the used bias file")
         _add_and_print(str_bias.format(mbiaspath), hdr_new, verbose_bdf)
 
     # Set for DARK
@@ -452,7 +451,7 @@ def bdf_process(ccd, output=None,
         if not calc_err:
             mdark.uncertainty = None
         hdr_new["PROCESS"] += "D"
-        hdr_new["DARKPATH"] = (mdarkpath, "Path to the used dark file")
+        hdr_new["DARKPATH"] = (str(mdarkpath), "Path to the used dark file")
         _add_and_print(str_dark.format(mdarkpath), hdr_new, verbose_bdf)
 
         if dark_scale:
@@ -469,7 +468,7 @@ def bdf_process(ccd, output=None,
         if not calc_err:
             mflat.uncertainty = None
         hdr_new["PROCESS"] += "F"
-        hdr_new["FLATPATH"] = (mflatpath, "Path to the used flat file")
+        hdr_new["FLATPATH"] = (str(mflatpath), "Path to the used flat file")
         _add_and_print(str_flat.format(mflatpath), hdr_new, verbose_bdf)
 
     # Set gain and rdnoise if at least one of calc_err and do_crrej is True.
