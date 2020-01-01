@@ -20,7 +20,7 @@ __all__ = [
     "trim_ccd", "cutccd", "bin_ccd", "load_ccd",
     "imcopy", "CCDData_astype", "make_errmap",
     "errormap"
-    ]
+]
 
 
 def set_ccd_attribute(ccd, name, value=None, key=None, default=None,
@@ -633,6 +633,7 @@ def make_errmap(ccd, gain_epadu=1, rdnoise_electron=0,
 
 def errormap(ccd_biassub, gain_epadu=1, rdnoise_electron=0,
              subtracted_dark=None, flat=None, dark_std=None, flat_err=None,
+             dark_std_min='rdnoise',
              return_variance=False):
     ''' Calculate the detailed pixel-wise error map in ADU unit.
     Parameters
@@ -669,6 +670,10 @@ def errormap(ccd_biassub, gain_epadu=1, rdnoise_electron=0,
         interested in the uncertainty in the dark (prediction), not the
         confidence interval of the *mean* of the dark. If ``None``, it
         is assumed dark has no uncertainty.
+    dark_std_min : 'rdnoise', float, optional.
+        The minimum value for ``dark_std``. Any ``dark_std`` value below
+        this will be replaced by this value. If ``'rdnoise'`` (default),
+        the ``rdnoise_electron/gain_epadu`` will be used.
     return_variance: bool, optional
         Whether to return as variance map. Default is ``False``, i.e.,
         return the square-rooted standard deviation map. It's better to
@@ -701,8 +706,9 @@ def errormap(ccd_biassub, gain_epadu=1, rdnoise_electron=0,
 
     if dark_std is not None:
         dark_std = np.ones_like(data) * dark_std
-        rd_adu = rdnoise_electron/gain_epadu
-        dark_std[dark_std < rd_adu] = rd_adu
+        if dark_std_min == 'rdnoise':
+            dark_std_min = rdnoise_electron/gain_epadu
+        dark_std[dark_std < dark_std_min] = dark_std_min
         var += (dark_std/flat)**2
 
     if flat_err is not None:
