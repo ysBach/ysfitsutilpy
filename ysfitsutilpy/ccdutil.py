@@ -17,7 +17,7 @@ from .misc import binning, fitsxy2py
 
 __all__ = [
     "set_ccd_attribute", "set_ccd_gain_rdnoise",
-    "propagate_ccdmask", "datahdr_parse",
+    "propagate_ccdmask",
     "trim_ccd", "cutccd", "bin_ccd", "load_ccd",
     "imcopy", "CCDData_astype", "make_errmap",
     "errormap"
@@ -163,7 +163,10 @@ def propagate_ccdmask(ccd, additional_mask=None):
     >>> ccd.mask = propagate_ccdmask(ccd, additional_mask=mask2)
     '''
     if additional_mask is None:
-        mask = ccd.mask.copy()
+        try:
+            mask = ccd.mask.copy()
+        except AttributeError:  # i.e., if ccd.mask is None
+            mask = None
     else:
         try:
             mask = ccd.mask | additional_mask
@@ -172,21 +175,10 @@ def propagate_ccdmask(ccd, additional_mask=None):
     return mask
 
 
-def datahdr_parse(ccd_like_object):
-    if isinstance(ccd_like_object, (CCDData, fits.PrimaryHDU, fits.ImageHDU)):
-        data = ccd_like_object.data.copy()
-        hdr = ccd_like_object.header.copy()
-    elif isinstance(ccd_like_object, fits.HDUList):
-        data = ccd_like_object[0].data.copy()
-        hdr = ccd_like_object[0].header.copy()
-    else:
-        data = ccd_like_object.copy()
-        hdr = None
-    return data, hdr
-
-
 # FIXME: Remove when https://github.com/astropy/ccdproc/issues/718 is solved
 def trim_ccd(ccd, fits_section=None, add_keyword=True):
+    _t = Time.now()
+    trim_str = f"Trimmed using {fits_section}"
     trimmed_ccd = trim_image(ccd, fits_section=fits_section,
                              add_keyword=add_keyword)
     ny, nx = ccd.data.shape
@@ -202,6 +194,8 @@ def trim_ccd(ccd, fits_section=None, add_keyword=True):
     trimmed_ccd.header["LTV2"] = ltv2
     trimmed_ccd.header["LTM1_1"] = 1.
     trimmed_ccd.header["LTM2_2"] = 1.
+
+    add_to_header(ccd.header, 'h', trim_str, t_ref=_t)
     return trimmed_ccd
 
 
@@ -707,7 +701,7 @@ def errormap(ccd_biassub, gain_epadu=1, rdnoise_electron=0,
     if flat is None:
         flat = np.ones_like(data)
 
-    var = data / (gain_epadu * flat**2)
+    var = data / (gain_epadu*flat**2)
     var += (rdnoise_electron/(gain_epadu*flat))**2
 
     if dark_std is not None:
@@ -723,7 +717,7 @@ def errormap(ccd_biassub, gain_epadu=1, rdnoise_electron=0,
 
     if return_variance:
         return var
-    else:
+    else:  # Sqrt is the most time-consuming part...
         return np.sqrt(var)
 
     # var_pois = data / (gain_epadu * flat**2)
