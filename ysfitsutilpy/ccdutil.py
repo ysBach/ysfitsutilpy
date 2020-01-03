@@ -12,7 +12,7 @@ from astropy.wcs import WCS
 from ccdproc import trim_image
 
 from .hdrutil import add_to_header, get_if_none
-from .misc import binning, datahdr_parse, fitsxy2py
+from .misc import binning, datahdr_parse, fitsxy2py, load_ccd
 
 __all__ = [
     "set_ccd_attribute", "set_ccd_gain_rdnoise",
