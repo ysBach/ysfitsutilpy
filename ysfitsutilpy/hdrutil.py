@@ -7,18 +7,16 @@ from warnings import warn
 import numpy as np
 from astropy import units as u
 from astropy import wcs as astropywcs
-from astropy.coordinates import EarthLocation, SkyCoord
+from astropy.coordinates import SkyCoord
 from astropy.io import fits
-from astropy.io.fits import Card
-from astropy.time import Time
 from astropy.wcs import WCS
 
-from .misc import airmass_obs, change_to_quantity, str_now
+from .misc import change_to_quantity, str_now
 
 __all__ = ["add_to_header",
            "wcs_crota", "center_radec", "key_remover", "key_mapper",
            "get_from_header", "get_if_none", "wcsremove", "fov_radius",
-           "airmass_from_hdr", "convert_bit"]
+           "convert_bit"]
 
 
 def add_to_header(header, histcomm, s, precision=3,
@@ -287,7 +285,8 @@ def get_from_header(header, key, unit=None, verbose=True,
     return q
 
 
-def get_if_none(value, header, key, unit=None, verbose=True, default=0):
+def get_if_none(value, header, key, unit=None, verbose=True, default=0,
+                to_value=False):
     ''' Similar to get_from_header, but a convenience wrapper.
     '''
     if value is None:
@@ -301,7 +300,10 @@ def get_if_none(value, header, key, unit=None, verbose=True, default=0):
         value_Q = change_to_quantity(value, unit, to_value=False)
         value_from = "the user"
 
-    return value_Q, value_from
+    if to_value:
+        return value_Q.value, value_from
+    else:
+        return value_Q, value_from
 
 
 # TODO: do not load data extension if not explicitly ordered
@@ -431,157 +433,6 @@ def wcsremove(filepath=None, additional_keys=[], extension=0,
 #         return SkyCoord(*center_coo, unit='deg')
 
 #     return np.array(center_coo)
-
-
-# TODO: change key, unit, etc as input dict.
-def airmass_from_hdr(header, ra=None, dec=None, ut=None, exptime=None,
-                     lon=None, lat=None, height=None, equinox=None, frame=None,
-                     scale=750.,
-                     ra_key="RA", dec_key="DEC", ut_key="DATE-OBS",
-                     exptime_key="EXPTIME", lon_key="LONGITUD",
-                     lat_key="LATITUDE", height_key="HEIGHT",
-                     equinox_key="EPOCH", frame_key="RADECSYS",
-                     ra_unit=u.hourangle, dec_unit=u.deg,
-                     exptime_unit=u.s, lon_unit=u.deg, lat_unit=u.deg,
-                     height_unit=u.m,
-                     ut_format='isot', ut_scale='utc',
-                     return_header=False
-                     ):
-    ''' Calculate airmass using the header.
-    Parameters
-    ----------
-    ra, dec: float or Quantity, optional
-        The RA and DEC of the target. If not specified, it tries to find
-        them in the header using ``ra_key`` and ``dec_key``.
-
-    ut: str or Time, optional
-        The *starting* time of the observation in UT.
-
-    exptime: float or Time, optional
-        The exposure time.
-
-    lon, lat, height: str, float, or Quantity
-        The longitude, latitude, and height of the observatory. See
-        astropy.coordinates.EarthLocation.
-
-    equinox, frame: str, optional
-        The ``equinox`` and ``frame`` for SkyCoord.
-
-    scale: float, optional
-        Earth radius divided by the atmospheric height (usually scale
-        height) of the atmosphere.
-
-    XX_key: str, optional
-        The header key to find XX if ``XX`` is ``None``.
-
-    XX_unit: Quantity, optional
-        The unit of ``XX``
-
-    ut_format, ut_scale: str, optional
-        The ``format`` and ``scale`` for Time.
-
-    return_header: bool, optional
-        Whether to return the updated header.
-    '''
-    # If there is no header keyword matches the ``key``, it should give
-    # KeyError. For such reason, I didn't use ``get_from_header`` here.
-    def _conversion(header, val, key, unit=None):
-        if val is None:
-            val = header[key]  # assume it is in the unit of ``unit``.
-        elif unit is not None:
-            if isinstance(val, u.Quantity):
-                val = val.to(unit).value
-            # else: just return ``val``.
-        return val
-
-    def _cards_airmass(am_eff, alldict):
-        ''' Gives airmass and alt-az related header cards.
-        '''
-        amstr = ("ysfitsutilpy's airmass calculation uses the same algorithm "
-                 + "as IRAF: From 'Some Factors Affecting the Accuracy of "
-                 + "Stellar Photometry with CCDs' by P. Stetson, DAO preprint,"
-                 + " September 1988.")
-
-        # At some times, hdr["AIRMASS"] = am, for example, did not work
-        # for some reasons which I don't know.... So I used Card. -
-        # YPBach 2018-05-04
-        cs = [Card("AIRMASS", am_eff,
-                   "Effective airmass (Stetson 1988; see COMMENT)"),
-              Card("ZD", alldict["zd"][0],
-                   "[deg] Zenithal distance (start of the exposure)"),
-              Card("ALT", alldict["alt"][0],
-                   "Altitude (start of the exposure)"),
-              Card("AZ", alldict["az"][0],
-                   "Azimuth (start of the exposure)"),
-              Card("ALT_MID", alldict["alt"][1],
-                   "Altitude (midpoint of the exposure)"),
-              Card("AZ_MID", alldict["az"][1],
-                   "Azimuth (midpoint of the exposure)"),
-              Card("ZD_MID", alldict["zd"][1],
-                   "[deg] Zenithal distance (midpoint of the exposure)"),
-              Card("ALT_END", alldict["alt"][2],
-                   "Altitude (end of the exposure)"),
-              Card("AZ_END", alldict["az"][2],
-                   "Azimuth (end of the exposure)"),
-              Card("ZD_END", alldict["zd"][2],
-                   "[deg] Zenithal distance (end of the exposure)"),
-              Card("COMMENT", amstr),
-              Card("HISTORY", "ALT-AZ calculated from ysfitsutilpy."),
-              Card("HISTORY", "AIRMASS calculated from ysfitsutilpy.")]
-        return cs
-
-    ra = _conversion(header, ra, ra_key, ra_unit)
-    dec = _conversion(header, dec, dec_key, dec_unit)
-    exptime = _conversion(header, exptime, exptime_key, exptime_unit)
-    lon = _conversion(header, lon, lon_key, lon_unit)
-    lat = _conversion(header, lat, lat_key, lat_unit)
-    height = _conversion(header, height, height_key, height_unit)
-    equinox = _conversion(header, equinox, equinox_key)
-    frame = _conversion(header, frame, frame_key)
-
-    if ut is None:
-        ut = header[ut_key]
-    elif isinstance(ut, Time):
-        ut = ut.isot
-        # ut_format = 'isot'
-        # ut_scale = 'utc'
-
-    targetcoord = SkyCoord(ra=ra,
-                           dec=dec,
-                           unit=(ra_unit, dec_unit),
-                           frame=frame,
-                           equinox=equinox)
-
-    try:  # It should work here but just in case I put except...
-        observcoord = EarthLocation(lon=lon * lon_unit,
-                                    lat=lat * lat_unit,
-                                    height=height * height_unit)
-    except ValueError:
-        observcoord = EarthLocation(lon=lon,
-                                    lat=lat,
-                                    height=height)
-
-    am_eff, alldict = airmass_obs(targetcoord=targetcoord,
-                                  obscoord=observcoord,
-                                  ut=ut,
-                                  exptime=exptime * exptime_unit,
-                                  scale=scale,
-                                  full=True)
-
-    if return_header:
-        nhdr = header.copy()
-        cards = _cards_airmass(am_eff, alldict)
-        # Remove if there is, e.g., AIRMASS a priori to the original header:
-        for c in cards:
-            try:
-                nhdr.remove(c.keyword)
-            except KeyError:
-                continue
-        nhdr = nhdr + cards
-        return nhdr
-
-    else:
-        return am_eff, alldict
 
 
 def convert_bit(fname, original_bit=12, target_bit=16):
