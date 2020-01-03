@@ -6,19 +6,18 @@ from warnings import warn
 
 import numpy as np
 from astropy import units as u
-from astropy.io import fits
-from astropy.nddata import CCDData, Cutout2D, StdDevUncertainty
+from astropy.nddata import CCDData, Cutout2D
 from astropy.time import Time
 from astropy.wcs import WCS
 from ccdproc import trim_image
 
 from .hdrutil import add_to_header, get_if_none
-from .misc import binning, fitsxy2py
+from .misc import binning, datahdr_parse, fitsxy2py
 
 __all__ = [
     "set_ccd_attribute", "set_ccd_gain_rdnoise",
     "propagate_ccdmask",
-    "trim_ccd", "cutccd", "bin_ccd", "load_ccd",
+    "trim_ccd", "cutccd", "bin_ccd",
     "imcopy", "CCDData_astype", "make_errmap",
     "errormap"
 ]
@@ -354,40 +353,6 @@ def bin_ccd(ccd, factor_x=1, factor_y=1, binfunc=np.mean, trim_end=False,
                       f"Binned by (xbin, ybin) = ({factor_x}, {factor_y}) ",
                       t_ref=_t_start)
     return _ccd
-
-
-# FIXME: Remove it in the future.
-def load_ccd(path, extension=0, usewcs=True, hdu_uncertainty="UNCERT",
-             unit='adu', prefer_bunit=True):
-    '''remove it when astropy updated:
-    Note
-    ----
-    CCDData.read cannot read TPV WCS:
-    https://github.com/astropy/astropy/issues/7650
-    '''
-    with fits.open(path) as hdul:
-        hdul = fits.open(path)
-        hdu = hdul[extension]
-        try:
-            uncdata = hdul[hdu_uncertainty].data
-            unc = StdDevUncertainty(uncdata)
-        except KeyError:
-            unc = None
-
-        w = None
-        if usewcs:
-            w = WCS(hdu.header)
-
-        if prefer_bunit:
-            try:  # if BUNIT exists, ignore ``unit`` given by the user.
-                unit = hdu.header['BUNIT'].lower()
-            except KeyError:
-                pass
-
-        ccd = CCDData(data=hdu.data, header=hdu.header, wcs=w,
-                      uncertainty=unc, unit=unit)
-
-    return ccd
 
 
 def imcopy(fpaths, fits_sections=None, outputs=None, return_ccd=True,

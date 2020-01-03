@@ -2,20 +2,21 @@
 Simple mathematical functions that will be used throughout this package. Some
 might be useful outside of this package.
 '''
+from pathlib import Path
 from warnings import warn
 
-from pathlib import Path
 import ccdproc
 import numpy as np
 from astropy import units as u
 from astropy.io import fits
-from astropy.nddata import CCDData
+from astropy.nddata import CCDData, StdDevUncertainty
 from astropy.time import Time
 from astropy.visualization import ImageNormalize, ZScaleInterval
+from astropy.wcs import WCS
 
 __all__ = ["MEDCOMB_KEYS_INT", "SUMCOMB_KEYS_INT", "MEDCOMB_KEYS_FLT32",
            "LACOSMIC_KEYS",
-           "datahdr_parse", "str_now", "change_to_quantity",
+           "datahdr_parse", "load_ccd", "str_now", "change_to_quantity",
            "binning", "fitsxy2py", "give_stats",
            "chk_keyval"]
 
@@ -66,6 +67,41 @@ def datahdr_parse(ccd_like_object):
         data = ccd_like_object.copy()
         hdr = None
     return data, hdr
+
+# FIXME: Remove it in the future.
+
+
+def load_ccd(path, extension=0, usewcs=True, hdu_uncertainty="UNCERT",
+             unit='adu', prefer_bunit=True):
+    '''remove it when astropy updated:
+    Note
+    ----
+    CCDData.read cannot read TPV WCS:
+    https://github.com/astropy/astropy/issues/7650
+    '''
+    with fits.open(path) as hdul:
+        hdul = fits.open(path)
+        hdu = hdul[extension]
+        try:
+            uncdata = hdul[hdu_uncertainty].data
+            unc = StdDevUncertainty(uncdata)
+        except KeyError:
+            unc = None
+
+        w = None
+        if usewcs:
+            w = WCS(hdu.header)
+
+        if prefer_bunit:
+            try:  # if BUNIT exists, ignore ``unit`` given by the user.
+                unit = hdu.header['BUNIT'].lower()
+            except KeyError:
+                pass
+
+        ccd = CCDData(data=hdu.data, header=hdu.header, wcs=w,
+                      uncertainty=unc, unit=unit)
+
+    return ccd
 
 
 def str_now(precision=3, fmt="{:.>72s}", t_ref=None,
