@@ -269,7 +269,7 @@ def give_stats(item, extension=0, percentiles=[1, 99], N_extrema=None,
     '''
     try:
         fpath = Path(item)
-        item = load_ccd(fpath)
+        item = CCDData.read(fpath)
     except (TypeError, ValueError):
         pass
 
