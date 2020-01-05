@@ -4,15 +4,16 @@ import astroscrappy
 import ccdproc
 import numpy as np
 from astropy import units as u
-from astropy.time import Time
 from astropy.nddata import CCDData, StdDevUncertainty
+from astropy.time import Time
 from astroscrappy import detect_cosmics
 from ccdproc import flat_correct, subtract_bias, subtract_dark
 
-from .ccdutil import (CCDData_astype, datahdr_parse, load_ccd, make_errmap,
-                      propagate_ccdmask, set_ccd_gain_rdnoise, trim_ccd)
+from .ccdutil import (CCDData_astype, make_errmap, propagate_ccdmask,
+                      set_ccd_gain_rdnoise, trim_ccd)
 from .hdrutil import add_to_header
-from .misc import LACOSMIC_KEYS, change_to_quantity, str_now
+from .misc import (LACOSMIC_KEYS, change_to_quantity, datahdr_parse, load_ccd,
+                   str_now)
 
 __all__ = [
     "crrej", "bdf_process"]
@@ -39,7 +40,11 @@ def _add_and_print(s, header, verbose, update_header=True, t_ref=None):
         # add as history
         add_to_header(header, 'h', s, t_ref=t_ref)
     if verbose:
-        print(str_now(fmt='{}'), s)
+        if isinstance(s, str):
+            print(str_now(fmt='{}'), s)
+        else:
+            for _s in s:
+                print(str_now(fmt='{}'), _s)
 
 
 # # TODO: This is quite much overlapping with set_ccd_gain_rdnoise...
