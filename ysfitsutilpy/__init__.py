@@ -6,3 +6,4 @@ from .hdrutil import *
 from .misc import *
 from .preproc import *
 from .visutil import *
+from .airmass import *
