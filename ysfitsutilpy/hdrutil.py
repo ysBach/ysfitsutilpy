@@ -273,12 +273,12 @@ def get_from_header(header, key, unit=None, verbose=True,
     q = None
 
     try:
-        q = change_to_quantity(header[key], unit=unit)
+        q = change_to_quantity(header[key], desired=unit)
         if verbose:
             print(f"header: {key} = {q}")
     except KeyError:
         if default is not None:
-            q = change_to_quantity(default, unit=unit)
+            q = change_to_quantity(default, desired=unit)
             warn(f"{key} not found in header: setting to {default}.")
         # else: None will be returned
 
