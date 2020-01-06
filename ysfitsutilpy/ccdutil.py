@@ -175,7 +175,7 @@ def propagate_ccdmask(ccd, additional_mask=None):
 
 
 # FIXME: Remove when https://github.com/astropy/ccdproc/issues/718 is solved
-def trim_ccd(ccd, fits_section=None, add_keyword=True):
+def trim_ccd(ccd, fits_section=None, add_keyword=True, verbose=False):
     _t = Time.now()
     trim_str = f"Trimmed using {fits_section}"
     trimmed_ccd = trim_image(ccd, fits_section=fits_section,
@@ -194,7 +194,7 @@ def trim_ccd(ccd, fits_section=None, add_keyword=True):
     trimmed_ccd.header["LTM1_1"] = 1.
     trimmed_ccd.header["LTM2_2"] = 1.
 
-    add_to_header(ccd.header, 'h', trim_str, t_ref=_t)
+    add_to_header(ccd.header, 'h', trim_str, t_ref=_t, verbose=verbose)
     return trimmed_ccd
 
 
