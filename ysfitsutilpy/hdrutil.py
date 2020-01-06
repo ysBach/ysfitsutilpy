@@ -33,8 +33,9 @@ def add_to_header(header, histcomm, s, precision=3,
         The string to add as history or comment.
     precision : int, optional.
         The precision of the isot format time.
-    fmt : str, optional.
+    fmt : str, None, optional.
         The Python 3 format string to format the time in the header.
+        If ``None``, the timestamp string will not be added.
         Examples:
           * ``"{:s}"``: plain time ``2020-01-01T01:01:01.23``
           * ``"({:s})"``: plain time in parentheses
@@ -58,24 +59,26 @@ def add_to_header(header, histcomm, s, precision=3,
             header.add_history(_s)
             if verbose:
                 print(_s)
-        timestr = str_now(precision=precision, fmt=fmt,
-                          t_ref=t_ref, dt_fmt=dt_fmt)
-        header.add_history(timestr)
-        if verbose:
-            print(timestr)
-            print("added to HISTORY")
+        if fmt is not None:
+            timestr = str_now(precision=precision, fmt=fmt,
+                              t_ref=t_ref, dt_fmt=dt_fmt)
+            header.add_history(timestr)
+            if verbose:
+                print(timestr)
+                print("added to HISTORY")
 
     elif histcomm.lower() in ['c', 'comm', 'comment']:
         for _s in s:
             header.add_comment(s)
             if verbose:
                 print(_s)
-        timestr = str_now(precision=precision, fmt=fmt,
-                          t_ref=t_ref, dt_fmt=dt_fmt)
-        header.add_comment(timestr)
-        if verbose:
-            print(timestr)
-            print("added to COMMENT")
+        if fmt is not None:
+            timestr = str_now(precision=precision, fmt=fmt,
+                              t_ref=t_ref, dt_fmt=dt_fmt)
+            header.add_comment(timestr)
+            if verbose:
+                print(timestr)
+                print("added to COMMENT")
 
 
 def wcs_crota(wcs, degree=True):
