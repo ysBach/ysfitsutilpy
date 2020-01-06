@@ -12,8 +12,7 @@ from ccdproc import flat_correct, subtract_bias, subtract_dark
 from .ccdutil import (CCDData_astype, make_errmap, propagate_ccdmask,
                       set_ccd_gain_rdnoise, trim_ccd)
 from .hdrutil import add_to_header
-from .misc import (LACOSMIC_KEYS, change_to_quantity, datahdr_parse, load_ccd,
-                   str_now)
+from .misc import LACOSMIC_KEYS, change_to_quantity, datahdr_parse, load_ccd
 
 __all__ = [
     "crrej", "bdf_process"]
@@ -35,16 +34,16 @@ str_cr = ("Cosmic-Ray rejected by astroscrappy (v {}), "
           + "with parameters: {}")
 
 
-def _add_and_print(s, header, verbose, update_header=True, t_ref=None):
-    if update_header:
-        # add as history
-        add_to_header(header, 'h', s, t_ref=t_ref)
-    if verbose:
-        if isinstance(s, str):
-            print(str_now(fmt='{}'), s)
-        else:
-            for _s in s:
-                print(str_now(fmt='{}'), _s)
+# def _add_and_print(s, header, verbose, update_header=True, t_ref=None):
+#     if update_header:
+#         # add as history
+#         add_to_header(header, 'h', s, t_ref=t_ref)
+#     if verbose:
+#         if isinstance(s, str):
+#             print(str_now(fmt='{}'), s)
+#         else:
+#             for _s in s:
+#                 print(str_now(fmt='{}'), _s)
 
 
 # # TODO: This is quite much overlapping with set_ccd_gain_rdnoise...
@@ -217,7 +216,7 @@ def crrej(ccd, mask=None, propagate_crmask=False, update_header=True,
     >>> yfu.ccdutil.set_ccd_gain_rdnoise(ccd)
     >>> nccd, mask = crrej(ccd)
     """
-    _t_start = Time.now()
+    _t = Time.now()
 
     if gain is None:
         try:
@@ -280,8 +279,14 @@ def crrej(ccd, mask=None, propagate_crmask=False, update_header=True,
     except KeyError:
         hdr["PROCESS"] = "C"
 
-    _add_and_print(str_cr.format(astroscrappy.__version__, crrej_kwargs),
-                   hdr, verbose, update_header=update_header, t_ref=_t_start)
+    if update_header:
+        add_to_header(hdr, 'h',
+                      str_cr.format(astroscrappy.__version__, crrej_kwargs),
+                      verbose=verbose, t_ref=_t)
+    else:
+        if verbose:
+            print(str_cr.format(astroscrappy.__version__, crrej_kwargs))
+
     _ccd.header = hdr
 
     return _ccd, crmask
@@ -465,8 +470,10 @@ def bdf_process(ccd, output=None,
         hdr_new["DARKPATH"] = (str(mdarkpath), "Path to the used dark file")
 
         if dark_scale:
-            _add_and_print(str_dscale.format(dark_scale, exposure_key),
-                           hdr_new, verbose_bdf)
+            # TODO: what if dark_exposure, data_exposure are given explicitly?
+            add_to_header(hdr_new, 'h',
+                          str_dscale.format(dark_scale, exposure_key),
+                          verbose=verbose_bdf)
 
     # Set for FLAT
     if mflatpath is None:
@@ -497,26 +504,26 @@ def bdf_process(ccd, output=None,
 
     # Do TRIM
     if trim_fits_section is not None:
-        _t_start = Time.now()
+        _t = Time.now()
         proc = trim_ccd(proc, fits_section=trim_fits_section)
         mbias = trim_ccd(mbias, fits_section=trim_fits_section)
         mdark = trim_ccd(mdark, fits_section=trim_fits_section)
         mflat = trim_ccd(mflat, fits_section=trim_fits_section)
         hdr_new["PROCESS"] += "T"
 
-        _add_and_print(str_trim.format(trim_fits_section),
-                       hdr_new, verbose_bdf, t_ref=_t_start)
+        add_to_header(hdr_new, 'h', str_trim.format(trim_fits_section),
+                      verbose=verbose_bdf, t_ref=_t)
 
     # Do BIAS
     if do_bias:
-        _t_start = Time.now()
+        _t = Time.now()
         proc = subtract_bias(proc, mbias)
-        _add_and_print(str_bias.format(mbiaspath),
-                       hdr_new, verbose_bdf, t_ref=_t_start)
+        add_to_header(hdr_new, 'h', str_bias.format(mbiaspath),
+                      verbose=verbose_bdf, t_ref=_t)
 
     # Do DARK
     if do_dark:
-        _t_start = Time.now()
+        _t = Time.now()
         proc = subtract_dark(proc,
                              mdark,
                              dark_exposure=dark_exposure,
@@ -524,14 +531,14 @@ def bdf_process(ccd, output=None,
                              exposure_time=exposure_key,
                              exposure_unit=exposure_unit,
                              scale=dark_scale)
-        _add_and_print(str_dark.format(mdarkpath),
-                       hdr_new, verbose_bdf, t_ref=_t_start)
+        add_to_header(hdr_new, 'h', str_dark.format(mdarkpath),
+                      verbose=verbose_bdf, t_ref=_t)
 
     # Make UNCERT extension before doing FLAT
     #   It is better to make_errmap a priori because of mathematical and
     #   computational convenience. See ``if do_flat:`` clause below.
     if calc_err:
-        _t_start = Time.now()
+        _t = Time.now()
         err = make_errmap(proc,
                           gain_epadu=gain,
                           subtracted_dark=mdark)
@@ -541,13 +548,13 @@ def bdf_process(ccd, output=None,
         s = [str_e0]
         if do_dark:
             s.append(str_ed)
-        _add_and_print(s, hdr_new, verbose_bdf, t_ref=_t_start)
+        add_to_header(hdr_new, 'h', s, verbose=verbose_bdf, t_ref=_t)
 
     # Do FLAT
     if do_flat:
         # Flat error propagation is done automatically by
         # ``ccdproc.flat_correct``if it has the uncertainty attribute.
-        _t_start = Time.now()
+        _t = Time.now()
         proc = flat_correct(proc,
                             mflat,
                             min_value=flat_min_value,
@@ -556,29 +563,29 @@ def bdf_process(ccd, output=None,
         if calc_err and mflat.uncertainty is not None:
             s.append(str_ef)
 
-        _add_and_print(s, hdr_new, verbose_bdf, t_ref=_t_start)
+        add_to_header(hdr_new, 'h', s, verbose=verbose_bdf, t_ref=_t)
 
     # Normalize by the exposure time (e.g., ADU per sec)
     if normalize_exposure:
-        _t_start = Time.now()
+        _t = Time.now()
         if data_exposure is None:
             data_exposure = hdr_new[exposure_key]
         proc = proc.divide(data_exposure)  # uncertainty will also be..
-        _add_and_print(str_nexp, hdr_new, verbose_bdf, t_ref=_t_start)
+        add_to_header(hdr_new, 'h', str_nexp, verbose=verbose_bdf, t_ref=_t)
 
     # Normalize by the mean value
     if normalize_average:
-        _t_start = Time.now()
+        _t = Time.now()
         avg = np.mean(proc.data)
         proc = proc.divide(avg)
-        _add_and_print(str_navg, hdr_new, verbose_bdf, t_ref=_t_start)
+        add_to_header(hdr_new, 'h', str_navg, verbose=verbose_bdf, t_ref=_t)
 
     # Normalize by the median value
     if normalize_median:
-        _t_start = Time.now()
+        _t = Time.now()
         med = np.median(proc.data)
         proc = proc.divide(med)
-        _add_and_print(str_nmed, hdr_new, verbose_bdf, t_ref=_t_start)
+        add_to_header(hdr_new, 'h', str_nmed, verbose=verbose_bdf, t_ref=_t)
 
     # Do CRREJ
     if do_crrej:
