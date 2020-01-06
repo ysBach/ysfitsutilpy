@@ -132,31 +132,40 @@ def load_ccd(path, extension=0, usewcs=True, hdu_uncertainty="UNCERT",
 
 
 def str_now(precision=3, fmt="{:.>72s}", t_ref=None,
-            dt_fmt="(dt = {:.3f} s)"):
+            dt_fmt="(dt = {:.3f} s)", return_time=False):
     ''' Get stringfied time now in UT ISOT format.
     Parameters
     ----------
-    precision : int
+    precision : int, optional.
         The precision of the isot format time.
-    fmt : str
+    fmt : str, optional.
         The Python 3 format string to format the time.
         Examples:
           * ``"{:s}"``: plain time ``2020-01-01T01:01:01.23``
           * ``"({:s})"``: plain time in parentheses
             ``(2020-01-01T01:01:01.23)``
           * ``"{:_^72s}"``: center align, filling with ``_``.
-    t_ref : Time
+    t_ref : Time, optional.
         The reference time. If not ``None``, delta time is calculated.
-    dt_fmt : str
+    dt_fmt : str, optional.
         The Python 3 format string to format the delta time.
+    return_time : bool, optional.
+        Whether to return the time at the start of this function and the
+        delta time (``dt``), as well as the time information string. If
+        ``t_ref`` is ``None``, ``dt`` is automatically set to ``None``.
     '''
     now = Time(Time.now(), precision=precision)
     timestr = now.isot
     if t_ref is not None:
-        now = Time(Time.now())
         dt = (now - Time(t_ref)).sec  # float in seconds unit
         timestr = dt_fmt.format(dt) + " " + timestr
-    return fmt.format(timestr)
+    else:
+        dt = None
+
+    if return_time:
+        return fmt.format(timestr), now, dt
+    else:
+        return fmt.format(timestr)
 
 
 def change_to_quantity(x, desired='', to_value=False):
