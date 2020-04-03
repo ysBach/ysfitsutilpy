@@ -58,27 +58,25 @@ def add_to_header(header, histcomm, s, precision=3,
         for _s in s:
             header.add_history(_s)
             if verbose:
-                print(_s)
+                print(f"HISTORY {_s}")
         if fmt is not None:
             timestr = str_now(precision=precision, fmt=fmt,
                               t_ref=t_ref, dt_fmt=dt_fmt)
             header.add_history(timestr)
             if verbose:
-                print(timestr)
-                print("added to HISTORY")
+                print(f"HISTORY {timestr}")
 
     elif histcomm.lower() in ['c', 'comm', 'comment']:
         for _s in s:
             header.add_comment(s)
             if verbose:
-                print(_s)
+                print(f"COMMENT {_s}")
         if fmt is not None:
             timestr = str_now(precision=precision, fmt=fmt,
                               t_ref=t_ref, dt_fmt=dt_fmt)
             header.add_comment(timestr)
             if verbose:
-                print(timestr)
-                print("added to COMMENT")
+                print(f"COMMENT {timestr}")
 
 
 def wcs_crota(wcs, degree=True):
