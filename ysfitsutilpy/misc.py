@@ -95,19 +95,20 @@ def datahdr_parse(ccd_like_object):
         hdr = None
     return data, hdr
 
+
 # FIXME: Remove it in the future.
-
-
 def load_ccd(path, extension=0, usewcs=True, hdu_uncertainty="UNCERT",
-             unit='adu', prefer_bunit=True):
+             unit='adu', prefer_bunit=True, memmap=False):
     '''remove it when astropy updated:
     Note
     ----
     CCDData.read cannot read TPV WCS:
     https://github.com/astropy/astropy/issues/7650
+    Also memory map must be set False to avoid memory problem
+    https://github.com/astropy/astropy/issues/9096
     '''
     with fits.open(path) as hdul:
-        hdul = fits.open(path)
+        hdul = fits.open(path, memmap=memmap)
         hdu = hdul[extension]
         try:
             uncdata = hdul[hdu_uncertainty].data
