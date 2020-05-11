@@ -296,7 +296,7 @@ def stack_FITS(fitslist=None, summary_table=None, extension=0,
 
     asccd : bool, optional.
         Whether to load as ``astropy.nddata.CCDData``. If ``False``,
-        numpy ndarray will be used.
+        numpy ndarray will be used. Works only if ``loadccd = True``.
 
     Return
     ------
