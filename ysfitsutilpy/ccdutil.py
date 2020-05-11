@@ -194,7 +194,7 @@ def trim_ccd(ccd, fits_section=None, add_keyword=True, verbose=False):
     trimmed_ccd.header["LTM1_1"] = 1.
     trimmed_ccd.header["LTM2_2"] = 1.
 
-    add_to_header(ccd.header, 'h', trim_str, t_ref=_t, verbose=verbose)
+    add_to_header(trimmed_ccd.header, 'h', trim_str, t_ref=_t, verbose=verbose)
     return trimmed_ccd
 
 
