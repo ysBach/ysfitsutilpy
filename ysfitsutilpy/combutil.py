@@ -1,18 +1,27 @@
-from warnings import warn
 from pathlib import Path
+from warnings import warn
 
+import ccdproc
 import numpy as np
 import pandas as pd
-
+from astropy.io import fits
 from astropy.nddata import CCDData, StdDevUncertainty
 from astropy.table import Table
-from astropy.io import fits
-import ccdproc
+from astropy.time import Time
 from ccdproc import combine, trim_image
 
+from .ccdutil import CCDData_astype, load_ccd, trim_ccd
 from .filemgmt import load_if_exists, make_summary
-from .ccdutil import CCDData_astype, load_ccd
+from .hdrutil import add_to_header
 from .misc import chk_keyval
+
+# try:
+#     import numba as nb
+#     NO_NUMBA = False
+# except ImportError:
+#     NO_NUMBA = True
+#     print("numba not found. Quick combining will not work.")
+
 
 __all__ = ["sstd", "weighted_mean", "stack_FITS", "combine_ccd"]
 
@@ -21,6 +30,124 @@ def sstd(a, **kwargs):
     ''' Sample standard deviation function
     '''
     return np.std(a, ddof=1, **kwargs)
+
+
+# @nb.njit(fastmath=True)
+# def nb_sstd(a, ddof=1):
+#     ''' Sample standard deviation function for 1-D array
+#     '''
+#     std = np.std(a)
+#     n = a.size
+#     return np.sqrt(n/(n-ddof))*std
+
+
+# @nb.njit(fastmath=True)
+# def _qsc_1d(a, sigma_upper=3, sigma_lower=3, maxiters=5,
+#             cenfunc=np.median, stdfunc=nb_sstd):
+#     ''' sigma-clipping to a 1-D array ``a``.
+#     Return
+#     ------
+#     _a : 1-d array
+#         The sigma-clipped array
+#     i : int
+#         Final number of the iteration (minimum 1).
+#     dn : int
+#         The number of rejected values
+#     (cen, std, lo, hi) : tuple of float
+#         The central, standard deviation, lower-bound, and upper-bound
+#         values of the final iteration.
+#     '''
+#     _a = a.copy()
+
+#     n_old = _a.size
+#     for i in range(maxiters):
+#         cen = cenfunc(_a)
+#         std = stdfunc(_a)
+#         lo = cen - sigma_lower*std
+#         hi = cen + sigma_upper*std
+#         _a = _a[(lo <= _a) & (_a <= hi)]
+#         n_new = _a.size
+#         if n_new == n_old:  # if no more rejection
+#             break
+#         n_old = n_new
+
+#     return _a, i, a.size - n_new, (cen, std, lo, hi)
+
+
+# @nb.njit(parallel=True, fastmath=True)
+# def _qsc_3d(arr, sigma_upper=3, sigma_lower=3, maxiters=5,
+#             combfunc=np.median, cenfunc=np.median, stdfunc=np.std,
+#             full=True):
+#     out = np.zeros(shape=(arr.shape[0], arr.shape[1]))
+#     if full:
+#         out_niter = np.zeros(out.shape, dtype=int)
+#         out_dn = np.zeros(out.shape, dtype=int)
+#         out_cen = np.zeros_like(out)
+#         out_std = np.zeros_like(out)
+#         out_lo = np.zeros_like(out)
+#         out_hi = np.zeros_like(out)
+
+#     for i in nb.prange(out.shape[0]):
+#         for j in nb.prange(out.shape[1]):
+#             a = arr[i, j, :]
+#             _a, niter, dn, (cen, std, lo, hi) = _qsc_1d(
+#                 a,
+#                 sigma_upper=sigma_upper,
+#                 sigma_lower=sigma_lower,
+#                 maxiters=maxiters,
+#                 cenfunc=cenfunc,
+#                 stdfunc=stdfunc
+#             )
+#             out[i, j] = combfunc(_a)
+#             if full:
+#                 out_niter[i, j] = niter
+#                 out_dn[i, j] = dn
+#                 out_cen[i, j] = cen
+#                 out_std[i, j] = std
+#                 out_lo[i, j] = lo
+#                 out_hi[i, j] = hi
+#     if full:
+#         return out, out_niter, out_dn, (out_cen, out_std, out_hi, out_lo)
+#     else:
+#         return out
+
+
+# @nb.njit(fastmath=True)
+# def qsc_1d(a, sigma=3, sigma_upper=None, sigma_lower=None, maxiters=5,
+#            cenfunc=np.median, stdfunc=nb_sstd):
+#     ''' Quick sigma-clip of an array, axis not supported yet.
+#     Return
+#     ------
+#     _a : 1-d array
+#         The sigma-clipped array
+#     i : int
+#         Final number of the iteration (minimum 1).
+#     dn : int
+#         The number of rejected values
+#     (cen, std, lo, hi) : tuple of float
+#         The central, standard deviation, lower-bound, and upper-bound
+#         values of the final iteration.
+#     '''
+#     if sigma_upper is None:
+#         sigma_upper = sigma
+#     if sigma_lower is None:
+#         sigma_lower = sigma
+
+#     res = _qsc_1d(a=a, sigma_upper=sigma_upper, sigma_lower=sigma_lower,
+#                   maxiters=maxiters, cenfunc=cenfunc, stdfunc=stdfunc)
+#     return res
+
+
+# def quick_2d_comb(arr, func=np.mean, axis=None, dtype='float32'):
+#     if axis is not None:
+#         warn("Currently numba does not support axis.")
+#     arr = np.atleast_3d(arr)
+
+#     if arr.shape[2] == 1:
+#         out = arr[:, :, 0]
+#     else:
+#         out = np.zeros(arr[:, :, 0].shape, dtype=dtype)
+#     pass
 
 
 # FIXME: Add this to Ccdproc esp. for mem_limit
@@ -112,7 +239,8 @@ def group_FITS(summary_table, type_key=None, type_val=None, group_key=None):
 
 def stack_FITS(fitslist=None, summary_table=None, extension=0,
                unit='adu', table_filecol="file", trim_fits_section=None,
-               loadccd=True, type_key=None, type_val=None, verbose=True):
+               loadccd=True, asccd=True, type_key=None, type_val=None,
+               verbose=True):
     ''' Stacks the FITS files specified in fitslist
     Parameters
     ----------
@@ -165,6 +293,10 @@ def stack_FITS(fitslist=None, summary_table=None, extension=0,
     type_key, type_val: str, list of str
         The header keyword for the ccd type, and the value you want to
         match.
+
+    asccd : bool, optional.
+        Whether to load as ``astropy.nddata.CCDData``. If ``False``,
+        numpy ndarray will be used.
 
     Return
     ------
@@ -267,7 +399,10 @@ def stack_FITS(fitslist=None, summary_table=None, extension=0,
             # if not skipped:
             # TODO: Is it better to remove Path here?
             if isinstance(fitslist[i], CCDData):
-                matched.append(fitslist[i])
+                if asccd:
+                    matched.append(fitslist[i])
+                else:
+                    matched.append(fitslist[i].data)
             else:  # it must be a path to the file
                 fpath = Path(fitslist[i])
                 if loadccd:
@@ -275,20 +410,29 @@ def stack_FITS(fitslist=None, summary_table=None, extension=0,
                     if trim_fits_section is not None:
                         ccd_i = trim_image(ccd_i,
                                            fits_section=trim_fits_section)
-                    matched.append(ccd_i)
+                    if asccd:
+                        matched.append(ccd_i)
+                    else:
+                        matched.append(ccd_i.data)
                 else:
                     matched.append(fpath)
     else:  # summary_table is not used.
         for item in fitslist:
             if isinstance(item, CCDData):
-                matched.append(item)
+                if asccd:
+                    matched.append(fitslist[i])
+                else:
+                    matched.append(fitslist[i].data)
             else:
                 if loadccd:
                     ccd_i = load_ccd(item, extension=extension, unit=unit)
                     if trim_fits_section is not None:
                         ccd_i = trim_image(ccd_i,
                                            fits_section=trim_fits_section)
-                    matched.append(ccd_i)
+                    if asccd:
+                        matched.append(ccd_i)
+                    else:
+                        matched.append(ccd_i.data)
                 else:  # TODO: Is is better to remove Path here?
                     matched.append(Path(item))
 
@@ -498,15 +642,15 @@ def combine_ccd(fitslist=None, summary_table=None, table_filecol="file",
 
         return clip_extrema, minmax_clip, sigma_clip
 
-    def _print_info(combine_method, Nccd, reject_method, **kwargs):
-        if reject_method is None:
-            reject_method = 'no'
+    # def _print_info(combine_method, Nccd, reject_method, **kwargs):
+    #     if reject_method is None:
+    #         reject_method = 'no'
 
-        info_str = ('"{:s}" combine {:d} images by "{:s}" rejection')
+    #     info_str = ('"{:s}" combine {:d} images by "{:s}" rejection')
 
-        print(info_str.format(combine_method, Nccd, reject_method))
-        print(dict(**kwargs))
-        return
+    #     print(info_str.format(combine_method, Nccd, reject_method))
+    #     print(dict(**kwargs))
+    #     return
 
     def _add_and_print(s, header, verbose):
         header.add_history(s)
@@ -558,11 +702,10 @@ def combine_ccd(fitslist=None, summary_table=None, table_filecol="file",
     # Set history messages
     str_history = ('{:d} images with {:s} = {:s} are "{:s}" combined '
                    + 'using "{:s}" rejection (additional kwargs: {})')
-    str_nexp = "Each frame normalized by exposure time before combination."
-    str_navg = "Each frame normalized by average value before combination."
-    str_nmed = "Each frame normalized by median value before combination."
+    str_nexp = "Each frame will be normalized by exposure time before combine."
+    str_navg = "Each frame will be normalized by average before combine."
+    str_nmed = "Each frame will be normalized by median before combine."
     str_subt = "Subtracted a user-provided frame"
-    str_trim = "Trim by FITS section {}"
 
     if reject_method is None:
         reject_method = 'no'
@@ -587,14 +730,15 @@ def combine_ccd(fitslist=None, summary_table=None, table_filecol="file",
     except AttributeError:
         header = fits.getheader(ccdlist[0])
 
-    if verbose:
-        _print_info(
-            combine_method=combine_method,
-            Nccd=len(ccdlist),
-            reject_method=reject_method,
-            dtype=dtype,
-            **kwargs)
+    # if verbose:
+    #     _print_info(
+    #         combine_method=combine_method,
+    #         Nccd=len(ccdlist),
+    #         reject_method=reject_method,
+    #         dtype=dtype,
+    #         **kwargs)
 
+    _t = Time.now()
     scale = None
     # Normalize by exposure
     # TODO: Let it accept summary table as well as fitslist
@@ -605,21 +749,21 @@ def combine_ccd(fitslist=None, summary_table=None, table_filecol="file",
                            sort_by=None)
         exptimes = tmp[exposure_key].tolist()
         scale = 1 / np.array(exptimes)
-        _add_and_print(str_nexp, header, verbose)
+        add_to_header(header, 'h', str_nexp, verbose=verbose)
 
     # Normalize by pixel average
     if normalize_average:
         def invavg(a):
             return 1 / np.mean(a)
         scale = invavg
-        _add_and_print(str_navg, header, verbose)
+        add_to_header(header, 'h', str_navg, verbose=verbose)
 
     # Normalize by pixel median
     if normalize_median:
         def invmed(a):
             return 1 / np.median(a)
         scale = invmed
-        _add_and_print(str_nmed, header, verbose)
+        add_to_header(header, 'h', str_nmed, verbose=verbose)
 
     # Set rejection switches
     clip_extrema, minmax_clip, sigma_clip = _set_reject_method(reject_method)
@@ -644,27 +788,36 @@ def combine_ccd(fitslist=None, summary_table=None, table_filecol="file",
             dtype=dtype,
             **kwargs)
 
-    ncombine = len(ccdlist)
     header["COMBVER"] = (ccdproc.__version__,
                          "ccdproc version used for combine.")
+    # NCOMBINE from ccdproc has no comment so I duplicate this...
+    ncombine = len(ccdlist)
     header["NCOMBINE"] = (ncombine, "Number of combined images")
     header["COMBMETH"] = (combine_method, "Combining method")
 
-    header.add_history(str_history.format(ncombine,
-                                          str(type_key),
-                                          str(type_val),
-                                          str(combine_method),
-                                          str(reject_method),
-                                          kwargs))
+    s = str_history.format(ncombine,
+                           str(type_key),
+                           str(type_val),
+                           str(combine_method),
+                           str(reject_method),
+                           kwargs)
+    add_to_header(header, 'h', s, verbose=verbose, t_ref=_t)
+    # header.add_history(str_history.format(ncombine,
+    #                                       str(type_key),
+    #                                       str(type_val),
+    #                                       str(combine_method),
+    #                                       str(reject_method),
+    #                                       kwargs))
 
     if subtract_frame is not None:
+        _t = Time.now()
         subtract = CCDData(subtract_frame.copy())
         master.data = master.subtract(subtract).data
-        _add_and_print(str_subt, header, verbose)
+        add_to_header(header, 'h', str_subt, header, verbose=verbose, t_ref=_t)
 
     if trim_fits_section is not None:
-        master = trim_image(master, fits_section=trim_fits_section)
-        _add_and_print(str_trim.format(trim_fits_section), header, verbose)
+        master = trim_ccd(master, fits_section=trim_fits_section,
+                          verbose=verbose)
 
     master.header = header
     master = CCDData_astype(master, dtype=dtype,
