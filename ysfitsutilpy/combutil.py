@@ -331,54 +331,56 @@ def stack_FITS(fitslist=None, summary_table=None, extension=0,
         raise ValueError("One and only one of fitslist or summary_table must "
                          + "be not None.")
 
-    # If fitslist
+    # Check for type_key and type_val
+    type_key, type_val, _ = chk_keyval(type_key=type_key,
+                                       type_val=type_val,
+                                       group_key=None)
+
+    # Setting whether we have to select a subset from the list
+    selecting = True if len(type_key) > 0 else False
+
+    if verbose:
+        print("Analyzing FITS... ", end='')
+
+    # ----------------------------------------------------------------------- #
+    #                      MAKE fitslist AND summary_table                    #
+    # ----------------------------------------------------------------------- #
+
+    # -- If fitslist -------------------------------------------------------- #
     if fitslist is not None:
-        table_mode = False
         try:
             fitslist = list(fitslist)
         except TypeError:
             raise TypeError("fitslist must be convertable to list. "
                             + f"It's now {type(fitslist)}.")
 
-    # If summary_table
-    if summary_table is not None:
-        table_mode = True
-        if ((not isinstance(summary_table, Table))
-                and (not isinstance(summary_table, pd.DataFrame))):
+        if selecting:
+            summary_table = make_summary(
+                fitslist,
+                extension=extension,
+                verbose=True,
+                fname_option='relative',
+                keywords=type_key,
+                sort_by=None,
+                pandas=True
+            )
+        # else:
+        #   no need to make summary_table.
+    # -- If summary_table --------------------------------------------------- #
+    elif summary_table is not None:
+        is_astropytab = isinstance(summary_table, Table)
+        is_dataframe = isinstance(summary_table, pd.DataFrame)
+        if (not is_astropytab) and (not is_dataframe):
             raise TypeError("summary_table must be an astropy Table or Pandas "
                             + f"DataFrame. It's now {type(summary_table)}.")
 
-    # Check for type_key and type_val
-    type_key, type_val, _ = chk_keyval(type_key=type_key,
-                                       type_val=type_val,
-                                       group_key=None)
-
-    # Setting whether to group
-    grouping = False
-    if len(type_key) > 0:
-        grouping = True
-
-    if verbose:
-        print("Analyzing FITS... ", end='')
-    # Set fitslist and summary_table based on the given input and grouping.
-    if table_mode:
-        if isinstance(summary_table, Table):
+        if is_astropytab:
             summary_table = summary_table.to_pandas()
         try:
             summary_table.reset_index(inplace=True)
         except ValueError:
             pass
         fitslist = summary_table[table_filecol].tolist()
-    else:
-        if grouping:
-            summary_table = make_summary(fitslist,
-                                         extension=extension,
-                                         verbose=True,
-                                         fname_option='relative',
-                                         keywords=type_key,
-                                         sort_by=None,
-                                         pandas=True)
-        # else: no need to make summary_table.
 
     if verbose:
         print("Done", end='')
@@ -387,11 +389,24 @@ def stack_FITS(fitslist=None, summary_table=None, extension=0,
         else:
             print(".")
 
+    # ======================================================================= #
+    #                      SELECT AND LOAD TO matched                         #
+    # ======================================================================= #
     matched = []
-
-    # Append appropriate CCDs or filepaths to matched
-    if grouping:  # summary_table is used.
+    if selecting:
+        # -- Select FITS based on type_key and type_val --------------------- #
         for i, row in summary_table.iterrows():
+            # I intentionally used iterrows instead of making mask,
+            # because for some cases the keyword (e.g., an angle) can
+            # contain both str and float among CCDs.
+            #   For example, if we want to select ``angle == 0.0``,
+            # masking cannot work because the column has dtype of object
+            # (``summary_table[column].dtype`` is ``object```).
+            #   Instead, _check_mismatch tries to convert the value
+            # found in the header to int, and if it fails, tries float,
+            # and finally uses str. This is the most natural way I could
+            # think of.
+            # ysBach, 2020-05-15 09:44:13 (KST: GMT+09:00)
             mismatch = _check_mismatch(row)
             if mismatch:  # skip this row (file)
                 continue
@@ -403,7 +418,7 @@ def stack_FITS(fitslist=None, summary_table=None, extension=0,
                     matched.append(fitslist[i])
                 else:
                     matched.append(fitslist[i].data)
-            else:  # it must be a path to the file
+            else:  # it must be a path to a file
                 fpath = Path(fitslist[i])
                 if loadccd:
                     ccd_i = load_ccd(fpath, extension=extension, unit=unit)
@@ -416,14 +431,16 @@ def stack_FITS(fitslist=None, summary_table=None, extension=0,
                         matched.append(ccd_i.data)
                 else:
                     matched.append(fpath)
-    else:  # summary_table is not used.
+    else:
+        # -- Use all item in fitslist -------------------------------- #
+        # summary_table is not used.
         for item in fitslist:
             if isinstance(item, CCDData):
                 if asccd:
-                    matched.append(fitslist[i])
+                    matched.append(item)
                 else:
-                    matched.append(fitslist[i].data)
-            else:
+                    matched.append(item.data)
+            else:  # it must be a path to a file
                 if loadccd:
                     ccd_i = load_ccd(item, extension=extension, unit=unit)
                     if trim_fits_section is not None:
@@ -436,16 +453,18 @@ def stack_FITS(fitslist=None, summary_table=None, extension=0,
                 else:  # TODO: Is is better to remove Path here?
                     matched.append(Path(item))
 
-    # Generate warning OR information messages
+    # ======================================================================= #
+    #                      PRINT INFO MESSAGE OR WARNING                      #
+    # ======================================================================= #
     if len(matched) == 0:
-        if grouping:
+        if selecting:
             warn('No FITS file had "{:s} = {:s}"'.format(str(type_key),
                                                          str(type_val))
                  + "Maybe int/float/str confusing?")
         else:
             warn('No FITS file found')
     else:
-        if grouping:
+        if selecting:
             N = len(matched)
             ks = str(type_key)
             vs = str(type_val)
