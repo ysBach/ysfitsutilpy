@@ -189,10 +189,16 @@ def trim_ccd(ccd, fits_section=None, add_keyword=True, verbose=False):
         ltv1 = 0.
         ltv2 = 0.
 
-    trimmed_ccd.header["LTV1"] = ltv1
-    trimmed_ccd.header["LTV2"] = ltv2
-    trimmed_ccd.header["LTM1_1"] = 1.
-    trimmed_ccd.header["LTM2_2"] = 1.
+    try:  # if LTV and LTM exists already
+        trimmed_ccd.header["LTV1"] += ltv1
+        trimmed_ccd.header["LTV2"] += ltv2
+        trimmed_ccd.header["LTM1_1"] *= 1.
+        trimmed_ccd.header["LTM2_2"] *= 1.
+    except KeyError:
+        trimmed_ccd.header["LTV1"] = ltv1
+        trimmed_ccd.header["LTV2"] = ltv2
+        trimmed_ccd.header["LTM1_1"] = 1.
+        trimmed_ccd.header["LTM2_2"] = 1.
 
     add_to_header(trimmed_ccd.header, 'h', trim_str, t_ref=_t, verbose=verbose)
     return trimmed_ccd
