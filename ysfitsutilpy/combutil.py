@@ -705,9 +705,11 @@ def combine_ccd(fitslist=None, summary_table=None, table_filecol="file",
 
     if (output is not None) and (Path(output).exists()):
         if overwrite:
-            print(f"{output} already exists:\n\tBut will be overridden.")
+            if verbose:
+                print(f"{output} already exists:\n\tBut will be overridden.")
         else:
-            print(f"{output} already exists:")
+            if verbose:
+                print(f"{output} already exists:")
             return load_if_exists(output, loader=CCDData.read, if_not=None)
 
     # Do we really need to accept all three of normalize & scale?
