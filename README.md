@@ -5,8 +5,8 @@ Install by
 
 ```
 $ cd <where you want to download this package>
-$ git clone https://github.com/ysBach/ysphotutilpy
-$ cd ysphotutilpy
+$ git clone https://github.com/ysBach/ysfitsutilpy
+$ cd ysfitsutilpy
 $ python setup.py install
 ```
 
@@ -30,22 +30,23 @@ import ysfitsutilpy as yfu
 
 from pathlib import Path
 
-keys = ["OBS-TIME", "FILTER", "OBJECT"]  # actually it is case-insensitive
 # The keywords you want to extract (from the headers of FITS files)
+keys = ["OBS-TIME", "FILTER", "OBJECT"]  # actually it is case-insensitive
 
-TOPPATH = Path(".", "observation_2018-01-01")
-# The toppath
+# The working path (directory) and save path
+TOPPATH = Path("./observation_2018-01-01")
+savepath = TOPPATH/"summary_20180101.csv"
 
-savepath = TOPPATH / "summary_20180101.csv"
-# path to save summary csv file
-
-allfits = list((TOPPATH / "rawdata").glob("*.fits"))
 # list of all the fits files in Path object
+allfits = list((TOPPATH/"rawdata").glob("*.fits"))
 
-summary = yfu.make_summary(allfits, keywords=keys, fname_option='name',
-                           sort_by="DATE-OBS", output=savepath)
-# The astropy.table.Table foramt.
-
-# If you want, you may change it to pandas:
-summary_pd = summary.to_pandas()
+summary = yfu.make_summary(
+    allfits, 
+    keywords=keys, 
+    fname_option='name',                       
+    sort_by="DATE-OBS", 
+    output=savepath,
+    pandas=True  # default: False, so that astropy table is returned.
+)
+summary
 ```
