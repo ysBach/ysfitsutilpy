@@ -262,9 +262,9 @@ def binning(arr, factor_x=1, factor_y=1, binfunc=np.mean, trim_end=False):
     '''
     binned = arr.copy()
     if trim_end:
-        ny, nx = binned.shape
-        iy_max = ny - (ny % factor_y)
-        ix_max = nx - (nx % factor_x)
+        ny_orig, nx_orig = binned.shape
+        iy_max = ny_orig - (ny_orig % factor_y)
+        ix_max = nx_orig - (nx_orig % factor_x)
         binned = binned[:iy_max, :ix_max]
     ny, nx = binned.shape
     nby = ny // factor_y
@@ -315,6 +315,7 @@ def give_stats(item, extension=0, percentiles=[1, 99], N_extrema=None,
         Works only if you gave ``item`` as FITS file path or
         ``CCDData``. The statistics information will be added to the
         header and the updated header will be returned.
+
     Return
     ------
     result : dict
@@ -323,6 +324,12 @@ def give_stats(item, extension=0, percentiles=[1, 99], N_extrema=None,
         The updated header. Returned only if ``update_header`` is
         ``True`` and ``item`` is FITS file path or has ``header``
         attribute (e.g., ``CCDData`` or ``hdu``)
+
+    Note
+    ----
+    If you have bottleneck package, the functions from bottleneck will
+    be used. Otherwise, numpy is used.
+
     Example
     -------
     >>> bias = CCDData.read("bias_bin11.fits")
@@ -348,14 +355,28 @@ def give_stats(item, extension=0, percentiles=[1, 99], N_extrema=None,
 
     data, hdr = datahdr_parse(item)
 
+    try:
+        import bottleneck as bn
+        minf = bn.nanmin
+        maxf = bn.nanmax
+        avgf = bn.nanmean
+        medf = bn.nanmedian
+        stdf = bn.nanstd
+    except ImportError:
+        minf = np.nanmin
+        maxf = np.nanmax
+        avgf = np.nanmean
+        medf = np.nanmedian
+        stdf = np.nanstd
+
     result = dict(num=np.size(data),
-                  min=np.min(data),
-                  max=np.max(data),
-                  avg=np.mean(data),
-                  med=np.median(data),
-                  std=np.std(data, ddof=1),
+                  min=minf(data),
+                  max=maxf(data),
+                  avg=avgf(data),
+                  med=medf(data),
+                  std=stdf(data, ddof=1),
                   percents_pos=percentiles,
-                  pct=np.percentile(data, percentiles)
+                  pct=np.nanpercentile(data, percentiles)
                   )
     # d_pct = np.percentile(data, percentiles)
     # for i, pct in enumerate(percentiles):
