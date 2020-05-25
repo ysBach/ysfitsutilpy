@@ -683,12 +683,21 @@ def combine_ccd(fitslist=None, summary_table=None, table_filecol="file",
 
     # If fitslist
     if fitslist is not None:
-        try:
-            fitslist = list(fitslist)
-        except TypeError:
-            raise TypeError(
-                "fitslist must be convertable to list. "
-                + f"It's now {type(fitslist)}.")
+        # -- a single CCDData ---------------------------------------- #
+        if isinstance(fitslist, CCDData):
+            fitslist = [fitslist]
+        else:
+            # -- a single path-like ---------------------------------- #
+            try:
+                fitslist = [Path(fitslist)]
+            except TypeError:
+                # -- a list of path-like or CCDData ------------------ #
+                try:
+                    fitslist = list(fitslist)
+                except TypeError:
+                    raise TypeError(
+                        "fitslist must be convertable to list. "
+                        + f"It's now {type(fitslist)}.")
 
     # If summary_table
     if summary_table is not None:
