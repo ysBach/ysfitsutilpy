@@ -29,6 +29,3 @@ class AstroImage:
         self.ovsc_cor = False
         self.flat_cor = False
         self.crrej_cor = False
-
-
-    def
