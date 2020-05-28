@@ -202,6 +202,19 @@ def crrej(ccd, mask=None, propagate_crmask=False, update_header=True,
     verbose : boolean, optional
         Print to the screen or not. Default: ``False``.
 
+    Returns
+    -------
+    _ccd : CCDData
+        The cosmic-ray cleaned CCDData in ADU. ``astroscrappy``
+        automatically does a gain correction, so I divided the
+        ``astroscrappy`` result by gain to restore to ADU (not to
+        surprise the users).
+
+    crmask : ndarray (mask)
+        The cosmic-ray mask from ``astroscrappy``, propagated by the
+        original mask of the ccd (if ``ccd.mask`` is not ``None``)and
+        ``mask`` given by the user.
+
     Notes
     -----
     All defaults are based on IRAF version of L.A. Cosmic (Note the
