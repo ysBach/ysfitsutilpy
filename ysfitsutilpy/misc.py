@@ -106,6 +106,9 @@ def load_ccd(path, extension=0, usewcs=True, hdu_uncertainty="UNCERT",
     https://github.com/astropy/astropy/issues/7650
     Also memory map must be set False to avoid memory problem
     https://github.com/astropy/astropy/issues/9096
+    Plus, WCS info from astrometry.net solve-field sometimes not
+    understood by CCDData.read....
+    2020-05-31 16:39:51 (KST: GMT+09:00) ysBach
     '''
     with fits.open(path) as hdul:
         hdul = fits.open(path, memmap=memmap)
@@ -296,7 +299,7 @@ def fitsxy2py(fits_section):
 
 
 def give_stats(item, extension=0, percentiles=[1, 99], N_extrema=None,
-               update_header=False):
+               update_header=False, nanfunc=False):
     ''' Calculates simple statistics.
     Parameters
     ----------
@@ -315,6 +318,8 @@ def give_stats(item, extension=0, percentiles=[1, 99], N_extrema=None,
         Works only if you gave ``item`` as FITS file path or
         ``CCDData``. The statistics information will be added to the
         header and the updated header will be returned.
+    nanfunc : bool, optional.
+        Whether to use nan-related functions (e.g., ``np.nanmedian``).
 
     Return
     ------
@@ -357,17 +362,35 @@ def give_stats(item, extension=0, percentiles=[1, 99], N_extrema=None,
 
     try:
         import bottleneck as bn
-        minf = bn.nanmin
-        maxf = bn.nanmax
-        avgf = bn.nanmean
-        medf = bn.nanmedian
-        stdf = bn.nanstd
+        if nanfunc:
+            minf = bn.nanmin
+            maxf = bn.nanmax
+            avgf = bn.nanmean
+            medf = bn.nanmedian
+            stdf = bn.nanstd
+            pctf = np.nanpercentile  # no bn function
+        else:
+            minf = np.min
+            maxf = np.max
+            avgf = np.mean
+            medf = bn.median  # Still median from bn seems faster!
+            stdf = np.std
+            pctf = np.percentile
     except ImportError:
-        minf = np.nanmin
-        maxf = np.nanmax
-        avgf = np.nanmean
-        medf = np.nanmedian
-        stdf = np.nanstd
+        if nanfunc:
+            minf = np.nanmin
+            maxf = np.nanmax
+            avgf = np.nanmean
+            medf = np.nanmedian
+            stdf = np.nanstd
+            pctf = np.nancentile
+        else:
+            minf = np.min
+            maxf = np.max
+            avgf = np.mean
+            medf = np.median
+            stdf = np.std
+            pctf = np.percentile
 
     result = dict(num=np.size(data),
                   min=minf(data),
@@ -375,8 +398,8 @@ def give_stats(item, extension=0, percentiles=[1, 99], N_extrema=None,
                   avg=avgf(data),
                   med=medf(data),
                   std=stdf(data, ddof=1),
-                  percents_pos=percentiles,
-                  pct=np.nanpercentile(data, percentiles)
+                  percentiles=percentiles,
+                  pct=pctf(data, percentiles)
                   )
     # d_pct = np.percentile(data, percentiles)
     # for i, pct in enumerate(percentiles):
@@ -422,10 +445,15 @@ def give_stats(item, extension=0, percentiles=[1, 99], N_extrema=None,
         hdr["PERCENTS"] = (str(list(percentiles)),
                            "The percentiles used in STATPCT")
         if N_extrema is not None:
-            hdr["STATEXLO"] = (str(list(result['ext_lo'])),
-                               f"Lower extreme values (N_extrema={N_extrema})")
-            hdr["STATEXHI"] = (str(list(result['ext_hi'])),
-                               f"Upper extreme values (N_extrema={N_extrema})")
+            for i in range(N_extrema):
+                hdr[f"STATL{i:03d}"] = (
+                    result['ext_lo'][i],
+                    f"Lower extreme values (N_extrema={N_extrema})"
+                )
+                hdr[f"STATH{i:03d}"] = (
+                    result['ext_hi'][i],
+                    f"Upper extreme values (N_extrema={N_extrema})"
+                )
         return result, hdr
     return result
 
