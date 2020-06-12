@@ -125,7 +125,8 @@ def load_ccd(path, extension=0, usewcs=True, hdu_uncertainty="UNCERT",
 
         if prefer_bunit:
             try:  # if BUNIT exists, ignore ``unit`` given by the user.
-                unit = hdu.header['BUNIT'].lower()
+                _ = hdu.header['BUNIT'].lower()
+                unit = None
             except KeyError:
                 pass
 
@@ -299,7 +300,7 @@ def fitsxy2py(fits_section):
 
 
 def give_stats(item, extension=0, percentiles=[1, 99], N_extrema=None,
-               update_header=False, nanfunc=False):
+               return_header=False, nanfunc=False):
     ''' Calculates simple statistics.
     Parameters
     ----------
@@ -314,7 +315,7 @@ def give_stats(item, extension=0, percentiles=[1, 99], N_extrema=None,
         The number of low and high elements to be returned when the
         whole data are sorted. If ``None``, it will not be calculated.
         If ``1``, it is identical to min/max values.
-    update_header : bool, optional.
+    return_header : bool, optional.
         Works only if you gave ``item`` as FITS file path or
         ``CCDData``. The statistics information will be added to the
         header and the updated header will be returned.
@@ -421,7 +422,7 @@ def give_stats(item, extension=0, percentiles=[1, 99], N_extrema=None,
         result["ext_lo"] = d_los
         result["ext_hi"] = d_his
 
-    if update_header and hdr is not None:
+    if return_header and hdr is not None:
         hdr["STATNPIX"] = (result['num'],
                            "Number of pixels used in statistics below")
         hdr["STATMIN"] = (result['min'],
@@ -440,17 +441,24 @@ def give_stats(item, extension=0, percentiles=[1, 99], N_extrema=None,
                            "zscale minimum value of the pixels")
         hdr["STATZMAX"] = (result['zmax'],
                            "zscale minimum value of the pixels")
-        hdr["STATPCT"] = (str(list(result['pct'])),
-                          "Percentile values (see PERCENTS)")
-        hdr["PERCENTS"] = (str(list(percentiles)),
-                           "The percentiles used in STATPCT")
+        for i, p in enumerate(percentiles):
+            hdr[f"PERCTS{i+1:02d}"] = (
+                percentiles[i],
+                "The percentile used in STATPC"
+            )
+            hdr[f"STATPC{i+1:02d}"] = (
+                result['pct'][i],
+                "Percentile value at PERCTS")
+
         if N_extrema is not None:
+            if N_extrema > 99:
+                warn("N_extrema > 99 may not work properly in header.")
             for i in range(N_extrema):
-                hdr[f"STATL{i:03d}"] = (
+                hdr[f"STATLO{i+1:02d}"] = (
                     result['ext_lo'][i],
                     f"Lower extreme values (N_extrema={N_extrema})"
                 )
-                hdr[f"STATH{i:03d}"] = (
+                hdr[f"STATHI{i+1:02d}"] = (
                     result['ext_hi'][i],
                     f"Upper extreme values (N_extrema={N_extrema})"
                 )
