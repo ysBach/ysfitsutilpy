@@ -133,6 +133,7 @@ def make_summary(fitslist, extension=0, fname_option='relative',
     >>>                            fname_option='name', pandas=True,
     >>>                            sort_by="DATE-OBS", output=savepath)
     """
+    fitslist = tuple(fitslist)
 
     if len(fitslist) == 0:
         print("No FITS file found.")
@@ -201,7 +202,7 @@ def make_summary(fitslist, extension=0, fname_option='relative',
             print(str_keywords.format(len(keywords)))
 
     # Initialize
-    summarytab = dict(file=[])
+    summarytab = dict(file=[], filesize=[])
     for k in keywords:
         summarytab[k] = []
 
@@ -209,8 +210,11 @@ def make_summary(fitslist, extension=0, fname_option='relative',
     for i, item in enumerate(fitslist):
         if isinstance(item, CCDData):
             summarytab["file"].append(None)
+            summarytab["filesize"].append(None)
         else:
             summarytab["file"].append(_get_fname(item))
+            summarytab["filesize"].append(Path(item).stat().st_size)
+            # Don't change to MB/GB, which will make it float...
         hdr = _get_hdr(item, extension=extension)
         for k in keywords:
             try:
