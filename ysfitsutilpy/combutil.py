@@ -812,7 +812,7 @@ def combine_ccd(fitslist=None, summary_table=None, table_filecol="file",
             sigma_clip=sigma_clip,
             mem_limit=mem_limit,
             combine_uncertainty_function=combine_uncertainty_function,
-            unit=None,  # user-given unit is already applied by stack_FITS
+            unit=unit,  # user-given unit is already applied by stack_FITS
             hdu=extension,
             scale=scale,
             dtype=dtype,
