@@ -125,8 +125,7 @@ def load_ccd(path, extension=0, usewcs=True, hdu_uncertainty="UNCERT",
 
         if prefer_bunit:
             try:  # if BUNIT exists, ignore ``unit`` given by the user.
-                _ = hdu.header['BUNIT'].lower()
-                unit = None
+                unit = hdu.header['BUNIT'].lower()
             except KeyError:
                 pass
 
