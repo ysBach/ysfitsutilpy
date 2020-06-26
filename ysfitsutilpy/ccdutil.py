@@ -189,17 +189,31 @@ def trim_ccd(ccd, fits_section=None, add_keyword=True, verbose=False):
         ltv1 = 0.
         ltv2 = 0.
 
+    hdr = trimmed_ccd.header
     for k, v in zip(["LTV1", "LTV2"], [ltv1, ltv2]):
         try:  # if LTV exists already
-            trimmed_ccd.header[k] += v
+            hdr[k] += v
         except KeyError:
-            trimmed_ccd.header[k] = v
+            hdr[k] = v
 
-    for k in ["LTM1_1", "LTM1_2", "LTM2_1", "LTM2_2"]:
-        try:  # if LTM exists already
-            trimmed_ccd.header[k] *= 1.
-        except KeyError:
-            trimmed_ccd.header[k] = 1.
+    add_11 = not ("LTM1_1" in hdr)
+    add_12 = not ("LTM1_2" in hdr)
+    add_21 = not ("LTM2_1" in hdr)
+    add_22 = not ("LTM2_2" in hdr)
+    if add_11:
+        if "LTM1" in hdr:
+            hdr["LTM1_1"] = hdr["LTM1"]
+        else:
+            hdr["LTM1_1"] = 1.
+    if add_12:
+        hdr["LTM1_2"] = 0.
+    if add_21:
+        hdr["LTM2_1"] = 0.
+    if add_22:
+        if "LTM2" in hdr:
+            hdr["LTM2_2"] = hdr["LTM2"]
+        else:
+            hdr["LTM2_2"] = 1.
 
     add_to_header(trimmed_ccd.header, 'h', trim_str, t_ref=_t, verbose=verbose)
     return trimmed_ccd
