@@ -99,7 +99,7 @@ str_cr = ("Cosmic-Ray rejected by astroscrappy (v {}), "
 
 
 def crrej(ccd, mask=None, propagate_crmask=False, update_header=True,
-          gain=None, rdnoise=None, verbose=True,
+          add_process=True, gain=None, rdnoise=None, verbose=True,
           sigclip=4.5, sigfrac=0.5, objlim=1.0, satlevel=np.inf,
           pssl=0.0, niter=4, sepmed=False, cleantype='medmask',
           fsmode='median', psfmodel='gauss', psffwhm=2.5, psfsize=7,
@@ -287,10 +287,11 @@ def crrej(ccd, mask=None, propagate_crmask=False, update_header=True,
     if propagate_crmask:
         _ccd.mask = propagate_ccdmask(_ccd, additional_mask=crmask)
 
-    try:
-        hdr["PROCESS"] += "C"
-    except KeyError:
-        hdr["PROCESS"] = "C"
+    if add_process:
+        try:
+            hdr["PROCESS"] += "C"
+        except KeyError:
+            hdr["PROCESS"] = "C"
 
     if update_header:
         add_to_header(hdr, 'h',
