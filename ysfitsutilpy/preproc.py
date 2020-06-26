@@ -215,6 +215,12 @@ def crrej(ccd, mask=None, propagate_crmask=False, update_header=True,
         original mask of the ccd (if ``ccd.mask`` is not ``None``)and
         ``mask`` given by the user.
 
+    update_header : bool, optional.
+        Whether to update the header if there is any.
+
+    add_process : bool, optional.
+        Whether to add ``PROCESS`` key to the header.
+
     Notes
     -----
     All defaults are based on IRAF version of L.A. Cosmic (Note the
@@ -287,13 +293,13 @@ def crrej(ccd, mask=None, propagate_crmask=False, update_header=True,
     if propagate_crmask:
         _ccd.mask = propagate_ccdmask(_ccd, additional_mask=crmask)
 
-    if add_process:
+    if add_process and hdr is not None:
         try:
             hdr["PROCESS"] += "C"
         except KeyError:
             hdr["PROCESS"] = "C"
 
-    if update_header:
+    if update_header and hdr is not None:
         add_to_header(hdr, 'h',
                       str_cr.format(astroscrappy.__version__, crrej_kwargs),
                       verbose=verbose, t_ref=_t)
