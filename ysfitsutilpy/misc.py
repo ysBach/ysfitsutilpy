@@ -97,8 +97,10 @@ def datahdr_parse(ccd_like_object):
 
 
 # FIXME: Remove it in the future.
-def load_ccd(path, extension=0, usewcs=True, hdu_uncertainty="UNCERT",
-             unit='adu', prefer_bunit=True, memmap=False):
+def load_ccd(path, extension=0, unit=None, hdu_uncertainty="UNCERT",
+             use_wcs=True, hdu_mask='MASK', hdu_flags=None,
+             key_uncertainty_type='UTYPE', prefer_bunit=True, memmap=False,
+             **kwd):
     '''remove it when astropy updated:
     Note
     ----
@@ -110,27 +112,19 @@ def load_ccd(path, extension=0, usewcs=True, hdu_uncertainty="UNCERT",
     understood by CCDData.read....
     2020-05-31 16:39:51 (KST: GMT+09:00) ysBach
     '''
-    with fits.open(path) as hdul:
-        hdul = fits.open(path, memmap=memmap)
-        hdu = hdul[extension]
-        try:
-            uncdata = hdul[hdu_uncertainty].data
-            unc = StdDevUncertainty(uncdata)
-        except KeyError:
-            unc = None
+    reader_kw = dict(hdu=extension, hdu_uncertainty=hdu_uncertainty,
+                     hdu_mask=hdu_mask, hdu_flags=hdu_flags,
+                     key_uncertainty_type=key_uncertainty_type,
+                     memmap=memmap, **kwd)
+    if use_wcs:
+        hdr = fits.getheader(path)
+        reader_kw["wcs"] = WCS(hdr)
+        del hdr
 
-        w = None
-        if usewcs:
-            w = WCS(hdu.header)
-
-        if prefer_bunit:
-            try:  # if BUNIT exists, ignore ``unit`` given by the user.
-                unit = hdu.header['BUNIT'].lower()
-            except KeyError:
-                pass
-
-        ccd = CCDData(data=hdu.data, header=hdu.header, wcs=w,
-                      uncertainty=unc, unit=unit)
+    if not prefer_bunit:  # prefer user's input
+        ccd = CCDData.read(path, unit=unit, **reader_kw)
+    else:
+        ccd = CCDData.read(path, unit=None, **reader_kw)
 
     return ccd
 
