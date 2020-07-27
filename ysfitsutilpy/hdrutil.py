@@ -368,7 +368,7 @@ def wcsremove(filepath=None, additional_keys=[], extension=0,
                  'PC[0-9]_[0-9]',
                  'P[A-Z]?[0-9]?[0-9][0-9][0-9][0-9][0-9][0-9]',  # FOCAS
                  'PV[0-9]_[0-9]',
-                 '[A,B]_[0-9]_[0-9]',  # astrometry.net
+                 '[A,B][P]?_[0-9]_[0-9]',  # astrometry.net
                  '[A,B][P]?_ORDER',   # astrometry.net
                  '[A,B][P]?_DMAX',    # astrometry.net
                  'WCS[A-Z]',          # see below
