@@ -4,6 +4,7 @@ Contians convenience funcitons which are
 (2) related to the non-FITS files.
 '''
 
+import glob
 from pathlib import Path
 import numpy as np
 
@@ -66,8 +67,8 @@ def load_if_exists(path, loader, if_not=None, verbose=True, **kwargs):
     return loaded
 
 
-def make_summary(fitslist, extension=0, fname_option='relative',
-                 output=None, format='ascii.csv',
+def make_summary(fitslist=None, fpattern=None, extension=0,
+                 fname_option='relative', output=None, format='ascii.csv',
                  keywords=[], example_header=None, sort_by='file',
                  pandas=False, verbose=True):
     """ Extracts summary from the headers of FITS files.
@@ -79,7 +80,13 @@ def make_summary(fitslist, extension=0, fname_option='relative',
         useful to give a list of CCDData if you have already
         stacked/loaded the CCDData into a list. Although it is not a
         good idea, a mixed list of CCDData and paths to the files is
-        also acceptable.
+        also acceptable. One and only one of ``fitlist`` or ``fpattern``
+        must be provided.
+
+    fpattern : str
+        The `~glob` pattern for files (e.g., ``"2020*[012].fits"``).
+        One and only one of ``fitlist`` or ``fpattern`` must be
+        provided.
 
     extension: int or str, optional
         The extension to be summarized.
@@ -133,7 +140,13 @@ def make_summary(fitslist, extension=0, fname_option='relative',
     >>>                            fname_option='name', pandas=True,
     >>>                            sort_by="DATE-OBS", output=savepath)
     """
-    fitslist = tuple(fitslist)
+    if (fitslist is not None) + (fpattern is not None) != 1:
+        raise ValueError("Give one and only one of fitslist/fpattern.")
+
+    if fitslist is None:
+        fitslist = glob.glob(fpattern)
+    fitslist = list(fitslist)
+    fitslist.sort()
 
     if len(fitslist) == 0:
         print("No FITS file found.")
