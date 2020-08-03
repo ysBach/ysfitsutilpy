@@ -4,7 +4,6 @@ Contians convenience funcitons which are
 (2) related to the non-FITS files.
 '''
 
-import glob
 from pathlib import Path
 import numpy as np
 
@@ -15,6 +14,7 @@ from warnings import warn
 import ccdproc
 from .hdrutil import key_mapper, key_remover
 from .ccdutil import cutccd
+from .misc import inputs2pathlist
 
 __all__ = ["mkdir", "load_if_exists",
            "make_summary", "fits_newpath", "fitsrenamer"]
@@ -67,26 +67,26 @@ def load_if_exists(path, loader, if_not=None, verbose=True, **kwargs):
     return loaded
 
 
-def make_summary(fitslist=None, fpattern=None, extension=0,
+def make_summary(inputs=None, fitslist=None, extension=0,
                  fname_option='relative', output=None, format='ascii.csv',
                  keywords=[], example_header=None, sort_by='file',
                  pandas=False, verbose=True):
     """ Extracts summary from the headers of FITS files.
     Parameters
     ----------
+    inputs : glob pattern or list-like of path-like
+        The `~glob` pattern for files (e.g., ``"2020*[012].fits"``) or
+        list of files (each element must be path-like). One and only one
+        of ``inputs`` or ``fitslist`` must be provided.
+
     fitslist: list of str (path-like) or list of CCDData, optional
         The list of file paths relative to the current working
         directory, or the list of ccds to be summarized. It can be
         useful to give a list of CCDData if you have already
         stacked/loaded the CCDData into a list. Although it is not a
         good idea, a mixed list of CCDData and paths to the files is
-        also acceptable. One and only one of ``fitlist`` or ``fpattern``
+        also acceptable. One and only one of ``inputs`` or ``fitslist``
         must be provided.
-
-    fpattern : str
-        The `~glob` pattern for files (e.g., ``"2020*[012].fits"``).
-        One and only one of ``fitlist`` or ``fpattern`` must be
-        provided.
 
     extension: int or str, optional
         The extension to be summarized.
@@ -140,13 +140,11 @@ def make_summary(fitslist=None, fpattern=None, extension=0,
     >>>                            fname_option='name', pandas=True,
     >>>                            sort_by="DATE-OBS", output=savepath)
     """
-    if (fitslist is not None) + (fpattern is not None) != 1:
+    if (inputs is not None) + (fitslist is not None) != 1:
         raise ValueError("Give one and only one of fitslist/fpattern.")
 
     if fitslist is None:
-        fitslist = glob.glob(fpattern)
-    fitslist = list(fitslist)
-    fitslist.sort()
+        fitslist = inputs2pathlist(inputs, sorted=True)
 
     if len(fitslist) == 0:
         print("No FITS file found.")
