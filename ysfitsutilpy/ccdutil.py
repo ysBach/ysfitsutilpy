@@ -17,7 +17,7 @@ from .misc import binning, datahdr_parse, fitsxy2py, load_ccd
 __all__ = [
     "set_ccd_attribute", "set_ccd_gain_rdnoise",
     "propagate_ccdmask",
-    "trim_ccd", "cutccd", "bin_ccd",
+    "trim_ccd", "bezel_ccd", "cutccd", "bin_ccd",
     "imcopy", "CCDData_astype", "make_errmap",
     "errormap"
 ]
@@ -217,6 +217,87 @@ def trim_ccd(ccd, fits_section=None, add_keyword=True, verbose=False):
 
     add_to_header(trimmed_ccd.header, 'h', trim_str, t_ref=_t, verbose=verbose)
     return trimmed_ccd
+
+
+def bezel_ccd(ccd, bezel_x=None, bezel_y=None, replace=np.nan, verbose=False):
+    """ Replace pixel values at the edges of the image.
+
+    Parameters
+    ----------
+    ccd : CCDData or ndarray
+        The data to be used.
+
+    bezel_x, bezel_y : None, int, float, size-2 of these, optional.
+        The bezel width along x and y directions. If `float`, it will be
+        rounded to integer. If given as size-2 array-like, it must be
+        ``(bezel_lower, bezel_upper)``.
+
+    replace : None, float-like, optinoal.
+        If ``None``, it is identical to trimming the CCD with given
+        bezels. If given as float-like, the bezel pixels will be
+        replaced with this value. Defaults to ``np.nan`` to keep the
+        size of the input ``ccd``.
+
+    Returns
+    -------
+    nccd : `~astropy.nddata.CCDData`
+        The trimmed (``replace=None``) or bezel-replaced (otherwise)
+        ccd.
+
+    Example
+    -------
+    >>>
+
+    Note
+    ----
+
+    """
+    def _sanitize_bezel(bezel, npix):
+        bezel = np.around(np.atleast_1d(bezel)).astype(int)
+        if bezel.size == 1:
+            bezel = np.repeat(bezel_x, 2)
+        elif bezel.size != 2:
+            raise ValueError("bezel must be size of 1 or 2.")
+
+        bezel = bezel.ravel()
+        if (bezel[0] >= npix) or (bezel[1] >= npix):
+            raise ValueError("bezel width larger than image size")
+        if bezel[0] + bezel[1] >= npix:
+            raise ValueError("no pixel left after bezel")
+
+        return bezel
+
+    _t = Time.now()
+    if ccd.data.ndim != 2:
+        raise ValueError("Only 2-D CCDData is supported yet.")
+
+    ny, nx = ccd.data.shape
+
+    if bezel_x is None and bezel_y is None:
+        return ccd
+
+    bezel_x = _sanitize_bezel(bezel_x, nx)
+    bezel_y = _sanitize_bezel(bezel_y, ny)
+
+    if replace is None:
+        sl = (f"[{bezel_x[0] + 1}:{nx - bezel_x[1]},"
+              + f"{bezel_y[0] + 1}:{ny - bezel_y[1]}]")
+        if isinstance(ccd, CCDData):
+            nccd = trim_ccd(ccd, fits_section=sl)
+        else:  # If nddata...
+            nccd = np.array(ccd)[fitsxy2py(sl)]
+    else:
+        nccd = ccd.copy()
+        nccd.data[:bezel_y[0], :] = replace
+        nccd.data[ny - bezel_y[1]:, :] = replace
+        nccd.data[:, :bezel_x[0]] = replace
+        nccd.data[:, nx - bezel_x[0]:] = replace
+        bezel_str = (f"Replaced pixels with bezel width {bezel_x} along x "
+                     + f"and {bezel_y} along y replaced with {replace}.")
+        add_to_header(nccd.header, 'h', bezel_str,
+                      t_ref=_t, verbose=verbose)
+
+    return nccd
 
 
 # TODO: add LTV-like keys to the header.
