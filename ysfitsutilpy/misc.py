@@ -3,6 +3,7 @@ Simple mathematical functions that will be used throughout this package. Some
 might be useful outside of this package.
 '''
 import sys
+import glob
 from pathlib import Path
 from warnings import warn
 
@@ -10,7 +11,7 @@ import ccdproc
 import numpy as np
 from astropy import units as u
 from astropy.io import fits
-from astropy.nddata import CCDData, StdDevUncertainty
+from astropy.nddata import CCDData
 from astropy.time import Time
 from astropy.visualization import ImageNormalize, ZScaleInterval
 from astropy.wcs import WCS
@@ -55,6 +56,22 @@ LACOSMIC_KEYS = {'sigclip': 4.5,
                  'psfsize': 7,
                  'psfk': None,
                  'psfbeta': 4.765}
+
+
+def inputs2pathlist(inputs, sorted=True):
+    ''' Convert glob pattern or list-like of path-like to list of Path
+    '''
+    if isinstance(inputs, str):
+        # If str, "dir/file.fits" --> [Path("dir/file.fits")]
+        #         "dir/*.fits" --> [Path("dir/file.fits"), ...]
+        outlist = glob.glob(inputs)
+    else:
+        outlist = [Path(fpath) for fpath in inputs]
+
+    if sorted:
+        outlist.sort()
+
+    return outlist
 
 
 def get_size(obj, seen=None):
@@ -216,7 +233,7 @@ def change_to_quantity(x, desired='', to_value=False):
         ux = _copy(x)
     except u.UnitConversionError:
         raise ValueError("If you use astropy.Quantity, you should use "
-                         + f"unit convertible to `desired`. \nYou gave "
+                         + "unit convertible to `desired`. \nYou gave "
                          + f'"{x.unit}", unconvertible with "{desired}".')
 
     return ux
