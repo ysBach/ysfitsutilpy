@@ -4,7 +4,7 @@ might be useful outside of this package.
 '''
 import sys
 import glob
-from pathlib import Path
+from pathlib import Path, PosixPath, WindowsPath
 from warnings import warn
 
 import ccdproc
@@ -65,6 +65,9 @@ def inputs2pathlist(inputs, sorted=True):
         # If str, "dir/file.fits" --> [Path("dir/file.fits")]
         #         "dir/*.fits" --> [Path("dir/file.fits"), ...]
         outlist = glob.glob(inputs)
+    elif isinstance(inputs, (PosixPath, WindowsError)):
+        # If Path, ``TOP/"file*.fits"`` --> [Path("top/file1.fits"), ...]
+        outlist = glob.glob(str(inputs))
     else:
         outlist = [Path(fpath) for fpath in inputs]
 
