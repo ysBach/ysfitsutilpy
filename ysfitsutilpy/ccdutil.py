@@ -766,20 +766,18 @@ def errormap(ccd_biassub, gain_epadu=1, rdnoise_electron=0,
         data += subtracted_dark
 
     if flat is None:
-        flat = np.ones_like(data)
+        flat = 1
 
     var = data / (gain_epadu*flat**2)
     var += (rdnoise_electron/(gain_epadu*flat))**2
 
     if dark_std is not None:
-        dark_std = np.ones_like(data) * dark_std
         if dark_std_min == 'rdnoise':
             dark_std_min = rdnoise_electron/gain_epadu
         dark_std[dark_std < dark_std_min] = dark_std_min
         var += (dark_std/flat)**2
 
     if flat_err is not None:
-        flat_err = np.ones_like(data) * flat_err
         var += data**2*(flat_err/flat)**2
 
     if return_variance:
