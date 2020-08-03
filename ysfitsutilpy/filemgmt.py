@@ -133,10 +133,8 @@ def make_summary(inputs=None, fitslist=None, extension=0,
     >>> TOPPATH = Path(".", "observation_2018-01-01")
     >>> # The toppath
     >>> savepath = TOPPATH / "summary_20180101.csv"
-    >>> # path to save summary csv file
-    >>> allfits = list((TOPPATH / "rawdata").glob("*.fits"))
-    >>> # list of all the fits files in Path object
-    >>> summary = yfu.make_summary(fitslist=allfits, keywords=keys,
+    >>> # list of all the fits files in TOPPATH/rawdata:
+    >>> summary = yfu.make_summary(TOPPATH/"rawdata/*.fits", keywords=keys,
     >>>                            fname_option='name', pandas=True,
     >>>                            sort_by="DATE-OBS", output=savepath)
     """
