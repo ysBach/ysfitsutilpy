@@ -9,7 +9,7 @@ from astropy.time import Time
 from astroscrappy import detect_cosmics
 from ccdproc import flat_correct, subtract_bias, subtract_dark
 
-from .ccdutil import (CCDData_astype, make_errmap, propagate_ccdmask,
+from .ccdutil import (CCDData_astype, errormap, propagate_ccdmask,
                       set_ccd_gain_rdnoise, trim_ccd)
 from .hdrutil import add_to_header
 from .misc import LACOSMIC_KEYS, change_to_quantity, datahdr_parse, load_ccd
@@ -480,7 +480,7 @@ def bdf_process(ccd, output=None,
     # Set for DARK
     if mdarkpath is None:
         do_dark = False
-        mdark = CCDData(np.zeros_like(ccd), unit=unit)
+        mdark = None
     else:
         do_dark = True
         mdark = load_ccd(mdarkpath, unit=unit)
@@ -498,7 +498,7 @@ def bdf_process(ccd, output=None,
     # Set for FLAT
     if mflatpath is None:
         do_flat = False
-        mflat = CCDData(np.ones_like(ccd), unit=unit)
+        mflat = None
     else:
         do_flat = True
         mflat = load_ccd(mflatpath, unit=unit)
@@ -525,10 +525,11 @@ def bdf_process(ccd, output=None,
     # Do TRIM
     if trim_fits_section is not None:
         _t = Time.now()
-        proc = trim_ccd(proc, fits_section=trim_fits_section)
-        mbias = trim_ccd(mbias, fits_section=trim_fits_section)
-        mdark = trim_ccd(mdark, fits_section=trim_fits_section)
-        mflat = trim_ccd(mflat, fits_section=trim_fits_section)
+        sect = dict(fits_section=trim_fits_section)
+        proc = trim_ccd(proc, **sect)
+        mbias = trim_ccd(mbias, **sect) if do_bias else None
+        mdark = trim_ccd(mdark, **sect) if do_dark else None
+        mflat = trim_ccd(mflat, **sect) if do_flat else None
         hdr_new["PROCESS"] += "T"
 
         add_to_header(hdr_new, 'h', str_trim.format(trim_fits_section),
@@ -559,10 +560,7 @@ def bdf_process(ccd, output=None,
     #   computational convenience. See ``if do_flat:`` clause below.
     if calc_err:
         _t = Time.now()
-        err = make_errmap(proc,
-                          gain_epadu=gain,
-                          subtracted_dark=mdark)
-
+        err = errormap(proc, gain_epadu=gain, subtracted_dark=mdark)
         proc.uncertainty = StdDevUncertainty(err)
 
         s = [str_e0]
@@ -621,7 +619,7 @@ def bdf_process(ccd, output=None,
                  + f"You have only done {hdr_new['PROCESS']}. "
                  + "See http://www.astro.yale.edu/dokkum/lacosmic/notes.html")
 
-        proc, crmask = crrej(
+        proc, _ = crrej(
             proc,
             propagate_crmask=propagate_crmask,
             update_header=True,
@@ -640,5 +638,5 @@ def bdf_process(ccd, output=None,
             print(f"Writing FITS to {output}... ", end='')
         proc.write(output, output_verify=output_verify, overwrite=overwrite)
         if verbose_bdf:
-            print(f"Saved.")
+            print("Saved.")
     return proc
