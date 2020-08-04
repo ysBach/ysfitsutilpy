@@ -65,7 +65,7 @@ def inputs2pathlist(inputs, sorted=True):
         # If str, "dir/file.fits" --> [Path("dir/file.fits")]
         #         "dir/*.fits" --> [Path("dir/file.fits"), ...]
         outlist = glob.glob(inputs)
-    elif isinstance(inputs, (PosixPath, WindowsError)):
+    elif isinstance(inputs, (PosixPath, WindowsPath)):
         # If Path, ``TOP/"file*.fits"`` --> [Path("top/file1.fits"), ...]
         outlist = glob.glob(str(inputs))
     else:
@@ -293,11 +293,14 @@ def binning(arr, factor_x=1, factor_y=1, binfunc=np.mean, trim_end=False):
 
 def fitsxy2py(fits_section):
     ''' Given FITS section in str, returns the slices in python convention.
+
     Parameters
     ----------
-    fits_section : str
-        The section specified by FITS convention, i.e., bracket embraced,
-        comma separated, XY order, 1-indexing, and including the end index.
+    fits_section : str or list-like of such
+        The section specified by FITS convention, i.e., bracket
+        embraced, comma separated, XY order, 1-indexing, and including
+        the end index.
+
     Note
     ----
     >>> np.eye(5)[fitsxy2py('[1:2,:]')]
@@ -307,9 +310,13 @@ def fitsxy2py(fits_section):
     #       [0., 0.],
     #       [0., 0.]])
     '''
+    fits_sections = np.atleast_1d(fits_section)
     slicer = ccdproc.utils.slices.slice_from_string
-    sl = slicer(fits_section, fits_convention=True)
-    return sl
+    sl = [slicer(sect, fits_convention=True) for sect in fits_sections]
+    if len(sl) == 1:
+        return sl[0]
+    else:
+        return sl
 
 
 def give_stats(item, extension=0, percentiles=[1, 99], N_extrema=None,
