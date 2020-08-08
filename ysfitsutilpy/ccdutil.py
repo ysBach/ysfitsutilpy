@@ -11,7 +11,7 @@ from astropy.time import Time
 from astropy.wcs import WCS
 from ccdproc import trim_image
 
-from .hdrutil import add_to_header, get_if_none
+from .hdrutil import add_to_header, get_if_none, update_tlm
 from .misc import binning, datahdr_parse, fitsxy2py, load_ccd
 
 __all__ = [
@@ -103,6 +103,7 @@ def set_ccd_attribute(ccd, name, value=None, key=None, default=None,
         add_to_header(ccd.header, 'h', s, t_ref=_t_start)
 
     setattr(ccd, name, value_Q)
+    update_tlm(ccd.header)
 
 
 # TODO: This is quite much overlapping with get_gain_rdnoise...
@@ -216,6 +217,8 @@ def trim_ccd(ccd, fits_section=None, add_keyword=True, verbose=False):
             hdr["LTM2_2"] = 1.
 
     add_to_header(trimmed_ccd.header, 'h', trim_str, t_ref=_t, verbose=verbose)
+    update_tlm(trimmed_ccd.header)
+
     return trimmed_ccd
 
 
@@ -296,6 +299,8 @@ def bezel_ccd(ccd, bezel_x=None, bezel_y=None, replace=np.nan, verbose=False):
                      + f"and {bezel_y} along y replaced with {replace}.")
         add_to_header(nccd.header, 'h', bezel_str,
                       t_ref=_t, verbose=verbose)
+
+    update_tlm(nccd.header)
 
     return nccd
 
@@ -390,6 +395,8 @@ def cutccd(ccd, position, size, mode='trim', fill_value=np.nan):
              + "currently support distortion in WCS. This may result in "
              + "slightly inaccurate WCS calculation in the future.")
 
+    update_tlm(nccd.header)
+
     return nccd
 
 
@@ -454,6 +461,7 @@ def bin_ccd(ccd, factor_x=1, factor_y=1, binfunc=np.mean, trim_end=False,
         add_to_header(_ccd.header, 'h',
                       f"Binned by (xbin, ybin) = ({factor_x}, {factor_y}) ",
                       t_ref=_t_start)
+    update_tlm(_ccd.header)
     return _ccd
 
 
@@ -564,9 +572,11 @@ def imcopy(fpaths, fits_sections=None, outputs=None, return_ccd=True,
                 # FIXME: use ccdproc.trim_image when trim_ccd is removed.
                 nccd = trim_ccd(ccd, fits_section=sect)
                 nccd = CCDData_astype(nccd, dtype=dtype)
+                update_tlm(nccd.heaer)
                 result.append(nccd)
         else:  # only one single CCDData will be in ``result``
             nccd = CCDData_astype(ccd, dtype=dtype)
+            update_tlm(nccd.heaer)
             result.append(nccd)
 
         if to_save:
@@ -619,6 +629,7 @@ def CCDData_astype(ccd, dtype='float32', uncertainty_dtype=None):
         # If there is no uncertainty attribute in the input ``ccd``
         pass
 
+    update_tlm(nccd.header)
     return nccd
 
 

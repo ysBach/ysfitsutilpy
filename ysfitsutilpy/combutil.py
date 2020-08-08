@@ -12,7 +12,7 @@ from ccdproc import combine, trim_image
 
 from .ccdutil import CCDData_astype, load_ccd, trim_ccd
 from .filemgmt import load_if_exists, make_summary
-from .hdrutil import add_to_header, update_tlm
+from .hdrutil import add_to_header
 from .misc import chk_keyval
 
 # try:
@@ -849,10 +849,10 @@ def combine_ccd(fitslist=None, summary_table=None, table_filecol="file",
         master = trim_ccd(master, fits_section=trim_fits_section,
                           verbose=verbose)
 
-    update_tlm(header)
     master.header = header
     master = CCDData_astype(master, dtype=dtype,
                             uncertainty_dtype=uncertainty_dtype)
+    # update_tlm is done incide CCDData_astype
 
     if output is not None:
         if verbose:
