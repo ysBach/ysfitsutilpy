@@ -4,6 +4,7 @@ import astroscrappy
 import ccdproc
 import numpy as np
 from astropy import units as u
+from astropy.stats import sigma_clipped_stats
 from astropy.nddata import CCDData, StdDevUncertainty
 from astropy.time import Time
 from astroscrappy import detect_cosmics
@@ -11,17 +12,21 @@ from ccdproc import flat_correct, subtract_bias, subtract_dark
 
 from .ccdutil import (CCDData_astype, errormap, propagate_ccdmask,
                       set_ccd_gain_rdnoise, trim_ccd)
-from .hdrutil import add_to_header
-from .misc import LACOSMIC_KEYS, change_to_quantity, datahdr_parse, load_ccd
+from .hdrutil import add_to_header, update_tlm
+from .misc import (LACOSMIC_KEYS, change_to_quantity,
+                   datahdr_parse, load_ccd, fitsxy2py)
 
 __all__ = [
-    "crrej", "bdf_process"]
+    "crrej", "medfilt_bpm", "bdf_process"]
 
 # Set strings for header history & print (if verbose)
 str_bias = "Bias subtracted (see BIASPATH)"
 str_dark = "Dark subtracted (see DARKPATH)"
-str_dscale = "Dark scaling {} using {}"
+str_dscale = "Dark scaling using {}"
 str_flat = "Flat corrected (see FLATPATH)"
+str_fringe_noscale = "Fringe subtracted (see FRINPATH)"
+str_fringe_scale = ("Finge subtracted with scaling (image - scale*fringe)"
+                    + "(see FRINPATH, FRINSECT, FRINFUNC and FRINSCAL)")
 str_trim = "Trim by FITS section {} (see LTV, LTM, TRIMIM)"
 str_e0 = ("Readnoise propagated with Poisson noise (using gain above)"
           + " of source.")
@@ -307,15 +312,171 @@ def crrej(ccd, mask=None, propagate_crmask=False, update_header=True,
         if verbose:
             print(str_cr.format(astroscrappy.__version__, crrej_kwargs))
 
+    update_tlm(hdr)
     _ccd.header = hdr
 
     return _ccd, crmask
+
+
+def medfilt_bpm(ccd, cadd=1.e-10, sigma=3., maxiters=5, std_ddof=1,
+                std_section=None, size=5, mode='reflect', cval=0.0,
+                origin=0, med_ratio_clip=[0.5, 2], std_ratio_clip=[-5, 5],
+                dtype='float32', update_header=True, verbose=False,
+                full=False):
+    ''' Find bad pixels from median filtering technique (non standard..?)
+    Parameters
+    ----------
+    ccd : `~astropy.nddata.CCDData`
+        The CCD to find the bad pixels.
+
+    cadd : float, optional.
+        A very small const to be added to the input array to avoid
+        resulting value of 0.0 in med_filt which results in
+        zero-division in ``med_ratio``.
+
+    sigma, maxiters, std_ddof : float, int, int, respectively, optional.
+        The paramters used for `astropy.stats.sigma_clipped_stats` when
+        estimating the sky standard deviation to obtain the
+        ``std_ratio``.
+
+    std_section : str, optinal.
+        The region in FITS standard (1-indexing, end-inclusive, xyz
+        order) to estimate the sky standard deviation to obtain the
+        ``std_ratio``. If `None` (default), the full region of the given
+        array is used, which is many times not desirable due to the
+        celestial objects in the FOV and computational cost.
+
+    size, mode, cval, origin : optional.
+        The parameters to obtain the median-filtered map. See
+        `scipy.ndimage.median_filter`.
+
+    med_ratio_clip, std_ratio_clip : list of two float, optional.
+        The thresholds to find bad pixel by ``med_ratio =
+        ccd/np.abs(median_filter(ccd))`` and ``std_ratio = (ccd -
+        median_filter(ccd))/sky_std``.
+        The two floats are used to clip such that ``(med_ratio <
+        med_ratio_clip[0]) & (std_ratio < std_ratio_clip[0])`` is
+        negative bad pixel (e.g., sink) and ``(med_ratio >
+        med_ratio_clip[1]) & (std_ratio > std_ratio_clip[1] `` is
+        positive bad pixel (e.g., cosmic-ray). One can use, e.g.,
+        ``med_ratio_clip = [-np.inf, np.inf]`` and/or ``std_ratio_clip =
+        [-np.inf, np.inf]`` to effectively turn off the criteria for
+        ``med_ratio`` and/or ``std_ratio``.
+
+    Returns
+    -------
+    ccd : CCDData
+        The badpixel removed result.
+
+    posmask, negmask : ndarry of bool
+        The masked pixels by positive/negative criteria. Returned only
+        if ``full=True``.
+
+    med_ratio : ndarray
+        The ratio between the original data and median-filtered one.
+        Returned only if ``full=True``.
+
+    std_ratio : ndarray
+        The ratio between the difference (original minus
+        median-filtered) and the sky standard deviation. Returned only
+        if ``full=True``.
+
+    sky_std : float
+        The (sigma-clipped) sky standard deviation. Returned only if
+        ``full=True``.
+    '''
+    from scipy.ndimage import median_filter
+
+    if not isinstance(ccd, CCDData):
+        raise TypeError("ccd should be CCDData")
+
+    nccd = ccd.copy()
+    arr = nccd.data.astype(dtype)
+    hdr = nccd.header
+
+    # add very small const to avoid resulting value of 0.0 in med_filt
+    # which results in zero-division in med_ratio below.
+    arr += cadd
+
+    if std_section is not None:
+        slices = fitsxy2py(std_section)
+    else:
+        slices = [slice(None, None, None)]*arr.ndim
+
+    sigclip_kw = dict(sigma=sigma, maxiters=maxiters, std_ddof=std_ddof)
+    medfilt_kw = dict(size=size, mode=mode, cval=cval, origin=origin)
+
+    _t = Time.now()
+    _, _, sky_std = sigma_clipped_stats(arr[slices], **sigclip_kw)
+
+    if update_header:
+        if std_section is None:
+            std_section = '[' + ','.join([':'] * arr.ndim) + ']'
+        hdr["MBSKYSTD"] = (sky_std,
+                           "Sky stdev for median filter BPM (MBPM) algorithm")
+        hdr["MBSKYSEC"] = (f"{std_section}",
+                           "Sky stdev calculation section in MBPM algorithm")
+        add_to_header(
+            hdr, 'h', verbose=verbose, t_ref=_t,
+            s=("Sky standard deviation (MBSKYSTD) calculated for std_ratio by "
+               + f"sigma clipping at MBSKYSEC with {sigclip_kw}")
+        )
+
+    _t = Time.now()
+    med_filt = median_filter(arr, **medfilt_kw)
+
+    if update_header:
+        add_to_header(
+            hdr, 'h', verbose=verbose, t_ref=_t,
+            s=f"Median filtered frame calculated with {medfilt_kw}"
+        )
+
+    _t = Time.now()
+    med_ratio = arr/np.abs(med_filt)
+    # Above is identical to sign(arr)*abs(arr/med_filt)
+    std_ratio = (arr - med_filt)/sky_std
+
+    posmask = (med_ratio > med_ratio_clip[1]) & (std_ratio > std_ratio_clip[1])
+    negmask = (med_ratio < med_ratio_clip[0]) & (std_ratio < std_ratio_clip[0])
+
+    replace_mask = posmask | negmask
+    arr[replace_mask] = med_filt[replace_mask]
+
+    if update_header:
+        hdr["MB_RAT_U"] = (med_ratio_clip[1],
+                           "Upper clip of |data/medfilt| map (MBPM)")
+        hdr["MB_RAT_L"] = (med_ratio_clip[0],
+                           "Lower clip of |data/medfilt| map (MBPM)")
+        hdr["MB_STD_U"] = (std_ratio_clip[1],
+                           "Upper clip of (data-medfilt)/sky_std map (MBPM)")
+        hdr["MB_STD_L"] = (std_ratio_clip[0],
+                           "Lower clip of (data-medfilt)/sky_std map (MBPM)")
+
+        add_to_header(
+            hdr, 'h', verbose=verbose, t_ref=_t,
+            s=("(1) Median ratio (data/medfilt) generated, "
+               + "(2) Stddev ratio ((data-medfilt)/sky_std) generated, "
+               + "(3) posmask and negmask calculated by "
+               + "(MedRatio > MB_RAT_U) & (StdRatio > MB_STD_U) and "
+               + "(MedRatio < MB_RAT_L) & (StdRatio < MB_STD_L), "
+               + "(4) Pixels posmask | negmask are repleced with medfilt."
+               ))
+
+    nccd = CCDData(data=arr, header=hdr, unit=nccd.unit)
+
+    if full:
+        return nccd, posmask, negmask, med_filt, med_ratio, std_ratio
+    else:
+        return nccd
 
 
 # NOTE: crrej should be done AFTER bias/dark and flat correction:
 # http://www.astro.yale.edu/dokkum/lacosmic/notes.html
 def bdf_process(ccd, output=None,
                 mbiaspath=None, mdarkpath=None, mflatpath=None,
+                mbias=None, mdark=None, mflat=None, mfringe=None,
+                mfringepath=None, fringe_scale_fun=np.mean,
+                fringe_scale_section=None,
                 trim_fits_section=None, calc_err=False, unit='adu',
                 gain=None, gain_key="GAIN", gain_unit=u.electron/u.adu,
                 rdnoise=None, rdnoise_key="RDNOISE", rdnoise_unit=u.electron,
@@ -330,16 +491,37 @@ def bdf_process(ccd, output=None,
     ''' Do bias, dark and flat process.
     Parameters
     ----------
-    ccd: CCDData
+    ccd : CCDData
         The ccd to be processed.
 
     output : path-like or None, optional.
         The path if you want to save the resulting ``ccd`` object.
         Default is ``None``.
 
-    mbiaspath, mdarkpath, mflatpath : path-like, optional.
-        The path to master bias, dark, flat FITS files. If ``None``, the
-        corresponding process is not done.
+    mbiaspath, mdarkpath, mflatpath, mfringepath : path-like, optional.
+        The path to master bias, dark, flat, and fringe FITS files. If
+        ``None``, the corresponding process is not done. These can be
+        provided in addition to ``mbias``, ``mdark``, ``mflat``, and/or
+        ``mfringe``.
+
+    mbias, mdark, mflat, mfringe : CCDData, optional.
+        The master bias, dark, and flat in `~astropy.nddata.CCDData`. If
+        this is given, the files provided by ``mbiaspath``,
+        ``mdarkpath``, ``mflatpath`` and/or ``mfringe`` are **not**
+        loaded, but these paths will be used for header (``BIASPATH``,
+        ``DARKPATH``, ``FLATPATH`` and/or ``FRINPATH``). If the paths
+        are not given, the header values will be ``<User>``.
+
+    fringe_scale_fun : function object, optional.
+        The function to be used to scale the fringe before subtraction,
+        specified by the region ``fringe_scale_section``. This scaling
+        is not done if ``fringe_scale_section`` is `None`.
+
+    fringe_scale_section : str, optional.
+        The FITS-convention section of the fringe and object (science)
+        frames to match the fringe pattern before the subtraction. If
+        ``None``, this scaling is turned off. To use all region, use
+        such as ``'[:, :]`` for 2-D.
 
     trim_fits_section: str, optional.
         Region of ``ccd`` to be trimmed; see
@@ -463,27 +645,33 @@ def bdf_process(ccd, output=None,
                                "ccdproc version used for processing.")
         add_to_header(hdr_new, 'c',
                       "PROCESS key can be B (bias), D (dark), F (flat), "
-                      + "T (trim), W (WCS astrometry), C(CRrej).")
+                      + "T (trim), W (WCS astrometry), C(CRrej), Fr (fringe).")
 
     # Set for BIAS
-    if mbiaspath is None:
+    if mbiaspath is None and mbias is None:
         do_bias = False
-        mbias = CCDData(np.zeros_like(ccd), unit=unit)
+        mbias = None
     else:
         do_bias = True
-        mbias = load_ccd(mbiaspath, unit=unit)
+        if mbias is None:
+            mbias = load_ccd(mbiaspath, unit=unit)
+        if mbiaspath is None:
+            mbiaspath = "<User>"
         if not calc_err:
             mbias.uncertainty = None
         hdr_new["PROCESS"] += "B"
         hdr_new["BIASPATH"] = (str(mbiaspath), "Path to the used bias file")
 
     # Set for DARK
-    if mdarkpath is None:
+    if mdarkpath is None and mdark is None:
         do_dark = False
         mdark = None
     else:
         do_dark = True
-        mdark = load_ccd(mdarkpath, unit=unit)
+        if mdark is None:
+            mdark = load_ccd(mdarkpath, unit=unit)
+        if mdarkpath is None:
+            mdarkpath = "<User>"
         if not calc_err:
             mdark.uncertainty = None
         hdr_new["PROCESS"] += "D"
@@ -492,20 +680,43 @@ def bdf_process(ccd, output=None,
         if dark_scale:
             # TODO: what if dark_exposure, data_exposure are given explicitly?
             add_to_header(hdr_new, 'h',
-                          str_dscale.format(dark_scale, exposure_key),
+                          str_dscale.format(exposure_key),
                           verbose=verbose_bdf)
 
     # Set for FLAT
-    if mflatpath is None:
+    if mflatpath is None and mflat is None:
         do_flat = False
         mflat = None
     else:
         do_flat = True
-        mflat = load_ccd(mflatpath, unit=unit)
+        if mflat is None:
+            mflat = load_ccd(mflatpath, unit=unit)
+        if mflatpath is None:
+            mflatpath = "<User>"
         if not calc_err:
             mflat.uncertainty = None
         hdr_new["PROCESS"] += "F"
         hdr_new["FLATPATH"] = (str(mflatpath), "Path to the used flat file")
+
+    # set for FRINGE
+    if mfringepath is None and mfringe is None:
+        do_fringe = False
+        mfringe = None
+    else:
+        do_fringe = True
+        if mfringe is None:
+            mfringe = load_ccd(mfringepath, unit=unit)
+        if mfringepath is None:
+            mfringepath = "<User>"
+        if not calc_err:
+            mfringe.uncertainty = None
+        hdr_new["PROCESS"] += "Fr"
+        hdr_new["FRINPATH"] = (str(mfringepath), "Path to the used fringe")
+        if fringe_scale_section is not None:
+            hdr_new["FRINSECT"] = (fringe_scale_section,
+                                   "FITS section used for scaling fringe")
+            hdr_new["FRINFUNC"] = (fringe_scale_fun.__name__,
+                                   "Function used for fringe scaling")
 
     # Set gain and rdnoise if at least one of calc_err and do_crrej is True.
     if calc_err or do_crrej:
@@ -555,7 +766,7 @@ def bdf_process(ccd, output=None,
         add_to_header(hdr_new, 'h', str_dark.format(mdarkpath),
                       verbose=verbose_bdf, t_ref=_t)
 
-    # Make UNCERT extension before doing FLAT
+    # Make UNCERT extension before doing FLAT and FRINGE
     #   It is better to make_errmap a priori because of mathematical and
     #   computational convenience. See ``if do_flat:`` clause below.
     if calc_err:
@@ -608,7 +819,7 @@ def bdf_process(ccd, output=None,
     # Do CRREJ
     if do_crrej:
         if crrej_kwargs is None:
-            crrej_kwargs = LACOSMIC_KEYS
+            crrej_kwargs = LACOSMIC_KEYS.copy()
             warn("You are not specifying CR-rejection parameters! It can be"
                  + " dangerous to use defaults blindly.")
 
@@ -629,8 +840,27 @@ def bdf_process(ccd, output=None,
             **crrej_kwargs)
         hdr_new = proc.header
 
+    # To avoid ``pssl`` in cr rejection, subtract fringe AFTER the CRREJ.
+    # Do FRINGE
+    if do_fringe:
+        _t = Time.now()
+        if fringe_scale_section is not None:
+            sl = fitsxy2py(fringe_scale_section)
+            scale = (fringe_scale_fun(proc.data[sl])
+                     / fringe_scale_fun(mfringe.data[sl]))
+            s = str_fringe_scale
+        else:
+            scale = 1
+            s = str_fringe_noscale
+        mfringe.data *= scale
+        proc.data = proc.subtract(mfringe).data  # should I calc. error..?
+        hdr_new["FRINSCAL"] = (scale,
+                               "Scale factor multiplied to fringe")
+        add_to_header(hdr_new, 'h', s, verbose=verbose_bdf, t_ref=_t)
+
     proc = CCDData_astype(proc, dtype=dtype,
                           uncertainty_dtype=uncertainty_dtype)
+    update_tlm(hdr_new)
     proc.header = hdr_new
 
     if output is not None:
