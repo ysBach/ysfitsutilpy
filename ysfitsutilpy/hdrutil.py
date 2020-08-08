@@ -8,6 +8,7 @@ import numpy as np
 from astropy import units as u
 from astropy import wcs as astropywcs
 from astropy.coordinates import SkyCoord
+from astropy.time import Time
 from astropy.io import fits
 from astropy.wcs import WCS
 
@@ -77,6 +78,13 @@ def add_to_header(header, histcomm, s, precision=3,
             header.add_comment(timestr)
             if verbose:
                 print(f"COMMENT {timestr}")
+
+
+def update_tlm(header):
+    header.set("FITS-TLM",
+               value=Time(Time.now(), precision=0).isot,
+               comment="UT of last modification of this FITS file",
+               after=f"NAXIS{header['NAXIS']}")
 
 
 def wcs_crota(wcs, degree=True):
