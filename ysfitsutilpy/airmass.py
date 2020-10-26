@@ -212,15 +212,16 @@ def airmass_from_hdr(header, ra=None, dec=None, ut=None, exptime=None,
               Card("HISTORY", "ALT-AZ calculated from ysfitsutilpy."),
               Card("HISTORY", "AIRMASS calculated from ysfitsutilpy.")]
         return cs
+
     v = {'verbose': verbose}
-    ra = get_if_none(ra, header, ra_key, unit=ra_unit, **v)
-    dec = get_if_none(dec, header, dec_key, unit=dec_unit, **v)
-    exptime = get_if_none(exptime, header, exptime_key, unit=exptime_unit, **v)
-    lon = get_if_none(lon, header, lon_key, lon_unit)
-    lat = get_if_none(lat, header, lat_key, lat_unit)
-    height = get_if_none(height, header, height_key, height_unit)
-    equinox = get_if_none(equinox, header, equinox_key)
-    frame = get_if_none(frame, header, frame_key)
+    ra = get_if_none(ra, header, ra_key, unit=ra_unit, **v)[0]
+    dec = get_if_none(dec, header, dec_key, unit=dec_unit, **v)[0]
+    exptime = get_if_none(exptime, header, exptime_key, unit=exptime_unit, **v)[0]
+    lon = get_if_none(lon, header, lon_key, lon_unit)[0]
+    lat = get_if_none(lat, header, lat_key, lat_unit)[0]
+    height = get_if_none(height, header, height_key, height_unit)[0]
+    equinox = get_if_none(equinox, header, equinox_key)[0]
+    frame = get_if_none(frame, header, frame_key)[0]
 
     ra = _conversion(header, ra, ra_key, ra_unit)
     dec = _conversion(header, dec, dec_key, dec_unit)
