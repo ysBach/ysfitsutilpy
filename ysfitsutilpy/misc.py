@@ -144,7 +144,10 @@ def load_ccd(path, extension=0, unit=None, hdu_uncertainty="UNCERT",
     if not prefer_bunit:  # prefer user's input
         ccd = CCDData.read(path, unit=unit, **reader_kw)
     else:
-        ccd = CCDData.read(path, unit=None, **reader_kw)
+        try:
+            ccd = CCDData.read(path, unit=None, **reader_kw)
+        except ValueError:
+            ccd = CCDData.read(path, unit=unit, **reader_kw)
 
     return ccd
 
