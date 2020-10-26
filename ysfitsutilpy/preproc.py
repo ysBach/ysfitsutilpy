@@ -318,11 +318,17 @@ def crrej(ccd, mask=None, propagate_crmask=False, update_header=True,
     return _ccd, crmask
 
 
-def medfilt_bpm(ccd, cadd=1.e-10, sigma=3., maxiters=5, std_ddof=1,
+# TODO: put niter
+# TODO: put medfilt_min
+#   to get std at each pixel by medfilt[<medfilt_min] = 0,
+#   and std = sqrt((1+snoise)*medfilt/gain + rdn**2)
+def medfilt_bpm(ccd, cadd=1.e-10, std_model="std",
+                gain=1., rdnoise=0., snoise=0.,
+                sigclip_kw=dict(sigma=3., maxiters=5, std_ddof=1),
                 std_section=None, size=5, mode='reflect', cval=0.0,
-                origin=0, med_ratio_clip=[0.5, 2], std_ratio_clip=[-5, 5],
-                dtype='float32', update_header=True, verbose=False,
-                full=False):
+                origin=0, med_sub_clip=None, med_rat_clip=[0.5, 2],
+                std_rat_clip=[-5, 5], dtype='float32', update_header=True,
+                verbose=False, logical='and', full=False):
     ''' Find bad pixels from median filtering technique (non standard..?)
     Parameters
     ----------
@@ -331,64 +337,139 @@ def medfilt_bpm(ccd, cadd=1.e-10, sigma=3., maxiters=5, std_ddof=1,
 
     cadd : float, optional.
         A very small const to be added to the input array to avoid
-        resulting value of 0.0 in med_filt which results in
-        zero-division in ``med_ratio``.
+        resulting value of 0.0 in the median filtered image which
+        raises zero-division in median ratio (image/|median_filtered|).
 
-    sigma, maxiters, std_ddof : float, int, int, respectively, optional.
+    model : str, optional.
+        The model used to calculate the std (standard deviation) map.
+
+            * ``'std'``: Simple standard deviation is calculated.
+            * ``'ccd'``: Using CCD noise model (``sqrt{(1 + snoise)
+              *med_filt/gain + (rdnoise/gain)**2}``)
+
+        For ``'std'``, the arguments ``std_section`` and
+        ``sigclip_kw`` are used, while if ``'ccd'``, arguments
+        ``gain``, ``rdnoise``, ``snoise`` will be used.
+
+    sigclip_kw : dict, optional.
         The paramters used for `astropy.stats.sigma_clipped_stats` when
-        estimating the sky standard deviation to obtain the
-        ``std_ratio``.
+        estimating the sky standard deviation at ``std_section``.
+        This is **ignored** if ``std_model='ccd'``.
 
     std_section : str, optinal.
         The region in FITS standard (1-indexing, end-inclusive, xyz
         order) to estimate the sky standard deviation to obtain the
         ``std_ratio``. If `None` (default), the full region of the given
         array is used, which is many times not desirable due to the
-        celestial objects in the FOV and computational cost.
+        celestial objects in the FOV and computational cost. This is
+        **ignored** if ``std_model='ccd'``.
 
     size, mode, cval, origin : optional.
         The parameters to obtain the median-filtered map. See
         `scipy.ndimage.median_filter`.
 
-    med_ratio_clip, std_ratio_clip : list of two float, optional.
+    med_sub_clip : list of two float or `None`, optional.
+        The thresholds to find bad pixel by ``med_sub = ccd.data -
+        median_filter(ccd.data)``. The clipping will be turned off if it
+        is `None` (default). If a list, must be in the order of
+        ``[lower, upper]`` and at most two of these can be `None`.
+
+    med_rat_clip : list of two float or `None`, optional.
         The thresholds to find bad pixel by ``med_ratio =
-        ccd/np.abs(median_filter(ccd))`` and ``std_ratio = (ccd -
-        median_filter(ccd))/sky_std``.
-        The two floats are used to clip such that ``(med_ratio <
-        med_ratio_clip[0]) & (std_ratio < std_ratio_clip[0])`` is
-        negative bad pixel (e.g., sink) and ``(med_ratio >
-        med_ratio_clip[1]) & (std_ratio > std_ratio_clip[1] `` is
-        positive bad pixel (e.g., cosmic-ray). One can use, e.g.,
-        ``med_ratio_clip = [-np.inf, np.inf]`` and/or ``std_ratio_clip =
-        [-np.inf, np.inf]`` to effectively turn off the criteria for
-        ``med_ratio`` and/or ``std_ratio``.
+        ccd.data/np.abs(median_filter(ccd.data))``. The clipping will be
+        turned off if it is `None` (default). If a list, must be in the
+        order of ``[lower, upper]`` and at most two of these can be
+        `None`.
+
+    std_rat_clip : list of two float or `None`, optional.
+        The thresholds to find bad pixel by ``std_ratio = (ccd -
+        median_filter(ccd))/std``. The clipping will be turned off
+        if it is `None` (default). If a list, must be in the order of
+        ``[lower, upper]`` and at most two of these can be `None`.
+
+    logical : str of ``['and', '&', 'or', '|']`` or list, optional.
+        The logic to propagate masks determined by the ``_clip``'s. The
+        mask is propagated such as ``posmask = med_sub >
+        med_sub_clip[1] &/| med_ratio > med_rat_clip[1] &/|
+        std_ratio > std_rat_clip[1]``. If a list, it must contain two
+        str of these, in the order of ``[logical_negmask,
+        logical_posmask]``.
 
     Returns
     -------
     ccd : CCDData
         The badpixel removed result.
 
+    The followings are returned as ``dict`` only if ``full=True``.
+
     posmask, negmask : ndarry of bool
-        The masked pixels by positive/negative criteria. Returned only
-        if ``full=True``.
-
-    med_ratio : ndarray
-        The ratio between the original data and median-filtered one.
-        Returned only if ``full=True``.
-
-    std_ratio : ndarray
-        The ratio between the difference (original minus
-        median-filtered) and the sky standard deviation. Returned only
-        if ``full=True``.
+        The masked pixels by positive/negative criteria.
 
     sky_std : float
         The (sigma-clipped) sky standard deviation. Returned only if
         ``full=True``.
+
+    Notes
+    -----
+    ``med_sub_clips`` is usually not necessary but useful to detect hot
+    pixels in dark frames (no light) for some special circumstances.
+
+    (1) Median additive difference (data-medfilt) generated, (2) Median
+    ratio (data/|medfilt|) generated, (3) Stddev ratio
+    ((data-medfilt)/std) generated, (4) posmask and negmask calculated
+    by clips MB_[ADD/RAT/STD]_[U/L] and logic MB_[N/P]LOG (see
+    keywords), (5) Pixels of (posmask | negmask) are repleced with
+    median filtered frame.
     '''
     from scipy.ndimage import median_filter
 
+    if ((med_sub_clip is None) and (med_rat_clip is None)
+            and (std_rat_clip is None)):
+        warn("No BPM is found because all clips are None.", end=' ')
+        if full:
+            return ccd, dict(posmask=None, negmask=None, med_filt=None,
+                             med_sub=None, med_rat=None, std_rat=None,
+                             std=None)
+        else:
+            return ccd
+
+    logical = np.array(logical)
+    if logical.size == 1:
+        logical = np.repeat(logical, 2)
+    elif logical.size > 2:
+        raise ValueError("logical must be at most size 2.")
+
+    _LOGICAL_AND = []
+    _LOGICAL_STR = []
+    for i, _logical in enumerate(logical):
+        _logical_and = _logical in ['and', '&']
+        if not _logical_and and _logical not in ['or', '|']:
+            raise ValueError("logical not understood.")
+
+        _LOGICAL_AND.append(_logical_and)
+        _LOGICAL_STR.append("and" if _logical_and else "or")
+
+    def _set_masks(arr2test, clips):
+        if clips[0] is None:  # let lower clip does not affect final mask
+            _negmask = _LOGICAL_AND[0]  # isinstance bool
+        else:
+            _negmask = arr2test < clips[0]  # isinstance ndarray
+
+        if clips[1] is None:  # let upper clip does not affect final mask
+            _posmask = _LOGICAL_AND[1]  # isinstance bool
+        else:
+            _posmask = arr2test > clips[1]  # isinstance ndarray
+
+        return _negmask, _posmask
+
     if not isinstance(ccd, CCDData):
         raise TypeError("ccd should be CCDData")
+
+    def _sanitize_clips(clips):
+        clips = np.atleast_1d(clips)
+        if clips.size == 1:
+            clips = np.repeat(clips, 2)
+        return clips
 
     nccd = ccd.copy()
     arr = nccd.data.astype(dtype)
@@ -403,24 +484,7 @@ def medfilt_bpm(ccd, cadd=1.e-10, sigma=3., maxiters=5, std_ddof=1,
     else:
         slices = [slice(None, None, None)]*arr.ndim
 
-    sigclip_kw = dict(sigma=sigma, maxiters=maxiters, std_ddof=std_ddof)
     medfilt_kw = dict(size=size, mode=mode, cval=cval, origin=origin)
-
-    _t = Time.now()
-    _, _, sky_std = sigma_clipped_stats(arr[slices], **sigclip_kw)
-
-    if update_header:
-        if std_section is None:
-            std_section = '[' + ','.join([':'] * arr.ndim) + ']'
-        hdr["MBSKYSTD"] = (sky_std,
-                           "Sky stdev for median filter BPM (MBPM) algorithm")
-        hdr["MBSKYSEC"] = (f"{std_section}",
-                           "Sky stdev calculation section in MBPM algorithm")
-        add_to_header(
-            hdr, 'h', verbose=verbose, t_ref=_t,
-            s=("Sky standard deviation (MBSKYSTD) calculated for std_ratio by "
-               + f"sigma clipping at MBSKYSEC with {sigclip_kw}")
-        )
 
     _t = Time.now()
     med_filt = median_filter(arr, **medfilt_kw)
@@ -428,44 +492,129 @@ def medfilt_bpm(ccd, cadd=1.e-10, sigma=3., maxiters=5, std_ddof=1,
     if update_header:
         add_to_header(
             hdr, 'h', verbose=verbose, t_ref=_t,
-            s=f"Median filtered frame calculated with {medfilt_kw}"
+            s=f"Median filtered (convolved) frame calculated with {medfilt_kw}"
         )
 
+    if std_model == 'ccd':
+        _t = Time.now()
+        std = np.sqrt((1 + snoise)*med_filt/gain + (rdnoise/gain)**2)
+        if update_header:
+            add_to_header(
+                hdr, 'h', verbose=verbose, t_ref=_t,
+                s=("Stdev map is generated from median filtered frame by "
+                   + "sqrt{(1 + snoise)*med_filt/gain + (rdnoise/gain)**2}")
+            )
+            hdr['MB_MODEL'] = (std_model, "Method used for getting stdev map")
+            hdr["MB_GAIN"] = (gain, "gain used for stdev map in MBPM")
+            hdr["MB_RDN"] = (rdnoise, "rdnoise used for stdev map in MBPM")
+            hdr["MB_SSN"] = (snoise, "snoise used for stdev map in MBPM")
+
+    elif std_model == 'std':
+        _t = Time.now()
+        _, _, std = sigma_clipped_stats(arr[slices], **sigclip_kw)
+
+        if update_header:
+            if std_section is None:
+                std_section = '[' + ','.join([':'] * arr.ndim) + ']'
+            hdr['MB_MODEL'] = (std_model, "Method used for getting stdev map")
+            hdr["MB_SSKY"] = (
+                std,
+                "Sky stdev for median filter BPM (MBPM) algorithm"
+            )
+            hdr["MB_SSECT"] = (
+                f"{std_section}",
+                "Sky stdev calculation section in MBPM algorithm"
+            )
+            add_to_header(
+                hdr, 'h', verbose=verbose, t_ref=_t,
+                s=("Sky standard deviation (MB_SSKY) calculated "
+                   + f"by sigma clipping at MB_SSECT with {sigclip_kw}; "
+                   + "used for std_ratio map calculation.")
+            )
+
+    elif std_model is None:
+        hdr['MB_MODEL'] = ('None', "Method used for getting stdev map")
+        std_rat_clip = None  # turn off clipping using std_ratio
+
+    else:
+        raise ValueError("std_model not understood.")
+
+    med_sub_clip = _sanitize_clips(med_sub_clip)
+    med_rat_clip = _sanitize_clips(med_rat_clip)
+    std_rat_clip = _sanitize_clips(std_rat_clip)
+
     _t = Time.now()
+    npmask = []
+    for msc, mrc, src in zip(med_sub_clip, med_rat_clip, std_rat_clip):
+        if (isinstance(msc, bool) and isinstance(mrc, bool)
+                and isinstance(src, bool)):
+            npmask.append(np.zeros_like(arr, dtype=bool))
+
     med_ratio = arr/np.abs(med_filt)
     # Above is identical to sign(arr)*abs(arr/med_filt)
-    std_ratio = (arr - med_filt)/sky_std
+    med_sub = arr - med_filt
+    std_ratio = med_sub/std
 
-    posmask = (med_ratio > med_ratio_clip[1]) & (std_ratio > std_ratio_clip[1])
-    negmask = (med_ratio < med_ratio_clip[0]) & (std_ratio < std_ratio_clip[0])
+    # mask in the order of negative and positive cases
+    mask_ms = _set_masks(med_sub, med_sub_clip)
+    mask_mr = _set_masks(med_ratio, med_rat_clip)
+    mask_sr = _set_masks(std_ratio, std_rat_clip)
 
-    replace_mask = posmask | negmask
+    masks = []
+    for i, (ms, mr, sr) in enumerate(zip(mask_ms, mask_mr, mask_sr)):
+        if (isinstance(ms, bool) and isinstance(mr, bool)
+                and isinstance(sr, bool)):
+            # i.e., if all of neg or pos were None
+            masks.append(np.zeros_like(arr, dtype=bool))  # all False
+
+        else:  # if at least one was not None:
+            if _LOGICAL_AND[i]:
+                masks.append(ms & mr & sr)
+            else:
+                masks.append(ms | mr | sr)
+
+    replace_mask = masks[0] | masks[1]
     arr[replace_mask] = med_filt[replace_mask]
 
     if update_header:
-        hdr["MB_RAT_U"] = (med_ratio_clip[1],
-                           "Upper clip of |data/medfilt| map (MBPM)")
-        hdr["MB_RAT_L"] = (med_ratio_clip[0],
-                           "Lower clip of |data/medfilt| map (MBPM)")
-        hdr["MB_STD_U"] = (std_ratio_clip[1],
-                           "Upper clip of (data-medfilt)/sky_std map (MBPM)")
-        hdr["MB_STD_L"] = (std_ratio_clip[0],
-                           "Lower clip of (data-medfilt)/sky_std map (MBPM)")
+        hdr["MB_NLOG"] = (_LOGICAL_STR[0],
+                          "The logic used for negative MBPM masks (and/or)")
+        hdr["MB_PLOG"] = (_LOGICAL_STR[1],
+                          "The logic used for positive MBPM masks (and/or)")
+        hdr["MB_RAT_U"] = (med_rat_clip[1],
+                           "Upper clip of (data/|medfilt|) map (MBPM)")
+        hdr["MB_RAT_L"] = (med_rat_clip[0],
+                           "Lower clip of (data/|medfilt|) map (MBPM)")
+        hdr["MB_SUB_U"] = (med_sub_clip[1],
+                           "Upper clip of (data-medfilt) map (MBPM)")
+        hdr["MB_SUB_L"] = (med_sub_clip[0],
+                           "Lower clip of (data-medfilt) map (MBPM)")
+        hdr["MB_STD_U"] = (std_rat_clip[1],
+                           "Upper clip of (data-medfilt)/std map (MBPM)")
+        hdr["MB_STD_L"] = (std_rat_clip[0],
+                           "Lower clip of (data-medfilt)/std map (MBPM)")
 
         add_to_header(
             hdr, 'h', verbose=verbose, t_ref=_t,
-            s=("(1) Median ratio (data/medfilt) generated, "
-               + "(2) Stddev ratio ((data-medfilt)/sky_std) generated, "
-               + "(3) posmask and negmask calculated by "
-               + "(MedRatio > MB_RAT_U) & (StdRatio > MB_STD_U) and "
-               + "(MedRatio < MB_RAT_L) & (StdRatio < MB_STD_L), "
-               + "(4) Pixels posmask | negmask are repleced with medfilt."
-               ))
+            s="Median-filter based Bad-Pixel Masking (MBPM) applied."
+        )
+        # add_to_header(
+        #     hdr, 'h', verbose=verbose, t_ref=_t,
+        #     s=("(1) Median additive difference (data-medfilt) generated, "
+        #        + "(2) Median ratio (data/|medfilt|) generated, "
+        #        + "(3) Stddev ratio ((data-medfilt)/std) generated, "
+        #        + "(4) posmask and negmask calculated by clips "
+        #        + "MB_[ADD/RAT/STD]_[U/L] and logic MB_[N/P]LOG (see keywords),"
+        #        + "(5) Pixels of (posmask | negmask) are repleced with median "
+        #        + "filtered frame."
+        #        ))
 
-    nccd = CCDData(data=arr, header=hdr, unit=nccd.unit)
+    nccd = CCDData(data=arr - cadd, header=hdr, unit=nccd.unit)
 
     if full:
-        return nccd, posmask, negmask, med_filt, med_ratio, std_ratio
+        return nccd, dict(negmask=masks[0], posmask=masks[1],
+                          med_filt=med_filt, med_sub=med_sub,
+                          med_rat=med_ratio, std_rat=std_ratio, std=std)
     else:
         return nccd
 
