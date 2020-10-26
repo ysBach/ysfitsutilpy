@@ -256,17 +256,20 @@ def bezel_ccd(ccd, bezel_x=None, bezel_y=None, replace=np.nan, verbose=False):
 
     """
     def _sanitize_bezel(bezel, npix):
-        bezel = np.around(np.atleast_1d(bezel)).astype(int)
-        if bezel.size == 1:
-            bezel = np.repeat(bezel_x, 2)
-        elif bezel.size != 2:
-            raise ValueError("bezel must be size of 1 or 2.")
+        if bezel is None:
+            bezel = [0, 0]
+        else:
+            bezel = np.around(np.atleast_1d(bezel)).astype(int)
+            if bezel.size == 1:
+                bezel = np.repeat(bezel_x, 2)
+            elif bezel.size != 2:
+                raise ValueError("bezel must be size of 1 or 2.")
 
-        bezel = bezel.ravel()
-        if (bezel[0] >= npix) or (bezel[1] >= npix):
-            raise ValueError("bezel width larger than image size")
-        if bezel[0] + bezel[1] >= npix:
-            raise ValueError("no pixel left after bezel")
+            bezel = bezel.ravel()
+            if (bezel[0] >= npix) or (bezel[1] >= npix):
+                raise ValueError("bezel width larger than image size")
+            if bezel[0] + bezel[1] >= npix:
+                raise ValueError("no pixel left after bezel")
 
         return bezel
 
@@ -297,8 +300,7 @@ def bezel_ccd(ccd, bezel_x=None, bezel_y=None, replace=np.nan, verbose=False):
         nccd.data[:, nx - bezel_x[0]:] = replace
         bezel_str = (f"Replaced pixels with bezel width {bezel_x} along x "
                      + f"and {bezel_y} along y replaced with {replace}.")
-        add_to_header(nccd.header, 'h', bezel_str,
-                      t_ref=_t, verbose=verbose)
+        add_to_header(nccd.header, 'h', bezel_str, t_ref=_t, verbose=verbose)
 
     update_tlm(nccd.header)
 
