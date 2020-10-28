@@ -23,7 +23,7 @@ from .misc import chk_keyval
 #     print("numba not found. Quick combining will not work.")
 
 
-__all__ = ["sstd", "weighted_mean", "stack_FITS", "combine_ccd"]
+__all__ = ["sstd", "weighted_mean", "group_FITS", "stack_FITS", "combine_ccd"]
 
 
 def sstd(a, **kwargs):
