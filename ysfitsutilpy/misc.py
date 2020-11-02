@@ -119,7 +119,7 @@ def datahdr_parse(ccd_like_object):
 # FIXME: Remove it in the future.
 def load_ccd(path, extension=0, unit=None, hdu_uncertainty="UNCERT",
              use_wcs=True, hdu_mask='MASK', hdu_flags=None,
-             key_uncertainty_type='UTYPE', prefer_bunit=True, memmap=False,
+             key_uncertainty_type='UTYPE', memmap=False,
              **kwd):
     '''remove it when astropy updated:
     Note
@@ -131,6 +131,10 @@ def load_ccd(path, extension=0, unit=None, hdu_uncertainty="UNCERT",
     Plus, WCS info from astrometry.net solve-field sometimes not
     understood by CCDData.read....
     2020-05-31 16:39:51 (KST: GMT+09:00) ysBach
+    CCDData's reader (`~astropy.nddata.fits_ccddata_reader`) does
+    not support extname and extver, but only the integer ext.
+    But the name of the argument is different (``hdu``)...;;
+    2020-11-02 11:18:26 (KST: GMT+09:00) ysBach
     '''
     reader_kw = dict(hdu=extension, hdu_uncertainty=hdu_uncertainty,
                      hdu_mask=hdu_mask, hdu_flags=hdu_flags,
@@ -141,13 +145,17 @@ def load_ccd(path, extension=0, unit=None, hdu_uncertainty="UNCERT",
         reader_kw["wcs"] = WCS(hdr)
         del hdr
 
-    if not prefer_bunit:  # prefer user's input
+    try:
         ccd = CCDData.read(path, unit=unit, **reader_kw)
-    else:
-        try:
-            ccd = CCDData.read(path, unit=None, **reader_kw)
-        except ValueError:
-            ccd = CCDData.read(path, unit=unit, **reader_kw)
+    except ValueError:  # e.g., user did not give unit and there's no BUNIT
+        ccd = CCDData.read(path, unit='adu', **reader_kw)
+    # if prefer_bunit:
+    #     try:  # Try with no unit to CCDData
+    #         ccd = CCDData.read(path, unit=None, **reader_kw)
+    #     except ValueError:  # Try with user-given unit to CCDData
+    #         ccd = CCDData.read(path, unit=unit, **reader_kw)
+    # else:  # prefer user's input
+    #     ccd = CCDData.read(path, unit=unit, **reader_kw)
 
     return ccd
 
