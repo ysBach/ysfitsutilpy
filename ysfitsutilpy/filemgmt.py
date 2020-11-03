@@ -134,8 +134,7 @@ def make_summary(inputs=None, fitslist=None, ext=None, extname=None, extver=None
     >>> # The toppath
     >>> savepath = TOPPATH / "summary_20180101.csv"
     >>> # list of all the fits files in TOPPATH/rawdata:
-    >>> summary = yfu.make_summary(TOPPATH/"rawdata/*.fits", keywords=keys,
-    >>>                            fname_option='name', pandas=True,
+    >>> summary = yfu.make_summary(TOPPATH/"rawdata/*.fits", keywords=keys, fname_option='name', pandas=True,
     >>>                            sort_by="DATE-OBS", output=savepath)
     """
     if (inputs is not None) + (fitslist is not None) != 1:
@@ -175,8 +174,7 @@ def make_summary(inputs=None, fitslist=None, ext=None, extname=None, extver=None
     str_keywords = "All {:d} keywords (estimated from {:s}) will be loaded."
     str_keyerror_fill = "Key {:s} not found for {:s}, filling with None."
     str_filesave = 'Saving the summary file to "{:s}"'
-    str_duplicate = ("Key {:s} is duplicated! "
-                     + "Only the first one will be saved.")
+    str_duplicate = ("Key {:s} is duplicated! Only the first one will be saved.")
 
     if verbose and (keywords != []) and (keywords != '*'):
         print("Extracting keys: ", keywords)
