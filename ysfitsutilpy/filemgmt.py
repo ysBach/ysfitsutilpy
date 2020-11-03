@@ -29,15 +29,18 @@ def mkdir(fpath, mode=0o777, exist_ok=True):
 
 def load_if_exists(path, loader, if_not=None, verbose=True, **kwargs):
     ''' Load a file if it exists.
+
     Parameters
     ----------
-    path: pathlib.Path of Path-like str
+    path : pathlib.Path of Path-like str
         The path to be searched.
-    loader: a function
-        The loader to load ``path``. Can be ``CCDData.read``,
-        ``np.loadtxt``, etc.
-    if_not: str
+
+    loader : a function
+        The loader to load ``path``. Can be ``CCDData.read``, ``np.loadtxt``, etc.
+
+    if_not : str
         Give a python code as a str to be run if the loading failed.
+
     Returns
     -------
     loaded:
@@ -47,8 +50,7 @@ def load_if_exists(path, loader, if_not=None, verbose=True, **kwargs):
     -------
     >>> from astropy.nddata import CCDData
     >>> from pathlib import Path
-    >>> ccd = load_if_exists(Path(".", "test.fits"),
-    >>>                      loader=CCDData.read, ext=0,
+    >>> ccd = load_if_exists(Path(".", "test.fits"), loader=CCDData.read, unit='adu',
     >>>                      if_not="print('File not found')")
     '''
     path = Path(path)
@@ -68,25 +70,21 @@ def load_if_exists(path, loader, if_not=None, verbose=True, **kwargs):
 
 
 def make_summary(inputs=None, fitslist=None, ext=None, extname=None, extver=None,
-                 fname_option='relative', output=None, format='ascii.csv',
-                 keywords=[], example_header=None, sort_by='file',
-                 pandas=False, verbose=True):
+                 fname_option='relative', output=None, format='ascii.csv', keywords=[],
+                 example_header=None, sort_by='file', pandas=False, verbose=True):
     """ Extracts summary from the headers of FITS files.
+
     Parameters
     ----------
     inputs : glob pattern or list-like of path-like
-        The `~glob` pattern for files (e.g., ``"2020*[012].fits"``) or
-        list of files (each element must be path-like). One and only one
-        of ``inputs`` or ``fitslist`` must be provided.
+        The `~glob` pattern for files (e.g., ``"2020*[012].fits"``) or list of files (each element must
+        be path-like). One and only one of ``inputs`` or ``fitslist`` must be provided.
 
     fitslist: list of str (path-like) or list of CCDData, optional
-        The list of file paths relative to the current working
-        directory, or the list of ccds to be summarized. It can be
-        useful to give a list of CCDData if you have already
-        stacked/loaded the CCDData into a list. Although it is not a
-        good idea, a mixed list of CCDData and paths to the files is
-        also acceptable. One and only one of ``inputs`` or ``fitslist``
-        must be provided.
+        The list of file paths relative to the current working directory, or the list of ccds to be
+        summarized. It can be useful to give a list of CCDData if you have already stacked/loaded the
+        CCDData into a list. Although it is not a good idea, a mixed list of CCDData and paths to the
+        files is also acceptable. One and only one of ``inputs`` or ``fitslist`` must be provided.
 
     ext : int
         The extension index (0-indexing).
@@ -97,33 +95,29 @@ def make_summary(inputs=None, fitslist=None, ext=None, extname=None, extver=None
     extver : int
         The version of the extension; used only if extname is given.
 
-    fname_option: str {'absolute', 'relative', 'name'}, optional
-        Whether to save full absolute/relative path or only the
-        filename.
+    fname_option : str {'absolute', 'relative', 'name'}, optional
+        Whether to save full absolute/relative path or only the filename.
 
-    output: str or path-like, optional
+    output : str or path-like, optional
         The directory and file name of the output summary file.
 
-    format: str, optional
-        The astropy.table.Table output format. Only works if ``pandas``
-        is ``False``.
+    format : str, optional
+        The astropy.table.Table output format. Only works if ``pandas`` is ``False``.
 
-    keywords: list or str(``"*"``), optional
+    keywords : list or str(``"*"``), optional
         The list of the keywords to extract (keywords should be in str).
 
-    example_header: None or path-like, optional
-        The path including the filename of the output summary text file.
-        If specified, the header of the 0-th element of ``fitslist``
-        will be extracted and saved to ``example_header``.
+    example_header : None or path-like, optional
+        The path including the filename of the output summary text file. If specified, the header of
+        the 0-th element of ``fitslist`` will be extracted and saved to ``example_header``.
 
     pandas : bool, optional
-        Whether to return pandas. If ``False``, astropy table object is
-        returned. It will save csv format regardless of ``format``.
+        Whether to return pandas. If ``False``, astropy table object is returned. It will save csv
+        format regardless of ``format``.
 
-    sort_by: str, optional
-        The column name to sort the results. It can be any element of
-        ``keywords`` or ``'file'``, which sorts the table by the file
-        name.
+    sort_by : str, optional
+        The column name to sort the results. It can be any element of ``keywords`` or ``'file'``, which
+        sorts the table by the file name.
 
     Return
     ------
@@ -173,9 +167,8 @@ def make_summary(inputs=None, fitslist=None, ext=None, extname=None, extver=None
             hdul.close()
         return hdr
 
-    _valid_options = ['absolute', 'relative', 'name']
-    if fname_option not in _valid_options:
-        raise KeyError(f"fname_option must be one of {_valid_options}.")
+    if fname_option not in ['absolute', 'relative', 'name']:
+        raise KeyError("fname_option must be one of ['absolute', 'relative', 'name'].")
 
     skip_keys = ['COMMENT', 'HISTORY']
     str_example_hdr = "Extract example header from 0-th\n\tand save as {:s}"
@@ -185,9 +178,8 @@ def make_summary(inputs=None, fitslist=None, ext=None, extname=None, extver=None
     str_duplicate = ("Key {:s} is duplicated! "
                      + "Only the first one will be saved.")
 
-    if verbose:
-        if (keywords != []) and (keywords != '*'):
-            print("Extracting keys: ", keywords)
+    if verbose and (keywords != []) and (keywords != '*'):
+        print("Extracting keys: ", keywords)
 
     extension = _getext(ext=ext, extname=extname, extver=extver)
 
@@ -271,9 +263,9 @@ def make_summary(inputs=None, fitslist=None, ext=None, extname=None, extver=None
     return summarytab
 
 
-def fits_newpath(fpath, rename_by, mkdir_by=None, header=None, delimiter='_',
-                 fillnan="", fileext='.fits'):
+def fits_newpath(fpath, rename_by, mkdir_by=None, header=None, delimiter='_', fillnan="", fileext='.fits'):
     ''' Gives the new path of the FITS file from header.
+
     Parameters
     ----------
     fpath : path-like
@@ -283,28 +275,24 @@ def fits_newpath(fpath, rename_by, mkdir_by=None, header=None, delimiter='_',
         The keywords of the FITS header to rename by.
 
     mkdir_by : list of str, optional
-        The keys which will be used to make subdirectories to classify
-        files. If given, subdirectories will be made with the header
-        value of the keys.
+        The keys which will be used to make subdirectories to classify files. If given, subdirectories
+        will be made with the header value of the keys.
 
     header : Header object, optional
-        The header to extract ``rename_by`` and mkdir_by``. If ``None``,
-        the function will do ``header = fits.getheader(fpath)``.
+        The header to extract ``rename_by`` and mkdir_by``. If ``None``, the function will do ``header
+        = fits.getheader(fpath)``.
 
     delimiter : str, optional
         The delimiter for the renaming.
 
     fillnan : str, optional
-        The string that will be inserted if the keyword is not found
-        from the header.
+        The string that will be inserted if the keyword is not found from the header.
 
     fileext : str, optional
-        The extension of the file name to be returned. Normally it
-        should be ``'fits'`` since this function is ``fits_newname``,
-        but you may prefer, e.g., ``'fit'`` for some reason. If
-        ``fileext`` does not start with ``"."``, the dot is
-        automatically added to the final file name in front of the
-        ``fileext``.
+        The extension of the file name to be returned. Normally it should be ``'fits'`` since this
+        function is ``fits_newname``, but you may prefer, e.g., ``'fit'`` for some reason. If
+        ``fileext`` does not start with ``"."``, the dot is automatically added to the final file name
+        in front of the ``fileext``.
     '''
 
     if header is None:
@@ -336,15 +324,10 @@ def fits_newpath(fpath, rename_by, mkdir_by=None, header=None, delimiter='_',
     return newpath
 
 
-def fitsrenamer(fpath=None, header=None, newtop=None, rename_by=["OBJECT"],
-                mkdir_by=None, delimiter='_', archive_dir=None, keymap=None,
-                key_deprecation=True, remove_keys=None, overwrite=False,
-                fillnan="", trim_fits_section=None, verbose=True,
-                add_header=None):
+def fitsrenamer(fpath=None, header=None, newtop=None, rename_by=["OBJECT"], mkdir_by=None, delimiter='_',
+                archive_dir=None, keymap=None, key_deprecation=True, remove_keys=None, overwrite=False,
+                fillnan="", trim_fits_section=None, verbose=True, add_header=None):
     ''' Renames a FITS file by ``rename_by`` with delimiter.
-    Note
-    ----
-    MEF(Multi-Extension FITS) currently is not supported.
 
     Parameters
     ----------
@@ -352,54 +335,52 @@ def fitsrenamer(fpath=None, header=None, newtop=None, rename_by=["OBJECT"],
         The path to the target FITS file.
 
     header : Header, optional
-        The header of the fits file, especially if you want to just
-        overwrite the header with this.
+        The header of the fits file, especially if you want to just overwrite the header with this.
 
     newtop : path-like
-        The top path for the new FITS file. If ``None``, the new path
-        will share the parent path with ``fpath``.
+        The top path for the new FITS file. If `None`, the new path will share the parent path with
+        ``fpath``.
 
     rename_by : list of str, optional
         The keywords of the FITS header to rename by.
 
     mkdir_by : list of str, optional
-        The keys which will be used to make subdirectories to classify
-        files. If given, subdirectories will be made with the header
-        value of the keys.
+        The keys which will be used to make subdirectories to classify files. If given, subdirectories
+        will be made with the header value of the keys.
 
     delimiter : str, optional
         The delimiter for the renaming.
 
     archive_dir : path-like or None, optional
-        Where to move the original FITS file. If ``None``, the original
-        file will remain there. Deleting original FITS is dangerous so
-        it is only supported to move the files. You may delete files
+        Where to move the original FITS file. If `None`, the original file will remain there. Deleting
+        original FITS is dangerous so it is only supported to move the files. You may delete files
         manually if needed.
 
     keymap : dict or None, optional
-        If not ``None``, the keymapping is done by using the dict of
-        ``keymap`` in the format of ``{<standard_key>:<original_key>}``.
+        If not `None`, the keymapping is done by using the dict of ``keymap`` in the format of
+        ``{<standard_key>:<original_key>}``.
 
     key_deprecation : bool, optional
-        Whether to change the original keywords' comments to contain
-        deprecation warning. If ``True``, the original keywords'
-        comments will become ``Deprecated. See <standard_key>.``.
+        Whether to change the original keywords' comments to contain deprecation warning. If `True`,
+        the original keywords' comments will become ``Deprecated. See <standard_key>.``.
 
     trim_fits_section : str or None, optional
-        Region of ``ccd`` from which the overscan is extracted; see
-        `~ccdproc.subtract_overscan` for details.
-        Default is ``None``.
+        Region of ``ccd`` from which the overscan is extracted; see `~ccdproc.subtract_overscan` for
+        details. Default is ``None``.
 
     fillnan : str, optional
-        The string that will be inserted if the keyword is not found
-        from the header.
+        The string that will be inserted if the keyword is not found from the header.
 
     remove_keys : list of str
         The header keywords to be removed.
 
-    add_header: header or Card object
-        The header keyword, value (and comment) to add after the
-        renaming.
+    add_header : header or Card object
+        The header keyword, value (and comment) to add after the renaming.
+
+    Note
+    ----
+    MEF(Multi-Extension FITS) currently is not supported.
+
     '''
 
     # Load fits file
@@ -413,10 +394,8 @@ def fitsrenamer(fpath=None, header=None, newtop=None, rename_by=["OBJECT"],
 
     # add keyword
     if add_header is not None:
-        if (not isinstance(add_header, fits.Header)
-                and not isinstance(add_header, fits.header.Card)):
-            warn("add_header is not either Header or Card. "
-                 + "Be careful about possible error.")
+        if (not isinstance(add_header, fits.Header) and not isinstance(add_header, fits.header.Card)):
+            warn("add_header is not either Header or Card. Be careful about possible error.")
         hdr += add_header
 
     # Copy keys based on KEYMAP
@@ -427,17 +406,15 @@ def fitsrenamer(fpath=None, header=None, newtop=None, rename_by=["OBJECT"],
         hdr = key_remover(hdr, remove_keys, deepremove=True)
 
     # TODO: It is necessary to do this bothersome calculations to
-    #   preserve the WCS information that may reside in the FITS (if use
-    #   ``trim_image`` of ccdproc, it will not be preserved).
+    #   preserve the WCS information that may reside in the FITS (if use ``trim_image`` of ccdproc, it
+    #   will not be preserved).
     # TODO: Maybe I can put some LTV-like keys to the header, rather
     #   than this crazy code...? (ysBach 2019-05-09)
     if trim_fits_section is not None:
-        slices = ccdproc.utils.slices.slice_from_string(trim_fits_section,
-                                                        fits_convention=True)
-        # initially guess start and stop indices as 0's and from shape
-        # in (ny, nx) order
+        slices = ccdproc.utils.slices.slice_from_string(trim_fits_section, fits_convention=True)
+        # initially guess start and stop indices as 0's and from shape in (ny, nx) order
         ny, nx = data[slices].shape
-        starts = np.array([0, 0])  # yx order
+        starts = np.array([0, 0])   # yx order
         stops = np.array([ny, nx])  # yx order
 
         for i in range(2):
