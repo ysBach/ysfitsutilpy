@@ -225,10 +225,10 @@ def load_ccd(path, *args, ext=None, extname=None, extver=None, as_ccd=True, use_
             load_ccd('in.fits', ext=('sci',1), extname='err', extver=2)
 
     ext : int
-        The extension index (0-indexing)
+        The extension index (0-indexing).
 
     extname : str
-        The extension name (``XTENSION``)
+        The extension name (``XTENSION``).
 
     extver : int
         The version of the extension; used only if extname is given.
