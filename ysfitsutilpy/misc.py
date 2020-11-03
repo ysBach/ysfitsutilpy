@@ -19,7 +19,7 @@ from astropy.wcs import WCS
 
 __all__ = ["MEDCOMB_KEYS_INT", "SUMCOMB_KEYS_INT", "MEDCOMB_KEYS_FLT32",
            "LACOSMIC_KEYS", "get_size",
-           "datahdr_parse", "load_ccd", "str_now", "change_to_quantity",
+           "datahdr_parse", "_getext", "load_ccd", "str_now", "change_to_quantity",
            "binning", "fitsxy2py", "give_stats",
            "chk_keyval"]
 
@@ -126,6 +126,9 @@ def _getext(*args, ext=None, extname=None, extver=None):
 
     Direct copy from astropy, but removing "opening HDUList" part
     https://github.com/astropy/astropy/blob/master/astropy/io/fits/convenience.py#L988
+
+    This is essential for fits_ccddata_reader, because it only has ``hdu``, not all three of ext,
+    extname, and extver (facepalm).
     """
 
     err_msg = ('Redundant/conflicting extension arguments(s): {}'.format(
@@ -182,6 +185,7 @@ def _getext(*args, ext=None, extname=None, extver=None):
         raise TypeError('extver alone cannot specify an extension.')
 
     return ext
+
 
 def load_ccd(path, *args, ext=None, extname=None, extver=None, as_ccd=True, use_wcs=True, unit=None,
              hdu_uncertainty="UNCERT", hdu_mask='MASK', hdu_flags=None, key_uncertainty_type='UTYPE',
@@ -320,7 +324,6 @@ def load_ccd(path, *args, ext=None, extname=None, extver=None, as_ccd=True, use_
                 return fitsio.FITS(path)[ext].read()
         except OSError:
             raise ValueError(f"Extension `{ext}` is not found (file: {path})")
-
 
 
 def str_now(precision=3, fmt="{:.>72s}", t_ref=None,
