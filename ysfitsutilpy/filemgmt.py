@@ -14,7 +14,7 @@ from warnings import warn
 import ccdproc
 from .hdrutil import key_mapper, key_remover
 from .ccdutil import cutccd
-from .misc import inputs2pathlist
+from .misc import inputs2pathlist, _getext
 
 __all__ = ["mkdir", "load_if_exists",
            "make_summary", "fits_newpath", "fitsrenamer"]
@@ -67,7 +67,7 @@ def load_if_exists(path, loader, if_not=None, verbose=True, **kwargs):
     return loaded
 
 
-def make_summary(inputs=None, fitslist=None, extension=0,
+def make_summary(inputs=None, fitslist=None, ext=None, extname=None, extver=None,
                  fname_option='relative', output=None, format='ascii.csv',
                  keywords=[], example_header=None, sort_by='file',
                  pandas=False, verbose=True):
@@ -88,8 +88,14 @@ def make_summary(inputs=None, fitslist=None, extension=0,
         also acceptable. One and only one of ``inputs`` or ``fitslist``
         must be provided.
 
-    extension: int or str, optional
-        The extension to be summarized.
+    ext : int
+        The extension index (0-indexing).
+
+    extname : str
+        The extension name (``XTENSION``).
+
+    extver : int
+        The version of the extension; used only if extname is given.
 
     fname_option: str {'absolute', 'relative', 'name'}, optional
         Whether to save full absolute/relative path or only the
@@ -173,7 +179,7 @@ def make_summary(inputs=None, fitslist=None, extension=0,
 
     skip_keys = ['COMMENT', 'HISTORY']
     str_example_hdr = "Extract example header from 0-th\n\tand save as {:s}"
-    str_keywords = "All {:d} keywords will be loaded."
+    str_keywords = "All {:d} keywords (estimated from {:s}) will be loaded."
     str_keyerror_fill = "Key {:s} not found for {:s}, filling with None."
     str_filesave = 'Saving the summary file to "{:s}"'
     str_duplicate = ("Key {:s} is duplicated! "
@@ -182,6 +188,8 @@ def make_summary(inputs=None, fitslist=None, extension=0,
     if verbose:
         if (keywords != []) and (keywords != '*'):
             print("Extracting keys: ", keywords)
+
+    extension = _getext(ext=ext, extname=extname, extver=extver)
 
     # Save example header
     if example_header is not None:
@@ -208,7 +216,7 @@ def make_summary(inputs=None, fitslist=None, extension=0,
             keywords.append(key_i)
 
         if verbose:
-            print(str_keywords.format(len(keywords)))
+            print(str_keywords.format(len(keywords), fitslist[0]))
 
     # Initialize
     summarytab = dict(file=[], filesize=[])
