@@ -12,13 +12,13 @@ from astropy.wcs import WCS
 from ccdproc import trim_image
 
 from .hdrutil import add_to_header, get_if_none, update_tlm
-from .misc import binning, datahdr_parse, fitsxy2py, load_ccd
+from .misc import binning, datahdr_parse, fitsxy2py
 
 __all__ = [
     "set_ccd_attribute", "set_ccd_gain_rdnoise",
     "propagate_ccdmask",
     "trim_ccd", "bezel_ccd", "cutccd", "bin_ccd",
-    "imcopy", "CCDData_astype", "make_errmap",
+    "CCDData_astype", "make_errmap",
     "errormap"
 ]
 
@@ -465,137 +465,6 @@ def bin_ccd(ccd, factor_x=1, factor_y=1, binfunc=np.mean, trim_end=False,
                       t_ref=_t_start)
     update_tlm(_ccd.header)
     return _ccd
-
-
-def imcopy(fpaths, fits_sections=None, outputs=None, return_ccd=True,
-           dtype='float32', **kwargs):
-    ''' Similar to IRAF imcopy
-    Parameters
-    ----------
-    fpaths : path-like or array-like of such.
-        The path(s) to the original FITS file(s).
-    fits_sections : str or array-like of such, optional.
-        The section specified by FITS convention, i.e., bracket
-        embraced, comma separated, XY order, 1-indexing, and including
-        the end index. If given as array-like format of length ``N``,
-        all such sections in all FITS files will be extracted.
-    outputs : path-like or array-like of such, optional.
-        The output paths of each FITS file to be copied. If array-like,
-        it must have the shape of ``(M, N)`` where ``M`` and ``N`` are
-        the sizes of ``fpaths`` and ``fits_sections``, respectively.
-    return_ccd : bool, optional.
-        Whether to load the FITS files as ``CCDData`` and return it.
-    dtype : dtype, optional.
-        The dtype for the ``outputs`` or returning ccds.
-    kwargs : optionals
-        The keyword arguments for ``CCDData.write``.
-
-    Return
-    ------
-    results: CCDData or list of CCDData
-        Only if ``return_ccd`` is set ``True``.
-        A sinlge ``CCDData`` will be returned if only one was input.
-        Otherwise, the same number of ``CCDData`` will be gathered as a
-        list and returned.
-    Note
-    ----
-    Due to the memory issue, it is generally better NOT to load all the
-    FITS files and pass them to this function. Therefore, as it is in
-    IRAF, I made this function to accept only the file paths, not the
-    pre-loaded CCDData objects. I here will load the
-
-    All the sections will be flattened if they are higher than 1-d. I
-    think it will only increase the complexity of the code if I accept
-    that...?
-
-    Example
-    -------
-    >>> from ysfitsutilpy import imcopy
-    >>> from pathlib import Path
-    >>>
-    >>> datapath = Path("./data")
-    >>> files = datapath.glob("*.pcr.fits")
-    >>> sections = ["[50:100, 50:100]", "[50:100, 50:150]"]
-    >>> outputs = [datapath/"test1.fits", datapath/"test2.fits"]
-    >>>
-    >>> # single file, single section
-    >>> trim = imcopy(pcrfits[0], sections[0])
-    >>>
-    >>> # single file, multi sections
-    >>> trims = imcopy(pcrfits[0], sections)
-    >>>
-    >>> # only save (no return to reduce memory burden) with overwrite option
-    >>> imcopy(pcrfits[0], sections, outputs=outputs, overwrite=True)
-    >>>
-    >>> # multi file multi section
-    >>> trims2d = imcopy(pcrfits[:2], fits_sections=sections, outputs=None)
-    '''
-    to_trim = False
-    to_save = False
-
-    str_flat = ("{} with dimension higher than 2-d is not supported yet. "
-                + "Currently it's {}-d. Flattening...")
-    str_save = ("If outputs is array-like, it's shape must have the shape "
-                + "of (fpaths.size, fits_sections.size) = ({}, {}). "
-                + "Now it's ({}, {}).")
-    fpaths = np.atleast_1d(fpaths)
-
-    if fpaths.ndim > 1:
-        print(str_flat.format("fpaths", fpaths.ndim))
-        fpaths = fpaths.flatten()
-    m = fpaths.shape[0]
-
-    if fits_sections is not None:
-        sects = np.atleast_1d(fits_sections)
-        to_trim = True
-        if sects.ndim > 1:
-            print(str_flat.format("fits_sections", sects.ndim))
-            sects = sects.flatten()
-        n = sects.shape[0]
-    else:
-        n = 1
-
-    if outputs is not None:
-        outputs = np.atleast_2d(outputs)
-        to_save = True
-        if outputs.ndim > 2:
-            raise ValueError("outputs should be lower than 3-d.")
-        if outputs.shape != (m, n):
-            raise ValueError(str_save.format(m, n, *outputs.shape))
-
-    if return_ccd:
-        results = []
-
-    for i, fpath in enumerate(fpaths):
-        ccd = load_ccd(fpath)
-        result = []
-        if to_trim:  # n CCDData will be in ``result``
-            for sect in sects:
-                # FIXME: use ccdproc.trim_image when trim_ccd is removed.
-                nccd = trim_ccd(ccd, fits_section=sect)
-                nccd = CCDData_astype(nccd, dtype=dtype)
-                update_tlm(nccd.heaer)
-                result.append(nccd)
-        else:  # only one single CCDData will be in ``result``
-            nccd = CCDData_astype(ccd, dtype=dtype)
-            update_tlm(nccd.heaer)
-            result.append(nccd)
-
-        if to_save:
-            for j, res in enumerate(result):
-                res.write(outputs[i, j], **kwargs)
-
-        if return_ccd:
-            if len(result) == 1:
-                results.append(result[0])
-            else:
-                results.append(result)
-
-    if return_ccd:
-        if len(results) == 1:
-            return results[0]
-        else:
-            return np.array(results, dtype=object)
 
 
 def CCDData_astype(ccd, dtype='float32', uncertainty_dtype=None):
