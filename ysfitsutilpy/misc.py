@@ -2,12 +2,13 @@
 Simple mathematical functions that will be used throughout this package. Some
 might be useful outside of this package.
 '''
-import sys
 import glob
+import sys
 from pathlib import Path, PosixPath, WindowsPath
 from warnings import warn
 
 import ccdproc
+import fitsio
 import numpy as np
 from astropy import units as u
 from astropy.io import fits
@@ -116,48 +117,210 @@ def datahdr_parse(ccd_like_object):
     return data, hdr
 
 
-# FIXME: Remove it in the future.
-def load_ccd(path, extension=0, unit=None, hdu_uncertainty="UNCERT",
-             use_wcs=True, hdu_mask='MASK', hdu_flags=None,
-             key_uncertainty_type='UTYPE', memmap=False,
-             **kwd):
-    '''remove it when astropy updated:
-    Note
-    ----
+def _getext(*args, ext=None, extname=None, extver=None):
+    """
+    Open the input file, return the `HDUList` and the extension.
+
+    This supports several different styles of extension selection.  See the
+    :func:`getdata()` documentation for the different possibilities.
+
+    Direct copy from astropy, but removing "opening HDUList" part
+    https://github.com/astropy/astropy/blob/master/astropy/io/fits/convenience.py#L988
+    """
+
+    err_msg = ('Redundant/conflicting extension arguments(s): {}'.format(
+        {'args': args, 'ext': ext, 'extname': extname, 'extver': extver})
+    )
+
+    # This code would be much simpler if just one way of specifying an extension were picked.  But now
+    # we need to support all possible ways for the time being.
+    if len(args) == 1:
+        # Must be either an extension number, an extension name, or an (extname, extver) tuple
+        if isinstance(args[0], (int, np.integer)) or (isinstance(ext, tuple) and len(ext) == 2):
+            if ext is not None or extname is not None or extver is not None:
+                raise TypeError(err_msg)
+            ext = args[0]
+        elif isinstance(args[0], str):
+            # The first arg is an extension name; it could still be valid to provide an extver kwarg
+            if ext is not None or extname is not None:
+                raise TypeError(err_msg)
+            extname = args[0]
+        else:
+            # Take whatever we have as the ext argument; we'll validate it below
+            ext = args[0]
+    elif len(args) == 2:
+        # Must be an extname and extver
+        if ext is not None or extname is not None or extver is not None:
+            raise TypeError(err_msg)
+        extname = args[0]
+        extver = args[1]
+    elif len(args) > 2:
+        raise TypeError('Too many positional arguments.')
+
+    if (ext is not None and
+            not (isinstance(ext, (int, np.integer)) or
+                 (isinstance(ext, tuple) and len(ext) == 2 and
+                  isinstance(ext[0], str) and isinstance(ext[1], (int, np.integer))))):
+        raise ValueError(
+            'The ext keyword must be either an extension number (zero-indexed) or a (extname, extver) tuple.'
+        )
+    if extname is not None and not isinstance(extname, str):
+        raise ValueError('The extname argument must be a string.')
+    if extver is not None and not isinstance(extver, (int, np.integer)):
+        raise ValueError('The extver argument must be an integer.')
+
+    if ext is None and extname is None and extver is None:
+        ext = 0
+    elif ext is not None and (extname is not None or extver is not None):
+        raise TypeError(err_msg)
+    elif extname:
+        if extver:
+            ext = (extname, extver)
+        else:
+            ext = (extname, 1)
+    elif extver and extname is None:
+        raise TypeError('extver alone cannot specify an extension.')
+
+    return ext
+
+def load_ccd(path, *args, ext=None, extname=None, extver=None, as_ccd=True, use_wcs=True, unit=None,
+             hdu_uncertainty="UNCERT", hdu_mask='MASK', hdu_flags=None, key_uncertainty_type='UTYPE',
+             memmap=False, **kwd):
+    ''' Loads FITS file of CCD image data (not table, etc).
+    Paramters
+    ---------
+    path : path-like
+        The path to the FITS file to load.
+
+    ext
+        The rest of the arguments are for extension specification.
+        They are flexible and are best illustrated by examples.
+
+        No extra arguments implies the primary extension::
+
+            load_ccd('in.fits')
+
+        By extension number::
+
+            load_ccd('in.fits', 0)      # the primary extension
+            load_ccd('in.fits', 2)      # the second extension
+            load_ccd('in.fits', ext=2)  # the second extension
+
+        By name, i.e., ``EXTNAME`` value (if unique)::
+
+            load_ccd('in.fits', 'sci')
+            load_ccd('in.fits', extname='sci')  # equivalent
+
+        Note ``EXTNAME`` values are not case sensitive
+
+        By combination of ``EXTNAME`` and EXTVER`` as separate
+        arguments or as a tuple::
+
+            load_ccd('in.fits', 'sci', 2)  # EXTNAME='SCI' & EXTVER=2
+            load_ccd('in.fits', extname='sci', extver=2)  # equivalent
+            load_ccd('in.fits', ('sci', 2))  # equivalent
+
+        Ambiguous or conflicting specifications will raise an exception::
+
+            load_ccd('in.fits', ext=('sci',1), extname='err', extver=2)
+
+    ext : int
+        The extension index (0-indexing)
+
+    extname : str
+        The extension name (``XTENSION``)
+
+    extver : int
+        The version of the extension; used only if extname is given.
+
+    unit : `~astropy.units.Unit`, optional
+        Units of the image data. If this argument is provided and there is a unit for the image in the
+        FITS header (the keyword ``BUNIT`` is used as the unit, if present), this argument is used for
+        the unit.
+        Default is ``None``.
+
+        .. note::
+            The behavior differs from astropy's original fits_ccddata_reader: If no ``BUNIT`` is found
+            and ``unit`` is `None`, ADU is assumed.
+
+    hdu_uncertainty : str or None, optional
+        FITS extension from which the uncertainty should be initialized. If the extension does not
+        exist the uncertainty of the CCDData is ``None``.
+        Default is ``'UNCERT'``.
+
+    hdu_mask : str or None, optional
+        FITS extension from which the mask should be initialized. If the extension does not exist the
+        mask of the CCDData is ``None``.
+        Default is ``'MASK'``.
+
+    hdu_flags : str or None, optional
+        Currently not implemented.
+        Default is ``None``.
+
+    key_uncertainty_type : str, optional
+        The header key name where the class name of the uncertainty  is stored in the hdu of the
+        uncertainty (if any).
+        Default is ``UTYPE``.
+
+     memmap : bool, optional
+        Is memory mapping to be used? This value is obtained from the
+        configuration item ``astropy.io.fits.Conf.use_memmap``.
+        Default is `False` (opposite of astropy).
+
+    kwd :
+        Any additional keyword parameters that will be used in fits_ccddata_reader (if ``as_ccd=True``)
+        or ``fitsio.read()`` (if ``as_ccd=False``).
+
+    Notes
+    -----
+    Many of the parameter explanations adopted from astropy
+    (https://github.com/astropy/astropy/blob/master/astropy/nddata/ccddata.py#L527 and
+    https://github.com/astropy/astropy/blob/master/astropy/io/fits/convenience.py#L120).
+
     CCDData.read cannot read TPV WCS:
     https://github.com/astropy/astropy/issues/7650
     Also memory map must be set False to avoid memory problem
     https://github.com/astropy/astropy/issues/9096
-    Plus, WCS info from astrometry.net solve-field sometimes not
-    understood by CCDData.read....
+    Plus, WCS info from astrometry.net solve-field sometimes not understood by CCDData.read....
     2020-05-31 16:39:51 (KST: GMT+09:00) ysBach
-    CCDData's reader (`~astropy.nddata.fits_ccddata_reader`) does
-    not support extname and extver, but only the integer ext.
-    But the name of the argument is different (``hdu``)...;;
-    2020-11-02 11:18:26 (KST: GMT+09:00) ysBach
+    Why the name of the argument is different (``hdu``) in fits_ccddata_reader...;;
     '''
-    reader_kw = dict(hdu=extension, hdu_uncertainty=hdu_uncertainty,
-                     hdu_mask=hdu_mask, hdu_flags=hdu_flags,
-                     key_uncertainty_type=key_uncertainty_type,
-                     memmap=memmap, **kwd)
-    if use_wcs:
-        hdr = fits.getheader(path)
-        reader_kw["wcs"] = WCS(hdr)
-        del hdr
+    ext = _getext(*args, ext=ext, extname=extname, extver=extver)
 
-    try:
-        ccd = CCDData.read(path, unit=unit, **reader_kw)
-    except ValueError:  # e.g., user did not give unit and there's no BUNIT
-        ccd = CCDData.read(path, unit='adu', **reader_kw)
-    # if prefer_bunit:
-    #     try:  # Try with no unit to CCDData
-    #         ccd = CCDData.read(path, unit=None, **reader_kw)
-    #     except ValueError:  # Try with user-given unit to CCDData
-    #         ccd = CCDData.read(path, unit=unit, **reader_kw)
-    # else:  # prefer user's input
-    #     ccd = CCDData.read(path, unit=unit, **reader_kw)
+    if as_ccd:
+        reader_kw = dict(hdu=ext, hdu_uncertainty=hdu_uncertainty, hdu_mask=hdu_mask, hdu_flags=hdu_flags,
+                         key_uncertainty_type=key_uncertainty_type, memmap=memmap, **kwd)
 
-    return ccd
+        # FIXME: Remove this if block in the future if WCS issue is resolved.
+        if use_wcs:  # Because of the TPV WCS issue
+            hdr = fits.getheader(path)
+            reader_kw["wcs"] = WCS(hdr)
+            del hdr
+
+        try:
+            ccd = CCDData.read(path, unit=unit, **reader_kw)
+        except ValueError:  # e.g., user did not give unit and there's no BUNIT
+            ccd = CCDData.read(path, unit='adu', **reader_kw)
+        # if prefer_bunit:
+        #     try:  # Try with no unit to CCDData
+        #         ccd = CCDData.read(path, unit=None, **reader_kw)
+        #     except ValueError:  # Try with user-given unit to CCDData
+        #         ccd = CCDData.read(path, unit=unit, **reader_kw)
+        # else:  # prefer user's input
+        #     ccd = CCDData.read(path, unit=unit, **reader_kw)
+
+        return ccd
+
+    else:
+        # Use fitsio and only load the data as soon as possible. This is much quicker than astropy's getdata
+        try:
+            if isinstance(ext, (list, tuple, np.ndarray)):
+                return fitsio.FITS(path)[ext[0], ext[1]].read()
+            else:
+                return fitsio.FITS(path)[ext].read()
+        except OSError:
+            raise ValueError(f"Extension `{ext}` is not found (file: {path})")
+
 
 
 def str_now(precision=3, fmt="{:.>72s}", t_ref=None,
