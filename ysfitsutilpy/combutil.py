@@ -13,7 +13,7 @@ from ccdproc import combine, trim_image
 from .ccdutil import CCDData_astype, load_ccd, trim_ccd
 from .filemgmt import load_if_exists, make_summary
 from .hdrutil import add_to_header
-from .misc import chk_keyval
+from .misc import chk_keyval, _getext
 
 # try:
 #     import numba as nb
@@ -237,7 +237,7 @@ def group_FITS(summary_table, type_key=None, type_val=None, group_key=None):
     return grouped, group_type_key
 
 
-def stack_FITS(fitslist=None, summary_table=None, extension=0,
+def stack_FITS(fitslist=None, summary_table=None, ext=None, extname=None, extver=None,
                unit='adu', table_filecol="file", trim_fits_section=None,
                loadccd=True, asccd=True, type_key=None, type_val=None,
                verbose=True):
@@ -357,7 +357,7 @@ def stack_FITS(fitslist=None, summary_table=None, extension=0,
         if selecting:
             summary_table = make_summary(
                 fitslist,
-                extension=extension,
+                ext=None, extname=None, extver=None,
                 verbose=True,
                 fname_option='relative',
                 keywords=type_key,
@@ -421,7 +421,7 @@ def stack_FITS(fitslist=None, summary_table=None, extension=0,
             else:  # it must be a path to a file
                 fpath = Path(fitslist[i])
                 if loadccd:
-                    ccd_i = load_ccd(fpath, extension=extension, unit=unit)
+                    ccd_i = load_ccd(fpath, ext=ext, extname=extname, extver=extver, unit=unit)
                     if trim_fits_section is not None:
                         ccd_i = trim_image(ccd_i,
                                            fits_section=trim_fits_section)
@@ -442,7 +442,7 @@ def stack_FITS(fitslist=None, summary_table=None, extension=0,
                     matched.append(item.data)
             else:  # it must be a path to a file
                 if loadccd:
-                    ccd_i = load_ccd(item, extension=extension, unit=unit)
+                    ccd_i = load_ccd(item, ext=ext, extname=extname, extver=extver, unit=unit)
                     if trim_fits_section is not None:
                         ccd_i = trim_image(ccd_i,
                                            fits_section=trim_fits_section)
@@ -487,7 +487,7 @@ def combine_ccd(fitslist=None, summary_table=None, table_filecol="file",
                 normalize_average=False, normalize_median=False,
                 exposure_key='EXPTIME', mem_limit=2e9,
                 combine_uncertainty_function=None,
-                extension=0, type_key=None, type_val=None,
+                ext=None, extname=None, extver=None, type_key=None, type_val=None,
                 dtype="float32", uncertainty_dtype="float32",
                 output_verify='fix', overwrite=False,
                 verbose=True, **kwargs):
@@ -575,9 +575,14 @@ def combine_ccd(fitslist=None, summary_table=None, table_filecol="file",
         median or sum combine, otherwise use the function provided.
         Default is ``None``.
 
-    extension: int or str, optional
-        The extension to be used.
-        Default is ``0``.
+    ext : int
+        The extension index (0-indexing).
+
+    extname : str
+        The extension name (``XTENSION``).
+
+    extver : int
+        The version of the extension; used only if extname is given.
 
     dtype : str or `numpy.dtype` or None, optional
         Allows user to set dtype. See `numpy.array` ``dtype`` parameter
@@ -745,7 +750,7 @@ def combine_ccd(fitslist=None, summary_table=None, table_filecol="file",
         fitslist=fitslist,
         summary_table=summary_table,
         table_filecol=table_filecol,
-        extension=extension,
+        ext=ext, extname=extname, extver=extver,
         unit=unit,
         type_key=type_key,
         type_val=type_val,
@@ -802,7 +807,7 @@ def combine_ccd(fitslist=None, summary_table=None, table_filecol="file",
         if isinstance(ccdlist[0], CCDData):
             master = ccdlist[0]
         else:
-            master = load_ccd(ccdlist[0], extension=extension, unit=unit)
+            master = load_ccd(ccdlist[0], ext=ext, extname=extname, extver=extver, unit=unit)
     else:
         master = combine(
             img_list=ccdlist,
@@ -813,7 +818,7 @@ def combine_ccd(fitslist=None, summary_table=None, table_filecol="file",
             mem_limit=mem_limit,
             combine_uncertainty_function=combine_uncertainty_function,
             unit=unit,  # user-given unit is already applied by stack_FITS
-            hdu=extension,
+            hdu=_getext(ext=ext, extname=extname, extver=extver),
             scale=scale,
             dtype=dtype,
             **kwargs)
