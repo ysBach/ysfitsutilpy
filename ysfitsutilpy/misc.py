@@ -3,6 +3,7 @@ Simple mathematical functions that will be used throughout this package. Some
 might be useful outside of this package.
 '''
 import glob
+from os import error
 import sys
 from pathlib import Path, PosixPath, WindowsPath
 from warnings import warn
@@ -59,20 +60,41 @@ LACOSMIC_KEYS = {'sigclip': 4.5,
                  'psfbeta': 4.765}
 
 
-def inputs2pathlist(inputs, sorted=True):
+def inputs2list(inputs, sort=True, error_if_ccd=False):
     ''' Convert glob pattern or list-like of path-like to list of Path
+
+    Parameters
+    ----------
+    inputs : str, path-like, CCDData
     '''
+    contains_ccddata = False
     if isinstance(inputs, str):
         # If str, "dir/file.fits" --> [Path("dir/file.fits")]
-        #         "dir/*.fits" --> [Path("dir/file.fits"), ...]
+        #         "dir/*.fits"    --> [Path("dir/file.fits"), ...]
         outlist = glob.glob(inputs)
     elif isinstance(inputs, (PosixPath, WindowsPath)):
         # If Path, ``TOP/"file*.fits"`` --> [Path("top/file1.fits"), ...]
         outlist = glob.glob(str(inputs))
+    elif isinstance(inputs, CCDData):
+        if error_if_ccd:
+            raise TypeError("CCDData is given as `inputs`. Turn off error_if_ccd or use path-like.")
+        else:
+            outlist = [inputs]
     else:
-        outlist = [Path(fpath) for fpath in inputs]
+        outlist = []
+        for i, item in enumerate(inputs):
+            if isinstance(item, CCDData):
+                contains_ccddata = True
+                if error_if_ccd:
+                    raise TypeError(
+                        f"CCDData is given in the {i}-th element. Turn off error_if_ccd or use path-like."
+                    )
+                else:
+                    outlist.append(item)
+            else:  # assume it is path-like
+                outlist.append(Path(item))
 
-    if sorted:
+    if sort and contains_ccddata:
         outlist.sort()
 
     return outlist
