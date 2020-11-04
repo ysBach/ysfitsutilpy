@@ -94,7 +94,7 @@ def inputs2list(inputs, sort=True, error_if_ccd=False):
             else:  # assume it is path-like
                 outlist.append(Path(item))
 
-    if sort and contains_ccddata:
+    if sort and not contains_ccddata:
         outlist.sort()
 
     return outlist
