@@ -310,6 +310,50 @@ def load_ccd(path, *args, ext=None, extname=None, extver=None, as_ccd=True, use_
     Plus, WCS info from astrometry.net solve-field sometimes not understood by CCDData.read....
     2020-05-31 16:39:51 (KST: GMT+09:00) ysBach
     Why the name of the argument is different (``hdu``) in fits_ccddata_reader...;;
+
+    Using fitsio, we get ~ 6-100 times faster loading time for FITS files.
+    Thus, when you just need data without header information (combine or stacking images, simple image
+    arithmetics without header updates, etc) for MANY images, the gain is enormous by using FITSIO.
+    This also boosts the speed of some processes which have to open the same FITS file repeatedly due
+    to the memory limit.
+
+    ```
+        !fitsinfo test.fits
+        Filename: test.fits
+        No.    Name      Ver    Type      Cards   Dimensions   Format
+          0  PRIMARY       1 PrimaryHDU       6   (1,)   int64
+          1  a             1 ImageHDU         7   (1,)   int64
+          2  a             1 ImageHDU         7   (1,)   int64
+          3  a             2 ImageHDU         8   (1,)   int64
+
+        %timeit fitsio.FITS("test.fits")["a", 2].read()
+        %timeit fitsio.FITS("test.fits")[0].read()
+        118 µs +/- 564 ns per loop (mean +/- std. dev. of 7 runs, 10000 loops each)
+        117 µs +/- 944 ns per loop (mean +/- std. dev. of 7 runs, 10000 loops each)
+
+        %timeit CCDData.read("test.fits")
+        %timeit CCDData.read("test.fits", hdu=("a", 2), unit='adu')
+        10.7 ms +/- 113 µs per loop (mean +/- std. dev. of 7 runs, 100 loops each)
+        11 ms +/- 114 µs per loop (mean +/- std. dev. of 7 runs, 100 loops each)
+    ```
+    For a 1k by 1k image, it's ~ 6 times faster
+    ```
+        np.random.seed(123)
+        ccd = CCDData(data=np.random.normal(size=(1000, 1000)).astype('float32'), unit='adu')
+        ccd.write("test1k_32bit.fits")
+        %timeit fitsio.FITS("test10k_32bit.fits")[0].read()
+        1.49 ms +/- 91.1 µs per loop (mean +/- std. dev. of 7 runs, 1000 loops each)
+        %timeit CCDData.read("test10k_32bit.fits")
+        8.9 ms +/- 97.6 µs per loop (mean +/- std. dev. of 7 runs, 100 loops each)
+    ```
+    For a 10k by 10k image, it's still ~ 6 times faster
+    ```
+        ccd = CCDData(data=np.random.normal(size=(10000, 10000)).astype('float32'), unit='adu')
+        %timeit fitsio.FITS("test10k_32bit.fits")[0].read()
+        1.4 ms +/- 123 µs per loop (mean +/- std. dev. of 7 runs, 1000 loops each)
+        %timeit CCDData.read("test10k_32bit.fits")
+        9.42 ms +/- 391 µs per loop (mean +/- std. dev. of 7 runs, 100 loops each)
+    ```
     '''
     ext = _getext(*args, ext=ext, extname=extname, extver=extver)
 
