@@ -14,7 +14,7 @@ from warnings import warn
 import ccdproc
 from .hdrutil import key_mapper, key_remover
 from .ccdutil import cutccd
-from .misc import inputs2pathlist, _getext
+from .misc import inputs2list, _getext
 
 __all__ = ["mkdir", "load_if_exists",
            "make_summary", "fits_newpath", "fitsrenamer"]
@@ -69,22 +69,17 @@ def load_if_exists(path, loader, if_not=None, verbose=True, **kwargs):
     return loaded
 
 
-def make_summary(inputs=None, fitslist=None, ext=None, extname=None, extver=None,
+def make_summary(inputs=None, ext=None, extname=None, extver=None,
                  fname_option='relative', output=None, format='ascii.csv', keywords=[],
                  example_header=None, sort_by='file', pandas=False, verbose=True):
     """ Extracts summary from the headers of FITS files.
 
     Parameters
     ----------
-    inputs : glob pattern or list-like of path-like
+    inputs : glob pattern, list-like of path-like, list-like of CCDData
         The `~glob` pattern for files (e.g., ``"2020*[012].fits"``) or list of files (each element must
-        be path-like). One and only one of ``inputs`` or ``fitslist`` must be provided.
-
-    fitslist: list of str (path-like) or list of CCDData, optional
-        The list of file paths relative to the current working directory, or the list of ccds to be
-        summarized. It can be useful to give a list of CCDData if you have already stacked/loaded the
-        CCDData into a list. Although it is not a good idea, a mixed list of CCDData and paths to the
-        files is also acceptable. One and only one of ``inputs`` or ``fitslist`` must be provided.
+        be path-like or CCDData). Although it is not a good idea, a mixed list of CCDData and paths to the
+        files is also acceptable.
 
     ext : int
         The extension index (0-indexing).
@@ -109,7 +104,8 @@ def make_summary(inputs=None, fitslist=None, ext=None, extname=None, extver=None
 
     example_header : None or path-like, optional
         The path including the filename of the output summary text file. If specified, the header of
-        the 0-th element of ``fitslist`` will be extracted and saved to ``example_header``.
+        the 0-th element of ``inputs`` will be extracted (if glob-pattern is given, the 0-th element is
+        random, so be careful) and saved to ``example_header``. Use `None` (default) to skip this.
 
     pandas : bool, optional
         Whether to return pandas. If ``False``, astropy table object is returned. It will save csv
@@ -137,44 +133,36 @@ def make_summary(inputs=None, fitslist=None, ext=None, extname=None, extver=None
     >>> summary = yfu.make_summary(TOPPATH/"rawdata/*.fits", keywords=keys, fname_option='name', pandas=True,
     >>>                            sort_by="DATE-OBS", output=savepath)
     """
-    if (inputs is not None) + (fitslist is not None) != 1:
-        raise ValueError("Give one and only one of fitslist/fpattern.")
-
-    if fitslist is None:
-        fitslist = inputs2pathlist(inputs, sorted=True)
+    # No need to sort here because the real "sort" will be done later based on ``sort_by`` column.
+    fitslist = inputs2list(inputs, sorted=False, error_if_ccd=False)
 
     if len(fitslist) == 0:
         print("No FITS file found.")
         return
 
-    def _get_fname(path):
-        if fname_option == 'relative':
-            return str(path)
-        elif fname_option == 'absolute':
-            return str(path.absolute())
-        elif fname_option == 'name':
-            return path.name
-
-    def _get_hdr(item, extension):
-        ''' Gets header from ``item``.
-        '''
+    def _get_fname_fsize_hdr(item, idx, extension):
         if isinstance(item, CCDData):
+            # NB: CCDData does not support extension (only available when it is being read)!
+            fname = f"CCDData in fitslist[{idx:d}]"
+            fsize = None
             hdr = item.header
         else:
+            if fname_option == 'relative':
+                fname = str(item)
+            elif fname_option == 'absolute':
+                fname = str(item.absolute())
+            elif fname_option == 'name':
+                fname = item.name
+            else:
+                raise ValueError(f"fname_option `{fname_option}`not understood.")
+            fsize = Path(item).stat().st_size  # Don't change to MB/GB, which will make it float...
             hdul = fits.open(item)
             hdr = hdul[extension].header
             hdul.close()
-        return hdr
 
-    if fname_option not in ['absolute', 'relative', 'name']:
-        raise KeyError("fname_option must be one of ['absolute', 'relative', 'name'].")
+        return fname, fsize, hdr
 
     skip_keys = ['COMMENT', 'HISTORY']
-    str_example_hdr = "Extract example header from 0-th\n\tand save as {:s}"
-    str_keywords = "All {:d} keywords (estimated from {:s}) will be loaded."
-    str_keyerror_fill = "Key {:s} not found for {:s}, filling with None."
-    str_filesave = 'Saving the summary file to "{:s}"'
-    str_duplicate = ("Key {:s} is duplicated! Only the first one will be saved.")
 
     if verbose and (keywords != []) and (keywords != '*'):
         print("Extracting keys: ", keywords)
@@ -183,30 +171,28 @@ def make_summary(inputs=None, fitslist=None, ext=None, extname=None, extver=None
 
     # Save example header
     if example_header is not None:
-        example_fits = fitslist[0]
+        fname0, _, hdr0 = _get_fname_fsize_hdr(fitslist[0], 0, extension=extension)
         if verbose:
-            print(str_example_hdr.format(example_header))
-        ex_hdr = _get_hdr(example_fits, extension=extension)
-        ex_hdr.totextfile(example_header, overwrite=True)
+            print(f"Header of 0-th: {fname0} -> {example_header}")
+        hdr0.totextfile(example_header, overwrite=True)
 
     # load ALL keywords for special cases
     if (keywords == []) or (keywords == '*'):
-        example_fits = fitslist[0]
-        ex_hdr = _get_hdr(example_fits, extension=extension)
-        N_hkeys = len(ex_hdr.cards)
+        fname0, _, hdr0 = _get_fname_fsize_hdr(fitslist[0], 0, extension=extension)
+        N_hkeys = len(hdr0.cards)
         keywords = []
 
         for i in range(N_hkeys):
-            key_i = ex_hdr.cards[i][0]
+            key_i = hdr0.cards[i][0]
             if (key_i in skip_keys):
                 continue
             elif (key_i in keywords):
-                warn(str_duplicate.format(key_i))
+                warn(f"Key {key_i} is duplicated! Only the first one will be saved.")
                 continue
             keywords.append(key_i)
 
         if verbose:
-            print(str_keywords.format(len(keywords), fitslist[0]))
+            print(f"All {len(keywords)} keywords (guessed from {fname0}) will be loaded.")
 
     # Initialize
     summarytab = dict(file=[], filesize=[])
@@ -215,19 +201,15 @@ def make_summary(inputs=None, fitslist=None, ext=None, extname=None, extver=None
 
     # Run through all the fits files
     for i, item in enumerate(fitslist):
-        if isinstance(item, CCDData):
-            summarytab["file"].append(None)
-            summarytab["filesize"].append(None)
-        else:
-            summarytab["file"].append(_get_fname(item))
-            summarytab["filesize"].append(Path(item).stat().st_size)
-            # Don't change to MB/GB, which will make it float...
-        hdr = _get_hdr(item, extension=extension)
+        fname, fsize, hdr = _get_fname_fsize_hdr(item, i, extension=extension)
+        summarytab["file"].append(fname)
+        summarytab["filesize"].append(fsize)
         for k in keywords:
             try:
                 summarytab[k].append(hdr[k])
             except KeyError:
                 if verbose:
+                    str_keyerror_fill = "Key {:s} not found for {:s}, filling with None."
                     if isinstance(item, CCDData):
                         warn(str_keyerror_fill.format(k, f"fitslist[{i}]"))
                     else:
@@ -244,7 +226,7 @@ def make_summary(inputs=None, fitslist=None, ext=None, extname=None, extver=None
         if output is not None:
             output = Path(output)
             if verbose:
-                print(str_filesave.format(str(output)))
+                print(f'Saving the summary to "{str(output)}"')
             summarytab.to_csv(output, index=False)
 
     else:
@@ -255,7 +237,7 @@ def make_summary(inputs=None, fitslist=None, ext=None, extname=None, extver=None
         if output is not None:
             output = Path(output)
             if verbose:
-                print(str_filesave.format(str(output)))
+                print(f'Saving the summary to "{str(output)}"')
             summarytab.write(output, format=format)
 
     return summarytab
