@@ -259,6 +259,11 @@ def load_ccd(path, *args, ext=None, extname=None, extver=None, as_ccd=True, use_
     extver : int
         The version of the extension; used only if extname is given.
 
+    as_ccd : bool, optional.
+        Whether to return `~astropy.nddata.CCDData`. Default is `True`. If it is `False`, **all the
+        arguments below are ignored**, except for the keyword arguments that will be passed to
+        ``fitsio.read``.
+
     unit : `~astropy.units.Unit`, optional
         Units of the image data. If this argument is provided and there is a unit for the image in the
         FITS header (the keyword ``BUNIT`` is used as the unit, if present), this argument is used for
@@ -288,7 +293,7 @@ def load_ccd(path, *args, ext=None, extname=None, extver=None, as_ccd=True, use_
         uncertainty (if any).
         Default is ``UTYPE``.
 
-     memmap : bool, optional
+    memmap : bool, optional
         Is memory mapping to be used? This value is obtained from the
         configuration item ``astropy.io.fits.Conf.use_memmap``.
         Default is `False` (opposite of astropy).
