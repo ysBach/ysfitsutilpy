@@ -10,10 +10,10 @@ from astropy.table import Table
 from astropy.time import Time
 from ccdproc import combine, trim_image
 
-from .ccdutil import CCDData_astype, load_ccd, trim_ccd
+from .ccdutil import CCDData_astype, trim_ccd
 from .filemgmt import load_if_exists, make_summary
 from .hdrutil import add_to_header
-from .misc import chk_keyval, _getext
+from .misc import chk_keyval, _getext, load_ccd
 
 # try:
 #     import numba as nb

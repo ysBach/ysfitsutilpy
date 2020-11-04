@@ -134,7 +134,7 @@ def make_summary(inputs=None, ext=None, extname=None, extver=None,
     >>>                            sort_by="DATE-OBS", output=savepath)
     """
     # No need to sort here because the real "sort" will be done later based on ``sort_by`` column.
-    fitslist = inputs2list(inputs, sorted=False, error_if_ccd=False)
+    fitslist = inputs2list(inputs, sort=False, error_if_ccd=False)
 
     if len(fitslist) == 0:
         print("No FITS file found.")
