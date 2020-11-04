@@ -389,10 +389,13 @@ def load_ccd(path, *args, ext=None, extname=None, extver=None, as_ccd=True, use_
     else:
         # Use fitsio and only load the data as soon as possible. This is much quicker than astropy's getdata
         try:
+            hdul = fitsio.FITS(path)
             if isinstance(ext, (list, tuple, np.ndarray)):
-                return fitsio.FITS(path)[ext[0], ext[1]].read()
+                arr = hdul[ext[0], ext[1]].read()
             else:
-                return fitsio.FITS(path)[ext].read()
+                arr = hdul[ext].read()
+            hdul.close()
+            return arr
         except OSError:
             raise ValueError(f"Extension `{ext}` is not found (file: {path})")
 
