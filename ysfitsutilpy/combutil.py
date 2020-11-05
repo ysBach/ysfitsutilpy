@@ -15,13 +15,6 @@ from .filemgmt import load_if_exists, make_summary
 from .hdrutil import add_to_header
 from .misc import _getext, chk_keyval, load_ccd
 
-# try:
-#     import numba as nb
-#     NO_NUMBA = False
-# except ImportError:
-#     NO_NUMBA = True
-#     print("numba not found. Quick combining will not work.")
-
 
 __all__ = ["sstd", "weighted_mean", "group_FITS", "stack_FITS", "combine_ccd"]
 
@@ -30,125 +23,6 @@ def sstd(a, **kwargs):
     ''' Sample standard deviation function
     '''
     return np.std(a, ddof=1, **kwargs)
-
-
-# @nb.njit(fastmath=True)
-# def nb_sstd(a, ddof=1):
-#     ''' Sample standard deviation function for 1-D array
-#     '''
-#     std = np.std(a)
-#     n = a.size
-#     return np.sqrt(n/(n-ddof))*std
-
-
-# @nb.njit(fastmath=True)
-# def _qsc_1d(a, sigma_upper=3, sigma_lower=3, maxiters=5,
-#             cenfunc=np.median, stdfunc=nb_sstd):
-#     ''' sigma-clipping to a 1-D array ``a``.
-#     Return
-#     ------
-#     _a : 1-d array
-#         The sigma-clipped array
-#     i : int
-#         Final number of the iteration (minimum 1).
-#     dn : int
-#         The number of rejected values
-#     (cen, std, lo, hi) : tuple of float
-#         The central, standard deviation, lower-bound, and upper-bound
-#         values of the final iteration.
-#     '''
-#     _a = a.copy()
-
-#     n_old = _a.size
-#     for i in range(maxiters):
-#         cen = cenfunc(_a)
-#         std = stdfunc(_a)
-#         lo = cen - sigma_lower*std
-#         hi = cen + sigma_upper*std
-#         _a = _a[(lo <= _a) & (_a <= hi)]
-#         n_new = _a.size
-#         if n_new == n_old:  # if no more rejection
-#             break
-#         n_old = n_new
-
-#     return _a, i, a.size - n_new, (cen, std, lo, hi)
-
-
-# @nb.njit(parallel=True, fastmath=True)
-# def _qsc_3d(arr, sigma_upper=3, sigma_lower=3, maxiters=5,
-#             combfunc=np.median, cenfunc=np.median, stdfunc=np.std,
-#             full=True):
-#     out = np.zeros(shape=(arr.shape[0], arr.shape[1]))
-#     if full:
-#         out_niter = np.zeros(out.shape, dtype=int)
-#         out_dn = np.zeros(out.shape, dtype=int)
-#         out_cen = np.zeros_like(out)
-#         out_std = np.zeros_like(out)
-#         out_lo = np.zeros_like(out)
-#         out_hi = np.zeros_like(out)
-
-#     for i in nb.prange(out.shape[0]):
-#         for j in nb.prange(out.shape[1]):
-#             a = arr[i, j, :]
-#             _a, niter, dn, (cen, std, lo, hi) = _qsc_1d(
-#                 a,
-#                 sigma_upper=sigma_upper,
-#                 sigma_lower=sigma_lower,
-#                 maxiters=maxiters,
-#                 cenfunc=cenfunc,
-#                 stdfunc=stdfunc
-#             )
-#             out[i, j] = combfunc(_a)
-#             if full:
-#                 out_niter[i, j] = niter
-#                 out_dn[i, j] = dn
-#                 out_cen[i, j] = cen
-#                 out_std[i, j] = std
-#                 out_lo[i, j] = lo
-#                 out_hi[i, j] = hi
-#     if full:
-#         return out, out_niter, out_dn, (out_cen, out_std, out_hi, out_lo)
-#     else:
-#         return out
-
-
-# @nb.njit(fastmath=True)
-# def qsc_1d(a, sigma=3, sigma_upper=None, sigma_lower=None, maxiters=5,
-#            cenfunc=np.median, stdfunc=nb_sstd):
-#     ''' Quick sigma-clip of an array, axis not supported yet.
-#     Return
-#     ------
-#     _a : 1-d array
-#         The sigma-clipped array
-#     i : int
-#         Final number of the iteration (minimum 1).
-#     dn : int
-#         The number of rejected values
-#     (cen, std, lo, hi) : tuple of float
-#         The central, standard deviation, lower-bound, and upper-bound
-#         values of the final iteration.
-#     '''
-#     if sigma_upper is None:
-#         sigma_upper = sigma
-#     if sigma_lower is None:
-#         sigma_lower = sigma
-
-#     res = _qsc_1d(a=a, sigma_upper=sigma_upper, sigma_lower=sigma_lower,
-#                   maxiters=maxiters, cenfunc=cenfunc, stdfunc=stdfunc)
-#     return res
-
-
-# def quick_2d_comb(arr, func=np.mean, axis=None, dtype='float32'):
-#     if axis is not None:
-#         warn("Currently numba does not support axis.")
-#     arr = np.atleast_3d(arr)
-
-#     if arr.shape[2] == 1:
-#         out = arr[:, :, 0]
-#     else:
-#         out = np.zeros(arr[:, :, 0].shape, dtype=dtype)
-#     pass
-
 
 # FIXME: Add this to Ccdproc esp. for mem_limit
 def weighted_mean(ccds, unit='adu'):
