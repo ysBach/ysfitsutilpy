@@ -20,7 +20,7 @@ from astropy.wcs import WCS
 
 __all__ = ["MEDCOMB_KEYS_INT", "SUMCOMB_KEYS_INT", "MEDCOMB_KEYS_FLT32",
            "LACOSMIC_KEYS", "get_size",
-           "datahdr_parse", "_getext", "load_ccd", "str_now", "change_to_quantity",
+           "datahdr_parse", "_parse_extension", "load_ccd", "str_now", "change_to_quantity",
            "binning", "fitsxy2py", "give_stats",
            "chk_keyval"]
 
@@ -139,7 +139,7 @@ def datahdr_parse(ccd_like_object):
     return data, hdr
 
 
-def _getext(*args, ext=None, extname=None, extver=None):
+def _parse_extension(*args, ext=None, extname=None, extver=None):
     """
     Open the input file, return the `HDUList` and the extension.
 
@@ -360,7 +360,7 @@ def load_ccd(path, *args, ext=None, extname=None, extver=None, as_ccd=True, use_
         9.42 ms +/- 391 µs per loop (mean +/- std. dev. of 7 runs, 100 loops each)
     ```
     '''
-    ext = _getext(*args, ext=ext, extname=extname, extver=extver)
+    ext = _parse_extension(*args, ext=ext, extname=extname, extver=extver)
 
     if as_ccd:
         reader_kw = dict(hdu=ext, hdu_uncertainty=hdu_uncertainty, hdu_mask=hdu_mask, hdu_flags=hdu_flags,

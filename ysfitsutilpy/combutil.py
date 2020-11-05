@@ -13,7 +13,7 @@ from ccdproc import combine, trim_image
 from .ccdutil import CCDData_astype, trim_ccd
 from .filemgmt import load_if_exists, make_summary
 from .hdrutil import add_to_header
-from .misc import _getext, chk_keyval, load_ccd
+from .misc import _parse_extension, chk_keyval, load_ccd
 
 
 __all__ = ["sstd", "weighted_mean", "group_FITS", "stack_FITS", "combine_ccd"]
@@ -637,7 +637,7 @@ def combine_ccd(fitslist=None, summary_table=None, table_filecol="file",
             mem_limit=mem_limit,
             combine_uncertainty_function=combine_uncertainty_function,
             unit=unit,  # user-given unit is already applied by stack_FITS
-            hdu=_getext(ext=ext, extname=extname, extver=extver),
+            hdu=_parse_extension(ext=ext, extname=extname, extver=extver),
             scale=scale,
             dtype=dtype,
             **kwargs)

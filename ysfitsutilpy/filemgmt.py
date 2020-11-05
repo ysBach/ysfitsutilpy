@@ -14,7 +14,7 @@ from warnings import warn
 import ccdproc
 from .hdrutil import key_mapper, key_remover
 from .ccdutil import cutccd
-from .misc import inputs2list, _getext
+from .misc import inputs2list, _parse_extension
 
 __all__ = ["mkdir", "load_if_exists",
            "make_summary", "fits_newpath", "fitsrenamer"]
@@ -167,7 +167,7 @@ def make_summary(inputs=None, ext=None, extname=None, extver=None,
     if verbose and (keywords != []) and (keywords != '*'):
         print("Extracting keys: ", keywords)
 
-    extension = _getext(ext=ext, extname=extname, extver=extver)
+    extension = _parse_extension(ext=ext, extname=extname, extver=extver)
 
     # Save example header
     if example_header is not None:
