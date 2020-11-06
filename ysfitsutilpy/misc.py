@@ -482,6 +482,9 @@ def change_to_quantity(x, desired='', to_value=False):
             xcopy = copy.deepcopy(xx)
         return xcopy
 
+    if x is None:
+        return None
+
     try:
         ux = x.to(desired)
         if to_value:
