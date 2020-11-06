@@ -3,8 +3,8 @@ Simple mathematical functions that will be used throughout this package. Some
 might be useful outside of this package.
 '''
 import glob
-from os import error
 import sys
+from os import error
 from pathlib import Path, PosixPath, WindowsPath
 from warnings import warn
 
@@ -18,9 +18,8 @@ from astropy.time import Time
 from astropy.visualization import ImageNormalize, ZScaleInterval
 from astropy.wcs import WCS
 
-__all__ = ["MEDCOMB_KEYS_INT", "SUMCOMB_KEYS_INT", "MEDCOMB_KEYS_FLT32",
-           "LACOSMIC_KEYS", "get_size",
-           "datahdr_parse", "_parse_extension", "load_ccd", "str_now", "change_to_quantity",
+__all__ = ["MEDCOMB_KEYS_INT", "SUMCOMB_KEYS_INT", "MEDCOMB_KEYS_FLT32", "LACOSMIC_KEYS",
+           "get_size", "datahdr_parse", "_parse_extension", "load_ccd", "str_now", "change_to_quantity",
            "binning", "fitsxy2py", "give_stats",
            "chk_keyval"]
 
