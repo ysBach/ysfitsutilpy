@@ -4,7 +4,6 @@ might be useful outside of this package.
 '''
 import glob
 import sys
-from os import error
 from pathlib import Path, PosixPath, WindowsPath
 from warnings import warn
 
@@ -20,8 +19,7 @@ from astropy.wcs import WCS
 
 __all__ = ["MEDCOMB_KEYS_INT", "SUMCOMB_KEYS_INT", "MEDCOMB_KEYS_FLT32", "LACOSMIC_KEYS",
            "get_size", "datahdr_parse", "_parse_extension", "load_ccd", "str_now", "change_to_quantity",
-           "binning", "fitsxy2py", "give_stats",
-           "chk_keyval"]
+           "binning", "fitsxy2py", "give_stats", "chk_keyval"]
 
 
 MEDCOMB_KEYS_INT = dict(dtype='int16',
