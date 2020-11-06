@@ -21,7 +21,7 @@ from astropy.wcs import WCS
 __all__ = ["MEDCOMB_KEYS_INT", "SUMCOMB_KEYS_INT", "MEDCOMB_KEYS_FLT32", "LACOSMIC_KEYS",
            "get_size",
            "load_ccd",
-           "_parse_data_header", "_parse_extension", "_parse_image",
+           "_parse_data_header", "_parse_image", "_has_header", "_parse_extension",
            "str_now", "change_to_quantity", "binning", "fitsxy2py", "give_stats", "chk_keyval"]
 
 
@@ -131,7 +131,7 @@ def _parse_data_header(ccd_like_object, extension=None, parse_data=True, parse_h
 
     Paramters
     ---------
-    ccd_like_object : CCDData, PrimaryHDU, ImageHDU, HDUList, ndarray, number-like
+    ccd_like_object : CCDData, PrimaryHDU, ImageHDU, HDUList, ndarray, number-like, path-like
         The object to be parsed into data and header.
 
     extension: int, str, (str, int)
@@ -165,83 +165,21 @@ def _parse_data_header(ccd_like_object, extension=None, parse_data=True, parse_h
         # ^ don't even do _parse_extension if both are False
         data = ccd_like_object[extension].data.copy() if parse_data else None
         hdr = ccd_like_object[extension].header.copy() if parse_header else None
-    else:
-        try:  # such as ndarray
-            data = ccd_like_object.copy() if parse_data else None
-        except AttributeError:  # Such as a number
-            data = ccd_like_object if parse_data else None
+    elif isinstance(ccd_like_object, np.ndarray):
+        data = ccd_like_object.copy() if parse_data else None
         hdr = None
+    else:
+        try:
+            data = float(ccd_like_object) if parse_data else None
+            hdr = None
+        except (ValueError, TypeError):  # Path-like
+            # NOTE: This try-except cannot be swapped cuz ``Path("2321.3")`` can be PosixPath without error...
+            extension = _parse_extension(extension) if parse_data or parse_header else 0
+            hdu = fits.open(ccd_like_object, memmap=False)[extension]
+            data = hdu.data.copy() if parse_data else None
+            hdr = hdu.header.copy() if parse_header else None
+
     return data, hdr
-
-
-def _parse_extension(*args, ext=None, extname=None, extver=None):
-    """
-    Open the input file, return the `HDUList` and the extension.
-
-    This supports several different styles of extension selection.  See the :func:`getdata()`
-    documentation for the different possibilities.
-
-    Direct copy from astropy, but removing "opening HDUList" part
-    https://github.com/astropy/astropy/blob/master/astropy/io/fits/convenience.py#L988
-
-    This is essential for fits_ccddata_reader, because it only has ``hdu``, not all three of ext,
-    extname, and extver.
-    """
-
-    err_msg = ('Redundant/conflicting extension arguments(s): {}'.format(
-        {'args': args, 'ext': ext, 'extname': extname, 'extver': extver})
-    )
-
-    # This code would be much simpler if just one way of specifying an extension were picked.  But now
-    # we need to support all possible ways for the time being.
-    if len(args) == 1:
-        # Must be either an extension number, an extension name, or an (extname, extver) tuple
-        if isinstance(args[0], (int, np.integer)) or (isinstance(ext, tuple) and len(ext) == 2):
-            if ext is not None or extname is not None or extver is not None:
-                raise TypeError(err_msg)
-            ext = args[0]
-        elif isinstance(args[0], str):
-            # The first arg is an extension name; it could still be valid to provide an extver kwarg
-            if ext is not None or extname is not None:
-                raise TypeError(err_msg)
-            extname = args[0]
-        else:
-            # Take whatever we have as the ext argument; we'll validate it below
-            ext = args[0]
-    elif len(args) == 2:
-        # Must be an extname and extver
-        if ext is not None or extname is not None or extver is not None:
-            raise TypeError(err_msg)
-        extname = args[0]
-        extver = args[1]
-    elif len(args) > 2:
-        raise TypeError('Too many positional arguments.')
-
-    if (ext is not None and
-            not (isinstance(ext, (int, np.integer)) or
-                 (isinstance(ext, tuple) and len(ext) == 2 and
-                  isinstance(ext[0], str) and isinstance(ext[1], (int, np.integer))))):
-        raise ValueError(
-            'The ext keyword must be either an extension number (zero-indexed) or a (extname, extver) tuple.'
-        )
-    if extname is not None and not isinstance(extname, str):
-        raise ValueError('The extname argument must be a string.')
-    if extver is not None and not isinstance(extver, (int, np.integer)):
-        raise ValueError('The extver argument must be an integer.')
-
-    if ext is None and extname is None and extver is None:
-        ext = 0
-    elif ext is not None and (extname is not None or extver is not None):
-        raise TypeError(err_msg)
-    elif extname:
-        if extver:
-            ext = (extname, extver)
-        else:
-            ext = (extname, 1)
-    elif extver and extname is None:
-        raise TypeError('extver alone cannot specify an extension.')
-
-    return ext
 
 
 def _parse_image(im, extension, name, force_ccd=False, prefer_ccd=False):
@@ -329,6 +267,107 @@ def _parse_image(im, extension, name, force_ccd=False, prefer_ccd=False):
                 raise TypeError("input im must be CCDData-like, ndarray, path-like (to FITS), or a number.")
 
     return new_im, imname, imtype
+
+
+def _has_header(ccd_like_object, extension=None):
+    '''Checks if the object has header; similar to _parse_data_header.
+
+    Paramters
+    ---------
+    ccd_like_object : CCDData, PrimaryHDU, ImageHDU, HDUList, ndarray, number-like, path-like
+        The object to be parsed into data and header.
+
+    extension: int, str, (str, int)
+        The extension of FITS to be used. It can be given as integer (0-indexing) of the extension,
+        ``EXTNAME`` (single str), or a tuple of str and int: ``(EXTNAME, EXTVER)``. If `None`
+        (default), the *first extension with data* will be used. Used only if ``ccd_like_object`` is HDUList or path-like.
+    '''
+    hashdr = True
+    if isinstance(ccd_like_object, (CCDData, fits.PrimaryHDU, fits.ImageHDU)):  # extension not used
+        try:
+            hashdr = ccd_like_object.header is not None
+        except AttributeError:
+            hashdr = False
+    elif isinstance(ccd_like_object, fits.HDUList):
+        extension = _parse_extension(extension)
+        try:
+            hashdr = ccd_like_object[extension].header is not None
+        except AttributeError:
+            hashdr = False
+    else:
+
+        hashdr = False
+    return hashdr
+
+
+def _parse_extension(*args, ext=None, extname=None, extver=None):
+    """
+    Open the input file, return the `HDUList` and the extension.
+
+    This supports several different styles of extension selection.  See the :func:`getdata()`
+    documentation for the different possibilities.
+
+    Direct copy from astropy, but removing "opening HDUList" part
+    https://github.com/astropy/astropy/blob/master/astropy/io/fits/convenience.py#L988
+
+    This is essential for fits_ccddata_reader, because it only has ``hdu``, not all three of ext,
+    extname, and extver.
+    """
+
+    err_msg = ('Redundant/conflicting extension arguments(s): {}'.format(
+        {'args': args, 'ext': ext, 'extname': extname, 'extver': extver})
+    )
+
+    # This code would be much simpler if just one way of specifying an extension were picked.  But now
+    # we need to support all possible ways for the time being.
+    if len(args) == 1:
+        # Must be either an extension number, an extension name, or an (extname, extver) tuple
+        if isinstance(args[0], (int, np.integer)) or (isinstance(ext, tuple) and len(ext) == 2):
+            if ext is not None or extname is not None or extver is not None:
+                raise TypeError(err_msg)
+            ext = args[0]
+        elif isinstance(args[0], str):
+            # The first arg is an extension name; it could still be valid to provide an extver kwarg
+            if ext is not None or extname is not None:
+                raise TypeError(err_msg)
+            extname = args[0]
+        else:
+            # Take whatever we have as the ext argument; we'll validate it below
+            ext = args[0]
+    elif len(args) == 2:
+        # Must be an extname and extver
+        if ext is not None or extname is not None or extver is not None:
+            raise TypeError(err_msg)
+        extname = args[0]
+        extver = args[1]
+    elif len(args) > 2:
+        raise TypeError('Too many positional arguments.')
+
+    if (ext is not None and
+            not (isinstance(ext, (int, np.integer)) or
+                 (isinstance(ext, tuple) and len(ext) == 2 and
+                  isinstance(ext[0], str) and isinstance(ext[1], (int, np.integer))))):
+        raise ValueError(
+            'The ext keyword must be either an extension number (zero-indexed) or a (extname, extver) tuple.'
+        )
+    if extname is not None and not isinstance(extname, str):
+        raise ValueError('The extname argument must be a string.')
+    if extver is not None and not isinstance(extver, (int, np.integer)):
+        raise ValueError('The extver argument must be an integer.')
+
+    if ext is None and extname is None and extver is None:
+        ext = 0
+    elif ext is not None and (extname is not None or extver is not None):
+        raise TypeError(err_msg)
+    elif extname:
+        if extver:
+            ext = (extname, extver)
+        else:
+            ext = (extname, 1)
+    elif extver and extname is None:
+        raise TypeError('extver alone cannot specify an extension.')
+
+    return ext
 
 
 def load_ccd(path, extension=None, ccddata=True, as_ccd=True, use_wcs=True, unit=None,
