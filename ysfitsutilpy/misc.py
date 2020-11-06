@@ -569,7 +569,7 @@ def fitsxy2py(fits_section):
         return sl
 
 
-# TODO: add sigma-clipped statistics option
+# TODO: add sigma-clipped statistics option (hdr key can be using "SIGC", e.g., SIGCAVG.)
 def give_stats(item, extension=None, percentiles=[1, 99], N_extrema=None, return_header=False, nanfunc=False):
     ''' Calculates simple statistics.
 
@@ -632,7 +632,10 @@ def give_stats(item, extension=None, percentiles=[1, 99], N_extrema=None, return
     '''
     try:  # if Path-like, replace ``item`` to ndarray or CCDData
         fpath = Path(item)
-        item = CCDData.read(fpath, extension) if return_header else fitsio.FITS(fpath)[extension].read()
+        if return_header:
+            item = CCDData.read(fpath, extension)
+        else:
+            item = fitsio.FITS(fpath)[extension].read()
     except (TypeError, ValueError):
         pass
 
@@ -691,8 +694,7 @@ def give_stats(item, extension=None, percentiles=[1, 99], N_extrema=None, return
 
     if N_extrema is not None:
         if 2*N_extrema > result['num']:
-            warn("There will be extrema overlaps because "
-                 + f"2*N_extrema ({2*N_extrema}) > N_pix ({result['num']})")
+            warn(f"Extrema overlaps (2*N_extrema ({2*N_extrema}) > N_pix ({result['num']}))")
         data_flatten = np.sort(data, axis=None)  # axis=None will do flatten.
         d_los = data_flatten[:N_extrema]
         d_his = data_flatten[-1*N_extrema:]
@@ -710,8 +712,8 @@ def give_stats(item, extension=None, percentiles=[1, 99], N_extrema=None, return
         hdr["STATZMIN"] = (result['zmin'], "zscale minimum value of the pixels")
         hdr["STATZMAX"] = (result['zmax'], "zscale minimum value of the pixels")
         for i, p in enumerate(percentiles):
-            hdr[f"PERCTS{i+1:02d}"] = (p, "The percentile used in STATPC")
-            hdr[f"STATPC{i+1:02d}"] = (result['pct'][i], "Percentile value at PERCTS")
+            hdr[f"PERCTS{i+1:02d}"] = (p, "The percentile used in STATPCii")
+            hdr[f"STATPC{i+1:02d}"] = (result['pct'][i], "Percentile value at PERCTSii")
 
         if N_extrema is not None:
             if N_extrema > 99:
