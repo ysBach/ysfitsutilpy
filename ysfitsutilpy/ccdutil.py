@@ -12,7 +12,7 @@ from astropy.wcs import WCS
 from ccdproc import trim_image
 
 from .hdrutil import add_to_header, get_if_none, update_tlm
-from .misc import binning, datahdr_parse, fitsxy2py
+from .misc import binning, _parse_data_header, fitsxy2py
 
 __all__ = [
     "set_ccd_attribute", "set_ccd_gain_rdnoise",
@@ -519,7 +519,7 @@ def make_errmap(ccd, gain_epadu=1, rdnoise_electron=0, flat_err=0.0, subtracted_
     '''
     print("Use ``errormap`` instead.")
 
-    data, _ = datahdr_parse(ccd)
+    data, _ = _parse_data_header(ccd)
     data[data < 0] = 0  # make all negative pixel to 0
 
     if isinstance(gain_epadu, u.Quantity):
@@ -599,7 +599,7 @@ def errormap(ccd_biassub, gain_epadu=1, rdnoise_electron=0, subtracted_dark=None
         deviation map. It's better to use variance for large image size (computation speed issue).
 
     '''
-    data, _ = datahdr_parse(ccd_biassub)
+    data, _ = _parse_data_header(ccd_biassub)
     data[data < 0] = 0  # make all negative pixel to 0
 
     if isinstance(gain_epadu, u.Quantity):

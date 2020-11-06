@@ -13,7 +13,7 @@ from ccdproc import flat_correct, subtract_bias, subtract_dark
 from .ccdutil import (CCDData_astype, errormap, propagate_ccdmask,
                       set_ccd_gain_rdnoise, trim_ccd)
 from .hdrutil import add_to_header, update_tlm
-from .misc import (LACOSMIC_KEYS, change_to_quantity, datahdr_parse, fitsxy2py,
+from .misc import (LACOSMIC_KEYS, change_to_quantity, _parse_data_header, fitsxy2py,
                    load_ccd)
 
 __all__ = [
@@ -252,7 +252,7 @@ def crrej(ccd, mask=None, propagate_crmask=False, update_header=True,
             )
 
     _ccd = ccd.copy()
-    data, hdr = datahdr_parse(_ccd)
+    data, hdr = _parse_data_header(_ccd)
     inmask = propagate_ccdmask(_ccd, additional_mask=mask)
 
     # The L.A. Cosmic accepts only the gain in e/adu and rdnoise in e.
