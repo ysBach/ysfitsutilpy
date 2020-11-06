@@ -91,14 +91,14 @@ def mplticker(ax_list,
         The Locators used for the ticker. Must be a single Locator
         object or a list of such with the identical length of
         ``ax_list``.
-        If ``None``, the default locator is not touched.
+        If `None`, the default locator is not touched.
 
     formatters : Formatter, None, False, array-like of such, optional
         The Formatters used for the ticker. Must be a single Formatter
         object or an array-like of such with the identical length of
         ``ax_list``.
-        If ``None``, the default formatter is not touched.
-        If ``False``, the labels are not shown (by using the trick
+        If `None`, the default formatter is not touched.
+        If `False`, the labels are not shown (by using the trick
         ``FormatStrFormatter(fmt="")``).
 
     grids : bool, array-like of such, optinoal.

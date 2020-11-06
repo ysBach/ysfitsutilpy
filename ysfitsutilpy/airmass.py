@@ -155,7 +155,7 @@ def airmass_from_hdr(header, ra=None, dec=None, ut=None, exptime=None,
         height) of the atmosphere.
 
     XX_key: str, optional
-        The header key to find XX if ``XX`` is ``None``.
+        The header key to find XX if ``XX`` is `None`.
 
     XX_unit: Quantity, optional
         The unit of ``XX``

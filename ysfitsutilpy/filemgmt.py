@@ -44,7 +44,7 @@ def load_if_exists(path, loader, if_not=None, verbose=True, **kwargs):
     Returns
     -------
     loaded:
-        The loaded file. If the file does not exist, ``None`` is returned.
+        The loaded file. If the file does not exist, `None` is returned.
 
     Example
     -------
@@ -93,7 +93,7 @@ def make_summary(inputs=None, extension=None,
         The directory and file name of the output summary file.
 
     format : str, optional
-        The astropy.table.Table output format. Only works if ``pandas`` is ``False``.
+        The astropy.table.Table output format. Only works if ``pandas`` is `False`.
 
     keywords : list or str(``"*"``), optional
         The list of the keywords to extract (keywords should be in str).
@@ -104,7 +104,7 @@ def make_summary(inputs=None, extension=None,
         random, so be careful) and saved to ``example_header``. Use `None` (default) to skip this.
 
     pandas : bool, optional
-        Whether to return pandas. If ``False``, astropy table object is returned. It will save csv
+        Whether to return pandas. If `False`, astropy table object is returned. It will save csv
         format regardless of ``format``.
 
     sort_by : str, optional
@@ -255,7 +255,7 @@ def fits_newpath(fpath, rename_by, mkdir_by=None, header=None, delimiter='_', fi
         will be made with the header value of the keys.
 
     header : Header object, optional
-        The header to extract ``rename_by`` and mkdir_by``. If ``None``, the function will do ``header
+        The header to extract ``rename_by`` and mkdir_by``. If `None`, the function will do ``header
         = fits.getheader(fpath)``.
 
     delimiter : str, optional
@@ -342,7 +342,7 @@ def fitsrenamer(fpath=None, header=None, newtop=None, rename_by=["OBJECT"], mkdi
 
     trim_fits_section : str or None, optional
         Region of ``ccd`` from which the overscan is extracted; see `~ccdproc.subtract_overscan` for
-        details. Default is ``None``.
+        details. Default is `None`.
 
     fillnan : str, optional
         The string that will be inserted if the keyword is not found from the header.
