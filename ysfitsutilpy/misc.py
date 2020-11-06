@@ -125,15 +125,39 @@ def get_size(obj, seen=None):
     return size
 
 
-def _parse_data_header(ccd_like_object):
+def _parse_data_header(ccd_like_object, extension=None):
+    '''Parses data and header and return them separately after copy.
+
+    Paramters
+    ---------
+    ccd_like_object : CCDData, PrimaryHDU, ImageHDU, HDUList, ndarray, number-like
+        The object to be parsed into data and header.
+
+    extension: int, str, (str, int)
+        The extension of FITS to be used. It can be given as integer (0-indexing) of the extension,
+        ``EXTNAME`` (single str), or a tuple of str and int: ``(EXTNAME, EXTVER)``. If `None`
+        (default), the *first extension with data* will be used.
+
+    Returns
+    -------
+    data : ndarray
+        The data part of the input ``ccd_like_object``.
+
+    hdr : Header, None
+        The header if header exists; otherwise, `None` is returned.
+    '''
     if isinstance(ccd_like_object, (CCDData, fits.PrimaryHDU, fits.ImageHDU)):
         data = ccd_like_object.data.copy()
         hdr = ccd_like_object.header.copy()
     elif isinstance(ccd_like_object, fits.HDUList):
-        data = ccd_like_object[0].data.copy()
-        hdr = ccd_like_object[0].header.copy()
+        extension = _parse_extension(extension)
+        data = ccd_like_object[extension].data.copy()
+        hdr = ccd_like_object[extension].header.copy()
     else:
-        data = ccd_like_object.copy()
+        try:  # such as ndarray
+            data = ccd_like_object.copy()
+        except AttributeError:  # Such as a number
+            data = ccd_like_object
         hdr = None
     return data, hdr
 
