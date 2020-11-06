@@ -218,11 +218,10 @@ def load_ccd(path, extension=None, ccddata=True, as_ccd=True, use_wcs=True, unit
     path : path-like
         The path to the FITS file to load.
 
-        extension: int, str, (str, int)
+    extension: int, str, (str, int)
         The extension of FITS to be used. It can be given as integer (0-indexing) of the extension,
         ``EXTNAME`` (single str), or a tuple of str and int: ``(EXTNAME, EXTVER)``. If `None`
         (default), the *first extension with data* will be used.
-
 
     ccddata : bool, optional.
         Whether to return `~astropy.nddata.CCDData`. Default is `True`. If it is `False`, **all the
@@ -231,6 +230,11 @@ def load_ccd(path, extension=None, ccddata=True, as_ccd=True, use_wcs=True, unit
 
     as_ccd : bool, optional.
         Deprecated. (identical to ``ccddata``)
+
+    use_wcs : bool, optional.
+        Whether to load WCS by ``fits.getheader``, **not** by `~astropy.nddata.fits_ccdddata_reader`.
+        This is necessary as of now because TPV WCS is not properly understood by the latter.
+        Default is `True`.
 
     unit : `~astropy.units.Unit`, optional
         Units of the image data. If this argument is provided and there is a unit for the image in the
@@ -268,6 +272,10 @@ def load_ccd(path, extension=None, ccddata=True, as_ccd=True, use_wcs=True, unit
         uncertainty (if any).
         Default is ``UTYPE``.
 
+        ..warning::
+            If ``ccddata=False`` and ``load_primary_only_fitsio=False``, the uncertainty type by
+            ``key_uncertainty_type`` will be completely ignored.
+
     memmap : bool, optional
         Is memory mapping to be used? This value is obtained from the configuration item
         ``astropy.io.fits.Conf.use_memmap``.
@@ -276,6 +284,12 @@ def load_ccd(path, extension=None, ccddata=True, as_ccd=True, use_wcs=True, unit
     kwd :
         Any additional keyword parameters that will be used in `~astropy.nddata.fits_ccddata_reader`
         (if ``ccddata=True``) or ``fitsio.read()`` (if ``ccddata=False``).
+
+    Returns
+    -------
+    CCDData (``ccddata=True``) or ndarray (``ccddata=False``). For the latter case, if
+    ``load_primary_only_fitsio=False``, the uncertainty and mask extensions, as well as flags (not
+    supported, so just `None`) will be returned as well as the one specified by ``extension``.
 
     Notes
     -----
@@ -369,7 +383,7 @@ def load_ccd(path, extension=None, ccddata=True, as_ccd=True, use_wcs=True, unit
 
     else:
         # Use fitsio and only load the data as soon as possible. This is much quicker than astropy's getdata
-        def _read_fits_fitsio(_hdul, _path, _extension):
+        def _read_by_fitsio(_hdul, _path, _extension):
             try:
                 if isinstance(_extension, (list, tuple, np.ndarray)):
                     # length == 2 is already checked in _parse_extension.
@@ -382,13 +396,13 @@ def load_ccd(path, extension=None, ccddata=True, as_ccd=True, use_wcs=True, unit
 
         hdul = fitsio.FITS(path)
         if load_primary_only_fitsio:
-            _data = _read_fits_fitsio(hdul, extension)
+            data = _read_by_fitsio(hdul, extension)
             hdul.close()
-            return _data
+            return data
         else:
-            data = _read_fits_fitsio(hdul, extension)
-            unc = _read_fits_fitsio(hdul, extension_unc)
-            mask = _read_fits_fitsio(hdul, extension_mask)
+            data = _read_by_fitsio(hdul, extension)
+            unc = _read_by_fitsio(hdul, extension_unc)
+            mask = _read_by_fitsio(hdul, extension_mask)
             flag = None  # FIXME: add this line when CCDData starts to support flags.
             hdul.close()
             return data, unc, mask, flag
