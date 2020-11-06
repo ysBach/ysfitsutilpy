@@ -69,7 +69,7 @@ def load_if_exists(path, loader, if_not=None, verbose=True, **kwargs):
     return loaded
 
 
-def make_summary(inputs=None, ext=None, extname=None, extver=None,
+def make_summary(inputs=None, extension=None,
                  fname_option='relative', output=None, format='ascii.csv', keywords=[],
                  example_header=None, sort_by='file', pandas=False, verbose=True):
     """ Extracts summary from the headers of FITS files.
@@ -81,14 +81,10 @@ def make_summary(inputs=None, ext=None, extname=None, extver=None,
         be path-like or CCDData). Although it is not a good idea, a mixed list of CCDData and paths to the
         files is also acceptable.
 
-    ext : int
-        The extension index (0-indexing).
-
-    extname : str
-        The extension name (``XTENSION``).
-
-    extver : int
-        The version of the extension; used only if extname is given.
+    extension: int, str, (str, int)
+        The extension of FITS to be used. It can be given as integer (0-indexing) of the extension,
+        ``EXTNAME`` (single str), or a tuple of str and int: ``(EXTNAME, EXTVER)``. If `None`
+        (default), the *first extension with data* will be used.
 
     fname_option : str {'absolute', 'relative', 'name'}, optional
         Whether to save full absolute/relative path or only the filename.
@@ -167,7 +163,7 @@ def make_summary(inputs=None, ext=None, extname=None, extver=None,
     if verbose and (keywords != []) and (keywords != '*'):
         print("Extracting keys: ", keywords)
 
-    extension = _parse_extension(ext=ext, extname=extname, extver=extver)
+    extension = _parse_extension(extension)
 
     # Save example header
     if example_header is not None:
