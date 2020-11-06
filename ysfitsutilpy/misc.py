@@ -209,17 +209,17 @@ def _parse_extension(*args, ext=None, extname=None, extver=None):
     return ext
 
 
-def load_ccd(path, *args, ext=None, extname=None, extver=None, as_ccd=True, use_wcs=True, unit=None,
-             hdu_uncertainty="UNCERT", hdu_mask='MASK', hdu_flags=None, key_uncertainty_type='UTYPE',
-             memmap=False, **kwd):
+def load_ccd(path, extension=None, ccddata=True, as_ccd=True, use_wcs=True, unit=None,
+             load_primary_only_fitsio=True,
+             extension_uncertainty="UNCERT", extension_mask='MASK', extension_flags=None,
+             key_uncertainty_type='UTYPE', memmap=False, **kwd):
     ''' Loads FITS file of CCD image data (not table, etc).
     Paramters
     ---------
     path : path-like
         The path to the FITS file to load.
 
-    ext
-        The rest of the arguments are for extension specification.
+    extension : int, str, (str, int), optional.
         They are flexible and are best illustrated by examples.
 
         No extra arguments implies the primary extension::
@@ -230,77 +230,70 @@ def load_ccd(path, *args, ext=None, extname=None, extver=None, as_ccd=True, use_
 
             load_ccd('in.fits', 0)      # the primary extension
             load_ccd('in.fits', 2)      # the second extension
-            load_ccd('in.fits', ext=2)  # the second extension
 
         By name, i.e., ``EXTNAME`` value (if unique)::
 
             load_ccd('in.fits', 'sci')
-            load_ccd('in.fits', extname='sci')  # equivalent
 
         Note ``EXTNAME`` values are not case sensitive
 
-        By combination of ``EXTNAME`` and EXTVER`` as separate
-        arguments or as a tuple::
+        By combination of ``EXTNAME`` and EXTVER`` as separate arguments or as a tuple::
 
             load_ccd('in.fits', 'sci', 2)  # EXTNAME='SCI' & EXTVER=2
-            load_ccd('in.fits', extname='sci', extver=2)  # equivalent
             load_ccd('in.fits', ('sci', 2))  # equivalent
 
-        Ambiguous or conflicting specifications will raise an exception::
-
-            load_ccd('in.fits', ext=('sci',1), extname='err', extver=2)
-
-    ext : int
-        The extension index (0-indexing).
-
-    extname : str
-        The extension name (``XTENSION``).
-
-    extver : int
-        The version of the extension; used only if extname is given.
-
-    as_ccd : bool, optional.
+    ccddata : bool, optional.
         Whether to return `~astropy.nddata.CCDData`. Default is `True`. If it is `False`, **all the
         arguments below are ignored**, except for the keyword arguments that will be passed to
         ``fitsio.read``, and an ndarray will be returned without astropy unit.
+
+    as_ccd : bool, optional.
+        Deprecated. (identical to ccddata)
 
     unit : `~astropy.units.Unit`, optional
         Units of the image data. If this argument is provided and there is a unit for the image in the
         FITS header (the keyword ``BUNIT`` is used as the unit, if present), this argument is used for
         the unit.
-        Default is ``None``.
+        Default is `None`.
 
         .. note::
             The behavior differs from astropy's original fits_ccddata_reader: If no ``BUNIT`` is found
             and ``unit`` is `None`, ADU is assumed.
 
-    hdu_uncertainty : str or None, optional
+    load_primary_only_fitsio : bool, optional.
+        Whether to ignore uncertainty, mask, and flags extensions when using fitsio (i.e., when
+        ``use_ccd=False``). This is `True` by default, because that's the most common usage for fitsio.
+
+    extension_uncertainty : str or None, optional
         FITS extension from which the uncertainty should be initialized. If the extension does not
-        exist the uncertainty of the CCDData is ``None``.
+        exist the uncertainty is `None`. Name is changed from ``hdu_uncertainty`` in ccdproc to
+        ``extension_uncertainty`` here. See explanation of ``extension``.
         Default is ``'UNCERT'``.
 
-    hdu_mask : str or None, optional
+    extension_mask : str or None, optional
         FITS extension from which the mask should be initialized. If the extension does not exist the
-        mask of the CCDData is ``None``.
+        mask is `None`. Name is changed from ``hdu_mask`` in ccdproc to ``extension_mask`` here.  See
+        explanation of ``extension``.
         Default is ``'MASK'``.
 
     hdu_flags : str or None, optional
-        Currently not implemented.
-        Default is ``None``.
+        Currently not implemented.N ame is changed from ``hdu_flags`` in ccdproc to ``extension_flags``
+        here.
+        Default is `None`.
 
     key_uncertainty_type : str, optional
-        The header key name where the class name of the uncertainty  is stored in the hdu of the
+        The header key name where the class name of the uncertainty is stored in the hdu of the
         uncertainty (if any).
         Default is ``UTYPE``.
 
     memmap : bool, optional
-        Is memory mapping to be used? This value is obtained from the
-        configuration item ``astropy.io.fits.Conf.use_memmap``.
+        Is memory mapping to be used? This value is obtained from the configuration item
+        ``astropy.io.fits.Conf.use_memmap``.
         Default is `False` (opposite of astropy).
 
     kwd :
-        Any additional keyword parameters that will be used in fits_ccddata_reader (if ``as_ccd=True``)
-        or ``fitsio.read()`` (if ``as_ccd=False``).
+        Any additional keyword parameters that will be used in `~astropy.nddata.fits_ccddata_reader`
+        (if ``ccddata=True``) or ``fitsio.read()`` (if ``ccddata=False``).
 
     Notes
     -----
@@ -316,7 +309,8 @@ def load_ccd(path, *args, ext=None, extname=None, extver=None, as_ccd=True, use_
     2020-05-31 16:39:51 (KST: GMT+09:00) ysBach
     Why the name of the argument is different (``hdu``) in fits_ccddata_reader...;;
 
-    Using fitsio, we get ~ 6-100 times faster loading time for FITS files.
+    Using fitsio, we get ~ 6-100 times faster loading time for FITS files on MBP 15" [2018, macOS
+    10.14.6, i7-8850H (2.6 GHz; 6-core), RAM 16 GB (2400MHz DDR4), Radeon Pro 560X (4GB)].
     Thus, when you just need data without header information (combine or stacking images, simple image
     arithmetics without header updates, etc) for MANY images, the gain is enormous by using FITSIO.
     This also boosts the speed of some processes which have to open the same FITS file repeatedly due
@@ -360,11 +354,16 @@ def load_ccd(path, *args, ext=None, extname=None, extver=None, as_ccd=True, use_
         9.42 ms +/- 391 µs per loop (mean +/- std. dev. of 7 runs, 100 loops each)
     ```
     '''
-    ext = _parse_extension(*args, ext=ext, extname=extname, extver=extver)
 
-    if as_ccd:
-        reader_kw = dict(hdu=ext, hdu_uncertainty=hdu_uncertainty, hdu_mask=hdu_mask, hdu_flags=hdu_flags,
-                         key_uncertainty_type=key_uncertainty_type, memmap=memmap, **kwd)
+    extension = _parse_extension(extension)
+    extension_unc = _parse_extension(extension_uncertainty)
+    extension_mask = _parse_extension(extension_mask)
+    extension_flag = _parse_extension(extension_flags)
+
+    if ccddata and as_ccd:
+        reader_kw = dict(hdu=extension, hdu_uncertainty=extension_unc, hdu_mask=extension_mask,
+                         hdu_flags=extension_flag, key_uncertainty_type=key_uncertainty_type, memmap=memmap,
+                         **kwd)
 
         # FIXME: Remove this if block in the future if WCS issue is resolved.
         if use_wcs:  # Because of the TPV WCS issue
@@ -388,16 +387,29 @@ def load_ccd(path, *args, ext=None, extname=None, extver=None, as_ccd=True, use_
 
     else:
         # Use fitsio and only load the data as soon as possible. This is much quicker than astropy's getdata
-        try:
-            hdul = fitsio.FITS(path)
-            if isinstance(ext, (list, tuple, np.ndarray)):
-                arr = hdul[ext[0], ext[1]].read()
-            else:
-                arr = hdul[ext].read()
+        def _read_fits_fitsio(_hdul, _path, _extension):
+            try:
+                if isinstance(_extension, (list, tuple, np.ndarray)):
+                    # length == 2 is already checked in _parse_extension.
+                    arr = hdul[_extension[0], _extension[1]].read()
+                else:
+                    arr = hdul[_extension].read()
+                return arr
+            except OSError:
+                raise ValueError(f"Extension `{_extension}` is not found (file: {_path})")
+
+        hdul = fitsio.FITS(path)
+        if load_primary_only_fitsio:
+            _data = _read_fits_fitsio(hdul, extension)
             hdul.close()
-            return arr
-        except OSError:
-            raise ValueError(f"Extension `{ext}` is not found (file: {path})")
+            return _data
+        else:
+            data = _read_fits_fitsio(hdul, extension)
+            unc = _read_fits_fitsio(hdul, extension_unc)
+            mask = _read_fits_fitsio(hdul, extension_mask)
+            flag = None  # FIXME: add this line when CCDData starts to support flags.
+            hdul.close()
+            return data, unc, mask, flag
 
 
 def str_now(precision=3, fmt="{:.>72s}", t_ref=None,
@@ -415,13 +427,13 @@ def str_now(precision=3, fmt="{:.>72s}", t_ref=None,
             ``(2020-01-01T01:01:01.23)``
           * ``"{:_^72s}"``: center align, filling with ``_``.
     t_ref : Time, optional.
-        The reference time. If not ``None``, delta time is calculated.
+        The reference time. If not `None`, delta time is calculated.
     dt_fmt : str, optional.
         The Python 3 format string to format the delta time.
     return_time : bool, optional.
         Whether to return the time at the start of this function and the
         delta time (``dt``), as well as the time information string. If
-        ``t_ref`` is ``None``, ``dt`` is automatically set to ``None``.
+        ``t_ref`` is `None`, ``dt`` is automatically set to `None`.
     '''
     now = Time(Time.now(), precision=precision)
     timestr = now.isot
@@ -439,17 +451,19 @@ def str_now(precision=3, fmt="{:.>72s}", t_ref=None,
 
 def change_to_quantity(x, desired='', to_value=False):
     ''' Change the non-Quantity object to astropy Quantity.
+
     Parameters
     ----------
     x : object changable to astropy Quantity
-        The input to be changed to a Quantity. If a Quantity is given,
-        ``x`` is changed to the ``desired``, i.e., ``x.to(desired)``.
+        The input to be changed to a Quantity. If a Quantity is given, ``x`` is changed to the
+        ``desired``, i.e., ``x.to(desired)``.
+
     desired : str or astropy Unit
         The desired unit for ``x``.
+
     to_value : bool, optional.
-        Whether to return as scalar value. If ``True``, just the
-        value(s) of the ``desired`` unit will be returned after
-        conversion.
+        Whether to return as scalar value. If `True`, just the value(s) of the ``desired`` unit will be
+        returned after conversion.
 
     Return
     ------
@@ -457,9 +471,8 @@ def change_to_quantity(x, desired='', to_value=False):
 
     Note
     ----
-    If Quantity, transform to ``desired``. If ``desired = None``, return
-    it as is. If not Quantity, multiply the ``desired``. ``desired =
-    None``, return ``x`` with dimensionless unscaled unit.
+    If Quantity, transform to ``desired``. If ``desired = None``, return it as is. If not Quantity,
+    multiply the ``desired``. ``desired = None``, return ``x`` with dimensionless unscaled unit.
     '''
     def _copy(xx):
         try:
@@ -473,7 +486,7 @@ def change_to_quantity(x, desired='', to_value=False):
         ux = x.to(desired)
         if to_value:
             ux = ux.value
-    except AttributeError:
+    except AttributeError:  # if not Quantity
         if not to_value:
             if isinstance(desired, str):
                 desired = u.Unit(desired)
@@ -486,27 +499,28 @@ def change_to_quantity(x, desired='', to_value=False):
     except TypeError:
         ux = _copy(x)
     except u.UnitConversionError:
-        raise ValueError("If you use astropy.Quantity, you should use "
-                         + "unit convertible to `desired`. \nYou gave "
-                         + f'"{x.unit}", unconvertible with "{desired}".')
+        raise ValueError("If you use astropy.Quantity, you should use unit convertible to `desired`. \n"
+                         + f'You gave "{x.unit}", unconvertible with "{desired}".')
 
     return ux
 
 
 def binning(arr, factor_x=1, factor_y=1, binfunc=np.mean, trim_end=False):
     ''' Bins the given arr frame.
+
     Paramters
     ---------
     arr: 2d array
         The array to be binned
+
     factor_x, factor_y: int
         The binning factors in x, y direction.
+
     binfunc : funciton object
-        The function to be applied for binning, such as ``np.sum``,
-        ``np.mean``, and ``np.median``.
+        The function to be applied for binning, such as ``np.sum``, ``np.mean``, and ``np.median``.
+
     trim_end: bool
-        Whether to trim the end of x, y axes such that binning is done without
-        error.
+        Whether to trim the end of x, y axes such that binning is done without error.
 
     Note
     ----
@@ -548,9 +562,8 @@ def fitsxy2py(fits_section):
     Parameters
     ----------
     fits_section : str or list-like of such
-        The section specified by FITS convention, i.e., bracket
-        embraced, comma separated, XY order, 1-indexing, and including
-        the end index.
+        The section specified by FITS convention, i.e., bracket embraced, comma separated, XY order,
+        1-indexing, and including the end index.
 
     Note
     ----
@@ -573,23 +586,26 @@ def fitsxy2py(fits_section):
 def give_stats(item, extension=0, percentiles=[1, 99], N_extrema=None,
                return_header=False, nanfunc=False):
     ''' Calculates simple statistics.
+
     Parameters
     ----------
     item: array-like, CCDData, HDUList, PrimaryHDU, ImageHDU, or path-like
         The data or path to a FITS file to be analyzed.
+
     extension: int, str, optional
-        The extension if ``item`` is the path to the FITS file or
-        ``HDUList``.
+        The extension if ``item`` is the path to the FITS file or ``HDUList``.
+
     percentiles: list-like, optional
         The percentiles to be calculated.
+
     N_extrema: int, optinoal
-        The number of low and high elements to be returned when the
-        whole data are sorted. If ``None``, it will not be calculated.
-        If ``1``, it is identical to min/max values.
+        The number of low and high elements to be returned when the whole data are sorted. If `None`,
+        it will not be calculated. If ``1``, it is identical to min/max values.
+
     return_header : bool, optional.
-        Works only if you gave ``item`` as FITS file path or
-        ``CCDData``. The statistics information will be added to the
-        header and the updated header will be returned.
+        Works only if you gave ``item`` as FITS file path or ``CCDData``. The statistics information
+        will be added to the header and the updated header will be returned.
+
     nanfunc : bool, optional.
         Whether to use nan-related functions (e.g., ``np.nanmedian``).
 
@@ -597,15 +613,15 @@ def give_stats(item, extension=0, percentiles=[1, 99], N_extrema=None,
     ------
     result : dict
         The dict which contains all the statistics.
+
     hdr : Header
-        The updated header. Returned only if ``update_header`` is
-        ``True`` and ``item`` is FITS file path or has ``header``
-        attribute (e.g., ``CCDData`` or ``hdu``)
+        The updated header. Returned only if ``update_header`` is `True` and ``item`` is FITS file path
+        or has ``header`` attribute (e.g., ``CCDData`` or ``hdu``)
 
     Note
     ----
-    If you have bottleneck package, the functions from bottleneck will
-    be used. Otherwise, numpy is used.
+    If you have bottleneck package, the functions from bottleneck will be used. Otherwise, numpy is
+    used.
 
     Example
     -------
@@ -694,32 +710,18 @@ def give_stats(item, extension=0, percentiles=[1, 99], N_extrema=None,
         result["ext_hi"] = d_his
 
     if return_header and hdr is not None:
-        hdr["STATNPIX"] = (result['num'],
-                           "Number of pixels used in statistics below")
-        hdr["STATMIN"] = (result['min'],
-                          "Minimum value of the pixels")
-        hdr["STATMAX"] = (result['max'],
-                          "Maximum value of the pixels")
-        hdr["STATAVG"] = (result['avg'],
-                          "Average value of the pixels")
-        hdr["STATMED"] = (result['med'],
-                          "Median value of the pixels")
-        hdr["STATSTD"] = (result['std'],
-                          "Sample standard deviation value of the pixels")
-        hdr["STATMED"] = (result['zmin'],
-                          "Median value of the pixels")
-        hdr["STATZMIN"] = (result['zmin'],
-                           "zscale minimum value of the pixels")
-        hdr["STATZMAX"] = (result['zmax'],
-                           "zscale minimum value of the pixels")
+        hdr["STATNPIX"] = (result['num'], "Number of pixels used in statistics below")
+        hdr["STATMIN"] = (result['min'], "Minimum value of the pixels")
+        hdr["STATMAX"] = (result['max'], "Maximum value of the pixels")
+        hdr["STATAVG"] = (result['avg'], "Average value of the pixels")
+        hdr["STATMED"] = (result['med'], "Median value of the pixels")
+        hdr["STATSTD"] = (result['std'], "Sample standard deviation value of the pixels")
+        hdr["STATMED"] = (result['zmin'], "Median value of the pixels")
+        hdr["STATZMIN"] = (result['zmin'], "zscale minimum value of the pixels")
+        hdr["STATZMAX"] = (result['zmax'], "zscale minimum value of the pixels")
         for i, p in enumerate(percentiles):
-            hdr[f"PERCTS{i+1:02d}"] = (
-                percentiles[i],
-                "The percentile used in STATPC"
-            )
-            hdr[f"STATPC{i+1:02d}"] = (
-                result['pct'][i],
-                "Percentile value at PERCTS")
+            hdr[f"PERCTS{i+1:02d}"] = (p, "The percentile used in STATPC")
+            hdr[f"STATPC{i+1:02d}"] = (result['pct'][i], "Percentile value at PERCTS")
 
         if N_extrema is not None:
             if N_extrema > 99:
@@ -749,6 +751,7 @@ def epadu2dB(gain_epadu):
 
 def chk_keyval(type_key, type_val, group_key):
     ''' Checks the validity of key and values used heavily in combutil.
+
     Parameters
     ----------
     type_key : None, str, list of str, optional
@@ -759,11 +762,9 @@ def chk_keyval(type_key, type_val, group_key):
 
 
     group_key : None, str, list of str, optional
-        The header keyword which will be used to make groups for the CCDs
-        that have selected from ``type_key`` and ``type_val``.
-        If ``None`` (default), no grouping will occur, but it will return
-        the `~pandas.DataFrameGroupBy` object will be returned for the sake
-        of consistency.
+        The header keyword which will be used to make groups for the CCDs that have selected from
+        ``type_key`` and ``type_val``. If `None` (default), no grouping will occur, but it will return
+        the `~pandas.DataFrameGroupBy` object will be returned for the sake of consistency.
 
     Return
     ------
@@ -812,7 +813,6 @@ def chk_keyval(type_key, type_val, group_key):
     # If there is overlap
     overlap = set(type_key).intersection(set(group_key))
     if len(overlap) > 0:
-        warn(f"{overlap} appear in both type_key and group_key. It may not "
-             + "be harmful but better to avoid.")
+        warn(f"{overlap} appear in both type_key and group_key. It may not be harmful but better to avoid.")
 
     return type_key, type_val, group_key
