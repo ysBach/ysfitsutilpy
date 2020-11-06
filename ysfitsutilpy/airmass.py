@@ -18,13 +18,6 @@ __all__ = ["calc_airmass", "airmass_obs", "airmass_from_hdr"]
 
 def calc_airmass(zd_deg=None, cos_zd=None, scale=750.):
     ''' Calculate airmass by nonrefracting radially symmetric atmosphere model.
-    Note
-    ----
-    Wiki:
-        https://en.wikipedia.org/wiki/Air_mass_(astronomy)#Nonrefracting_radially_symmetrical_atmosphere
-    Identical to the airmass calculation for a given observational run of
-    IRAF's asutil.setairmass:
-        http://stsdas.stsci.edu/cgi-bin/gethelp.cgi?setairmass
 
     Parameters
     ----------
@@ -35,9 +28,17 @@ def calc_airmass(zd_deg=None, cos_zd=None, scale=750.):
         The cosine of zenithal distance. If given, ``zd_deg`` is not used.
 
     scale : float, optional
-        Earth radius divided by the atmospheric height (usually scale height)
-        of the atmosphere. In IRAF documentation, it is mistakenly written that
-        this ``scale`` is the "scale height".
+        Earth radius divided by the atmospheric height (usually scale height) of the atmosphere. In
+        IRAF documentation, it is mistakenly written that this ``scale`` is the "scale height".
+
+    Notes
+    -----
+    Wiki:
+        https://en.wikipedia.org/wiki/Air_mass_(astronomy)#Nonrefracting_radially_symmetrical_atmosphere
+
+    Identical to the airmass calculation for a given observational run of IRAF's asutil.setairmass:
+        http://stsdas.stsci.edu/cgi-bin/gethelp.cgi?setairmass
+
     '''
     if zd_deg is None and cos_zd is None:
         raise ValueError("Either zd_deg or cos_zd should not be None.")
@@ -45,21 +46,13 @@ def calc_airmass(zd_deg=None, cos_zd=None, scale=750.):
     if cos_zd is None:
         cos_zd = np.cos(np.deg2rad(zd_deg))
 
-    am = np.sqrt((scale * cos_zd)**2 + 2 * scale + 1) - scale * cos_zd
+    am = np.sqrt((scale*cos_zd)**2 + 2*scale + 1) - scale*cos_zd
 
     return am
 
 
 def airmass_obs(targetcoord, obscoord, ut, exptime, scale=750., full=False):
     ''' Calculate airmass by nonrefracting radially symmetric atmosphere model.
-    Note
-    ----
-    Wiki:
-        https://en.wikipedia.org/wiki/Air_mass_(astronomy)#Nonrefracting_radially_symmetrical_atmosphere
-    Identical to the airmass calculation for a given observational run of
-    IRAF's asutil.setairmass:
-        http://stsdas.stsci.edu/cgi-bin/gethelp.cgi?setairmass
-    Partly contributed by Geonwoo Kang (Seoul National University) in Apr 2018.
 
     Parameters
     ----------
@@ -76,10 +69,16 @@ def airmass_obs(targetcoord, obscoord, ut, exptime, scale=750., full=False):
         The exposure time.
 
     scale : float, optional
-        Earth radius divided by the atmospheric height (usually scale height)
-        of the atmosphere. In IRAF documentation, it is mistakenly written that
-        this ``scale`` is the "scale height".
+        Earth radius divided by the atmospheric height (usually scale height) of the atmosphere. In
+        IRAF documentation, it is mistakenly written that this ``scale`` is the "scale height".
 
+    Notes
+    -----
+    Wiki:
+        https://en.wikipedia.org/wiki/Air_mass_(astronomy)#Nonrefracting_radially_symmetrical_atmosphere
+    Identical to the airmass calculation for a given observational run of IRAF's asutil.setairmass:
+        http://stsdas.stsci.edu/cgi-bin/gethelp.cgi?setairmass
+    Partly contributed by Geonwoo Kang (Seoul National University) in Apr 2018.
     '''
     if not isinstance(ut, Time):
         warn("ut is not Time object. Assume format='isot', scale='utc'.")
@@ -105,9 +104,7 @@ def airmass_obs(targetcoord, obscoord, ut, exptime, scale=750., full=False):
         alldict["zd"].append(zd)
         alldict["airmass"].append(am)
 
-    am_eff = (alldict["airmass"][0]
-              + 4 * alldict["airmass"][1]
-              + alldict["airmass"][2]) / 6
+    am_eff = (alldict["airmass"][0] + 4*alldict["airmass"][1] + alldict["airmass"][2]) / 6
 
     if full:
         return am_eff, alldict
@@ -117,25 +114,17 @@ def airmass_obs(targetcoord, obscoord, ut, exptime, scale=750., full=False):
 
 # TODO: change key, unit, etc as input dict.
 def airmass_from_hdr(header, ra=None, dec=None, ut=None, exptime=None,
-                     lon=None, lat=None, height=None, equinox=None, frame=None,
-                     scale=750.,
-                     ra_key="RA", dec_key="DEC", ut_key="DATE-OBS",
-                     exptime_key="EXPTIME", lon_key="LONGITUD",
-                     lat_key="LATITUDE", height_key="HEIGHT",
-                     equinox_key="EPOCH", frame_key="RADECSYS",
-                     ra_unit=u.hourangle, dec_unit=u.deg,
-                     exptime_unit=u.s, lon_unit=u.deg, lat_unit=u.deg,
-                     height_unit=u.m,
-                     ut_format='isot', ut_scale='utc',
-                     return_header=False,
-                     verbose=False
-                     ):
+                     lon=None, lat=None, height=None, equinox=None, frame=None, scale=750.,
+                     ra_key="RA", dec_key="DEC", ut_key="DATE-OBS", lon_key="LONGITUD", lat_key="LATITUDE",
+                     height_key="HEIGHT", exptime_key="EXPTIME", equinox_key="EPOCH", frame_key="RADECSYS",
+                     ra_unit=u.hourangle, dec_unit=u.deg, exptime_unit=u.s, lon_unit=u.deg, lat_unit=u.deg,
+                     height_unit=u.m, ut_format='isot', ut_scale='utc', return_header=False, verbose=False):
     ''' Calculate airmass using the header.
     Parameters
     ----------
     ra, dec: float or Quantity, optional
-        The RA and DEC of the target. If not specified, it tries to find
-        them in the header using ``ra_key`` and ``dec_key``.
+        The RA and DEC of the target. If not specified, it tries to find them in the header using
+        ``ra_key`` and ``dec_key``.
 
     ut: str or Time, optional
         The *starting* time of the observation in UT.
@@ -144,15 +133,13 @@ def airmass_from_hdr(header, ra=None, dec=None, ut=None, exptime=None,
         The exposure time.
 
     lon, lat, height: str, float, or Quantity
-        The longitude, latitude, and height of the observatory. See
-        astropy.coordinates.EarthLocation.
+        The longitude, latitude, and height of the observatory. See astropy.coordinates.EarthLocation.
 
     equinox, frame: str, optional
         The ``equinox`` and ``frame`` for SkyCoord.
 
     scale: float, optional
-        Earth radius divided by the atmospheric height (usually scale
-        height) of the atmosphere.
+        Earth radius divided by the atmospheric height (usually scale height) of the atmosphere.
 
     XX_key: str, optional
         The header key to find XX if ``XX`` is `None`.
@@ -180,43 +167,33 @@ def airmass_from_hdr(header, ra=None, dec=None, ut=None, exptime=None,
     def _cards_airmass(am_eff, alldict):
         ''' Gives airmass and alt-az related header cards.
         '''
-        amstr = ("ysfitsutilpy's airmass calculation uses the same algorithm "
-                 + "as IRAF: From 'Some Factors Affecting the Accuracy of "
-                 + "Stellar Photometry with CCDs' by P. Stetson, DAO preprint,"
+        amstr = ("ysfitsutilpy's airmass calculation uses the same algorithm as IRAF: From 'Some Factors "
+                 + "Affecting the Accuracy of Stellar Photometry with CCDs' by P. Stetson, DAO preprint,"
                  + " September 1988.")
 
-        # At some times, hdr["AIRMASS"] = am, for example, did not work
-        # for some reasons which I don't know.... So I used Card. -
+        # At some times, hdr["AIRMASS"] = am, for example, did not work for some reasons which I don't
+        # know.... So I used Card. -
         # YPBach 2018-05-04
-        cs = [Card("AIRMASS", am_eff,
-                   "Effective airmass (Stetson 1988; see COMMENT)"),
-              Card("ZD", alldict["zd"][0],
-                   "[deg] Zenithal distance (start of the exposure)"),
-              Card("ALT", alldict["alt"][0],
-                   "Altitude (start of the exposure)"),
-              Card("AZ", alldict["az"][0],
-                   "Azimuth (start of the exposure)"),
-              Card("ALT_MID", alldict["alt"][1],
-                   "Altitude (midpoint of the exposure)"),
-              Card("AZ_MID", alldict["az"][1],
-                   "Azimuth (midpoint of the exposure)"),
-              Card("ZD_MID", alldict["zd"][1],
-                   "[deg] Zenithal distance (midpoint of the exposure)"),
-              Card("ALT_END", alldict["alt"][2],
-                   "Altitude (end of the exposure)"),
-              Card("AZ_END", alldict["az"][2],
-                   "Azimuth (end of the exposure)"),
-              Card("ZD_END", alldict["zd"][2],
-                   "[deg] Zenithal distance (end of the exposure)"),
-              Card("COMMENT", amstr),
-              Card("HISTORY", "ALT-AZ calculated from ysfitsutilpy."),
-              Card("HISTORY", "AIRMASS calculated from ysfitsutilpy.")]
+        cs = [
+            Card("AIRMASS", am_eff, "Effective airmass (Stetson 1988; see COMMENT)"),
+            Card("ZD", alldict["zd"][0], "[deg] Zenithal distance (start of the exposure)"),
+            Card("ALT", alldict["alt"][0], "Altitude (start of the exposure)"),
+            Card("AZ", alldict["az"][0], "Azimuth (start of the exposure)"),
+            Card("ALT_MID", alldict["alt"][1], "Altitude (midpoint of the exposure)"),
+            Card("AZ_MID", alldict["az"][1], "Azimuth (midpoint of the exposure)"),
+            Card("ZD_MID", alldict["zd"][1], "[deg] Zenithal distance (midpoint of the exposure)"),
+            Card("ALT_END", alldict["alt"][2], "Altitude (end of the exposure)"),
+            Card("AZ_END", alldict["az"][2], "Azimuth (end of the exposure)"),
+            Card("ZD_END", alldict["zd"][2], "[deg] Zenithal distance (end of the exposure)"),
+            Card("COMMENT", amstr),
+            Card("HISTORY", "ALT-AZ calculated from ysfitsutilpy."),
+            Card("HISTORY", "AIRMASS calculated from ysfitsutilpy.")
+        ]
         return cs
 
-    v = {'verbose': verbose}
-    ra = get_if_none(ra, header, ra_key, unit=ra_unit, **v)[0]
-    dec = get_if_none(dec, header, dec_key, unit=dec_unit, **v)[0]
-    exptime = get_if_none(exptime, header, exptime_key, unit=exptime_unit, **v)[0]
+    ra = get_if_none(ra, header, ra_key, unit=ra_unit, verbose=verbose)[0]
+    dec = get_if_none(dec, header, dec_key, unit=dec_unit, verbose=verbose)[0]
+    exptime = get_if_none(exptime, header, exptime_key, unit=exptime_unit, verbose=verbose)[0]
     lon = get_if_none(lon, header, lon_key, lon_unit)[0]
     lat = get_if_none(lat, header, lat_key, lat_unit)[0]
     height = get_if_none(height, header, height_key, height_unit)[0]
@@ -239,27 +216,15 @@ def airmass_from_hdr(header, ra=None, dec=None, ut=None, exptime=None,
         # ut_format = 'isot'
         # ut_scale = 'utc'
 
-    targetcoord = SkyCoord(ra=ra,
-                           dec=dec,
-                           unit=(ra_unit, dec_unit),
-                           frame=frame,
-                           equinox=equinox)
+    targetcoord = SkyCoord(ra=ra, dec=dec, unit=(ra_unit, dec_unit), frame=frame, equinox=equinox)
 
     try:  # It should work here but just in case I put except...
-        observcoord = EarthLocation(lon=lon * lon_unit,
-                                    lat=lat * lat_unit,
-                                    height=height * height_unit)
+        observcoord = EarthLocation(lon=lon*lon_unit, lat=lat*lat_unit, height=height*height_unit)
     except ValueError:
-        observcoord = EarthLocation(lon=lon,
-                                    lat=lat,
-                                    height=height)
+        observcoord = EarthLocation(lon=lon, lat=lat, height=height)
 
-    am_eff, alldict = airmass_obs(targetcoord=targetcoord,
-                                  obscoord=observcoord,
-                                  ut=ut,
-                                  exptime=exptime * exptime_unit,
-                                  scale=scale,
-                                  full=True)
+    am_eff, alldict = airmass_obs(targetcoord=targetcoord, obscoord=observcoord,
+                                  ut=ut, exptime=exptime*exptime_unit, scale=scale, full=True)
 
     if return_header:
         nhdr = header.copy()
