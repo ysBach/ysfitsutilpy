@@ -6,6 +6,7 @@ import glob
 import sys
 from pathlib import Path, PosixPath, WindowsPath
 from warnings import warn
+from astropy.io.fits.hdu.hdulist import HDUList
 
 import ccdproc
 import fitsio
@@ -125,7 +126,7 @@ def get_size(obj, seen=None):
     return size
 
 
-def _parse_data_header(ccd_like_object, extension=None):
+def _parse_data_header(ccd_like_object, extension=None, parse_data=True, parse_header=True):
     '''Parses data and header and return them separately after copy.
 
     Paramters
@@ -138,6 +139,10 @@ def _parse_data_header(ccd_like_object, extension=None):
         ``EXTNAME`` (single str), or a tuple of str and int: ``(EXTNAME, EXTVER)``. If `None`
         (default), the *first extension with data* will be used.
 
+    parse_data, parse_hdr : bool, optional.
+        Because this function uses ``.copy()`` for safety, it may take a bit of time if this function
+        is used iteratively. One then can turn off one of these to ignore either data or header part.
+
     Returns
     -------
     data : ndarray
@@ -145,19 +150,26 @@ def _parse_data_header(ccd_like_object, extension=None):
 
     hdr : Header, None
         The header if header exists; otherwise, `None` is returned.
+
+    Notes
+    -----
+    _parse_data_header and _parse_image have different purposes: _parse_data_header is to get a quick
+    copy of the data and/or header, especially to CHECK if it has header, while _parse_image is to deal
+    mainly with the data (and has options to return as CCDData).
     '''
     if isinstance(ccd_like_object, (CCDData, fits.PrimaryHDU, fits.ImageHDU)):
-        data = ccd_like_object.data.copy()
-        hdr = ccd_like_object.header.copy()
+        data = ccd_like_object.data.copy() if parse_data else None
+        hdr = ccd_like_object.header.copy() if parse_header else None
     elif isinstance(ccd_like_object, fits.HDUList):
-        extension = _parse_extension(extension)
-        data = ccd_like_object[extension].data.copy()
-        hdr = ccd_like_object[extension].header.copy()
+        extension = _parse_extension(extension) if parse_data or parse_header else 0
+        # ^ don't even do _parse_extension if both are False
+        data = ccd_like_object[extension].data.copy() if parse_data else None
+        hdr = ccd_like_object[extension].header.copy() if parse_header else None
     else:
         try:  # such as ndarray
-            data = ccd_like_object.copy()
+            data = ccd_like_object.copy() if parse_data else None
         except AttributeError:  # Such as a number
-            data = ccd_like_object
+            data = ccd_like_object if parse_data else None
         hdr = None
     return data, hdr
 
@@ -173,7 +185,7 @@ def _parse_extension(*args, ext=None, extname=None, extver=None):
     https://github.com/astropy/astropy/blob/master/astropy/io/fits/convenience.py#L988
 
     This is essential for fits_ccddata_reader, because it only has ``hdu``, not all three of ext,
-    extname, and extver (facepalm).
+    extname, and extver.
     """
 
     err_msg = ('Redundant/conflicting extension arguments(s): {}'.format(
@@ -236,7 +248,7 @@ def _parse_image(im, extension, name, force_ccd=False, prefer_ccd=False):
     '''Parse and return input image as desired format (ndarray or CCDData)
     Parameters
     ----------
-    im : CCDdata, ndarray, path-like, or number-like
+    im : CCDData-like (e.g., PrimaryHDU, ImageHDU, HDUList), ndarray, path-like, or number-like
         The "image" that will be parsed. A string that can be converted to float (``float(im)``)
         will be interpreted as numbers; if not, it will be interpreted as a path to the FITS file.
 
@@ -263,9 +275,16 @@ def _parse_image(im, extension, name, force_ccd=False, prefer_ccd=False):
 
     imtype : str
         The type of the image.
+
+    Notes
+    -----
+    _parse_data_header and _parse_image have different purposes: _parse_data_header is to get a quick
+    copy of the data and/or header, especially to CHECK if it has header, while _parse_image is to deal
+    mainly with the data (and has options to return as CCDData).
     '''
     has_no_name = name is None
     extension = _parse_extension(extension)
+
     if extension is None:
         extstr = ''
     else:
@@ -274,22 +293,30 @@ def _parse_image(im, extension, name, force_ccd=False, prefer_ccd=False):
         else:
             extstr = f"[{extension}]"
 
+    imname = f"User-provided {im.__class__.__name__}{extstr}" if has_no_name else name
+
     if isinstance(im, CCDData):
         # force_ccd: CCDData // prefer_ccd: CCDData // else: ndarray
-        imname = f"User-provided CCDData{extstr}" if has_no_name else name
-        new_im = im if (force_ccd or prefer_ccd) else im.data
+        new_im = CCDData(im) if (force_ccd or prefer_ccd) else im.data.copy()
         imtype = "CCDdata"
+    elif isinstance(im, (fits.PrimaryHDU, fits.ImageHDU)):
+        # force_ccd: CCDData // prefer_ccd: CCDData // else: ndarray
+        new_im = CCDData(im) if (force_ccd or prefer_ccd) else im.data.copy()
+        imtype = "hdu"
+    elif isinstance(im, fits.HDUList):
+        # force_ccd: CCDData // prefer_ccd: CCDData // else: ndarray
+        new_im = CCDData(im[extension]) if (force_ccd or prefer_ccd) else im[extension].data.copy()
+        imtype = "HDUList"
     elif isinstance(im, np.ndarray):
         # force_ccd: CCDData // prefer_ccd: ndarray // else: ndarray
-        imname = "User-provided ndarray" if has_no_name else name
         new_im = CCDData(data=im, unit='adu') if force_ccd else im
         imtype = "ndarray"
     else:
         try:  # IF number (ex: im = 1.3)
             # force_ccd: CCDData // prefer_ccd: number // else: number
-            imname = f"User-provided number {im}" if has_no_name else name
+            imname = f"{imname} {im}" if has_no_name else name
             _im = float(im)
-            new_im = CCDData(data=_im, unit='adu') if force_ccd else _im
+            new_im = CCDData(data=_im, unit='adu') if force_ccd else np.asarray(_im)
             imtype = "num"
         except ValueError:
             try:  # IF path-like
@@ -299,7 +326,7 @@ def _parse_image(im, extension, name, force_ccd=False, prefer_ccd=False):
                 new_im = load_ccd(fpath, extension, ccddata=(force_ccd or prefer_ccd))
                 imtype = "path"
             except TypeError:
-                raise TypeError("im1/im2 must be CCDData, ndarray, path-like (to FITS), or a number.")
+                raise TypeError("input im must be CCDData-like, ndarray, path-like (to FITS), or a number.")
 
     return new_im, imname, imtype
 
