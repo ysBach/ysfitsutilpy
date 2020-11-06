@@ -143,8 +143,8 @@ def _parse_extension(*args, ext=None, extname=None, extver=None):
     """
     Open the input file, return the `HDUList` and the extension.
 
-    This supports several different styles of extension selection.  See the
-    :func:`getdata()` documentation for the different possibilities.
+    This supports several different styles of extension selection.  See the :func:`getdata()`
+    documentation for the different possibilities.
 
     Direct copy from astropy, but removing "opening HDUList" part
     https://github.com/astropy/astropy/blob/master/astropy/io/fits/convenience.py#L988
@@ -219,28 +219,11 @@ def load_ccd(path, extension=None, ccddata=True, as_ccd=True, use_wcs=True, unit
     path : path-like
         The path to the FITS file to load.
 
-    extension : int, str, (str, int), optional.
-        They are flexible and are best illustrated by examples.
+        extension: int, str, (str, int)
+        The extension of FITS to be used. It can be given as integer (0-indexing) of the extension,
+        ``EXTNAME`` (single str), or a tuple of str and int: ``(EXTNAME, EXTVER)``. If `None`
+        (default), the *first extension with data* will be used.
 
-        No extra arguments implies the primary extension::
-
-            load_ccd('in.fits')
-
-        By extension number::
-
-            load_ccd('in.fits', 0)      # the primary extension
-            load_ccd('in.fits', 2)      # the second extension
-
-        By name, i.e., ``EXTNAME`` value (if unique)::
-
-            load_ccd('in.fits', 'sci')
-
-        Note ``EXTNAME`` values are not case sensitive
-
-        By combination of ``EXTNAME`` and EXTVER`` as separate arguments or as a tuple::
-
-            load_ccd('in.fits', 'sci', 2)  # EXTNAME='SCI' & EXTVER=2
-            load_ccd('in.fits', ('sci', 2))  # equivalent
 
     ccddata : bool, optional.
         Whether to return `~astropy.nddata.CCDData`. Default is `True`. If it is `False`, **all the
@@ -586,8 +569,8 @@ def fitsxy2py(fits_section):
         return sl
 
 
-def give_stats(item, extension=0, percentiles=[1, 99], N_extrema=None,
-               return_header=False, nanfunc=False):
+# TODO: add sigma-clipped statistics option
+def give_stats(item, extension=None, percentiles=[1, 99], N_extrema=None, return_header=False, nanfunc=False):
     ''' Calculates simple statistics.
 
     Parameters
@@ -595,8 +578,10 @@ def give_stats(item, extension=0, percentiles=[1, 99], N_extrema=None,
     item: array-like, CCDData, HDUList, PrimaryHDU, ImageHDU, or path-like
         The data or path to a FITS file to be analyzed.
 
-    extension: int, str, optional
-        The extension if ``item`` is the path to the FITS file or ``HDUList``.
+    extension: int, str, (str, int)
+        The extension of FITS to be used. It can be given as integer (0-indexing) of the extension,
+        ``EXTNAME`` (single str), or a tuple of str and int: ``(EXTNAME, EXTVER)``. If `None`
+        (default), the *first extension with data* will be used.
 
     percentiles: list-like, optional
         The percentiles to be calculated.
@@ -610,7 +595,9 @@ def give_stats(item, extension=0, percentiles=[1, 99], N_extrema=None,
         will be added to the header and the updated header will be returned.
 
     nanfunc : bool, optional.
-        Whether to use nan-related functions (e.g., ``np.nanmedian``).
+        Whether to use nan-related functions (e.g., ``np.nanmedian``). If any pixel has non-finite
+        value (such as ``np.nan`` or ``np.inf``), ``nanfunc`` must be `True` to get proper statistics
+        at a cost of computational speed.
 
     Return
     ------
@@ -643,9 +630,9 @@ def give_stats(item, extension=0, percentiles=[1, 99], N_extrema=None,
     >>> import json
     >>> percentiles = json.loads(ccd.header['percentiles'])
     '''
-    try:
+    try:  # if Path-like, replace ``item`` to ndarray or CCDData
         fpath = Path(item)
-        item = CCDData.read(fpath)
+        item = CCDData.read(fpath, extension)
     except (TypeError, ValueError):
         pass
 
