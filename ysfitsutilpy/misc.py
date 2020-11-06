@@ -210,9 +210,8 @@ def _parse_extension(*args, ext=None, extname=None, extver=None):
 
 
 def load_ccd(path, extension=None, ccddata=True, as_ccd=True, use_wcs=True, unit=None,
-             load_primary_only_fitsio=True,
              extension_uncertainty="UNCERT", extension_mask='MASK', extension_flags=None,
-             key_uncertainty_type='UTYPE', memmap=False, **kwd):
+             load_primary_only_fitsio=True, key_uncertainty_type='UTYPE', memmap=False, **kwd):
     ''' Loads FITS file of CCD image data (not table, etc).
     Paramters
     ---------
@@ -231,7 +230,7 @@ def load_ccd(path, extension=None, ccddata=True, as_ccd=True, use_wcs=True, unit
         ``fitsio.read``, and an ndarray will be returned without astropy unit.
 
     as_ccd : bool, optional.
-        Deprecated. (identical to ccddata)
+        Deprecated. (identical to ``ccddata``)
 
     unit : `~astropy.units.Unit`, optional
         Units of the image data. If this argument is provided and there is a unit for the image in the
