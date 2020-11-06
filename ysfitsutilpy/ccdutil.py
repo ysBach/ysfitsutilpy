@@ -282,10 +282,8 @@ def bezel_ccd(ccd, bezel_x=None, bezel_y=None, replace=np.nan, verbose=False):
 
     if replace is None:
         sl = (f"[{bezel_x[0] + 1}:{nx - bezel_x[1]},{bezel_y[0] + 1}:{ny - bezel_y[1]}]")
-        if isinstance(ccd, CCDData):
-            nccd = trim_ccd(ccd, fits_section=sl)
-        else:  # If nddata...
-            nccd = np.array(ccd)[fitsxy2py(sl)]
+        nccd = trim_ccd(ccd, fits_section=sl) if isinstance(ccd, CCDData) else np.array(ccd)[fitsxy2py(sl)]
+        # i.e., use trim_ccd if CCDData, and use python slice if ndarray-like
     else:
         nccd = ccd.copy()
         nccd.data[:bezel_y[0], :] = replace
@@ -458,13 +456,13 @@ def CCDData_astype(ccd, dtype='float32', uncertainty_dtype=None):
 
     uncertainty_dtype : dtype-like
         The dtype to be applied to the uncertainty. Be default, use the same dtype as data
-        (``uncertainty_dtype = dtype``).
+        (``uncertainty_dtype=dtype``).
 
     Example
     -------
     >>> from astropy.nddata import CCDData
     >>> import numpy as np
-    >>> ccd = CCDData.read("image_unitygain001.fits", ext=0)
+    >>> ccd = CCDData.read("image_unitygain001.fits", 0)
     >>> ccd.uncertainty = np.sqrt(ccd.data)
     >>> ccd = yfu.CCDData_astype(ccd, dtype='int16', uncertainty_dtype='float32')
     '''
