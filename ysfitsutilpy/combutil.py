@@ -103,11 +103,12 @@ def group_FITS(summary_table, type_key=None, type_val=None, group_key=None):
     return grouped, group_type_key
 
 
-def stack_FITS(fitslist=None, summary_table=None, ext=None, extname=None, extver=None,
+def stack_FITS(fitslist=None, summary_table=None, extension=None,
                unit='adu', table_filecol="file", trim_fits_section=None,
                loadccd=True, asccd=True, type_key=None, type_val=None,
                verbose=True):
     ''' Stacks the FITS files specified in fitslist
+
     Parameters
     ----------
     fitslist: None, list of path-like, or list of CCDData
@@ -124,8 +125,10 @@ def stack_FITS(fitslist=None, summary_table=None, ext=None, extname=None, extver
         to use ``summary_table`` instead of ``fitslist`` and have set ``loadccd=True``, you must not
         have `None` or ``NaN`` value in the ``summary_table[table_filecol]``.
 
-    extension: int or str
-        The extension of FITS to be stacked. For single extension, set it as 0.
+    extension: int, str, (str, int)
+        The extension of FITS to be used. It can be given as integer (0-indexing) of the extension,
+        ``EXTNAME`` (single str), or a tuple of str and int: ``(EXTNAME, EXTVER)``. If `None`
+        (default), the *first extension with data* will be used.
 
     unit: Unit or str, optional
         The unit of the CCDs to be loaded.
@@ -204,7 +207,7 @@ def stack_FITS(fitslist=None, summary_table=None, ext=None, extname=None, extver
         if selecting:
             summary_table = make_summary(
                 fitslist,
-                ext=None, extname=None, extver=None,
+                extension=extension,  # extension will be parsed within make_summary (no need to care here)
                 verbose=True,
                 fname_option='relative',
                 keywords=type_key,
@@ -265,7 +268,8 @@ def stack_FITS(fitslist=None, summary_table=None, ext=None, extname=None, extver
             else:  # it must be a path to a file
                 fpath = Path(fitslist[i])
                 if loadccd:
-                    ccd_i = load_ccd(fpath, ext=ext, extname=extname, extver=extver, unit=unit)
+                    # extension will be parsed within load_ccd (no need to care here)
+                    ccd_i = load_ccd(fpath, extension=extension, unit=unit)
                     if trim_fits_section is not None:
                         ccd_i = trim_image(ccd_i, fits_section=trim_fits_section)
                     if asccd:
@@ -275,7 +279,7 @@ def stack_FITS(fitslist=None, summary_table=None, ext=None, extname=None, extver
                 else:
                     matched.append(fpath)
     else:
-        # -- Use all item in fitslist -------------------------------- #
+        # == Use all item in fitslist ====================================================================== #
         # summary_table is not used.
         for item in fitslist:
             if isinstance(item, CCDData):
@@ -285,7 +289,8 @@ def stack_FITS(fitslist=None, summary_table=None, ext=None, extname=None, extver
                     matched.append(item.data)
             else:  # it must be a path to a file
                 if loadccd:
-                    ccd_i = load_ccd(item, ext=ext, extname=extname, extver=extver, unit=unit)
+                    # extension will be parsed within load_ccd (no need to care here)
+                    ccd_i = load_ccd(item, extension=extension, unit=unit)
                     if trim_fits_section is not None:
                         ccd_i = trim_image(ccd_i, fits_section=trim_fits_section)
                     if asccd:
@@ -328,7 +333,7 @@ def combine_ccd(fitslist=None, summary_table=None, table_filecol="file",
                 normalize_average=False, normalize_median=False,
                 exposure_key='EXPTIME', mem_limit=2e9,
                 combine_uncertainty_function=None,
-                ext=None, extname=None, extver=None, type_key=None, type_val=None,
+                extension=None, type_key=None, type_val=None,
                 dtype="float32", uncertainty_dtype="float32",
                 output_verify='fix', overwrite=False,
                 verbose=True, **kwargs):
@@ -403,14 +408,10 @@ def combine_ccd(fitslist=None, summary_table=None, table_filecol="file",
         provided.
         Default is `None`.
 
-    ext : int
-        The extension index (0-indexing).
-
-    extname : str
-        The extension name (``XTENSION``).
-
-    extver : int
-        The version of the extension; used only if extname is given.
+    extension: int, str, (str, int)
+        The extension of FITS to be used. It can be given as integer (0-indexing) of the extension,
+        ``EXTNAME`` (single str), or a tuple of str and int: ``(EXTNAME, EXTVER)``. If `None`
+        (default), the *first extension with data* will be used.
 
     dtype : str or `numpy.dtype` or None, optional
         Allows user to set dtype. See `numpy.array` ``dtype`` parameter description. If `None` it
@@ -569,7 +570,7 @@ def combine_ccd(fitslist=None, summary_table=None, table_filecol="file",
         fitslist=fitslist,
         summary_table=summary_table,
         table_filecol=table_filecol,
-        ext=ext, extname=extname, extver=extver,
+        extension=extension,  # extension will be parsed within make_summary/load_ccd (no need to care here)
         unit=unit,
         type_key=type_key,
         type_val=type_val,
@@ -626,7 +627,8 @@ def combine_ccd(fitslist=None, summary_table=None, table_filecol="file",
         if isinstance(ccdlist[0], CCDData):
             master = ccdlist[0]
         else:
-            master = load_ccd(ccdlist[0], ext=ext, extname=extname, extver=extver, unit=unit)
+            # extension will be parsed within load_ccd (no need to care here)
+            master = load_ccd(ccdlist[0], extension=extension, unit=unit)
     else:
         master = combine(
             img_list=ccdlist,
@@ -637,7 +639,7 @@ def combine_ccd(fitslist=None, summary_table=None, table_filecol="file",
             mem_limit=mem_limit,
             combine_uncertainty_function=combine_uncertainty_function,
             unit=unit,  # user-given unit is already applied by stack_FITS
-            hdu=_parse_extension(ext=ext, extname=extname, extver=extver),
+            hdu=extension,
             scale=scale,
             dtype=dtype,
             **kwargs)
