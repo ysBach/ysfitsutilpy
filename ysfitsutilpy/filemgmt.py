@@ -267,8 +267,8 @@ def fits_newpath(fpath, rename_by, mkdir_by=None, header=None, delimiter='_', fi
     fileext : str, optional
         The extension of the file name to be returned. Normally it should be ``'fits'`` since this
         function is ``fits_newname``, but you may prefer, e.g., ``'fit'`` for some reason. If
-        ``fileext`` does not start with ``"."``, the dot is automatically added to the final file name
-        in front of the ``fileext``.
+        ``fileext`` does not start with a period (``"."``), it is automatically added to the final file
+        name in front of the ``fileext``.
     '''
 
     if header is None:
