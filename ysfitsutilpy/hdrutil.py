@@ -8,8 +8,8 @@ import numpy as np
 from astropy import units as u
 from astropy import wcs as astropywcs
 from astropy.coordinates import SkyCoord
-from astropy.time import Time
 from astropy.io import fits
+from astropy.time import Time
 from astropy.wcs import WCS
 
 from .misc import change_to_quantity, str_now
@@ -20,35 +20,42 @@ __all__ = ["add_to_header",
            "convert_bit"]
 
 
-def add_to_header(header, histcomm, s, precision=3,
-                  fmt="{:.>72s}", t_ref=None, dt_fmt="(dt = {:.3f} s)",
-                  verbose=False):
+def add_to_header(header, histcomm, s, precision=3, fmt="{:.>72s}", t_ref=None,
+                  dt_fmt="(dt = {:.3f} s)", verbose=False):
     ''' Automatically add timestamp as well as history string
+
     Parameters
     ----------
     header : Header
         The header.
+
     histcomm : str in ['h', 'hist', 'history', 'c', 'comm', 'comment']
         Whether to add history or comment.
+
     s : str or list of str
         The string to add as history or comment.
+
     precision : int, optional.
         The precision of the isot format time.
+
     fmt : str, None, optional.
-        The Python 3 format string to format the time in the header.
-        If ``None``, the timestamp string will not be added.
-        Examples:
+        The Python 3 format string to format the time in the header. If `None`, the timestamp string
+        will not be added.
+
+        Examples::
           * ``"{:s}"``: plain time ``2020-01-01T01:01:01.23``
-          * ``"({:s})"``: plain time in parentheses
-            ``(2020-01-01T01:01:01.23)``
+          * ``"({:s})"``: plain time in parentheses ``(2020-01-01T01:01:01.23)``
           * ``"{:_^72s}"``: center align, filling with ``_``.
+
     t_ref : Time
-        The reference time. If not ``None``, delta time is calculated.
+        The reference time. If not `None`, delta time is calculated.
+
     dt_fmt : str, optional.
-        The Python 3 format string to format the delta time in the
-        header.
+        The Python 3 format string to format the delta time in the header.
+
     verbose : bool, optional.
         Whether to print the same information on the output terminal.
+
     verbose_fmt : str, optional.
         The Python 3 format string to format the time in the terminal.
     '''
@@ -61,8 +68,7 @@ def add_to_header(header, histcomm, s, precision=3,
             if verbose:
                 print(f"HISTORY {_s}")
         if fmt is not None:
-            timestr = str_now(precision=precision, fmt=fmt,
-                              t_ref=t_ref, dt_fmt=dt_fmt)
+            timestr = str_now(precision=precision, fmt=fmt, t_ref=t_ref, dt_fmt=dt_fmt)
             header.add_history(timestr)
             if verbose:
                 print(f"HISTORY {timestr}")
@@ -73,8 +79,7 @@ def add_to_header(header, histcomm, s, precision=3,
             if verbose:
                 print(f"COMMENT {_s}")
         if fmt is not None:
-            timestr = str_now(precision=precision, fmt=fmt,
-                              t_ref=t_ref, dt_fmt=dt_fmt)
+            timestr = str_now(precision=precision, fmt=fmt, t_ref=t_ref, dt_fmt=dt_fmt)
             header.add_comment(timestr)
             if verbose:
                 print(f"COMMENT {timestr}")
@@ -99,8 +104,7 @@ def wcs_crota(wcs, degree=True):
     elif isinstance(wcs, astropywcs.Wcsprm):
         wcsprm = wcs
     else:
-        raise TypeError("wcs type not understood. It must be either "
-                        + "astropy.wcs.wcs.WCS or astropy.wcs.Wcsprm")
+        raise TypeError("wcs type not understood. It must be either astropy.wcs.WCS or astropy.wcs.Wcsprm")
 
     # numpy arctan2 gets y-coord (numerator) and then x-coord(denominator)
     crota = np.arctan2(wcsprm.cd[0, 0], wcsprm.cd[1, 0])
@@ -117,8 +121,8 @@ def center_radec(header, center_of_image=True, ra_key="RA", dec_key="DEC",
     ''' Returns the central ra/dec from header or WCS.
     Note
     ----
-    Even though RA or DEC is in sexagesimal, e.g., "20 53 20", astropy
-    correctly reads it in such a form, so no worries.
+    Even though RA or DEC is in sexagesimal, e.g., "20 53 20", astropy correctly reads it in such a
+    form, so no worries.
 
     Parameters
     ----------
@@ -126,30 +130,26 @@ def center_radec(header, center_of_image=True, ra_key="RA", dec_key="DEC",
         The header to extract the central RA/DEC from keywords or WCS.
 
     center_of_image : bool, optional
-        If ``True``, WCS information will be extracted from the header,
-        rather than relying on the ``ra_key`` and ``dec_key`` keywords
-        directly. If ``False``, ``ra_key`` and ``dec_key`` from the header
-        will be understood as the "center" and the RA, DEC of that location
-        will be returned.
+        If `True`, WCS information will be extracted from the header, rather than relying on the
+        ``ra_key`` and ``dec_key`` keywords directly. If `False`, ``ra_key`` and ``dec_key`` from the
+        header will be understood as the "center" and the RA, DEC of that location will be returned.
 
     equinox, frame : str, optional
-        The ``equinox`` and ``frame`` for SkyCoord. Default (``None``) will
-        use the default of SkyCoord. Important only if ``usewcs=False``.
+        The ``equinox`` and ``frame`` for SkyCoord. Default (`None`) will use the default of
+        SkyCoord. Important only if ``usewcs=False``.
 
     XX_key : str, optional
-        The header key to find XX if ``XX`` is ``None``. Important only if
-        ``usewcs=False``.
+        The header key to find XX if ``XX`` is `None`. Important only if ``usewcs=False``.
 
     XX_unit : Quantity, optional
         The unit of ``XX``. Important only if ``usewcs=False``.
 
     mode : 'all' or 'wcs', optional
-        Whether to do the transformation including distortions (``'all'``) or
-        only including only the core WCS transformation (``'wcs'``). Important
-        only if ``usewcs=True``.
+        Whether to do the transformation including distortions (``'all'``) or only including only the
+        core WCS transformation (``'wcs'``). Important only if ``usewcs=True``.
 
     plain : bool
-        If ``True``, only the values of RA/DEC in degrees will be returned.
+        If `True`, only the values of RA/DEC in degrees will be returned.
     '''
     if center_of_image:
         w = WCS(header)
@@ -161,14 +161,10 @@ def center_radec(header, center_of_image=True, ra_key="RA", dec_key="DEC",
         ra = get_from_header(header, ra_key, verbose=verbose)
         dec = get_from_header(header, dec_key, verbose=verbose)
         if equinox is None:
-            equinox = get_from_header(header, equinox_key,
-                                      verbose=verbose, default=None)
+            equinox = get_from_header(header, equinox_key, verbose=verbose, default=None)
         if frame is None:
-            frame = get_from_header(header, frame_key,
-                                    verbose=verbose, default=None)
-            frame = frame.lower()
-        coo = SkyCoord(ra=ra, dec=dec, unit=(ra_unit, dec_unit),
-                       frame=frame, equinox=equinox)
+            frame = get_from_header(header, frame_key, verbose=verbose, default=None).lower()
+        coo = SkyCoord(ra=ra, dec=dec, unit=(ra_unit, dec_unit), frame=frame, equinox=equinox)
 
     if plain:
         return coo.ra.value, coo.dec.value
@@ -177,6 +173,7 @@ def center_radec(header, center_of_image=True, ra_key="RA", dec_key="DEC",
 
 def fov_radius(header, unit=u.deg):
     ''' Calculates the rough radius (cone) of the (square) FOV using WCS.
+
     Parameter
     ---------
     header: Header
@@ -202,20 +199,21 @@ def fov_radius(header, unit=u.deg):
 
 def key_remover(header, remove_keys, deepremove=True):
     ''' Removes keywords from the header.
+
     Parameters
     ----------
-    header: Header
+    header : Header
         The header to be modified
-    remove_keys: list of str
+
+    remove_keys : list of str
         The header keywords to be removed.
-    deepremove: True, optional
-        FITS standard does not have any specification of duplication of
-        keywords as discussed in the following issue:
-        https://github.com/astropy/ccdproc/issues/464
-        If it is set to ``True``, ALL the keywords having the name specified
-        in ``remove_keys`` will be removed. If not, only the first occurence
-        of each key in ``remove_keys`` will be removed. It is more sensical to
-        set it ``True`` in most of the cases.
+
+    deepremove : True, optional
+        FITS standard does not have any specification of duplication of keywords as discussed in the
+        following issue: https://github.com/astropy/ccdproc/issues/464 If it is set to `True`, ALL
+        the keywords having the name specified in ``remove_keys`` will be removed. If not, only the
+        first occurence of each key in ``remove_keys`` will be removed. It is more sensical to set it
+        `True` in most of the cases.
     '''
     nhdr = header.copy()
     if deepremove:
@@ -237,6 +235,7 @@ def key_remover(header, remove_keys, deepremove=True):
 
 def key_mapper(header, keymap, deprecation=False, remove=False):
     ''' Update the header to meed the standard (keymap).
+
     Parameters
     ----------
     header : Header
@@ -246,9 +245,8 @@ def key_mapper(header, keymap, deprecation=False, remove=False):
         The dictionary contains ``{<standard_key>:<original_key>}`` information
 
     deprecation : bool, optional
-        Whether to change the original keywords' comments to contain
-        deprecation warning. If ``True``, the original keywords' comments will
-        become ``Deprecated. See <standard_key>.``.
+        Whether to change the original keywords' comments to contain deprecation warning. If `True`,
+        the original keywords' comments will become ``Deprecated. See <standard_key>.``.
 
     Returns
     -------
@@ -278,8 +276,7 @@ def key_mapper(header, keymap, deprecation=False, remove=False):
     return newhdr
 
 
-def get_from_header(header, key, unit=None, verbose=True,
-                    default=0):
+def get_from_header(header, key, unit=None, verbose=True, default=0):
     ''' Get a variable from the header object.
     Parameters
     ----------
@@ -295,8 +292,8 @@ def get_from_header(header, key, unit=None, verbose=True,
     Returns
     -------
     q: Quantity or any object
-        The extracted quantity from the header. It's a Quantity if the unit is
-        given. Otherwise, appropriate type will be assigned.
+        The extracted quantity from the header. It's a Quantity if the unit is given. Otherwise,
+        appropriate type will be assigned.
     '''
     q = None
 
@@ -318,11 +315,7 @@ def get_if_none(value, header, key, unit=None, verbose=True, default=0,
     ''' Similar to get_from_header, but a convenience wrapper.
     '''
     if value is None:
-        value_Q = get_from_header(header,
-                                  key,
-                                  unit=unit,
-                                  verbose=verbose,
-                                  default=default)
+        value_Q = get_from_header(header, key, unit=unit, verbose=verbose, default=default)
         value_from = f"{key} in header"
     else:
         value_Q = change_to_quantity(value, unit, to_value=False)
@@ -339,11 +332,12 @@ def wcsremove(filepath=None, additional_keys=[], extension=0,
               output=None, verify='fix', overwrite=False, verbose=True,
               close=True):
     ''' Remove most WCS related keywords from the header.
+
     Paramters
     ---------
     additional_keys : list of regex str, optional
-        Additional keys given by the user to be 'reset'. It must be in regex
-        expression. Of course regex accepts just string, like 'NAXIS1'.
+        Additional keys given by the user to be 'reset'. It must be in regex expression. Of course
+        regex accepts just string, like 'NAXIS1'.
 
     output: str or Path
         The output file path.
@@ -450,7 +444,7 @@ def wcsremove(filepath=None, additional_keys=[], extension=0,
 #         The header to be used to extract WCS information (and image size)
 #     skycoord: bool
 #         Whether to return in the astropy.coordinates.SkyCoord object. If
-#         ``False``, a numpy array is returned.
+#         `False`, a numpy array is returned.
 #     '''
 #     wcs = WCS(header)
 #     cx = float(header['naxis1']) / 2 - 0.5
@@ -467,10 +461,9 @@ def convert_bit(fname, original_bit=12, target_bit=16):
     ''' Converts a FIT(S) file's bit.
     Note
     ----
-    In ASI1600MM, for example, the output data is 12-bit but since FITS
-    standard do not accept 12-bit (but the closest integer is 16-bit), so,
-    for example, the pixel values can have 0 and 15, but not any integer
-    between these two. So it is better to convert to 16-bit.
+    In ASI1600MM, for example, the output data is 12-bit but since FITS standard do not accept 12-bit
+    (but the closest integer is 16-bit), so, for example, the pixel values can have 0 and 15, but not
+    any integer between these two. So it is better to convert to 16-bit.
     '''
     hdul = fits.open(fname)
     dscale = 2**(target_bit - original_bit)
