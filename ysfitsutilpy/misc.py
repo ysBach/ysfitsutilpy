@@ -632,7 +632,7 @@ def give_stats(item, extension=None, percentiles=[1, 99], N_extrema=None, return
     '''
     try:  # if Path-like, replace ``item`` to ndarray or CCDData
         fpath = Path(item)
-        item = CCDData.read(fpath, extension)
+        item = CCDData.read(fpath, extension) if return_header else fitsio.FITS(fpath)[extension].read()
     except (TypeError, ValueError):
         pass
 
