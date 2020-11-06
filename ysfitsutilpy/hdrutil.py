@@ -278,15 +278,19 @@ def key_mapper(header, keymap, deprecation=False, remove=False):
 
 def get_from_header(header, key, unit=None, verbose=True, default=0):
     ''' Get a variable from the header object.
+
     Parameters
     ----------
-    header: Header
+    header : astropy.Header
         The header to extract the value.
-    key: str
+
+    key : str
         The header keyword to extract.
-    unit: astropy unit
+
+    unit : astropy unit
         The unit of the value.
-    default: str, int, float, ..., or Quantity
+
+    default : str, int, float, ..., or Quantity
         The default if not found from the header.
 
     Returns
@@ -295,17 +299,17 @@ def get_from_header(header, key, unit=None, verbose=True, default=0):
         The extracted quantity from the header. It's a Quantity if the unit is given. Otherwise,
         appropriate type will be assigned.
     '''
-    q = None
-
+    # If using q = header.get(key, default=default), we cannot give any meaningful verboses infostr.
+    # Anyway the ``header.get`` sourcecode contains only 4-line:
+    # ``try: return header[key] // except (KeyError, IndexError): return default.
+    key = key.upper()
     try:
         q = change_to_quantity(header[key], desired=unit)
         if verbose:
-            print(f"header: {key} = {q}")
-    except KeyError:
-        if default is not None:
-            q = change_to_quantity(default, desired=unit)
-            warn(f"{key} not found in header: setting to {default}.")
-        # else: None will be returned
+            print(f"header: {key:<8s} = {q}")
+    except (KeyError, IndexError):
+        q = change_to_quantity(default, desired=unit)
+        warn(f"The key {key} not found in header: setting to {default}.")
 
     return q
 
