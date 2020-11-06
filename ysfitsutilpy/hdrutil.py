@@ -12,7 +12,7 @@ from astropy.io import fits
 from astropy.time import Time
 from astropy.wcs import WCS
 
-from .misc import change_to_quantity, str_now
+from .misc import change_to_quantity, str_now, _parse_extension
 
 __all__ = ["add_to_header",
            "wcs_crota", "center_radec", "key_remover", "key_mapper",
@@ -314,8 +314,7 @@ def get_from_header(header, key, unit=None, verbose=True, default=0):
     return q
 
 
-def get_if_none(value, header, key, unit=None, verbose=True, default=0,
-                to_value=False):
+def get_if_none(value, header, key, unit=None, verbose=True, default=0, to_value=False):
     ''' Similar to get_from_header, but a convenience wrapper.
     '''
     if value is None:
@@ -332,9 +331,8 @@ def get_if_none(value, header, key, unit=None, verbose=True, default=0,
 
 
 # TODO: do not load data extension if not explicitly ordered
-def wcsremove(filepath=None, additional_keys=[], extension=0,
-              output=None, verify='fix', overwrite=False, verbose=True,
-              close=True):
+def wcsremove(path=None, additional_keys=[], extension=None, output=None, output_verify='fix', overwrite=False,
+              verbose=True, close=True):
     ''' Remove most WCS related keywords from the header.
 
     Paramters
@@ -401,8 +399,8 @@ def wcsremove(filepath=None, additional_keys=[], extension=0,
     candidate_re = ['wcs', 'axis', 'axes', 'coord', 'distortion', 'reference']
     candidate_key = []
 
-    hdul = fits.open(filepath)
-    hdr = hdul[extension].header
+    hdul = fits.open(path)
+    hdr = hdul[_parse_extension(extension)].header
 
     if verbose:
         print("Removed keywords: ", end='')
@@ -423,15 +421,13 @@ def wcsremove(filepath=None, additional_keys=[], extension=0,
                     candidate_key.append(k)
     if verbose:
         print('\n')
-
-    if len(candidate_key) != 0 and verbose:
-        print(("\nFollowing keys may be related to WCS too:"
-               + f"\n\t{candidate_key}"))
+        if len(candidate_key) != 0:
+            print(f"\nFollowing keys may be related to WCS too:\n\t{candidate_key}")
 
     hdul[extension].header = hdr
 
     if output is not None:
-        hdul.writeto(output, output_verify=verify, overwrite=overwrite)
+        hdul.writeto(output, output_verify=output_verify, overwrite=overwrite)
 
     if close:
         hdul.close()
