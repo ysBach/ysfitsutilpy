@@ -208,6 +208,78 @@ def _parse_extension(*args, ext=None, extname=None, extver=None):
     return ext
 
 
+def _parse_image(im, extension, name, force_ccd=False, prefer_ccd=False):
+    '''Parse and return input image as desired format (ndarray or CCDData)
+    Parameters
+    ----------
+    im : CCDdata, ndarray, path-like, or number-like
+        The "image" that will be parsed. A string that can be converted to float (``float(im)``)
+        will be interpreted as numbers; if not, it will be interpreted as a path to the FITS file.
+
+    extension: int, str, (str, int)
+        The extension of FITS to be used. It can be given as integer (0-indexing) of the extension,
+        ``EXTNAME`` (single str), or a tuple of str and int: ``(EXTNAME, EXTVER)``. If `None`
+        (default), the *first extension with data* will be used.
+
+    force_ccd: bool, optional.
+        To force the retun im as `~astropy.nddata.CCDData` object. This is useful when error
+        calculation is turned on.
+
+    prefer_ccd: bool, optional.
+        Mildly use `~astropy.nddata.CCDData`, i.e., return `~astropy.nddata.CCDData` only if im was
+        `~astropy.nddata.CCDData` or Path-like to a FITS file.
+
+    Returns
+    -------
+    new_im : ndarray or CCDData
+        Depending on the options ``force_ccd`` and ``prefer_ccd``.
+
+    imname : str
+        The name of the image.
+
+    imtype : str
+        The type of the image.
+    '''
+    has_no_name = name is None
+    extension = _parse_extension(extension)
+    if extension is None:
+        extstr = ''
+    else:
+        if isinstance(extension, (tuple, list)):
+            extstr = f"[{extension[0]}, {extension[1]}]"
+        else:
+            extstr = f"[{extension}]"
+
+    if isinstance(im, CCDData):
+        # force_ccd: CCDData // prefer_ccd: CCDData // else: ndarray
+        imname = f"User-provided CCDData{extstr}" if has_no_name else name
+        new_im = im if (force_ccd or prefer_ccd) else im.data
+        imtype = "CCDdata"
+    elif isinstance(im, np.ndarray):
+        # force_ccd: CCDData // prefer_ccd: ndarray // else: ndarray
+        imname = "User-provided ndarray" if has_no_name else name
+        new_im = CCDData(data=im, unit='adu') if force_ccd else im
+        imtype = "ndarray"
+    else:
+        try:  # IF number (ex: im = 1.3)
+            # force_ccd: CCDData // prefer_ccd: number // else: number
+            imname = f"User-provided number {im}" if has_no_name else name
+            _im = float(im)
+            new_im = CCDData(data=_im, unit='adu') if force_ccd else _im
+            imtype = "num"
+        except ValueError:
+            try:  # IF path-like
+                # force_ccd: CCDData // prefer_ccd: CCDData // else: ndarray
+                fpath = Path(im)
+                imname = f"{str(fpath)}{extstr}" if has_no_name else name
+                new_im = load_ccd(fpath, extension, ccddata=(force_ccd or prefer_ccd))
+                imtype = "path"
+            except TypeError:
+                raise TypeError("im1/im2 must be CCDData, ndarray, path-like (to FITS), or a number.")
+
+    return new_im, imname, imtype
+
+
 def load_ccd(path, extension=None, ccddata=True, as_ccd=True, use_wcs=True, unit=None,
              extension_uncertainty="UNCERT", extension_mask='MASK', extension_flags=None,
              load_primary_only_fitsio=True, key_uncertainty_type='UTYPE', memmap=False, **kwd):
@@ -406,77 +478,6 @@ def load_ccd(path, extension=None, ccddata=True, as_ccd=True, use_wcs=True, unit
             hdul.close()
             return data, unc, mask, flag
 
-
-def _parse_image(im, extension, name, force_ccd=False, prefer_ccd=False):
-        '''Parse and return input image as desired format (ndarray or CCDData)
-        Parameters
-        ----------
-        im : CCDdata, ndarray, path-like, or number-like
-            The "image" that will be parsed. A string that can be converted to float (``float(im)``)
-            will be interpreted as numbers; if not, it will be interpreted as a path to the FITS file.
-
-        extension: int, str, (str, int)
-            The extension of FITS to be used. It can be given as integer (0-indexing) of the extension,
-            ``EXTNAME`` (single str), or a tuple of str and int: ``(EXTNAME, EXTVER)``. If `None`
-            (default), the *first extension with data* will be used.
-
-        force_ccd: bool, optional.
-            To force the retun im as `~astropy.nddata.CCDData` object. This is useful when error
-            calculation is turned on.
-
-        prefer_ccd: bool, optional.
-            Mildly use `~astropy.nddata.CCDData`, i.e., return `~astropy.nddata.CCDData` only if im was
-            `~astropy.nddata.CCDData` or Path-like to a FITS file.
-
-        Returns
-        -------
-        new_im : ndarray or CCDData
-            Depending on the options ``force_ccd`` and ``prefer_ccd``.
-
-        imname : str
-            The name of the image.
-
-        imtype : str
-            The type of the image.
-        '''
-        has_no_name = name is None
-        extension = _parse_extension(extension)
-        if extension is None:
-            extstr = ''
-        else:
-            if isinstance(extension, (tuple, list)):
-                extstr = f"[{extension[0]}, {extension[1]}]"
-            else:
-                extstr = f"[{extension}]"
-
-        if isinstance(im, CCDData):
-            # force_ccd: CCDData // prefer_ccd: CCDData // else: ndarray
-            imname = f"User-provided CCDData{extstr}" if has_no_name else name
-            new_im = im if (force_ccd or prefer_ccd) else im.data
-            imtype = "CCDdata"
-        elif isinstance(im, np.ndarray):
-            # force_ccd: CCDData // prefer_ccd: ndarray // else: ndarray
-            imname = "User-provided ndarray" if has_no_name else name
-            new_im = CCDData(data=im, unit='adu') if force_ccd else im
-            imtype = "ndarray"
-        else:
-            try:  # IF number (ex: im = 1.3)
-                # force_ccd: CCDData // prefer_ccd: number // else: number
-                imname = f"User-provided number {im}" if has_no_name else name
-                _im = float(im)
-                new_im = CCDData(data=_im, unit='adu') if force_ccd else _im
-                imtype = "num"
-            except ValueError:
-                try:  # IF path-like
-                    # force_ccd: CCDData // prefer_ccd: CCDData // else: ndarray
-                    fpath = Path(im)
-                    imname = f"{str(fpath)}{extstr}" if has_no_name else name
-                    new_im = load_ccd(fpath, extension, ccddata=(force_ccd or prefer_ccd))
-                    imtype = "path"
-                except TypeError:
-                    raise TypeError("im1/im2 must be CCDData, ndarray, path-like (to FITS), or a number.")
-
-        return new_im, imname, imtype
 
 def str_now(precision=3, fmt="{:.>72s}", t_ref=None,
             dt_fmt="(dt = {:.3f} s)", return_time=False):
