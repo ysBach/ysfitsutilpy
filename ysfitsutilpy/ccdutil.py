@@ -416,7 +416,8 @@ def bin_ccd(ccd, factor_x=1, factor_y=1, binfunc=np.mean, trim_end=False, update
     >>> # 518 ms, 2.13 ms, 250 us, 252 us, 257 us, 267 us
     >>> # 5.e+5   ...      ...     ...     ...     27  -- times slower
     >>> # some strange chaching happens?
-    Tested on MBP 15" 2018, macOS 10.14.6, 2.6 GHz i7
+    Tested on  MBP 15" [2018, macOS 10.14.6, i7-8850H (2.6 GHz; 6-core), RAM 16 GB (2400MHz DDR4),
+    Radeon Pro 560X (4GB)]
     '''
     _t_start = Time.now()
 
