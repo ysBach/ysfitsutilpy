@@ -5,6 +5,7 @@ might be useful outside of this package.
 import glob
 import sys
 from pathlib import Path, PosixPath, WindowsPath
+from typing import Type
 from warnings import warn
 from astropy.io.fits.hdu.hdulist import HDUList
 
@@ -126,12 +127,12 @@ def get_size(obj, seen=None):
     return size
 
 
-def _parse_data_header(ccd_like_object, extension=None, parse_data=True, parse_header=True):
+def _parse_data_header(ccdlike, extension=None, parse_data=True, parse_header=True):
     '''Parses data and header and return them separately after copy.
 
     Paramters
     ---------
-    ccd_like_object : CCDData, PrimaryHDU, ImageHDU, HDUList, ndarray, number-like, path-like
+    ccdlike : CCDData, PrimaryHDU, ImageHDU, HDUList, ndarray, number-like, path-like
         The object to be parsed into data and header.
 
     extension: int, str, (str, int)
@@ -146,7 +147,7 @@ def _parse_data_header(ccd_like_object, extension=None, parse_data=True, parse_h
     Returns
     -------
     data : ndarray
-        The data part of the input ``ccd_like_object``.
+        The data part of the input ``ccdlike``.
 
     hdr : Header, None
         The header if header exists; otherwise, `None` is returned.
@@ -157,36 +158,37 @@ def _parse_data_header(ccd_like_object, extension=None, parse_data=True, parse_h
     copy of the data and/or header, especially to CHECK if it has header, while _parse_image is to deal
     mainly with the data (and has options to return as CCDData).
     '''
-    if isinstance(ccd_like_object, (CCDData, fits.PrimaryHDU, fits.ImageHDU)):
-        data = ccd_like_object.data.copy() if parse_data else None
-        hdr = ccd_like_object.header.copy() if parse_header else None
-    elif isinstance(ccd_like_object, fits.HDUList):
-        extension = _parse_extension(extension) if parse_data or parse_header else 0
+    if isinstance(ccdlike, (CCDData, fits.PrimaryHDU, fits.ImageHDU)):
+        data = ccdlike.data.copy() if parse_data else None
+        hdr = ccdlike.header.copy() if parse_header else None
+    elif isinstance(ccdlike, fits.HDUList):
+        extension = _parse_extension(extension) if (parse_data or parse_header) else 0
         # ^ don't even do _parse_extension if both are False
-        data = ccd_like_object[extension].data.copy() if parse_data else None
-        hdr = ccd_like_object[extension].header.copy() if parse_header else None
-    elif isinstance(ccd_like_object, np.ndarray):
-        data = ccd_like_object.copy() if parse_data else None
+        data = ccdlike[extension].data.copy() if parse_data else None
+        hdr = ccdlike[extension].header.copy() if parse_header else None
+    elif isinstance(ccdlike, np.ndarray):
+        data = ccdlike.copy() if parse_data else None
         hdr = None
     else:
         try:
-            data = float(ccd_like_object) if parse_data else None
+            data = float(ccdlike) if parse_data else None
             hdr = None
         except (ValueError, TypeError):  # Path-like
             # NOTE: This try-except cannot be swapped cuz ``Path("2321.3")`` can be PosixPath without error...
             extension = _parse_extension(extension) if parse_data or parse_header else 0
-            hdu = fits.open(ccd_like_object, memmap=False)[extension]
-            data = hdu.data.copy() if parse_data else None
-            hdr = hdu.header.copy() if parse_header else None
+            ccd = load_ccd(ccdlike, extension=extension)
+            # No need to copy because they've been read (loaded) for the first time here.
+            data = ccd.data if parse_data else None
+            hdr = ccd.header if parse_header else None
 
     return data, hdr
 
 
-def _parse_image(im, extension, name, force_ccd=False, prefer_ccd=False):
+def _parse_image(ccdlike, extension, name, force_ccd=False, prefer_ccd=False):
     '''Parse and return input image as desired format (ndarray or CCDData)
     Parameters
     ----------
-    im : CCDData-like (e.g., PrimaryHDU, ImageHDU, HDUList), ndarray, path-like, or number-like
+    ccdlike : CCDData-like (e.g., PrimaryHDU, ImageHDU, HDUList), ndarray, path-like, or number-like
         The "image" that will be parsed. A string that can be converted to float (``float(im)``)
         will be interpreted as numbers; if not, it will be interpreted as a path to the FITS file.
 
@@ -231,72 +233,90 @@ def _parse_image(im, extension, name, force_ccd=False, prefer_ccd=False):
         else:
             extstr = f"[{extension}]"
 
-    imname = f"User-provided {im.__class__.__name__}{extstr}" if has_no_name else name
+    imname = f"User-provided {ccdlike.__class__.__name__}{extstr}" if has_no_name else name
 
-    if isinstance(im, CCDData):
+    if isinstance(ccdlike, CCDData):
         # force_ccd: CCDData // prefer_ccd: CCDData // else: ndarray
-        new_im = CCDData(im) if (force_ccd or prefer_ccd) else im.data.copy()
+        new_im = CCDData(ccdlike) if (force_ccd or prefer_ccd) else ccdlike.data.copy()
         imtype = "CCDdata"
-    elif isinstance(im, (fits.PrimaryHDU, fits.ImageHDU)):
+    elif isinstance(ccdlike, (fits.PrimaryHDU, fits.ImageHDU)):
         # force_ccd: CCDData // prefer_ccd: CCDData // else: ndarray
-        new_im = CCDData(im) if (force_ccd or prefer_ccd) else im.data.copy()
+        new_im = CCDData(ccdlike) if (force_ccd or prefer_ccd) else ccdlike.data.copy()
         imtype = "hdu"
-    elif isinstance(im, fits.HDUList):
+    elif isinstance(ccdlike, fits.HDUList):
         # force_ccd: CCDData // prefer_ccd: CCDData // else: ndarray
-        new_im = CCDData(im[extension]) if (force_ccd or prefer_ccd) else im[extension].data.copy()
+        new_im = CCDData(ccdlike[extension]) if (force_ccd or prefer_ccd) else ccdlike[extension].data.copy()
         imtype = "HDUList"
-    elif isinstance(im, np.ndarray):
+    elif isinstance(ccdlike, np.ndarray):
         # force_ccd: CCDData // prefer_ccd: ndarray // else: ndarray
-        new_im = CCDData(data=im, unit='adu') if force_ccd else im
+        new_im = CCDData(data=ccdlike, unit='adu') if force_ccd else ccdlike
         imtype = "ndarray"
     else:
         try:  # IF number (ex: im = 1.3)
             # force_ccd: CCDData // prefer_ccd: number // else: number
-            imname = f"{imname} {im}" if has_no_name else name
-            _im = float(im)
+            imname = f"{imname} {ccdlike}" if has_no_name else name
+            _im = float(ccdlike)
             new_im = CCDData(data=_im, unit='adu') if force_ccd else np.asarray(_im)
-            imtype = "num"
+            imtype = "num"  # imname can be "int", "float", "str", etc, so imtype might be useful.
         except ValueError:
             try:  # IF path-like
                 # force_ccd: CCDData // prefer_ccd: CCDData // else: ndarray
-                fpath = Path(im)
+                fpath = Path(ccdlike)
                 imname = f"{str(fpath)}{extstr}" if has_no_name else name
                 new_im = load_ccd(fpath, extension, ccddata=(force_ccd or prefer_ccd))
                 imtype = "path"
             except TypeError:
-                raise TypeError("input im must be CCDData-like, ndarray, path-like (to FITS), or a number.")
+                raise TypeError("input must be CCDData-like, ndarray, path-like (to FITS), or a number.")
 
     return new_im, imname, imtype
 
 
-def _has_header(ccd_like_object, extension=None):
+def _has_header(ccdlike, extension=None, open_if_file=True):
     '''Checks if the object has header; similar to _parse_data_header.
 
     Paramters
     ---------
-    ccd_like_object : CCDData, PrimaryHDU, ImageHDU, HDUList, ndarray, number-like, path-like
+    ccdlike : CCDData, PrimaryHDU, ImageHDU, HDUList, ndarray, number-like, path-like
         The object to be parsed into data and header.
 
     extension: int, str, (str, int)
         The extension of FITS to be used. It can be given as integer (0-indexing) of the extension,
         ``EXTNAME`` (single str), or a tuple of str and int: ``(EXTNAME, EXTVER)``. If `None`
-        (default), the *first extension with data* will be used. Used only if ``ccd_like_object`` is HDUList or path-like.
+        (default), the *first extension with data* will be used. Used only if ``ccdlike`` is
+        HDUList or path-like.
+
+    open_if_file : bool, optional.
+        Whether to open the file to check if it has a header when ``ccdlike`` is path-like. Any
+        FITS file has a header, so this means it will check the existence and validity of the file.
     '''
     hashdr = True
-    if isinstance(ccd_like_object, (CCDData, fits.PrimaryHDU, fits.ImageHDU)):  # extension not used
+    if isinstance(ccdlike, (CCDData, fits.PrimaryHDU, fits.ImageHDU)):  # extension not used
         try:
-            hashdr = ccd_like_object.header is not None
+            hashdr = ccdlike.header is not None
         except AttributeError:
             hashdr = False
-    elif isinstance(ccd_like_object, fits.HDUList):
+    elif isinstance(ccdlike, fits.HDUList):
         extension = _parse_extension(extension)
         try:
-            hashdr = ccd_like_object[extension].header is not None
+            hashdr = ccdlike[extension].header is not None
         except AttributeError:
             hashdr = False
-    else:
-
+    elif isinstance(ccdlike, np.ndarray):
         hashdr = False
+    else:
+        try:  # if number-like
+            _ = float(ccdlike)
+            hashdr = False
+        except (ValueError, TypeError):  # if path-like
+            # NOTE: This try-except cannot be swapped cuz ``Path("2321.3")`` can be PosixPath without error...
+            if open_if_file:
+                try:
+                    _ = load_ccd(ccdlike, extension=extension).header
+                except AttributeError:
+                    hashdr = False
+            else:
+                hashdr = False
+
     return hashdr
 
 
@@ -524,7 +544,7 @@ def load_ccd(path, extension=None, ccddata=True, as_ccd=True, use_wcs=True, unit
 
         # FIXME: Remove this if block in the future if WCS issue is resolved.
         if use_wcs:  # Because of the TPV WCS issue
-            hdr = fits.getheader(path)
+            hdr = fits.getheader(Path(path))
             reader_kw["wcs"] = WCS(hdr)
             del hdr
 
@@ -548,12 +568,13 @@ def load_ccd(path, extension=None, ccddata=True, as_ccd=True, use_wcs=True, unit
             try:
                 if isinstance(_extension, (list, tuple, np.ndarray)):
                     # length == 2 is already checked in _parse_extension.
-                    arr = hdul[_extension[0], _extension[1]].read()
+                    arr = _hdul[_extension[0], _extension[1]].read()
                 else:
-                    arr = hdul[_extension].read()
-                return arr
+                    arr = _hdul[_extension].read()
             except OSError:
                 raise ValueError(f"Extension `{_extension}` is not found (file: {_path})")
+
+            return arr
 
         hdul = fitsio.FITS(path)
         if load_primary_only_fitsio:
