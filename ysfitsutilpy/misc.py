@@ -222,17 +222,26 @@ def _parse_image(ccdlike, extension, name, force_ccd=False, prefer_ccd=False):
     copy of the data and/or header, especially to CHECK if it has header, while _parse_image is to deal
     mainly with the data (and has options to return as CCDData).
     '''
-    has_no_name = name is None
-    extension = _parse_extension(extension)
-
-    if extension is None:
-        extstr = ''
-    else:
-        if isinstance(extension, (tuple, list)):
-            extstr = f"[{extension[0]}, {extension[1]}]"
+    def __extract_from_hdu(hdu, force_ccd, prefer_ccd):
+        if force_ccd or prefer_ccd:
+            unit = ccdlike.header.get("BUNIT", default=u.adu)
+            return CCDData(data=hdu.data, header=hdu.header, unit=unit)
         else:
-            extstr = f"[{extension}]"
+            return hdu.data
 
+    def __extract_extension(ext):
+        extension = _parse_extension(ext)
+        if extension is None:
+            extstr = ''
+        else:
+            if isinstance(extension, (tuple, list)):
+                extstr = f"[{extension[0]}, {extension[1]}]"
+            else:
+                extstr = f"[{extension}]"
+        return extension, extstr
+
+    has_no_name = name is None
+    extension, extstr = __extract_extension(extension)
     imname = f"User-provided {ccdlike.__class__.__name__}{extstr}" if has_no_name else name
 
     if isinstance(ccdlike, CCDData):
@@ -241,11 +250,11 @@ def _parse_image(ccdlike, extension, name, force_ccd=False, prefer_ccd=False):
         imtype = "CCDdata"
     elif isinstance(ccdlike, (fits.PrimaryHDU, fits.ImageHDU)):
         # force_ccd: CCDData // prefer_ccd: CCDData // else: ndarray
-        new_im = CCDData(ccdlike) if (force_ccd or prefer_ccd) else ccdlike.data.copy()
+        new_im = __extract_from_hdu(ccdlike, force_ccd=force_ccd, prefer_ccd=prefer_ccd)
         imtype = "hdu"
     elif isinstance(ccdlike, fits.HDUList):
         # force_ccd: CCDData // prefer_ccd: CCDData // else: ndarray
-        new_im = CCDData(ccdlike[extension]) if (force_ccd or prefer_ccd) else ccdlike[extension].data.copy()
+        new_im = __extract_from_hdu(ccdlike[extension], force_ccd=force_ccd, prefer_ccd=prefer_ccd)
         imtype = "HDUList"
     elif isinstance(ccdlike, np.ndarray):
         # force_ccd: CCDData // prefer_ccd: ndarray // else: ndarray
@@ -263,7 +272,7 @@ def _parse_image(ccdlike, extension, name, force_ccd=False, prefer_ccd=False):
                 # force_ccd: CCDData // prefer_ccd: CCDData // else: ndarray
                 fpath = Path(ccdlike)
                 imname = f"{str(fpath)}{extstr}" if has_no_name else name
-                new_im = load_ccd(fpath, extension, ccddata=(force_ccd or prefer_ccd))
+                new_im = load_ccd(fpath, extension, as_ccddata=(force_ccd or prefer_ccd))
                 imtype = "path"
             except TypeError:
                 raise TypeError("input must be CCDData-like, ndarray, path-like (to FITS), or a number.")
@@ -390,7 +399,7 @@ def _parse_extension(*args, ext=None, extname=None, extver=None):
     return ext
 
 
-def load_ccd(path, extension=None, ccddata=True, as_ccd=True, use_wcs=True, unit=None,
+def load_ccd(path, extension=None, as_ccddata=True, as_ccd=True, use_wcs=True, unit=None,
              extension_uncertainty="UNCERT", extension_mask='MASK', extension_flags=None,
              load_primary_only_fitsio=True, key_uncertainty_type='UTYPE', memmap=False, **kwd):
     ''' Loads FITS file of CCD image data (not table, etc).
@@ -404,7 +413,7 @@ def load_ccd(path, extension=None, ccddata=True, as_ccd=True, use_wcs=True, unit
         ``EXTNAME`` (single str), or a tuple of str and int: ``(EXTNAME, EXTVER)``. If `None`
         (default), the *first extension with data* will be used.
 
-    ccddata : bool, optional.
+    as_ccddata : bool, optional.
         Whether to return `~astropy.nddata.CCDData`. Default is `True`. If it is `False`, **all the
         arguments below are ignored**, except for the keyword arguments that will be passed to
         ``fitsio.read``, and an ndarray will be returned without astropy unit.
@@ -454,7 +463,7 @@ def load_ccd(path, extension=None, ccddata=True, as_ccd=True, use_wcs=True, unit
         Default is ``UTYPE``.
 
         ..warning::
-            If ``ccddata=False`` and ``load_primary_only_fitsio=False``, the uncertainty type by
+            If ``as_ccddata=False`` and ``load_primary_only_fitsio=False``, the uncertainty type by
             ``key_uncertainty_type`` will be completely ignored.
 
     memmap : bool, optional
@@ -464,11 +473,11 @@ def load_ccd(path, extension=None, ccddata=True, as_ccd=True, use_wcs=True, unit
 
     kwd :
         Any additional keyword parameters that will be used in `~astropy.nddata.fits_ccddata_reader`
-        (if ``ccddata=True``) or ``fitsio.read()`` (if ``ccddata=False``).
+        (if ``as_ccddata=True``) or ``fitsio.read()`` (if ``as_ccddata=False``).
 
     Returns
     -------
-    CCDData (``ccddata=True``) or ndarray (``ccddata=False``). For the latter case, if
+    CCDData (``as_ccddata=True``) or ndarray (``as_ccddata=False``). For the latter case, if
     ``load_primary_only_fitsio=False``, the uncertainty and mask extensions, as well as flags (not
     supported, so just `None`) will be returned as well as the one specified by ``extension``.
 
@@ -537,7 +546,7 @@ def load_ccd(path, extension=None, ccddata=True, as_ccd=True, use_wcs=True, unit
     extension_mask = _parse_extension(extension_mask)
     extension_flag = _parse_extension(extension_flags)
 
-    if ccddata and as_ccd:  # if at least one of these is False, it uses fitsio.
+    if as_ccddata and as_ccd:  # if at least one of these is False, it uses fitsio.
         reader_kw = dict(hdu=extension, hdu_uncertainty=extension_unc, hdu_mask=extension_mask,
                          hdu_flags=extension_flag, key_uncertainty_type=key_uncertainty_type, memmap=memmap,
                          **kwd)
