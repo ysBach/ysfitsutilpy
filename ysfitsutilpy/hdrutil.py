@@ -21,8 +21,8 @@ __all__ = ["add_to_header",
 
 
 def add_to_header(header, histcomm, s, precision=3, fmt="{:.>72s}", t_ref=None,
-                  dt_fmt="(dt = {:.3f} s)", verbose=False):
-    ''' Automatically add timestamp as well as history string
+                  dt_fmt="(dt = {:.3f} s)", verbose=False, set_kw={'after':-1}):
+    ''' Automatically add timestamp as well as HISTORY or COMMENT string
 
     Parameters
     ----------
@@ -58,6 +58,10 @@ def add_to_header(header, histcomm, s, precision=3, fmt="{:.>72s}", t_ref=None,
 
     verbose_fmt : str, optional.
         The Python 3 format string to format the time in the terminal.
+
+    set_kw : dict, optional.
+        The keyword arguments added to ``Header.set()``. Default is ``{'after':-1}``, i.e., the history
+        or comment will be appended to the very last part of the header.
     '''
     if isinstance(s, str):
         s = [s]
@@ -84,10 +88,16 @@ def add_to_header(header, histcomm, s, precision=3, fmt="{:.>72s}", t_ref=None,
             if verbose:
                 print(f"COMMENT {timestr}")
 
+    else:
+        raise ValueError("Only HISTORY or COMMENT are supported now.")
+
 
 def update_tlm(header):
+    ''' Adds the IRAF-like ``FITS-TLM`` right after ``NAXISi``.
+    '''
+    now = Time(Time.now(), precision=0).isot
     header.set("FITS-TLM",
-               value=Time(Time.now(), precision=0).isot,
+               value=now,
                comment="UT of last modification of this FITS file",
                after=f"NAXIS{header['NAXIS']}")
 
