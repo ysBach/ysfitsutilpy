@@ -176,10 +176,12 @@ def _parse_data_header(ccdlike, extension=None, parse_data=True, parse_header=Tr
         except (ValueError, TypeError):  # Path-like
             # NOTE: This try-except cannot be swapped cuz ``Path("2321.3")`` can be PosixPath without error...
             extension = _parse_extension(extension) if parse_data or parse_header else 0
-            ccd = load_ccd(ccdlike, extension=extension)
+            # fits.getheader is ~ 10-20 times faster than load_ccd (still ~2 times SLOWER than fitsio).
+            # 2020-11-09 16:06:41 (KST: GMT+09:00) ysBach
+            hdu = fits.open(ccdlike, memmap=False)[extension]
             # No need to copy because they've been read (loaded) for the first time here.
-            data = ccd.data if parse_data else None
-            hdr = ccd.header if parse_header else None
+            data = hdu.data if parse_data else None
+            hdr = hdu.header if parse_header else None
 
     return data, hdr
 
@@ -298,6 +300,14 @@ def _has_header(ccdlike, extension=None, open_if_file=True):
         Whether to open the file to check if it has a header when ``ccdlike`` is path-like. Any
         FITS file has a header, so this means it will check the existence and validity of the file. If
         set to `False`, all path-like input will return `False` because the path itself has no header.
+
+    Notes
+    -----
+    It first checks if the input is one of ``(CCDData, fits.PrimaryHDU, fits.ImageHDU)``, then if
+    ``fits.HDUList``, then if ``np.ndarray``, then if number-like, and then finally if path-like.
+    Although this has a bit of disadvantage considering we may use file-path for most of the time, the
+    overhead is only ~ 1 us, tested on MBP 15" [2018, macOS 10.14.6, i7-8850H (2.6 GHz; 6-core), RAM 16
+    GB (2400MHz DDR4), Radeon Pro 560X (4GB)].
     '''
     hashdr = True
     if isinstance(ccdlike, (CCDData, fits.PrimaryHDU, fits.ImageHDU)):  # extension not used
@@ -321,7 +331,10 @@ def _has_header(ccdlike, extension=None, open_if_file=True):
             # NOTE: This try-except cannot be swapped cuz ``Path("2321.3")`` can be PosixPath without error...
             if open_if_file:
                 try:
-                    _ = load_ccd(ccdlike, extension=extension).header
+                    # fits.getheader is ~ 10-20 times faster than load_ccd, while still ~2 times SLOWER
+                    # than fitsio.
+                    # 2020-11-09 16:06:41 (KST: GMT+09:00) ysBach
+                    _ = fits.getheader(Path(ccdlike), extension)
                 except (AttributeError, FileNotFoundError):
                     hashdr = False
             else:
