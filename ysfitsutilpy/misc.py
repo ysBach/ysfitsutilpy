@@ -296,7 +296,8 @@ def _has_header(ccdlike, extension=None, open_if_file=True):
 
     open_if_file : bool, optional.
         Whether to open the file to check if it has a header when ``ccdlike`` is path-like. Any
-        FITS file has a header, so this means it will check the existence and validity of the file.
+        FITS file has a header, so this means it will check the existence and validity of the file. If
+        set to `False`, all path-like input will return `False` because the path itself has no header.
     '''
     hashdr = True
     if isinstance(ccdlike, (CCDData, fits.PrimaryHDU, fits.ImageHDU)):  # extension not used
@@ -321,7 +322,7 @@ def _has_header(ccdlike, extension=None, open_if_file=True):
             if open_if_file:
                 try:
                     _ = load_ccd(ccdlike, extension=extension).header
-                except AttributeError:
+                except (AttributeError, FileNotFoundError):
                     hashdr = False
             else:
                 hashdr = False
