@@ -201,6 +201,9 @@ def fov_radius(header, unit=u.deg):
     c2 = SkyCoord.from_pixel(nx, 0, wcs=w, origin=0, mode='wcs')
     c3 = SkyCoord.from_pixel(0, ny, wcs=w, origin=0, mode='wcs')
     c4 = SkyCoord.from_pixel(nx, ny, wcs=w, origin=0, mode='wcs')
+
+    # TODO: Can't we just do ``return max(r1, r2).to(unit)``??? Why did I do this? I can't remember...
+    # 2020-11-09 14:29:29 (KST: GMT+09:00) ysBach
     r1 = c1.separation(c3).value / 2
     r2 = c2.separation(c4).value / 2
     r = max(r1, r2) * u.deg
@@ -243,7 +246,7 @@ def key_remover(header, remove_keys, deepremove=True):
     return nhdr
 
 
-def key_mapper(header, keymap, deprecation=False, remove=False):
+def key_mapper(header, keymap=None, deprecation=False, remove=False):
     ''' Update the header to meed the standard (keymap).
 
     Parameters
@@ -252,36 +255,53 @@ def key_mapper(header, keymap, deprecation=False, remove=False):
         The header to be modified
 
     keymap : dict
-        The dictionary contains ``{<standard_key>:<original_key>}`` information
+        The dictionary contains ``{<standard_key>:<original_key>}`` information. If it is `None`
+        (default), the copied version of the header is returned without any change.
 
     deprecation : bool, optional
         Whether to change the original keywords' comments to contain deprecation warning. If `True`,
-        the original keywords' comments will become ``Deprecated. See <standard_key>.``.
+        the original keywords' comments will become ``DEPRECATED. See <standard_key>.``. It has no
+        effect if ``remove=True``.
+        Default is `False`.
+
+    remove : bool, optional.
+        Whether to remove the original keyword. ``deprecation`` is ignored if ``remove=True``.
+        Default is `False`.
 
     Returns
     -------
     newhdr: Header
         The updated (key-mapped) header.
-    '''
-    newhdr = header.copy()
-    for k_new, k_old in keymap.items():
-        if k_new == k_old:
-            continue
 
-        # if k_new already in the header, only deprecate k_old.
-        # if not, copy k_old to k_new and deprecate k_old.
-        if k_old is not None:
-            if k_new in newhdr:
-                if deprecation:
-                    newhdr.comments[k_old] = f"Deprecated. See {k_new}"
-            else:
-                try:
-                    comment_ori = newhdr.comments[k_old]
-                    newhdr[k_new] = (newhdr[k_old], comment_ori)
-                    if deprecation:
-                        newhdr.comments[k_old] = f"Deprecated. See {k_new}"
-                except KeyError:
-                    pass
+    Notes
+    -----
+    If the new keyword already exist in the given header, virtually nothing will happen. If
+    ``deprecation=True``, the old one's comment will be changed, and if ``remove=True``, the old one
+    will be removed; the new keyword will never be changed or overwritten.
+    '''
+    def _rm_or_dep(hdr, old, new):
+        if remove:
+            hdr.remove(old)
+        elif deprecation:  # do not remove but deprecate
+            hdr.comments[old] = f"DEPRECATED. See {new}"
+
+    newhdr = header.copy()
+    if keymap is not None:
+        for k_new, k_old in keymap.items():
+            if k_new == k_old:
+                continue
+
+            if k_old is not None:
+                if k_new in newhdr:  # if k_new already in the header, JUST deprecate k_old.
+                    _rm_or_dep(newhdr, k_old, k_new)
+                else:  # if not, copy k_old to k_new and deprecate k_old.
+                    try:
+                        comment_ori = newhdr.comments[k_old]
+                        newhdr[k_new] = (newhdr[k_old], comment_ori)
+                        _rm_or_dep(newhdr, k_old, k_new)
+                    except (KeyError, IndexError):
+                        # don't even warn
+                        pass
 
     return newhdr
 
