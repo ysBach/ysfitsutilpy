@@ -20,8 +20,8 @@ __all__ = ["add_to_header",
            "convert_bit"]
 
 
-def add_to_header(header, histcomm, s, precision=3, fmt="{:.>72s}", t_ref=None,
-                  dt_fmt="(dt = {:.3f} s)", verbose=False, set_kw={'after':-1}):
+def add_to_header(header, histcomm, s, precision=3, time_fmt="{:.>72s}", t_ref=None,
+                  dt_fmt="(dt = {:.3f} s)", verbose=False, set_kw={'after': -1}):
     ''' Automatically add timestamp as well as HISTORY or COMMENT string
 
     Parameters
@@ -38,7 +38,7 @@ def add_to_header(header, histcomm, s, precision=3, fmt="{:.>72s}", t_ref=None,
     precision : int, optional.
         The precision of the isot format time.
 
-    fmt : str, None, optional.
+    time_fmt : str, None, optional.
         The Python 3 format string to format the time in the header. If `None`, the timestamp string
         will not be added.
 
@@ -63,45 +63,35 @@ def add_to_header(header, histcomm, s, precision=3, fmt="{:.>72s}", t_ref=None,
         The keyword arguments added to ``Header.set()``. Default is ``{'after':-1}``, i.e., the history
         or comment will be appended to the very last part of the header.
     '''
-    def _add_hist(header, content):
-        try:
-            header.add_history(content)
-        except AttributeError:  # For a CCDData that has just initialized, header is in OrderdDict, not Header
-            header["HISTORY"] = content
+    pall = locals()
+    if histcomm.lower() in ['h', 'hist']:
+        pall['histcomm'] = 'HISTORY'
+        return add_to_header(**pall)
+    elif histcomm.lower() in ['c', 'com', 'comm']:
+        pall['histcomm'] = 'COMMENT'
+        return add_to_header(**pall)
+    elif histcomm.lower() not in ['history', 'comment']:
+        raise ValueError("Only HISTORY or COMMENT are supported now.")
 
-    def _add_comm(header, content):
+    def _add_content(header, content):
         try:
-            header.add_comment(content)
+            header.set(histcomm, content, **set_kw)
         except AttributeError:  # For a CCDData that has just initialized, header is in OrderdDict, not Header
-            header["COMMENT"] = content
+            header[histcomm] = content
 
     if isinstance(s, str):
         s = [s]
 
-    if histcomm.lower() in ['h', 'hist', 'history']:
-        for _s in s:
-            _add_hist(header, _s)
-            if verbose:
-                print(f"HISTORY {_s}")
-        if fmt is not None:
-            timestr = str_now(precision=precision, fmt=fmt, t_ref=t_ref, dt_fmt=dt_fmt)
-            _add_comm(header, timestr)
-            if verbose:
-                print(f"HISTORY {timestr}")
+    for _s in s:
+        _add_content(header, _s)
+        if verbose:
+            print(f"{histcomm:<8s} {_s}")
 
-    elif histcomm.lower() in ['c', 'comm', 'comment']:
-        for _s in s:
-            _add_comm(header, _s)
-            if verbose:
-                print(f"COMMENT {_s}")
-        if fmt is not None:
-            timestr = str_now(precision=precision, fmt=fmt, t_ref=t_ref, dt_fmt=dt_fmt)
-            _add_comm(header, timestr)
-            if verbose:
-                print(f"COMMENT {timestr}")
-
-    else:
-        raise ValueError("Only HISTORY or COMMENT are supported now.")
+    if time_fmt is not None:
+        timestr = str_now(precision=precision, fmt=time_fmt, t_ref=t_ref, dt_fmt=dt_fmt)
+        _add_content(header, timestr)
+        if verbose:
+            print(f"{histcomm:<8s} {timestr}")
 
 
 def update_tlm(header):
