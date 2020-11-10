@@ -14,7 +14,7 @@ $ python setup.py install
 
 This package is made to be used for
 * Preprocessing (= bias, dark, and flat) of imaging data (not tested for spectroscopy yet)
-* Simple analysis of FITS files by making summary csv file, getting statistics (``misc.give_stats``), zscale imshow (``visutil.zimshow``), etc.
+* Simple analysis of FITS files by making summary csv file, getting statistics (``misc.give_stats``), etc.
 * Educational purpose
 * ...
 
@@ -41,10 +41,10 @@ savepath = TOPPATH/"summary_20180101.csv"
 allfits = list((TOPPATH/"rawdata").glob("*.fits"))
 
 summary = yfu.make_summary(
-    allfits, 
-    keywords=keys, 
-    fname_option='name',                       
-    sort_by="DATE-OBS", 
+    allfits,
+    keywords=keys,
+    fname_option='name',
+    sort_by="DATE-OBS",
     output=savepath,
     pandas=True  # default: False, so that astropy table is returned.
 )

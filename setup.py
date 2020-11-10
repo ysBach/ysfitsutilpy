@@ -5,15 +5,18 @@ Convenience utilities made by ysBach especially for dealing FITS files in astron
 from setuptools import setup, find_packages
 
 setup_requires = []
-install_requires = ['numpy',
-                    'astropy >= 2.0',
-                    'ccdproc >= 1.3',
-                    'fitsio',
-                    'matplotlib >= 2']
+install_requires = [
+    'numpy',
+    'astropy >= 2.0',
+    'ccdproc >= 1.3',
+    'fitsio',
+]
 
-classifiers = ["Intended Audience :: Science/Research",
-               "Operating System :: OS Independent",
-               "Programming Language :: Python :: 3.6"]
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3"
+]
 
 setup(
     name="ysfitsutilpy",
@@ -21,7 +24,7 @@ setup(
     author="Yoonsoo P. Bach",
     author_email="dbstn95@gmail.com",
     description="",
-    license="",
+    license="BSD 3-clause",
     keywords="",
     url="",
     classifiers=classifiers,
