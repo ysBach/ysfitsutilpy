@@ -176,7 +176,7 @@ def _parse_data_header(ccdlike, extension=None, parse_data=True, parse_header=Tr
         except (ValueError, TypeError):  # Path-like
             # NOTE: This try-except cannot be swapped cuz ``Path("2321.3")`` can be PosixPath without error...
             extension = _parse_extension(extension) if parse_data or parse_header else 0
-            # fits.getheader is ~ 10-20 times faster than load_ccd (still ~2 times SLOWER than fitsio).
+            # fits.getheader is ~ 10-20 times faster than load_ccd.
             # 2020-11-09 16:06:41 (KST: GMT+09:00) ysBach
             hdu = fits.open(ccdlike, memmap=False)[extension]
             # No need to copy because they've been read (loaded) for the first time here.
@@ -186,7 +186,7 @@ def _parse_data_header(ccdlike, extension=None, parse_data=True, parse_header=Tr
     return data, hdr
 
 
-def _parse_image(ccdlike, extension, name, force_ccd=False, prefer_ccd=False):
+def _parse_image(ccdlike, extension, name, force_ccddata=False, prefer_ccddata=False):
     '''Parse and return input image as desired format (ndarray or CCDData)
     Parameters
     ----------
@@ -199,18 +199,18 @@ def _parse_image(ccdlike, extension, name, force_ccd=False, prefer_ccd=False):
         ``EXTNAME`` (single str), or a tuple of str and int: ``(EXTNAME, EXTVER)``. If `None`
         (default), the *first extension with data* will be used.
 
-    force_ccd: bool, optional.
+    force_ccddata: bool, optional.
         To force the retun im as `~astropy.nddata.CCDData` object. This is useful when error
         calculation is turned on.
 
-    prefer_ccd: bool, optional.
+    prefer_ccddata: bool, optional.
         Mildly use `~astropy.nddata.CCDData`, i.e., return `~astropy.nddata.CCDData` only if ``im`` was
         `~astropy.nddata.CCDData` or Path-like to a FITS file.
 
     Returns
     -------
     new_im : ndarray or CCDData
-        Depending on the options ``force_ccd`` and ``prefer_ccd``.
+        Depending on the options ``force_ccddata`` and ``prefer_ccddata``.
 
     imname : str
         The name of the image.
@@ -224,13 +224,6 @@ def _parse_image(ccdlike, extension, name, force_ccd=False, prefer_ccd=False):
     copy of the data and/or header, especially to CHECK if it has header, while _parse_image is to deal
     mainly with the data (and has options to return as CCDData).
     '''
-    def __extract_from_hdu(hdu, force_ccd, prefer_ccd):
-        if force_ccd or prefer_ccd:
-            unit = ccdlike.header.get("BUNIT", default=u.adu)
-            return CCDData(data=hdu.data, header=hdu.header, unit=unit)
-        else:
-            return hdu.data
-
     def __extract_extension(ext):
         extension = _parse_extension(ext)
         if extension is None:
@@ -242,39 +235,50 @@ def _parse_image(ccdlike, extension, name, force_ccd=False, prefer_ccd=False):
                 extstr = f"[{extension}]"
         return extension, extstr
 
+    def __extract_from_hdu(hdu, force_ccddata, prefer_ccddata):
+        if force_ccddata or prefer_ccddata:
+            unit = ccdlike.header.get("BUNIT", default=u.adu)
+            return CCDData(data=hdu.data, header=hdu.header, unit=unit)
+            # The two lines above took ~ 5 us and 10-30 us for the simplest header and 1x1 pixel data
+            # case (regardless of BUNIT exists), on MBP 15" [2018, macOS 10.14.6, i7-8850H (2.6 GHz;
+            # 6-core), RAM 16 GB (2400MHz DDR4), Radeon Pro 560X (4GB)]
+        else:
+            return hdu.data
+
+    ccd_kw = dict(force_ccddata=force_ccddata, prefer_ccddata=prefer_ccddata)
     has_no_name = name is None
     extension, extstr = __extract_extension(extension)
     imname = f"User-provided {ccdlike.__class__.__name__}{extstr}" if has_no_name else name
 
     if isinstance(ccdlike, CCDData):
-        # force_ccd: CCDData // prefer_ccd: CCDData // else: ndarray
-        new_im = CCDData(ccdlike) if (force_ccd or prefer_ccd) else ccdlike.data.copy()
+        # force_ccddata: CCDData // prefer_ccddata: CCDData // else: ndarray
+        new_im = ccdlike if (force_ccddata or prefer_ccddata) else ccdlike.data.copy()
         imtype = "CCDdata"
     elif isinstance(ccdlike, (fits.PrimaryHDU, fits.ImageHDU)):
-        # force_ccd: CCDData // prefer_ccd: CCDData // else: ndarray
-        new_im = __extract_from_hdu(ccdlike, force_ccd=force_ccd, prefer_ccd=prefer_ccd)
+        # force_ccddata: CCDData // prefer_ccddata: CCDData // else: ndarray
+        new_im = __extract_from_hdu(ccdlike, **ccd_kw)
         imtype = "hdu"
     elif isinstance(ccdlike, fits.HDUList):
-        # force_ccd: CCDData // prefer_ccd: CCDData // else: ndarray
-        new_im = __extract_from_hdu(ccdlike[extension], force_ccd=force_ccd, prefer_ccd=prefer_ccd)
+        # force_ccddata: CCDData // prefer_ccddata: CCDData // else: ndarray
+        new_im = __extract_from_hdu(ccdlike[extension], **ccd_kw)
         imtype = "HDUList"
     elif isinstance(ccdlike, np.ndarray):
-        # force_ccd: CCDData // prefer_ccd: ndarray // else: ndarray
-        new_im = CCDData(data=ccdlike, unit='adu') if force_ccd else ccdlike
+        # force_ccddata: CCDData // prefer_ccddata: ndarray // else: ndarray
+        new_im = CCDData(data=ccdlike, unit='adu') if force_ccddata else ccdlike
         imtype = "ndarray"
     else:
         try:  # IF number (ex: im = 1.3)
-            # force_ccd: CCDData // prefer_ccd: number // else: number
+            # force_ccddata: CCDData // prefer_ccddata: number // else: number
             imname = f"{imname} {ccdlike}" if has_no_name else name
             _im = float(ccdlike)
-            new_im = CCDData(data=_im, unit='adu') if force_ccd else np.asarray(_im)
+            new_im = CCDData(data=_im, unit='adu') if force_ccddata else np.asarray(_im)
             imtype = "num"  # imname can be "int", "float", "str", etc, so imtype might be useful.
         except ValueError:
             try:  # IF path-like
-                # force_ccd: CCDData // prefer_ccd: CCDData // else: ndarray
+                # force_ccddata: CCDData // prefer_ccddata: CCDData // else: ndarray
                 fpath = Path(ccdlike)
                 imname = f"{str(fpath)}{extstr}" if has_no_name else name
-                new_im = load_ccd(fpath, extension, as_ccddata=(force_ccd or prefer_ccd))
+                new_im = load_ccd(fpath, extension, as_ccddata=(force_ccddata or prefer_ccddata))
                 imtype = "path"
             except TypeError:
                 raise TypeError("input must be CCDData-like, ndarray, path-like (to FITS), or a number.")
@@ -331,8 +335,7 @@ def _has_header(ccdlike, extension=None, open_if_file=True):
             # NOTE: This try-except cannot be swapped cuz ``Path("2321.3")`` can be PosixPath without error...
             if open_if_file:
                 try:
-                    # fits.getheader is ~ 10-20 times faster than load_ccd, while still ~2 times SLOWER
-                    # than fitsio.
+                    # fits.getheader is ~ 10-20 times faster than load_ccd.
                     # 2020-11-09 16:06:41 (KST: GMT+09:00) ysBach
                     _ = fits.getheader(Path(ccdlike), extension)
                 except (AttributeError, FileNotFoundError):
@@ -601,13 +604,13 @@ def load_ccd(path, extension=None, as_ccddata=True, as_ccd=True, use_wcs=True, u
 
         hdul = fitsio.FITS(path)
         if load_primary_only_fitsio:
-            data = _read_by_fitsio(hdul, extension)
+            data = _read_by_fitsio(hdul, path, extension)
             hdul.close()
             return data
         else:
-            data = _read_by_fitsio(hdul, extension)
-            unc = _read_by_fitsio(hdul, extension_unc)
-            mask = _read_by_fitsio(hdul, extension_mask)
+            data = _read_by_fitsio(hdul, path, extension)
+            unc = _read_by_fitsio(hdul, path, extension_unc)
+            mask = _read_by_fitsio(hdul, path, extension_mask)
             flag = None  # FIXME: add this line when CCDData starts to support flags.
             hdul.close()
             return data, unc, mask, flag
