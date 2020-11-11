@@ -4,10 +4,10 @@ might be useful outside of this package.
 '''
 import glob
 import sys
+from collections import Iterable
 from pathlib import Path, PosixPath, WindowsPath
-from typing import Type
 from warnings import warn
-from astropy.io.fits.hdu.hdulist import HDUList
+from astropy.extern.configobj.validate import is_list
 
 import ccdproc
 import fitsio
@@ -20,7 +20,7 @@ from astropy.visualization import ImageNormalize, ZScaleInterval
 from astropy.wcs import WCS
 
 __all__ = ["MEDCOMB_KEYS_INT", "SUMCOMB_KEYS_INT", "MEDCOMB_KEYS_FLT32", "LACOSMIC_KEYS",
-           "get_size",
+           "get_size", "is_list_like",
            "load_ccd",
            "_parse_data_header", "_parse_image", "_has_header", "_parse_extension",
            "str_now", "change_to_quantity", "binning", "fitsxy2py", "give_stats", "chk_keyval"]
@@ -44,6 +44,8 @@ MEDCOMB_KEYS_FLT32 = dict(dtype='float32',
                           unit=u.adu,
                           combine_uncertainty_function=None)
 
+CCDLIKE_TYPES = (CCDData, fits.PrimaryHDU, fits.ImageHDU)
+
 # I skipped two params in IRAF LACOSMIC: gain=2.0, readnoise=6.
 LACOSMIC_KEYS = {'sigclip': 4.5,
                  'sigfrac': 0.5,
@@ -61,14 +63,16 @@ LACOSMIC_KEYS = {'sigclip': 4.5,
                  'psfbeta': 4.765}
 
 
-def inputs2list(inputs, sort=True, error_if_ccd=False):
+def inputs2list(inputs, sort=True, accept_ccdlike=True, check_coherency=False):
     ''' Convert glob pattern or list-like of path-like to list of Path
 
     Parameters
     ----------
-    inputs : str, path-like, CCDData
+    inputs : str, path-like, CCDData, fits.PrimaryHDU, fits.ImageHDU
+
     '''
-    contains_ccddata = False
+    contains_ccdlike = False
+    # TODO: if str and startswith("@"), read that file to get fpaths as glob pattern.
     if isinstance(inputs, str):
         # If str, "dir/file.fits" --> [Path("dir/file.fits")]
         #         "dir/*.fits"    --> [Path("dir/file.fits"), ...]
@@ -76,26 +80,33 @@ def inputs2list(inputs, sort=True, error_if_ccd=False):
     elif isinstance(inputs, (PosixPath, WindowsPath)):
         # If Path, ``TOP/"file*.fits"`` --> [Path("top/file1.fits"), ...]
         outlist = glob.glob(str(inputs))
-    elif isinstance(inputs, CCDData):
-        if error_if_ccd:
-            raise TypeError("CCDData is given as `inputs`. Turn off error_if_ccd or use path-like.")
-        else:
+    elif isinstance(inputs, CCDLIKE_TYPES):
+        if accept_ccdlike:
             outlist = [inputs]
-    else:
+        else:
+            kind = type(inputs)
+            raise TypeError(f"{kind} is given as `inputs`. Turn off accept_ccdlike or use path-like.")
+    elif is_list_like(inputs):
+        type_ref = type(inputs[0])
         outlist = []
         for i, item in enumerate(inputs):
-            if isinstance(item, CCDData):
-                contains_ccddata = True
-                if error_if_ccd:
-                    raise TypeError(
-                        f"CCDData is given in the {i}-th element. Turn off error_if_ccd or use path-like."
-                    )
-                else:
+            if check_coherency and (type(item) != type_ref):
+                raise TypeError(f"The 0-th item has {type_ref} while {i}-th has {type(item)}.")
+            if isinstance(item, CCDLIKE_TYPES):
+                contains_ccdlike = True
+                if accept_ccdlike:
                     outlist.append(item)
+                else:
+                    kind = type(item)
+                    raise TypeError(
+                        f"{kind} is given in the {i}-th element. Turn off accept_ccdlike or use path-like."
+                    )
             else:  # assume it is path-like
                 outlist.append(Path(item))
+    else:
+        raise TypeError(f"inputs type ({type(inputs)})not accepted.")
 
-    if sort and not contains_ccddata:
+    if sort and not contains_ccdlike:
         outlist.sort()
 
     return outlist
@@ -125,6 +136,21 @@ def get_size(obj, seen=None):
           and not isinstance(obj, (str, bytes, bytearray))):
         size += sum([get_size(i, seen) for i in obj])
     return size
+
+
+def is_list_like(obj):
+    ''' Direct copy from pandas, with slight modification
+    https://github.com/pandas-dev/pandas/blob/bdb00f2d5a12f813e93bc55cdcd56dcb1aae776e/pandas/_libs/lib.pyx#L1026
+    '''
+    return(
+        isinstance(obj, Iterable)
+        # we do not count strings/unicode/bytes as list-like
+        and not isinstance(obj, (str, bytes))
+        # exclude zero-dimensional numpy arrays, effectively scalars
+        and not (isinstance(obj, np.ndarray) and obj.ndim == 0)
+        # exclude sets if allow_sets is False
+        # and not (allow_sets is False and isinstance(obj, abc.Set))
+    )
 
 
 def _parse_data_header(ccdlike, extension=None, parse_data=True, parse_header=True):
@@ -592,7 +618,7 @@ def load_ccd(path, extension=None, as_ccddata=True, as_ccd=True, use_wcs=True, u
         # Use fitsio and only load the data as soon as possible. This is much quicker than astropy's getdata
         def _read_by_fitsio(_hdul, _path, _extension):
             try:
-                if isinstance(_extension, (list, tuple, np.ndarray)):
+                if is_list_like(_extension):
                     # length == 2 is already checked in _parse_extension.
                     arr = _hdul[_extension[0], _extension[1]].read()
                 else:
