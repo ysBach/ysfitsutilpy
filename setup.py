@@ -10,6 +10,7 @@ install_requires = [
     'astropy >= 2.0',
     'ccdproc >= 1.3',
     'fitsio',
+    'bottleneck'
 ]
 
 classifiers = [
@@ -20,7 +21,7 @@ classifiers = [
 
 setup(
     name="ysfitsutilpy",
-    version="0.1.1.dev",
+    version="0.2.dev",
     author="Yoonsoo P. Bach",
     author_email="dbstn95@gmail.com",
     description="",
@@ -29,5 +30,10 @@ setup(
     url="",
     classifiers=classifiers,
     packages=find_packages(),
+    entry_points={
+            'console_scripts': [
+                'pimarith = ysfitsutilpy.imutil.scripts.pimarith:main'
+            ]
+    },
     python_requires='>=3.6',
     install_requires=install_requires)
