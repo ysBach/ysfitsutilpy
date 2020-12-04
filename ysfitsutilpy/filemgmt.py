@@ -5,6 +5,7 @@ Contians convenience funcitons which are
 '''
 
 from pathlib import Path
+from astropy.io.fits.verify import VerifyError
 import numpy as np
 
 from astropy.table import Table
@@ -69,7 +70,7 @@ def load_if_exists(path, loader, if_not=None, verbose=True, **kwargs):
     return loaded
 
 
-def make_summary(inputs=None, extension=None,
+def make_summary(inputs=None, extension=None, verify_fix=False,
                  fname_option='relative', output=None, format='ascii.csv', keywords=[],
                  example_header=None, sort_by='file', pandas=False, verbose=True):
     """ Extracts summary from the headers of FITS files.
@@ -85,6 +86,10 @@ def make_summary(inputs=None, extension=None,
         The extension of FITS to be used. It can be given as integer (0-indexing) of the extension,
         ``EXTNAME`` (single str), or a tuple of str and int: ``(EXTNAME, EXTVER)``. If `None`
         (default), the *first extension with data* will be used.
+
+    verify_fix : bool, optional.
+        Whether to do ``.verify('fix')`` to all FITS files to avoid VerifyError. It may take some time
+        if turned on. Default is `False`.
 
     fname_option : str {'absolute', 'relative', 'name'}, optional
         Whether to save full absolute/relative path or only the filename.
@@ -153,7 +158,8 @@ def make_summary(inputs=None, extension=None,
                 raise ValueError(f"fname_option `{fname_option}`not understood.")
             fsize = Path(item).stat().st_size  # Don't change to MB/GB, which will make it float...
             hdul = fits.open(item)
-            hdul.verify('fix')
+            if verify_fix:
+                hdul.verify('fix')
             hdr = hdul[extension].header
             hdul.close()
 
@@ -180,7 +186,10 @@ def make_summary(inputs=None, extension=None,
         keywords = []
 
         for i in range(N_hkeys):
-            key_i = hdr0.cards[i][0]
+            try:
+                key_i = hdr0.cards[i][0]
+            except VerifyError:
+                raise VerifyError("Use verify_fix=True.")
             if (key_i in skip_keys):
                 continue
             elif (key_i in keywords):
