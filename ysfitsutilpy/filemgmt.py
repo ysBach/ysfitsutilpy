@@ -130,7 +130,7 @@ def make_summary(inputs=None, extension=None,
     >>>                            sort_by="DATE-OBS", output=savepath)
     """
     # No need to sort here because the real "sort" will be done later based on ``sort_by`` column.
-    fitslist = inputs2list(inputs, sort=False, accept_ccdlike=False)
+    fitslist = inputs2list(inputs, sort=False, accept_ccdlike=True, check_coherency=False)
 
     if len(fitslist) == 0:
         print("No FITS file found.")
@@ -153,6 +153,7 @@ def make_summary(inputs=None, extension=None,
                 raise ValueError(f"fname_option `{fname_option}`not understood.")
             fsize = Path(item).stat().st_size  # Don't change to MB/GB, which will make it float...
             hdul = fits.open(item)
+            hdul.verify('fix')
             hdr = hdul[extension].header
             hdul.close()
 
