@@ -11,8 +11,10 @@ from astropy.time import Time
 from astropy.wcs import WCS
 from ccdproc import trim_image
 
-from .hdrutil import add_to_header, get_if_none, update_tlm
-from .misc import binning, _parse_data_header, fitsxy2py
+from .hdrutil import (add_to_header, calc_offset_physical, get_if_none,
+                      update_tlm)
+from .misc import (_parse_data_header, _parse_image, binning, fitsxy2py,
+                   _image_shape, inputs2list)
 
 __all__ = [
     "set_ccd_attribute", "set_ccd_gain_rdnoise",
@@ -173,48 +175,96 @@ def propagate_ccdmask(ccd, additional_mask=None):
 
 
 # FIXME: Remove when https://github.com/astropy/ccdproc/issues/718 is solved
-def trim_ccd(ccd, fits_section=None, add_keyword=True, verbose=False):
+# def trim_ccd(ccd, fits_section=None, add_keyword=True, verbose=False):
+#     _t = Time.now()
+#     trim_str = f"Trimmed using {fits_section}"
+#     trimmed_ccd = trim_image(ccd, fits_section=fits_section, add_keyword=add_keyword)
+#     ny, nx = ccd.data.shape
+
+#     if fits_section:
+#         trim_slice = fitsxy2py(fits_section)
+#         ltv1 = -1*trim_slice[1].indices(nx)[0]
+#         ltv2 = -1*trim_slice[0].indices(ny)[0]
+#     else:
+#         ltv1 = 0.
+#         ltv2 = 0.
+
+#     hdr = trimmed_ccd.header
+#     for k, v in zip(["LTV1", "LTV2"], [ltv1, ltv2]):
+#         try:  # if LTV exists already
+#             hdr[k] += v
+#         except KeyError:
+#             hdr[k] = v
+
+#     add_11 = not ("LTM1_1" in hdr)
+#     add_12 = not ("LTM1_2" in hdr)
+#     add_21 = not ("LTM2_1" in hdr)
+#     add_22 = not ("LTM2_2" in hdr)
+#     if add_11:
+#         if "LTM1" in hdr:
+#             hdr["LTM1_1"] = hdr["LTM1"]
+#         else:
+#             hdr["LTM1_1"] = 1.
+#     if add_12:
+#         hdr["LTM1_2"] = 0.
+#     if add_21:
+#         hdr["LTM2_1"] = 0.
+#     if add_22:
+#         if "LTM2" in hdr:
+#             hdr["LTM2_2"] = hdr["LTM2"]
+#         else:
+#             hdr["LTM2_2"] = 1.
+
+#     add_to_header(trimmed_ccd.header, 'h', trim_str, t_ref=_t, verbose=verbose)
+#     update_tlm(trimmed_ccd.header)
+
+#     return trimmed_ccd
+
+def trim_ccd(ccd, fits_section=None, update_header=True, verbose=False):
     _t = Time.now()
     trim_str = f"Trimmed using {fits_section}"
-    trimmed_ccd = trim_image(ccd, fits_section=fits_section, add_keyword=add_keyword)
-    ny, nx = ccd.data.shape
+    trimmed_ccd = trim_image(ccd, fits_section=fits_section, add_keyword=update_header)
+    ndim = ccd.data.ndim  # ndim == NAXIS keyword
+    shape = ccd.data.shape
 
     if fits_section:
         trim_slice = fitsxy2py(fits_section)
-        ltv1 = -1*trim_slice[1].indices(nx)[0]
-        ltv2 = -1*trim_slice[0].indices(ny)[0]
+        ltvs = []
+        for i_python, npix in enumerate(shape):
+            # If section is [10:X], the LTV must be -9, not -10.
+            ltvs.append(-1*trim_slice[i_python].indices(npix)[0])
     else:
-        ltv1 = 0.
-        ltv2 = 0.
+        ltvs = [0.]*ndim
 
-    hdr = trimmed_ccd.header
-    for k, v in zip(["LTV1", "LTV2"], [ltv1, ltv2]):
-        try:  # if LTV exists already
-            hdr[k] += v
-        except KeyError:
-            hdr[k] = v
+    # python shape is in z, y, x order, so reverse it
+    ltvs = ltvs[::-1]
 
-    add_11 = not ("LTM1_1" in hdr)
-    add_12 = not ("LTM1_2" in hdr)
-    add_21 = not ("LTM2_1" in hdr)
-    add_22 = not ("LTM2_2" in hdr)
-    if add_11:
-        if "LTM1" in hdr:
-            hdr["LTM1_1"] = hdr["LTM1"]
-        else:
-            hdr["LTM1_1"] = 1.
-    if add_12:
-        hdr["LTM1_2"] = 0.
-    if add_21:
-        hdr["LTM2_1"] = 0.
-    if add_22:
-        if "LTM2" in hdr:
-            hdr["LTM2_2"] = hdr["LTM2"]
-        else:
-            hdr["LTM2_2"] = 1.
+    if update_header:
+        hdr = trimmed_ccd.header
+        for i_axis, ltv in enumerate(ltvs):
+            i = i_axis + 1
+            try:  # if LTV exists already
+                hdr[f"LTV{i}"] += ltv
+                # NB: LTV is negative (gets more negative if more trimmed)
+            except KeyError:
+                hdr[f"LTV{i}"] = ltv
 
-    add_to_header(trimmed_ccd.header, 'h', trim_str, t_ref=_t, verbose=verbose)
-    update_tlm(trimmed_ccd.header)
+        for i_axis in range(ndim):
+            i = i_axis + 1
+            for j_axis in range(ndim):
+                j = j_axis + 1
+                if i == j:
+                    if f"LTM{i}" in hdr:
+                        hdr[f"LTM_{i}_{i}"] = hdr[f"LTM{i}"]
+                    else:
+                        hdr[f"LTM{i}_{i}"] = 1.
+                else:
+                    if f"LTM{i}_{j}" not in hdr:
+                        hdr[f"LTM{i}_{j}"] = 0.
+
+    if verbose:
+        add_to_header(trimmed_ccd.header, 'h', trim_str, t_ref=_t, verbose=verbose)
+        update_tlm(trimmed_ccd.header)
 
     return trimmed_ccd
 
@@ -300,7 +350,39 @@ def bezel_ccd(ccd, bezel_x=None, bezel_y=None, replace=np.nan, verbose=False):
     return nccd
 
 
-# TODO: add LTV-like keys to the header.
+def trim_overlap(inputs, extension=None, coordinate='image'):
+    ''' Trim only the overlapping regions of the two CCDs
+    Parameters
+    ----------
+    coordinate : str, optional.
+        Ways to find the overlapping region. If ``'image'`` (default), output size will be
+        ``np.min([ccd.shape for ccd in ccds], axis=0)``. If ``'physical'``, overlapping region will be
+        found based on the physical coordinates.
+
+    extension: int, str, (str, int)
+        The extension of FITS to be used. It can be given as integer (0-indexing) of the extension,
+        ``EXTNAME`` (single str), or a tuple of str and int: ``(EXTNAME, EXTVER)``. If `None`
+        (default), the *first extension with data* will be used.
+
+    Note
+    ----
+    WCS is not acceptable because no rotation/scaling is supported.
+    '''
+    items = inputs2list(inputs, sort=False, accept_ccdlike=True, check_coherency=False)
+    if len(items) < 2:
+        raise ValueError("inputs must have at least 2 objects.")
+
+    offsets = []
+    shapes = []
+    reference = _parse_image(items[0], extension=extension, name=None, force_ccddata=True)
+    for item in items:
+        ccd, _, _ = _parse_image(item, extension=extension, name=None, force_ccddata=True)
+        shapes.append(ccd.data.shape)
+        offsets.append(calc_offset_physical(ccd, reference, order_xyz=False, ignore_ltm=True))
+
+    offsets, new_shape = _image_shape(shapes, offsets, method='overlap', intify_offsets=False)
+
+
 def cutccd(ccd, position, size, mode='trim', fill_value=np.nan):
     ''' Converts the Cutout2D object to proper CCDData.
 
@@ -438,7 +520,7 @@ def bin_ccd(ccd, factor_x=1, factor_y=1, binfunc=np.mean, trim_end=False, update
         _ccd.header["YBINNING"] = (factor_y, "Binning done after the observation in Y direction")
         # add as history
         add_to_header(
-            _ccd.header, 'h', t_ref=_t_start s=f"Binned by (xbin, ybin) = ({factor_x}, {factor_y}) "
+            _ccd.header, 'h', t_ref=_t_start, s=f"Binned by (xbin, ybin) = ({factor_x}, {factor_y}) "
         )
     update_tlm(_ccd.header)
     return _ccd
