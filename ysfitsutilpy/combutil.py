@@ -13,7 +13,7 @@ from ccdproc import combine, trim_image
 from .ccdutil import CCDData_astype, trim_ccd
 from .filemgmt import load_if_exists, make_summary
 from .hdrutil import add_to_header
-from .misc import _parse_extension, chk_keyval, load_ccd
+from .misc import chk_keyval, load_ccd
 
 
 __all__ = ["sstd", "weighted_mean", "group_FITS", "stack_FITS", "combine_ccd"]
@@ -104,8 +104,8 @@ def group_FITS(summary_table, type_key=None, type_val=None, group_key=None):
 
 
 def stack_FITS(fitslist=None, summary_table=None, extension=None,
-               unit='adu', table_filecol="file", trim_fits_section=None,
-               loadccd=True, asccd=True, type_key=None, type_val=None,
+               unit=None, table_filecol="file", trim_fits_section=None,
+               ccddata=True, asccd=True, type_key=None, type_val=None,
                verbose=True):
     ''' Stacks the FITS files specified in fitslist
 
@@ -122,7 +122,7 @@ def stack_FITS(fitslist=None, summary_table=None, extension=None,
         The table which contains the metadata of files. If there are many FITS files and you want to
         use stacking many times, it is better to make a summary table by ``filemgmt.make_summary`` and
         use that instead of opening FITS files' headers every time you call this function. If you want
-        to use ``summary_table`` instead of ``fitslist`` and have set ``loadccd=True``, you must not
+        to use ``summary_table`` instead of ``fitslist`` and have set ``ccddata=True``, you must not
         have `None` or ``NaN`` value in the ``summary_table[table_filecol]``.
 
     extension: int, str, (str, int)
@@ -132,7 +132,7 @@ def stack_FITS(fitslist=None, summary_table=None, extension=None,
 
     unit: Unit or str, optional
         The unit of the CCDs to be loaded.
-        Used only when ``fitslist`` is not a list of ``CCDData`` and ``loadccd`` is `True`.
+        Used only when ``fitslist`` is not a list of ``CCDData`` and ``ccddata`` is `True`.
 
     table_filecol: str
         The column name of the ``summary_table`` which contains the path to the FITS files.
@@ -142,7 +142,7 @@ def stack_FITS(fitslist=None, summary_table=None, extension=None,
         extracted; see `~ccdproc.subtract_overscan` for details.
         Default is `None`.
 
-    loadccd: bool, optional
+    ccddata: bool, optional
         Whether to return file paths or loaded CCDData. If `False`, it is a function to select FITS
         files using ``type_key`` and ``type_val`` without using much memory.
         This is ignored if ``fitslist`` is given and composed of ``CCDData`` objects.
@@ -152,14 +152,14 @@ def stack_FITS(fitslist=None, summary_table=None, extension=None,
 
     asccd : bool, optional.
         Whether to load as ``astropy.nddata.CCDData``. If `False`, numpy ndarray will be used. Works
-        only if ``loadccd = True``.
+        only if ``ccddata = True``.
 
     Return
     ------
     matched: list of Path or list of CCDData
-        list containing Path to files if ``loadccd`` is `False`. Otherwise it is a list containing
+        list containing Path to files if ``ccddata`` is `False`. Otherwise it is a list containing
         loaded CCDData after loading the files. If ``ccdlist`` is given a priori, list of CCDData will
-        be returned regardless of ``loadccd``.
+        be returned regardless of ``ccddata``.
     '''
     def _parse_val(value):
         val = str(value)
@@ -208,11 +208,11 @@ def stack_FITS(fitslist=None, summary_table=None, extension=None,
             summary_table = make_summary(
                 fitslist,
                 extension=extension,  # extension will be parsed within make_summary (no need to care here)
-                verbose=True,
+                verbose=verbose,
                 fname_option='relative',
                 keywords=type_key,
                 sort_by=None,
-                pandas=True
+                pandas=True,
             )
         # else:
         #   no need to make summary_table.
@@ -234,7 +234,7 @@ def stack_FITS(fitslist=None, summary_table=None, extension=None,
 
     if verbose:
         print("Done", end='')
-        if loadccd:
+        if ccddata:
             print(" and loading FITS... ")
         else:
             print(".")
@@ -267,7 +267,7 @@ def stack_FITS(fitslist=None, summary_table=None, extension=None,
                     matched.append(fitslist[i].data)
             else:  # it must be a path to a file
                 fpath = Path(fitslist[i])
-                if loadccd:
+                if ccddata:
                     # extension will be parsed within load_ccd (no need to care here)
                     ccd_i = load_ccd(fpath, extension=extension, unit=unit)
                     if trim_fits_section is not None:
@@ -288,7 +288,7 @@ def stack_FITS(fitslist=None, summary_table=None, extension=None,
                 else:
                     matched.append(item.data)
             else:  # it must be a path to a file
-                if loadccd:
+                if ccddata:
                     # extension will be parsed within load_ccd (no need to care here)
                     ccd_i = load_ccd(item, extension=extension, unit=unit)
                     if trim_fits_section is not None:
@@ -315,19 +315,19 @@ def stack_FITS(fitslist=None, summary_table=None, extension=None,
             ks = str(type_key)
             vs = str(type_val)
             if verbose:
-                if loadccd:
+                if ccddata:
                     print(f'{N} FITS files with "{ks} = {vs}" are loaded.')
                 else:
                     print(f'{N} FITS files with "{ks} = {vs}" are selected.')
         else:
-            if verbose and loadccd:
+            if verbose and ccddata:
                 print('{:d} FITS files are loaded.'.format(len(matched)))
 
     return matched
 
 
 def combine_ccd(fitslist=None, summary_table=None, table_filecol="file",
-                trim_fits_section=None, output=None, unit='adu',
+                trim_fits_section=None, output=None, unit=None,
                 subtract_frame=None, combine_method='median',
                 reject_method=None, normalize_exposure=False,
                 normalize_average=False, normalize_median=False,
@@ -353,7 +353,7 @@ def combine_ccd(fitslist=None, summary_table=None, table_filecol="file",
         The table which contains the metadata of files. If there are many FITS files and you want to
         use stacking many times, it is better to make a summary table by ``filemgmt.make_summary`` and
         use that instead of opening FITS files' headers every time you call this function. If you want
-        to use ``summary_table`` instead of ``fitslist`` and have set ``loadccd=True``, you must not
+        to use ``summary_table`` instead of ``fitslist`` and have set ``ccddata=True``, you must not
         have `None` or ``NaN`` value in the ``summary_table[table_filecol]``.
 
     table_filecol: str
@@ -370,7 +370,7 @@ def combine_ccd(fitslist=None, summary_table=None, table_filecol="file",
 
     unit : `~astropy.units.Unit` or str, optional.
         The units of the data.
-        Default is ``'adu'``.
+        Default is `None`.
 
     subtract_frame : array-like, optional.
         The frame you want to subtract from the image after the combination. It can be, e.g., dark
@@ -574,11 +574,11 @@ def combine_ccd(fitslist=None, summary_table=None, table_filecol="file",
         unit=unit,
         type_key=type_key,
         type_val=type_val,
-        loadccd=False,
+        ccddata=False,
         verbose=verbose
     )
     #  trim_fits_section=trim_fits_section,
-    # loadccd=False: Loading CCD here may cause memory blast...
+    # ccddata=False: Loading CCD here may cause memory blast...
 
     try:
         header = ccdlist[0].header
