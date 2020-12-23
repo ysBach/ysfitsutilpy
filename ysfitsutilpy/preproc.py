@@ -473,6 +473,9 @@ def medfilt_bpm(ccd, cadd=1.e-10, std_model="std", gain=1., rdnoise=0., snoise=0
 
     if std_model == 'ccd':
         _t = Time.now()
+        gain = change_to_quantity(gain, u.electron/u.adu, to_value=True)
+        rdnoise = change_to_quantity(rdnoise, u.electron, to_value=True)
+
         std = np.sqrt((1 + snoise)*med_filt/gain + (rdnoise/gain)**2)
         if update_header:
             add_to_header(
@@ -487,7 +490,7 @@ def medfilt_bpm(ccd, cadd=1.e-10, std_model="std", gain=1., rdnoise=0., snoise=0
 
     elif std_model == 'std':
         _t = Time.now()
-        _, _, std = sigma_clipped_stats(arr[slices], **sigclip_kw)
+        _, _, std = sigma_clipped_stats(arr[tuple(slices)], **sigclip_kw)
 
         if update_header:
             if std_section is None:
@@ -497,13 +500,13 @@ def medfilt_bpm(ccd, cadd=1.e-10, std_model="std", gain=1., rdnoise=0., snoise=0
             hdr["MB_SSECT"] = (f"{std_section}", "Sky stdev calculation section in MBPM algorithm")
             add_to_header(
                 hdr, 'h', verbose=verbose, t_ref=_t,
-                s=("Sky standard deviation (MB_SSKY) calculated by sigma clipping at MB_SSECT "
-                   + f"with {sigclip_kw}; used for std_ratio map calculation."
-                   )
+                s=("Sky standard deviation (MB_SSKY) calculated by sigma clipping at MB_SSECT with "
+                   + f"{sigclip_kw}; used for std_ratio map calculation.")
             )
 
     elif std_model is None:
         hdr['MB_MODEL'] = ('None', "Method used for getting stdev map")
+        std = 1  # so that med_ratio is nothing but med_sub itself below.
         std_rat_clip = None  # turn off clipping using std_ratio
 
     else:
@@ -586,7 +589,7 @@ def bdf_process(ccd, output=None,
                 mbias=None, mdark=None, mflat=None, mfringe=None,
                 mfringepath=None, fringe_scale_fun=np.mean,
                 fringe_scale_section=None,
-                trim_fits_section=None, calc_err=False, unit='adu',
+                trim_fits_section=None, calc_err=False, unit=None,
                 gain=None, gain_key="GAIN", gain_unit=u.electron/u.adu,
                 rdnoise=None, rdnoise_key="RDNOISE", rdnoise_unit=u.electron,
                 dark_exposure=None, data_exposure=None, exposure_key="EXPTIME",
@@ -638,7 +641,7 @@ def bdf_process(ccd, output=None,
 
     unit : `~astropy.units.Unit` or str, optional.
         The units of the data.
-        Default is ``'adu'``.
+        Default is `None`.
 
     gain, rdnoise : None, float, astropy.Quantity, optional.
         The gain and readnoise value. These are all ignored if ``calc_err=False`` and
@@ -741,7 +744,7 @@ def bdf_process(ccd, output=None,
     else:
         do_bias = True
         if mbias is None:
-            mbias = load_ccd(mbiaspath, unit=unit)
+            mbias = load_ccd(mbiaspath, unit=unit, ccddata=True, use_wcs=False)
         if mbiaspath is None:
             mbiaspath = "<User>"
         if not calc_err:
@@ -756,7 +759,7 @@ def bdf_process(ccd, output=None,
     else:
         do_dark = True
         if mdark is None:
-            mdark = load_ccd(mdarkpath, unit=unit)
+            mdark = load_ccd(mdarkpath, unit=unit, ccddata=True, use_wcs=False)
         if mdarkpath is None:
             mdarkpath = "<User>"
         if not calc_err:
@@ -775,7 +778,7 @@ def bdf_process(ccd, output=None,
     else:
         do_flat = True
         if mflat is None:
-            mflat = load_ccd(mflatpath, unit=unit)
+            mflat = load_ccd(mflatpath, unit=unit, ccddata=True, use_wcs=False)
         if mflatpath is None:
             mflatpath = "<User>"
         if not calc_err:
@@ -790,7 +793,7 @@ def bdf_process(ccd, output=None,
     else:
         do_fringe = True
         if mfringe is None:
-            mfringe = load_ccd(mfringepath, unit=unit)
+            mfringe = load_ccd(mfringepath, unit=unit, ccddata=True, use_wcs=False)
         if mfringepath is None:
             mfringepath = "<User>"
         if not calc_err:
