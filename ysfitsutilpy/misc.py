@@ -7,8 +7,8 @@ import sys
 from collections import Iterable
 from pathlib import Path, PosixPath, WindowsPath
 from warnings import warn
-from astropy.extern.configobj.validate import is_list
 
+import bottleneck as bn
 import ccdproc
 import fitsio
 import numpy as np
@@ -18,10 +18,12 @@ from astropy.nddata import CCDData
 from astropy.time import Time
 from astropy.visualization import ImageNormalize, ZScaleInterval
 from astropy.wcs import WCS
+from numpy.core.numeric import outer
+from numpy.lib.arraysetops import isin
 
 __all__ = ["MEDCOMB_KEYS_INT", "SUMCOMB_KEYS_INT", "MEDCOMB_KEYS_FLT32", "LACOSMIC_KEYS",
-           "get_size", "is_list_like",
-           "load_ccd",
+           "get_size", "is_list_like", "circular_mask", "_image_shape", "_offsets2slice",
+           "load_ccd", "write2fits",
            "_parse_data_header", "_parse_image", "_has_header", "_parse_extension",
            "str_now", "change_to_quantity", "binning", "fitsxy2py", "give_stats", "chk_keyval"]
 
@@ -124,12 +126,17 @@ def get_size(obj, seen=None):
     obj_id = id(obj)
     if obj_id in seen:
         return 0
-    # Important mark as seen *before* entering recursion to gracefully handle
-    # self-referential objects
+    # Important mark as seen *before* entering recursion to gracefully handle self-referential objects
     seen.add(obj_id)
     if isinstance(obj, dict):
-        size += sum([get_size(v, seen) for v in obj.values()])
-        size += sum([get_size(k, seen) for k in obj.keys()])
+        objv = obj.values()
+        objk = obj.keys()
+        for kv in [objk, objv]:
+            for v in kv:
+                if not (isinstance(v, np.ndarray) and v.ndim == 0):
+                    size += get_size(v, seen)
+        # size += sum([get_size(v, seen) for v in obj.values()])
+        # size += sum([get_size(k, seen) for k in obj.keys()])
     elif hasattr(obj, '__dict__'):
         size += get_size(obj.__dict__, seen)
     elif (hasattr(obj, '__iter__')
@@ -153,12 +160,53 @@ def is_list_like(obj):
     )
 
 
-def _parse_data_header(ccdlike, extension=None, parse_data=True, parse_header=True):
+def circular_mask(shape, center=None, radius=None, center_xyz=True):
+    ''' Creates an N-D circular (circular, sphereical, ...) mask.
+    Parameters
+    ----------
+    shape : tuple
+        The pythonic shape (not xyz order).
+
+    center : tuple, None, optional.
+        The center of the circular mask. If `None`, the central position is used.
+
+    radius : float, None, optional.
+        The radius of the mask. If `None`, the distance to the closest edge of the image is used.
+
+    center_xyz : bool, optional.
+        Whether the center is in xyz order.
+
+    Direct copy from
+    https://stackoverflow.com/questions/44865023/how-can-i-create-a-circular-mask-for-a-numpy-array
+    '''
+    if center is None:  # use the middle of the image
+        center = [int(npix/2) for npix in shape[::-1]]
+
+    if center_xyz:
+        center = center[::-1]
+
+    shape = np.array(shape)
+    center = np.array(center)
+
+    if radius is None:  # use the smallest distance between the center and image walls
+        radius = np.min([center, shape - center])
+
+    slices = tuple([slice(None, npix, None) for npix in shape])
+
+    ZYX = np.ogrid[slices]
+    dist_sq = [(ZYX[i] - center[i])**2 for i in range(len(shape))]
+    dist_from_center = np.sqrt(np.sum(dist_sq))
+
+    mask = dist_from_center <= radius
+    return mask
+
+
+def _parse_data_header(ccdlike, extension=None, parse_data=True, parse_header=True, copy=True):
     '''Parses data and header and return them separately after copy.
 
     Paramters
     ---------
-    ccdlike : CCDData, PrimaryHDU, ImageHDU, HDUList, ndarray, number-like, path-like
+    ccdlike : CCDData, PrimaryHDU, ImageHDU, HDUList, Header, ndarray, number-like, path-like
         The object to be parsed into data and header.
 
     extension: int, str, (str, int)
@@ -166,7 +214,7 @@ def _parse_data_header(ccdlike, extension=None, parse_data=True, parse_header=Tr
         ``EXTNAME`` (single str), or a tuple of str and int: ``(EXTNAME, EXTVER)``. If `None`
         (default), the *first extension with data* will be used.
 
-    parse_data, parse_hdr : bool, optional.
+    parse_data, parse_header : bool, optional.
         Because this function uses ``.copy()`` for safety, it may take a bit of time if this function
         is used iteratively. One then can turn off one of these to ignore either data or header part.
 
@@ -185,34 +233,72 @@ def _parse_data_header(ccdlike, extension=None, parse_data=True, parse_header=Tr
     mainly with the data (and has options to return as CCDData).
     '''
     if isinstance(ccdlike, (CCDData, fits.PrimaryHDU, fits.ImageHDU)):
-        data = ccdlike.data.copy() if parse_data else None
-        hdr = ccdlike.header.copy() if parse_header else None
+        if parse_data:
+            data = ccdlike.data.copy() if copy else ccdlike.data
+        else:
+            data = None
+        if parse_header:
+            hdr = ccdlike.header.copy() if copy else ccdlike.header
+        else:
+            hdr = None
     elif isinstance(ccdlike, fits.HDUList):
         extension = _parse_extension(extension) if (parse_data or parse_header) else 0
         # ^ don't even do _parse_extension if both are False
-        data = ccdlike[extension].data.copy() if parse_data else None
-        hdr = ccdlike[extension].header.copy() if parse_header else None
+        if parse_data:
+            data = ccdlike[extension].data.copy() if copy else ccdlike[extension].data
+        else:
+            data = None
+        if parse_header:
+            hdr = ccdlike[extension].header.copy() if copy else ccdlike[extension].header
+        else:
+            hdr = None
     elif isinstance(ccdlike, np.ndarray):
-        data = ccdlike.copy() if parse_data else None
-        hdr = None
+        if parse_data:
+            data = ccdlike.copy() if copy else ccdlike
+        else:
+            data = None
+        hdr = None  # regardless of parse_header
+    elif isinstance(ccdlike, fits.Header):
+        data = None  # regardless of parse_data
+        if parse_header:
+            hdr = ccdlike.copy() if copy else ccdlike
+        else:
+            hdr = None
+    elif isinstance(ccdlike, fitsio.FITSHDR):
+        import copy
+        data = None  # regardless of parse_data
+        if parse_header:
+            hdr = copy.deepcopy(ccdlike) if copy else ccdlike
+        else:
+            hdr = None
     else:
         try:
-            data = float(ccdlike) if parse_data else None
+            data = float(ccdlike) if (parse_data or parse_header) else None
             hdr = None
         except (ValueError, TypeError):  # Path-like
             # NOTE: This try-except cannot be swapped cuz ``Path("2321.3")`` can be PosixPath without error...
             extension = _parse_extension(extension) if parse_data or parse_header else 0
             # fits.getheader is ~ 10-20 times faster than load_ccd.
             # 2020-11-09 16:06:41 (KST: GMT+09:00) ysBach
-            hdu = fits.open(ccdlike, memmap=False)[extension]
-            # No need to copy because they've been read (loaded) for the first time here.
-            data = hdu.data if parse_data else None
-            hdr = hdu.header if parse_header else None
+            try:
+                if parse_header:
+                    hdu = fits.open(Path(ccdlike), memmap=False)[extension]
+                    # No need to copy because they've been read (loaded) for the first time here.
+                    data = hdu.data if parse_data else None
+                    hdr = hdu.header if parse_header else None
+                else:
+                    if isinstance(extension, tuple):
+                        data = fitsio.read(Path(ccdlike), ext=extension[0], extver=extension[1])
+                    else:
+                        data = fitsio.read(Path(ccdlike), ext=extension)
+                    hdr = None
+            except TypeError:
+                raise TypeError(f"ccdlike type ({type(ccdlike)}) is not acceptable to find header and data.")
 
     return data, hdr
 
 
-def _parse_image(ccdlike, extension, name, force_ccddata=False, prefer_ccddata=False):
+def _parse_image(ccdlike, extension=None, name=None, force_ccddata=False, prefer_ccddata=False):
     '''Parse and return input image as desired format (ndarray or CCDData)
     Parameters
     ----------
@@ -264,6 +350,8 @@ def _parse_image(ccdlike, extension, name, force_ccddata=False, prefer_ccddata=F
     def __extract_from_hdu(hdu, force_ccddata, prefer_ccddata):
         if force_ccddata or prefer_ccddata:
             unit = ccdlike.header.get("BUNIT", default=u.adu)
+            if isinstance(unit, str):
+                unit = unit.lower()
             return CCDData(data=hdu.data, header=hdu.header, unit=unit)
             # The two lines above took ~ 5 us and 10-30 us for the simplest header and 1x1 pixel data
             # case (regardless of BUNIT exists), on MBP 15" [2018, macOS 10.14.6, i7-8850H (2.6 GHz;
@@ -299,12 +387,14 @@ def _parse_image(ccdlike, extension, name, force_ccddata=False, prefer_ccddata=F
             _im = float(ccdlike)
             new_im = CCDData(data=_im, unit='adu') if force_ccddata else np.asarray(_im)
             imtype = "num"  # imname can be "int", "float", "str", etc, so imtype might be useful.
-        except ValueError:
+        except (ValueError, TypeError):
             try:  # IF path-like
                 # force_ccddata: CCDData // prefer_ccddata: CCDData // else: ndarray
                 fpath = Path(ccdlike)
                 imname = f"{str(fpath)}{extstr}" if has_no_name else name
-                new_im = load_ccd(fpath, extension, as_ccddata=(force_ccddata or prefer_ccddata))
+                # set redundant extensions to None so that only the part specified by ``extension`` be loaded:
+                new_im = load_ccd(fpath, extension, ccddata=(force_ccddata or prefer_ccddata),
+                                  extension_uncertainty=None, extension_mask=None)
                 imtype = "path"
             except TypeError:
                 raise TypeError("input must be CCDData-like, ndarray, path-like (to FITS), or a number.")
@@ -442,9 +532,188 @@ def _parse_extension(*args, ext=None, extname=None, extver=None):
     return ext
 
 
-def load_ccd(path, extension=None, as_ccddata=True, as_ccd=True, use_wcs=True, unit=None,
+def _regularize_offsets(offsets, offset_order_xyz=True, intify_offsets=False):
+    """ Makes offsets all non-negativevg and relative to each other.
+    """
+    _offsets = np.atleast_2d(offsets)
+    if offset_order_xyz:
+        _offsets = np.flip(_offsets, -1)
+
+    # _offsets = np.max(_offsets, axis=0) - _offsets
+    _offsets = _offsets - np.min(_offsets, axis=0)
+    # This is the convention to follow IRAF (i.e., all of offsets > 0.)
+    if intify_offsets:
+        _offsets = np.around(_offsets).astype(int)
+
+    return _offsets
+
+
+def _image_shape(shapes, offsets, method='outer', offset_order_xyz=True, intify_offsets=False,
+                 pythonize_offsets=True):
+    '''shapes and offsets must be in the order of python/numpy (i.e., z, y, x order).
+
+    Paramters
+    ---------
+    shapes : ndarray
+        The shapes of the arrays to be processed. It must have the shape of ``nimage`` by ``ndim``. The
+        order of shape must be pythonic (i.e., ``shapes[i] = image[i].shape``, not in the xyz order).
+
+    offsets : ndarray
+        The offsets must be ``(cen_i - cen_ref) + const`` format, i.e., an offset is the position of
+        the target frame (position can be, e.g., origin or center) in the coordinate of the reference
+        frame, with a possible non-zero constant offset applied. It must have the shape of ``nimage``
+        by ``ndim``.
+
+    method : str, optional
+        The method to calculate the ``shape_out``::
+
+          * ``'outer'``: To combine images, so every pixel in ``shape_out`` has at least 1 image pixel.
+          * ``'inner'``: To process only where all the images have certain pixel (fully-overlap).
+
+    offset_order_xyz : bool, optional
+        Whether ``offsets`` are in xyz order. If so, those will be flipped to pythonic order.
+        Default: `True`
+
+    Returns
+    -------
+    _offsets : ndarray
+        The *relative* offsets calculated such that at least one image per each dimension must have
+        offset of 0.
+
+    shape_out : tuple
+        The shape of the array depending on the ``method``.
+    '''
+    _offsets = _regularize_offsets(offsets, offset_order_xyz=offset_order_xyz, intify_offsets=intify_offsets)
+
+    if method == 'outer':
+        shape_out = np.around(np.max(np.array(shapes) + _offsets, axis=0)).astype(int)
+        # print(_offsets, shapes, shape_out)
+    # elif method == 'stack':
+    #     shape_out_comb = np.around(np.max(np.array(shapes) + _offsets, axis=0)).astype(int)
+    #     shape_out = (len(shapes), *shape_out_comb)
+    elif method == 'inner':
+        lower_bound = np.max(_offsets, axis=0)
+        upper_bound = np.min(_offsets + shapes, axis=0)
+        npix = upper_bound - lower_bound
+        shape_out = np.around(npix).astype(int)
+        if np.any(npix < 0):
+            raise ValueError(f"There doesn't exist fully-overlapping pixel! Naïve output shape={shape_out}.")
+        # print(lower_bound, upper_bound, shape_out)
+    else:
+        raise ValueError("method unacceptable (use one of 'inner', 'outer').")
+
+    if offset_order_xyz and not pythonize_offsets:  # reverse _offsets to original xyz order
+        _offsets = np.flip(_offsets, -1)
+
+    return _offsets, tuple(shape_out)
+
+
+def _offsets2slice(shapes, offsets, method='outer', shape_order_xyz=False, offset_order_xyz=True,
+                   outer_for_stack=True, fits_convention=False):
+    """ Calculates the slices for each image when to extract overlapping parts.
+
+    Parameters
+    ----------
+    shapes, offsets : ndarray
+        The shape and offset of each image. If multiple images are used, it must have shape of
+        ``nimage`` by ``ndim``.
+
+    method : str, optional
+        The method to calculate the ``shape_out``::
+
+          * ``'outer'``: To combine images, so every pixel in ``shape_out`` has at least 1 image pixel.
+          * ``'inner'``: To process only where all the images have certain pixel (fully-overlap).
+
+    shape_order_xyz, offset_order_xyz : bool, optional.
+        Whether the order of the shapes or offsets are in xyz or pythonic. Shapes are usually in
+        pythonic as it is obtained by ``image_data.shape``, but offsets are often in xyz order (e.g.,
+        if header ``LTVi`` keywords are loaded in their alpha-numeric order; or you have used
+        `~calc_offset_wcs` or `~calc_offset_physical` with default ``order_xyz=True``).
+        Default is `False` and `True`, respectively.
+
+    outer_for_stack : bool, optional.
+        If `True`(default), the output slice is the slice in tne ``N+1``-D array, which will be
+        constructed before combining them along ``axis=0``. That is, ``comb =
+        np.nan*np.ones(_image_shape(shapes, offsets, method='outer'))`` and ``comb[slices[i]] =
+        images[i]``. Then a median combine, for example, is done by ``np.nanmedian(comb, axis=0)``.
+        If ``stack_outer=False``, ``slices[i]`` will be ``slices_with_stack_outer_True[i][1:]``.
+
+    fits_convention : bool, optional.
+        Whether to return the slices in FITS convention (xyz order, 1-indexing, end index included). If
+        `True` (default), returned list contains str; otherwise, slice objects will be contained.
+
+    Returns
+    -------
+    slices : list of str or list of slice
+        The meaning of it differs depending on ``method``::
+
+          * ``'outer'``: the slice of the **output** array where the i-th image should fit in.
+          * ``'inner'``: the slice of the **input** array (image) where the overlapping region resides.
+
+    Example
+    -------
+    >>>
+
+    Note
+    ----
+
+    """
+    _shapes = np.atleast_2d(shapes)
+    if shape_order_xyz:
+        _shapes = np.flip(_shapes, -1)
+
+    _offsets = _regularize_offsets(offsets, offset_order_xyz=offset_order_xyz, intify_offsets=True)
+
+    if _shapes.ndim != 2 or _offsets.ndim != 2:
+        raise ValueError("Shapes and offsets must be at most 2-D.")
+
+    if _shapes.shape != _offsets.shape:
+        raise ValueError("shapes and offsets must have the identical shape.")
+
+    if method == 'outer':
+        starts = _offsets
+        stops = _offsets + _shapes
+        if outer_for_stack:
+            _initial_tmp = lambda i: [f"{i + 1}:{i + 1}"] if fits_convention else [slice(i, i + 1, None)]
+        else:
+            _initial_tmp = lambda i: []  # initialized empty list regardless of argument
+    elif method == 'inner':
+        offmax = np.max(_offsets, axis=0)
+        if np.any(np.min(_shapes + _offsets, axis=0) <= offmax):
+            raise ValueError("At least 1 frame has no overlapping pixel with all others. "
+                             + "Check if there's any overlapping pixel for images for the given offsets.")
+
+        # 1-D array +/- 2-D array: the former 1-D array is broadcast s.t. it is "tile"d along axis=-1.
+        starts = offmax - _offsets
+        stops = np.min(_offsets + _shapes, axis=0) - _offsets
+        _initial_tmp = lambda i: []  # initialized empty list regardless of argument
+    else:
+        raise ValueError("method unacceptable (use one of 'inner', 'outer').")
+
+    slices = []
+    for image_i, (start, stop) in enumerate(zip(starts, stops)):
+        # NOTE: starts/stops are all in pythonic index
+        tmp = _initial_tmp(image_i)
+        # print(tmp)
+        for start_i, stop_i in zip(start, stop):  # i = coordinate, (z y x) order
+            if fits_convention:
+                tmp.append(f"{start_i + 1:d}:{stop_i:d}")
+            else:
+                tmp.append(slice(start_i, stop_i, None))
+            # print(tmp)
+
+        if fits_convention:
+            slices.append('[' + ','.join(tmp[::-1]) + ']')  # order is opposite!
+        else:
+            slices.append(tmp)
+
+    return slices
+
+
+def load_ccd(path, extension=None, ccddata=True, as_ccd=True, use_wcs=True, unit=None,
              extension_uncertainty="UNCERT", extension_mask='MASK', extension_flags=None,
-             load_primary_only_fitsio=True, key_uncertainty_type='UTYPE', memmap=False, **kwd):
+             load_primary_only_fitsio=True, return_full_fitsio=False,
+             key_uncertainty_type='UTYPE', memmap=False, **kwd):
     ''' Loads FITS file of CCD image data (not table, etc).
     Paramters
     ---------
@@ -456,7 +725,7 @@ def load_ccd(path, extension=None, as_ccddata=True, as_ccd=True, use_wcs=True, u
         ``EXTNAME`` (single str), or a tuple of str and int: ``(EXTNAME, EXTVER)``. If `None`
         (default), the *first extension with data* will be used.
 
-    as_ccddata : bool, optional.
+    ccddata : bool, optional.
         Whether to return `~astropy.nddata.CCDData`. Default is `True`. If it is `False`, **all the
         arguments below are ignored**, except for the keyword arguments that will be passed to
         ``fitsio.read``, and an ndarray will be returned without astropy unit.
@@ -468,12 +737,14 @@ def load_ccd(path, extension=None, as_ccddata=True, as_ccd=True, use_wcs=True, u
         Whether to load WCS by ``fits.getheader``, **not** by `~astropy.nddata.fits_ccdddata_reader`.
         This is necessary as of now because TPV WCS is not properly understood by the latter.
         Default is `True`.
+        Used only if ``ccddata=True``.
 
     unit : `~astropy.units.Unit`, optional
         Units of the image data. If this argument is provided and there is a unit for the image in the
         FITS header (the keyword ``BUNIT`` is used as the unit, if present), this argument is used for
         the unit.
         Default is `None`.
+        Used only if ``ccddata=True``.
 
         .. note::
             The behavior differs from astropy's original fits_ccddata_reader: If no ``BUNIT`` is found
@@ -482,6 +753,12 @@ def load_ccd(path, extension=None, as_ccddata=True, as_ccd=True, use_wcs=True, u
     load_primary_only_fitsio : bool, optional.
         Whether to ignore uncertainty, mask, and flags extensions when using fitsio (i.e., when
         ``use_ccd=False``). This is `True` by default, because that's the most common usage for fitsio.
+
+    return_full_fitsio : bool, optional.
+        Whether to return full (``data, unc, mask, flag``) even when ``load_primary_only_fitsio=True``
+        and ``extension_uncertainty`` is `None` and ``extension_mask`` is `None`, which can be
+        convenient for API design.
+        Default is `False`.
 
     extension_uncertainty : str or None, optional
         FITS extension from which the uncertainty should be initialized. If the extension does not
@@ -504,23 +781,25 @@ def load_ccd(path, extension=None, as_ccddata=True, as_ccd=True, use_wcs=True, u
         The header key name where the class name of the uncertainty is stored in the hdu of the
         uncertainty (if any).
         Default is ``UTYPE``.
+        Used only if ``ccddata=True``.
 
         ..warning::
-            If ``as_ccddata=False`` and ``load_primary_only_fitsio=False``, the uncertainty type by
+            If ``ccddata=False`` and ``load_primary_only_fitsio=False``, the uncertainty type by
             ``key_uncertainty_type`` will be completely ignored.
 
     memmap : bool, optional
         Is memory mapping to be used? This value is obtained from the configuration item
         ``astropy.io.fits.Conf.use_memmap``.
         Default is `False` (opposite of astropy).
+        Used only if ``ccddata=True``.
 
     kwd :
         Any additional keyword parameters that will be used in `~astropy.nddata.fits_ccddata_reader`
-        (if ``as_ccddata=True``) or ``fitsio.read()`` (if ``as_ccddata=False``).
+        (if ``ccddata=True``) or ``fitsio.read()`` (if ``ccddata=False``).
 
     Returns
     -------
-    CCDData (``as_ccddata=True``) or ndarray (``as_ccddata=False``). For the latter case, if
+    CCDData (``ccddata=True``) or ndarray (``ccddata=False``). For the latter case, if
     ``load_primary_only_fitsio=False``, the uncertainty and mask extensions, as well as flags (not
     supported, so just `None`) will be returned as well as the one specified by ``extension``.
 
@@ -583,20 +862,25 @@ def load_ccd(path, extension=None, as_ccddata=True, as_ccd=True, use_wcs=True, u
         9.42 ms +/- 391 µs per loop (mean +/- std. dev. of 7 runs, 100 loops each)
     ```
     '''
+    try:
+        path = Path(path)
+    except TypeError:
+        raise TypeError(f"You must provide Path-like, not {type(path)}.")
 
-    extension = _parse_extension(extension)
-    extension_unc = _parse_extension(extension_uncertainty)
-    extension_mask = _parse_extension(extension_mask)
-    extension_flag = _parse_extension(extension_flags)
+    if ccddata and as_ccd:  # if at least one of these is False, it uses fitsio.
+        extension = _parse_extension(extension)
+        extension_uncertainty = _parse_extension(extension_uncertainty)
+        extension_mask = _parse_extension(extension_mask)
+        extension_flag = None if extension_flags is None else _parse_extension(extension_flags)
+        # If not None, this happens: NotImplementedError: loading flags is currently not supported.
 
-    if as_ccddata and as_ccd:  # if at least one of these is False, it uses fitsio.
-        reader_kw = dict(hdu=extension, hdu_uncertainty=extension_unc, hdu_mask=extension_mask,
+        reader_kw = dict(hdu=extension, hdu_uncertainty=extension_uncertainty, hdu_mask=extension_mask,
                          hdu_flags=extension_flag, key_uncertainty_type=key_uncertainty_type, memmap=memmap,
                          **kwd)
 
         # FIXME: Remove this if block in the future if WCS issue is resolved.
         if use_wcs:  # Because of the TPV WCS issue
-            hdr = fits.getheader(Path(path))
+            hdr = fits.getheader(path)
             reader_kw["wcs"] = WCS(hdr)
             del hdr
 
@@ -615,7 +899,9 @@ def load_ccd(path, extension=None, as_ccddata=True, as_ccd=True, use_wcs=True, u
         return ccd
 
     else:
+        extension = _parse_extension(extension)
         # Use fitsio and only load the data as soon as possible. This is much quicker than astropy's getdata
+
         def _read_by_fitsio(_hdul, _path, _extension):
             try:
                 if is_list_like(_extension):
@@ -629,41 +915,91 @@ def load_ccd(path, extension=None, as_ccddata=True, as_ccd=True, use_wcs=True, u
             return arr
 
         hdul = fitsio.FITS(path)
-        if load_primary_only_fitsio:
+        if load_primary_only_fitsio and extension_uncertainty is None and extension_mask is None:
             data = _read_by_fitsio(hdul, path, extension)
             hdul.close()
-            return data
+            if return_full_fitsio:
+                return data, None, None, None
+            else:
+                return data
+
         else:
             data = _read_by_fitsio(hdul, path, extension)
-            unc = _read_by_fitsio(hdul, path, extension_unc)
-            mask = _read_by_fitsio(hdul, path, extension_mask)
+            try:  # Read uncertainty if exists
+                e_u = _parse_extension(extension_uncertainty)
+                unc = _read_by_fitsio(hdul, path, e_u)
+            except OSError:  # fitsio gives OSError if the extension is not found
+                unc = None
+            try:  # Read uncertainty if exists
+                e_m = _parse_extension(extension_mask)
+                mask = _read_by_fitsio(hdul, path, e_m)
+            except OSError:  # fitsio gives OSError if the extension is not found
+                mask = None
+
             flag = None  # FIXME: add this line when CCDData starts to support flags.
             hdul.close()
             return data, unc, mask, flag
 
 
+def write2fits(data, header, output, return_ccd=False, **kwargs):
+    """ A convenience function to write proper FITS file.
+    Parameters
+    ----------
+    data : ndarray
+        The data
+
+    header : `~astropy.io.fits.Header`
+        The header
+
+    output : path-like
+        The output file path
+
+    return_ccd : bool, optional.
+        Whether to return the generated CCDData.
+
+    **kwargs :
+        The keyword arguements to write FITS file by `~astropy.nddata.fits_data_writer`, such as
+        ``output_verify=True``, ``overwrite=True``.
+    """
+    try:
+        unit = header['BUNIT']
+    except (KeyError, IndexError):
+        unit = 'adu'
+    ccd = CCDData(data=data, header=header, unit=unit)
+
+    try:
+        ccd.write(output, **kwargs)
+    except fits.VerifyError:
+        print("Try using output_verify='fix' to avoid this error.")
+    if return_ccd:
+        return ccd
+
+
 def str_now(precision=3, fmt="{:.>72s}", t_ref=None,
             dt_fmt="(dt = {:.3f} s)", return_time=False):
     ''' Get stringfied time now in UT ISOT format.
+
     Parameters
     ----------
     precision : int, optional.
         The precision of the isot format time.
+
     fmt : str, optional.
-        The Python 3 format string to format the time.
-        Examples:
+        The Python 3 format string to format the time. Examples::
+
           * ``"{:s}"``: plain time ``2020-01-01T01:01:01.23``
-          * ``"({:s})"``: plain time in parentheses
-            ``(2020-01-01T01:01:01.23)``
+          * ``"({:s})"``: plain time in parentheses ``(2020-01-01T01:01:01.23)``
           * ``"{:_^72s}"``: center align, filling with ``_``.
+
     t_ref : Time, optional.
         The reference time. If not `None`, delta time is calculated.
+
     dt_fmt : str, optional.
         The Python 3 format string to format the delta time.
+
     return_time : bool, optional.
-        Whether to return the time at the start of this function and the
-        delta time (``dt``), as well as the time information string. If
-        ``t_ref`` is `None`, ``dt`` is automatically set to `None`.
+        Whether to return the time at the start of this function and the delta time (``dt``), as well
+        as the time information string. If ``t_ref`` is `None`, ``dt`` is automatically set to `None`.
     '''
     now = Time(Time.now(), precision=precision)
     timestr = now.isot
@@ -738,7 +1074,7 @@ def change_to_quantity(x, desired='', to_value=False):
     return ux
 
 
-def binning(arr, factor_x=1, factor_y=1, binfunc=np.mean, trim_end=False):
+def binning(arr, factor_x=None, factor_y=None, factors=None, order_xyz=True, binfunc=np.mean, trim_end=False):
     ''' Bins the given arr frame.
 
     Paramters
@@ -746,8 +1082,15 @@ def binning(arr, factor_x=1, factor_y=1, binfunc=np.mean, trim_end=False):
     arr: 2d array
         The array to be binned
 
-    factor_x, factor_y: int
-        The binning factors in x, y direction.
+    factor_x, factor_y: int or None, optional.
+        The binning factors in x, y direction. This is left as legacy and for clarity, because mostly
+        this function is used for 2-D CCD data. If any of these is given, ``order_xyz`` is overridden
+        as `True`.
+
+    factors : list-like of int, optional.
+        The factors in pythonic axis order (``order_xyz=False``) or in the xyz order
+        (``order_xyz=True``). If any of the tuple is `None`, that will be replaced by the size of the
+        array along that axis, i.e., collapse along that axis.
 
     binfunc : funciton object
         The function to be applied for binning, such as ``np.sum``, ``np.mean``, and ``np.median``.
@@ -757,8 +1100,8 @@ def binning(arr, factor_x=1, factor_y=1, binfunc=np.mean, trim_end=False):
 
     Note
     ----
-    This is ~ 20-30 to upto 10^5 times faster than astropy.nddata's
-    block_reduce:
+    This kind of binning is ~ 20-30 to upto 10^5 times faster than astropy.nddata's block_reduce:
+
     >>> from astropy.nddata import block_reduce
     >>> import ysfitsutilpy as yfu
     >>> from astropy.nddata import CCDData
@@ -776,18 +1119,56 @@ def binning(arr, factor_x=1, factor_y=1, binfunc=np.mean, trim_end=False):
     Tested on MBP 15" [2018, macOS 10.14.6, i7-8850H (2.6 GHz; 6-core), RAM 16 GB (2400MHz DDR4),
     Radeon Pro 560X (4GB)]
     '''
+    # def binning(arr, factor_x=1, factor_y=1, binfunc=np.mean, trim_end=False):
+    #     binned = arr.copy()
+    #     if trim_end:
+    #         ny_orig, nx_orig = binned.shape
+    #         iy_max = ny_orig - (ny_orig % factor_y)
+    #         ix_max = nx_orig - (nx_orig % factor_x)
+    #         binned = binned[:iy_max, :ix_max]
+    #     ny, nx = binned.shape
+    #     nby = ny // factor_y
+    #     nbx = nx // factor_x
+    #     binned = binned.reshape(nby, factor_y, nbx, factor_x)
+    #     binned = binfunc(binned, axis=(-1, 1))
+    #     return binned
+
     binned = arr.copy()
+
+    if factor_x is not None or factor_y is not None:
+        factors = (factor_x, factor_y)
+        order_xyz = True
+
+    if factors is None:
+        factors = np.ones(arr.ndim)
+    else:
+        factors = np.array(factors).ravel()
+        for i, f in enumerate(factors):
+            if f is None:
+                factors[i] = arr.shape[i]
+
+    if order_xyz:
+        factors = factors[::-1]  # convert back to python order
+
     if trim_end:
-        ny_orig, nx_orig = binned.shape
-        iy_max = ny_orig - (ny_orig % factor_y)
-        ix_max = nx_orig - (nx_orig % factor_x)
-        binned = binned[:iy_max, :ix_max]
-    ny, nx = binned.shape
-    nby = ny // factor_y
-    nbx = nx // factor_x
-    binned = binned.reshape(nby, factor_y, nbx, factor_x)
-    binned = binfunc(binned, axis=(-1, 1))
+        n_orig = binned.shape
+        i_max = n_orig - (n_orig % factors)
+        slices = [slice(None, im, None) for im in i_max]
+        binned = binned[slices]
+
+    npix = binned.shape
+    nbin = npix // factors
+    nbin[nbin == 0] = 1
+    newshape = []
+    for nbin_i, factor_i in zip(nbin, factors):
+        newshape.append(nbin_i)
+        newshape.append(factor_i)
+
+    binned = binned.reshape(newshape)
+    funcaxis = np.arange(1, binned.ndim + 1, 2).astype(int)
+    binned = binfunc(binned, axis=tuple(funcaxis))
     return binned
+
 
 
 def fitsxy2py(fits_section):
@@ -809,8 +1190,7 @@ def fitsxy2py(fits_section):
     #       [0., 0.]])
     '''
     fits_sections = np.atleast_1d(fits_section)
-    slicer = ccdproc.utils.slices.slice_from_string
-    sl = [slicer(sect, fits_convention=True) for sect in fits_sections]
+    sl = [ccdproc.utils.slices.slice_from_string(sect, fits_convention=True) for sect in fits_sections]
     if len(sl) == 1:
         return sl[0]
     else:
@@ -871,7 +1251,7 @@ def give_stats(item, extension=None, percentiles=[1, 99], N_extrema=None, return
     Or just simply
     >>> give_stats("bias_bin11.fits", percentiles=percentiles, N_extrema=5)
     To update the header
-    >>> ccd = CCDDAta.read("bias_bin11.fits", unit='adu')
+    >>> ccd = CCDData.read("bias_bin11.fits", unit='adu')
     >>> _, hdr = (ccd, N_extrema=10, update_header=True)
     >>> ccd.header = hdr
     To read the stringfied list into python list (e.g., percentiles):
@@ -889,37 +1269,20 @@ def give_stats(item, extension=None, percentiles=[1, 99], N_extrema=None, return
 
     data, hdr = _parse_data_header(item)
 
-    try:
-        import bottleneck as bn
-        if nanfunc:
-            minf = bn.nanmin
-            maxf = bn.nanmax
-            avgf = bn.nanmean
-            medf = bn.nanmedian
-            stdf = bn.nanstd
-            pctf = np.nanpercentile  # no bn function
-        else:
-            minf = np.min
-            maxf = np.max
-            avgf = np.mean
-            medf = bn.median  # Still median from bn seems faster!
-            stdf = np.std
-            pctf = np.percentile
-    except ImportError:
-        if nanfunc:
-            minf = np.nanmin
-            maxf = np.nanmax
-            avgf = np.nanmean
-            medf = np.nanmedian
-            stdf = np.nanstd
-            pctf = np.nancentile
-        else:
-            minf = np.min
-            maxf = np.max
-            avgf = np.mean
-            medf = np.median
-            stdf = np.std
-            pctf = np.percentile
+    if nanfunc:
+        minf = bn.nanmin
+        maxf = bn.nanmax
+        avgf = bn.nanmean
+        medf = bn.nanmedian
+        stdf = bn.nanstd
+        pctf = np.nanpercentile  # no bn function
+    else:
+        minf = np.min
+        maxf = np.max
+        avgf = np.mean
+        medf = bn.median  # Still median from bn seems faster!
+        stdf = np.std
+        pctf = np.percentile
 
     result = dict(num=np.size(data),
                   min=minf(data),

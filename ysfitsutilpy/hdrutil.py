@@ -2,6 +2,7 @@
 Collection of functions that are rather header-dependent than the data.
 '''
 import re
+from pathlib import Path
 from warnings import warn
 
 import numpy as np
@@ -12,10 +13,11 @@ from astropy.io import fits
 from astropy.time import Time
 from astropy.wcs import WCS
 
-from .misc import change_to_quantity, str_now, _parse_extension
+from .misc import _parse_extension, change_to_quantity, str_now, _parse_data_header
 
 __all__ = ["add_to_header",
-           "wcs_crota", "center_radec", "key_remover", "key_mapper",
+           "wcs_crota", "center_radec", "calc_offset_wcs", "calc_offset_physical",
+           "key_remover", "key_mapper",
            "get_from_header", "get_if_none", "wcsremove", "fov_radius",
            "convert_bit"]
 
@@ -62,6 +64,18 @@ def add_to_header(header, histcomm, s, precision=3, time_fmt="{:.>72s}", t_ref=N
     set_kw : dict, optional.
         The keyword arguments added to ``Header.set()``. Default is ``{'after':-1}``, i.e., the history
         or comment will be appended to the very last part of the header.
+
+    Note
+    ----
+    The timming benchmark shows that,
+    %timeit add_to_header(hdu.header, 'comm', 'aadfaer sdf')
+    310 µs +/- 2.93 µs per loop (mean +/- std. dev. of 7 runs, 1000 loops each)
+
+    %timeit add_to_header(hdu.header, 'comM', 'aadfaer sdf')
+    309 µs +/- 2.48 µs per loop (mean +/- std. dev. of 7 runs, 1000 loops each)
+
+    %timeit add_to_header(hdu.header, 'comMent', 'aadfaer sdf')
+    15.4 ms +/- 299 µs per loop (mean +/- std. dev. of 7 runs, 100 loops each)
     '''
     pall = locals()
     if histcomm.lower() in ['h', 'hist']:
@@ -70,8 +84,9 @@ def add_to_header(header, histcomm, s, precision=3, time_fmt="{:.>72s}", t_ref=N
     elif histcomm.lower() in ['c', 'com', 'comm']:
         pall['histcomm'] = 'COMMENT'
         return add_to_header(**pall)
-    elif histcomm.lower() not in ['history', 'comment']:
-        raise ValueError("Only HISTORY or COMMENT are supported now.")
+    # The "elif not in raise" gives large bottleneck if, e.g., ``histcomm="ComMent"``...
+    # elif histcomm.lower() not in ['history', 'comment']:
+    #     raise ValueError("Only HISTORY or COMMENT are supported now.")
 
     def _add_content(header, content):
         try:
@@ -85,13 +100,13 @@ def add_to_header(header, histcomm, s, precision=3, time_fmt="{:.>72s}", t_ref=N
     for _s in s:
         _add_content(header, _s)
         if verbose:
-            print(f"{histcomm:<8s} {_s}")
+            print(f"{histcomm.upper():<8s} {_s}")
 
     if time_fmt is not None:
         timestr = str_now(precision=precision, fmt=time_fmt, t_ref=t_ref, dt_fmt=dt_fmt)
         _add_content(header, timestr)
         if verbose:
-            print(f"{histcomm:<8s} {timestr}")
+            print(f"{histcomm.upper():<8s} {timestr}")
 
 
 def update_tlm(header):
@@ -181,6 +196,151 @@ def center_radec(header, center_of_image=True, ra_key="RA", dec_key="DEC",
     if plain:
         return coo.ra.value, coo.dec.value
     return coo
+
+
+def calc_offset_wcs(target, reference, loc_target='center', loc_reference='center', order_xyz=True,
+                    intify_offset=False):
+    ''' The pixel offset of target's location when using WCS in referene.
+
+    Parameters
+    ----------
+
+    target : CCDData, PrimaryHDU, ImageHDU, HDUList, Header, ndarray, number-like, path-like, WCS
+        The object to extract header to calculate the position
+
+    reference : CCDData, PrimaryHDU, ImageHDU, HDUList, Header, ndarray, number-like, path-like, WCS
+        The object to extract reference WCS (or header to extract WCS) to calculate the position
+        *from*.
+
+    loc_target : str (center, origin) or ndarray optional.
+        The location to calculate the position (in pixels and in xyz order). Default is ``'center'``
+        (half of ``NAXISi`` keys in ``target``). The ``location``'s world coordinate is calculated from
+        the WCS information in ``target``. Then it will be transformed to the image coordinate of
+        ``reference``.
+
+    loc_reference : str (center, origin) or ndarray optional.
+        The location of the reference point (in pixels and in xyz order) in ``reference``'s coordinate
+        to calculate the offset.
+
+    order_xyz : bool, optional.
+        Whether to return the position in xyz order or not (python order: ``[::-1]`` of the former).
+        Default is `True`.
+    '''
+    def _parse_loc(loc, obj):
+        if isinstance(obj, WCS):
+            w = obj
+        else:
+            _, hdr = _parse_data_header(obj, parse_data=False, copy=False)
+            w = WCS(hdr)
+
+        if loc == 'center':
+            _loc = np.atleast_1d(w._naxis)/2
+        elif loc == 'origin':
+            _loc = [0.]*w.naxis
+        else:
+            _loc = np.atleast_1d(loc)
+
+        return w, _loc
+
+    w_targ, _loc_target = _parse_loc(loc_target, target)
+    w_ref, _loc_ref = _parse_loc(loc_reference, reference)
+
+    _loc_target_coo = w_targ.all_pix2world(*_loc_target, 0)
+    _loc_target_pix_ref = w_ref.all_world2pix(*_loc_target_coo, 0)
+
+    offset = _loc_target_pix_ref - _loc_ref
+
+    if intify_offset:
+        offset = np.around(offset).astype(int)
+
+    if order_xyz:
+        return offset
+    else:
+        return offset[::-1]
+
+
+def calc_offset_physical(target, reference=None, order_xyz=True, ignore_ltm=True, intify_offset=False):
+    ''' The pixel offset by physical-coordinate information in referene.
+
+    Parameters
+    ----------
+
+    target : CCDData, PrimaryHDU, ImageHDU, HDUList, Header, ndarray, number-like, path-like
+        The object to extract header to calculate the position
+
+    reference : CCDData, PrimaryHDU, ImageHDU, HDUList, Header, ndarray, number-like, path-like
+        The reference to extract header to calculate the position *from*. If `None`, it is basically
+        identical to extract the LTV values from ``target``.
+        Default is `None`.
+
+    order_xyz : bool, optional.
+        Whether to return the position in xyz order or not (python order: ``[::-1]`` of the former).
+        Default is `True`.
+
+    ignore_ltm : bool, optional.
+        Whether to assuem the LTM matrix is identity. If it is not and ``ignore_ltm=False``, a
+        ``NotImplementedError`` will be raised, i.e., non-identity LTM matrices are not supported.
+
+    Notes
+    -----
+    Similar to ``calc_offset_wcs``, but with locations fixed to origin (as non-identity LTM matrix is
+    not supported). Also, input of WCS is not accepted because astropy's wcs module does not parse
+    LTV/LTM from header.
+    '''
+    def _check_ltm(hdr):
+        ndim = hdr["NAXIS"]
+        for i in range(ndim):
+            for j in range(ndim):
+                try:
+                    assert float(hdr["LTM{i}_{j}"]) == 1.0*(i == j)
+                except (KeyError, IndexError):
+                    continue
+                except (AssertionError):
+                    raise NotImplementedError("Non-identity LTM matrix is not supported.")
+
+            try:  # Sometimes LTM matrix is saved as ``LTMi``, not ``LTMi_j``.
+                assert float(target["LTM{i}"]) == 1.0
+            except (KeyError, IndexError):
+                continue
+            except (AssertionError):
+                raise NotImplementedError("Non-identity LTM matrix is not supported.")
+
+    do_ref = reference is not None
+    _, target = _parse_data_header(target, parse_data=False)
+    if do_ref:
+        _, reference = _parse_data_header(reference, parse_data=False)
+
+    if not ignore_ltm:
+        _check_ltm(target)
+        if do_ref:
+            _check_ltm(reference)
+
+    ndim = target["NAXIS"]
+    ltvs_obj = []
+    for i in range(ndim):
+        try:
+            ltvs_obj.append(target[f"LTV{i + 1}"])
+        except (KeyError, IndexError):
+            ltvs_obj.append(0)
+
+    if do_ref:
+        ltvs_ref = []
+        for i in range(ndim):
+            try:
+                ltvs_ref.append(reference[f"LTV{i + 1}"])
+            except (KeyError, IndexError):
+                ltvs_ref.append(0)
+        offset = np.array(ltvs_obj) - np.array(ltvs_ref)
+    else:
+        offset = np.array(ltvs_obj)
+
+    if intify_offset:
+        offset = np.around(offset).astype(int)
+
+    if order_xyz:
+        return offset  # This is already xyz order!
+    else:
+        return offset[::-1]
 
 
 def fov_radius(header, unit=u.deg):
