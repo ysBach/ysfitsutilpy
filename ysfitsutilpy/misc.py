@@ -975,8 +975,7 @@ def write2fits(data, header, output, return_ccd=False, **kwargs):
         return ccd
 
 
-def str_now(precision=3, fmt="{:.>72s}", t_ref=None,
-            dt_fmt="(dt = {:.3f} s)", return_time=False):
+def str_now(precision=3, fmt="{:.>72s}", t_ref=None, dt_fmt="(dt = {:.3f} s)", return_time=False):
     ''' Get stringfied time now in UT ISOT format.
 
     Parameters
