@@ -12,7 +12,7 @@ from ccdproc import flat_correct, subtract_bias, subtract_dark
 
 from .ccdutil import (CCDData_astype, errormap, propagate_ccdmask,
                       set_ccd_gain_rdnoise, trim_ccd)
-from .hdrutil import add_to_header, update_tlm
+from .hdrutil import add_to_header, update_tlm, update_process
 from .misc import (LACOSMIC_KEYS, change_to_quantity, _parse_data_header, fitsxy2py,
                    load_ccd)
 
@@ -334,9 +334,8 @@ def medfilt_bpm(ccd, cadd=1.e-10, std_model="std", gain=1., rdnoise=0., snoise=0
     model : str, optional.
         The model used to calculate the std (standard deviation) map.
 
-            * ``'std'``: Simple standard deviation is calculated.
-            * ``'ccd'``: Using CCD noise model (``sqrt{(1 + snoise)
-              *med_filt/gain + (rdnoise/gain)**2}``)
+          * ``'std'``: Simple standard deviation is calculated.
+          * ``'ccd'``: Using CCD noise model (``sqrt{(1 + snoise)*med_filt/gain + (rdnoise/gain)**2}``)
 
         For ``'std'``, the arguments ``std_section`` and ``sigclip_kw`` are used, while if ``'ccd'``,
         arguments ``gain``, ``rdnoise``, ``snoise`` will be used.
@@ -391,20 +390,27 @@ def medfilt_bpm(ccd, cadd=1.e-10, std_model="std", gain=1., rdnoise=0., snoise=0
     Notes
     -----
     ``med_sub_clips`` is usually not necessary but useful to detect hot pixels in dark frames (no
-    light) for some special circumstances.
+    light) for some special circumstances. ::
 
-    (1) Median additive difference (data-medfilt) generated, (2) Median ratio (data/|medfilt|)
-    generated, (3) Stddev ratio ((data-medfilt)/std) generated, (4) posmask and negmask calculated by
-    clips MB_[ADD/RAT/STD]_[U/L] and logic MB_[N/P]LOG (see keywords), (5) Pixels of (posmask |
-    negmask) are repleced with median filtered frame.
+      1. Median additive difference (data-medfilt) generated,
+      2. Median ratio (data/|medfilt|) generated,
+      3. Stddev ratio ((data-medfilt)/std) generated,
+      4. posmask and negmask calculated by clips MB_[ADD/RAT/STD]_[U/L] and logic MB_[N/P]LOG (see keywords),
+      5. Pixels of (posmask | negmask) are repleced with median filtered frame.
+
     '''
     from scipy.ndimage import median_filter
+
+    def _sanitize_clips(clips):
+        clips = np.atleast_1d(clips)
+        if clips.size == 1:
+            clips = np.repeat(clips, 2)
+        return clips
 
     if ((med_sub_clip is None) and (med_rat_clip is None) and (std_rat_clip is None)):
         warn("No BPM is found because all clips are None.", end=' ')
         if full:
-            return ccd, dict(posmask=None, negmask=None,
-                             med_filt=None, med_sub=None, med_rat=None,
+            return ccd, dict(posmask=None, negmask=None, med_filt=None, med_sub=None, med_rat=None,
                              std_rat=None, std=None)
         else:
             return ccd
@@ -440,12 +446,6 @@ def medfilt_bpm(ccd, cadd=1.e-10, std_model="std", gain=1., rdnoise=0., snoise=0
 
     if not isinstance(ccd, CCDData):
         raise TypeError("ccd should be CCDData")
-
-    def _sanitize_clips(clips):
-        clips = np.atleast_1d(clips)
-        if clips.size == 1:
-            clips = np.repeat(clips, 2)
-        return clips
 
     nccd = ccd.copy()
     arr = nccd.data.astype(dtype)
@@ -548,8 +548,8 @@ def medfilt_bpm(ccd, cadd=1.e-10, std_model="std", gain=1., rdnoise=0., snoise=0
     arr[replace_mask] = med_filt[replace_mask]
 
     if update_header:
-        hdr["MB_NLOG"] = (_LOGICAL_STR[0], "The logic used for negative MBPM masks (and/or)")
-        hdr["MB_PLOG"] = (_LOGICAL_STR[1], "The logic used for positive MBPM masks (and/or)")
+        hdr["MB_NLOGI"] = (_LOGICAL_STR[0], "The logic used for negative MBPM masks (and/or)")
+        hdr["MB_PLOGI"] = (_LOGICAL_STR[1], "The logic used for positive MBPM masks (and/or)")
         hdr["MB_RAT_U"] = (med_rat_clip[1], "Upper clip of (data/|medfilt|) map (MBPM)")
         hdr["MB_RAT_L"] = (med_rat_clip[0], "Lower clip of (data/|medfilt|) map (MBPM)")
         hdr["MB_SUB_U"] = (med_sub_clip[1], "Upper clip of (data-medfilt) map (MBPM)")
@@ -585,17 +585,14 @@ def medfilt_bpm(ccd, cadd=1.e-10, std_model="std", gain=1., rdnoise=0., snoise=0
 # NOTE: crrej should be done AFTER bias/dark and flat correction:
 # http://www.astro.yale.edu/dokkum/lacosmic/notes.html
 def bdf_process(ccd, output=None,
-                mbiaspath=None, mdarkpath=None, mflatpath=None,
+                mbiaspath=None, mdarkpath=None, mflatpath=None, mfringepath=None,
                 mbias=None, mdark=None, mflat=None, mfringe=None,
-                mfringepath=None, fringe_scale_fun=np.mean,
-                fringe_scale_section=None,
+                fringe_scale_fun=np.mean, fringe_scale_section=None,
                 trim_fits_section=None, calc_err=False, unit=None,
                 gain=None, gain_key="GAIN", gain_unit=u.electron/u.adu,
                 rdnoise=None, rdnoise_key="RDNOISE", rdnoise_unit=u.electron,
-                dark_exposure=None, data_exposure=None, exposure_key="EXPTIME",
-                exposure_unit=u.s, dark_scale=False,
-                normalize_exposure=False,
-                normalize_average=False, normalize_median=False,
+                exposure_key="EXPTIME", exposure_unit=u.s, dark_exposure=None, data_exposure=None,
+                dark_scale=False, normalize_exposure=False, normalize_average=False, normalize_median=False,
                 flat_min_value=None, flat_norm_value=None,
                 do_crrej=False, crrej_kwargs=None, propagate_crmask=False,
                 verbose_crrej=False, verbose_bdf=True, output_verify='fix',
@@ -723,19 +720,28 @@ def bdf_process(ccd, output=None,
     # Initial setting
     if not isinstance(ccd, CCDData):
         raise TypeError(f"ccd must be CCDData (now it is {type(ccd)})")
+    PROCESS = []
     proc = ccd.copy()
     hdr_new = proc.header
 
     # Add PROCESS key
-    try:
-        _ = hdr_new["PROCESS"]
-    except KeyError:
-        hdr_new["PROCESS"] = ("", "The processed history: see comment.")
-        hdr_new["CCDPROCV"] = (ccdproc.__version__, "ccdproc version used for processing.")
+    if PROCESS not in hdr_new:
+        hdr_new["PROCESS"] = ("", "The processed history (left-most is first): see comment.")
         add_to_header(hdr_new, 'c',
-                      ("PROCESS key can be B (bias), D (dark), F (flat), "
-                       + "T (trim), W (WCS astrometry), C(CRrej), Fr (fringe).")
+                      ("Standard PROCESS key includes B=bias, D=dark, F=flat, "
+                       + "T=trim, W=WCS (astrometry), C=CRrej, Fr=fringe.")
                       )
+
+    # Log the CCDPROC version
+    if "CCDPROCV" in hdr_new:
+        if str(hdr_new["CCDPROCV"]) != str(ccdproc.__version__):
+            add_to_header(
+                hdr_new, "h",
+                f"The ccdproc version prior to this modification was {hdr_new['CCDPROCV']}.")
+            hdr_new["CCDPROCV"] = (ccdproc.__version__, "ccdproc version used for processing.")
+        # else (no version change): do nothing.
+    else:
+        hdr_new["CCDPROCV"] = (ccdproc.__version__, "ccdproc version used for processing.")
 
     # Set for BIAS
     if mbiaspath is None and mbias is None:
@@ -749,7 +755,7 @@ def bdf_process(ccd, output=None,
             mbiaspath = "<User>"
         if not calc_err:
             mbias.uncertainty = None
-        hdr_new["PROCESS"] += "B"
+        PROCESS.append("B")
         hdr_new["BIASPATH"] = (str(mbiaspath), "Path to the used bias file")
 
     # Set for DARK
@@ -764,7 +770,7 @@ def bdf_process(ccd, output=None,
             mdarkpath = "<User>"
         if not calc_err:
             mdark.uncertainty = None
-        hdr_new["PROCESS"] += "D"
+        PROCESS.append("D")
         hdr_new["DARKPATH"] = (str(mdarkpath), "Path to the used dark file")
 
         if dark_scale:
@@ -783,7 +789,7 @@ def bdf_process(ccd, output=None,
             mflatpath = "<User>"
         if not calc_err:
             mflat.uncertainty = None
-        hdr_new["PROCESS"] += "F"
+        PROCESS.append("F")
         hdr_new["FLATPATH"] = (str(mflatpath), "Path to the used flat file")
 
     # set for FRINGE
@@ -798,7 +804,7 @@ def bdf_process(ccd, output=None,
             mfringepath = "<User>"
         if not calc_err:
             mfringe.uncertainty = None
-        hdr_new["PROCESS"] += "Fr"
+        PROCESS.append("Fr")
         hdr_new["FRINPATH"] = (str(mfringepath), "Path to the used fringe")
         if fringe_scale_section is not None:
             hdr_new["FRINSECT"] = (fringe_scale_section, "FITS section used for scaling fringe")
@@ -827,7 +833,7 @@ def bdf_process(ccd, output=None,
         mbias = trim_ccd(mbias, **sect) if do_bias else None
         mdark = trim_ccd(mdark, **sect) if do_dark else None
         mflat = trim_ccd(mflat, **sect) if do_flat else None
-        hdr_new["PROCESS"] += "T"
+        PROCESS.append("T")
 
         add_to_header(hdr_new, 'h', str_trim.format(trim_fits_section), verbose=verbose_bdf, t_ref=_t)
 
@@ -927,16 +933,17 @@ def bdf_process(ccd, output=None,
         if fringe_scale_section is not None:
             sl = fitsxy2py(fringe_scale_section)
             scale = fringe_scale_fun(proc.data[sl]) / fringe_scale_fun(mfringe.data[sl])
+            hdr_new["FRINSCAL"] = (scale, "Scale factor multiplied to fringe")
             s = str_fringe_scale
         else:
-            scale = 1
+            scale = 1  # Not 1.0 so that (ccd in int) - (mfringe in int) remains int.
             s = str_fringe_noscale
         mfringe.data *= scale
         proc.data = proc.subtract(mfringe).data  # should I calc. error..?
-        hdr_new["FRINSCAL"] = (scale, "Scale factor multiplied to fringe")
         add_to_header(hdr_new, 'h', s, verbose=verbose_bdf, t_ref=_t)
 
     proc = CCDData_astype(proc, dtype=dtype, uncertainty_dtype=uncertainty_dtype)
+    update_process(hdr_new, PROCESS, key="PROCESS", delimiter='-', add_comment=True)
     update_tlm(hdr_new)
     proc.header = hdr_new
 
