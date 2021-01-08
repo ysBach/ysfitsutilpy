@@ -150,6 +150,9 @@ def stack_FITS(fitslist=None, summary_table=None, extension=None,
     type_key, type_val: str, list of str
         The header keyword for the ccd type, and the value you want to match.
 
+    regex : bool, optional.
+        Whether to use regex for ``type_val`` matching. Default is `False`
+
     asccd : bool, optional.
         Whether to load as ``astropy.nddata.CCDData``. If `False`, numpy ndarray will be used. Works
         only if ``ccddata = True``.
@@ -218,14 +221,12 @@ def stack_FITS(fitslist=None, summary_table=None, extension=None,
         #   no need to make summary_table.
     # == If summary_table ================================================================================== #
     elif summary_table is not None:
-        is_astropytab = isinstance(summary_table, Table)
-        is_dataframe = isinstance(summary_table, pd.DataFrame)
-        if (not is_astropytab) and (not is_dataframe):
+        if isinstance(summary_table, Table):
+            summary_table = summary_table.to_pandas()
+        elif not isinstance(summary_table, pd.DataFrame):
             raise TypeError("summary_table must be an astropy Table or Pandas DataFrame. "
                             + f"It's now {type(summary_table)}.")
-
-        if is_astropytab:
-            summary_table = summary_table.to_pandas()
+        else:
         try:
             summary_table.reset_index(inplace=True)
         except ValueError:
