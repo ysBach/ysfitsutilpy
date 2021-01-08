@@ -1,3 +1,6 @@
+from typing import Type
+from pandas.io.stata import ValueLabelTypeMismatch
+from build.lib.ysfitsutilpy.misc import inputs2list
 from pathlib import Path
 from warnings import warn
 
@@ -16,7 +19,7 @@ from .hdrutil import add_to_header
 from .misc import chk_keyval, load_ccd
 
 
-__all__ = ["sstd", "weighted_mean", "group_FITS", "stack_FITS", "combine_ccd"]
+__all__ = ["sstd", "weighted_mean", "group_fits", "select_fits", "stack_FITS", "combine_ccd"]
 
 
 def sstd(a, **kwargs):
@@ -25,6 +28,8 @@ def sstd(a, **kwargs):
     return np.std(a, ddof=1, **kwargs)
 
 # FIXME: Add this to Ccdproc esp. for mem_limit
+
+
 def weighted_mean(ccds, unit='adu'):
     datas = []
     ws = []  # weights = 1 / sigma**2
@@ -38,7 +43,7 @@ def weighted_mean(ccds, unit='adu'):
     return nccd
 
 
-def group_FITS(summary_table, type_key=None, type_val=None, group_key=None):
+def group_fits(summary_table, type_key=None, type_val=None, group_key=None):
     ''' Organize the group_by and type_key for stack_FITS
     Parameters
     ----------
@@ -70,7 +75,7 @@ def group_FITS(summary_table, type_key=None, type_val=None, group_key=None):
     >>> type_key = ["OBJECT"]
     >>> type_val = ["dark"]
     >>> group_key = ["EXPTIME"]
-    >>> gs, g_key = group_FITS(summary_table,
+    >>> gs, g_key = group_fits(summary_table,
     ...                        type_key,
     ...                        type_val,
     ...                        group_key)
@@ -101,6 +106,225 @@ def group_FITS(summary_table, type_key=None, type_val=None, group_key=None):
     grouped = st.groupby(group_key)
 
     return grouped, group_type_key
+
+
+def select_fits(inputs, extension=None, unit=None, table_filecol="file", trim_fits_section=None,
+                prefer_ccddata=False, type_key=None, type_val=None, verbose=True):
+    ''' Stacks the FITS files specified in fitslist
+
+    Parameters
+    ----------
+    inputs : path-like, CCDData, fits.PrimaryHDU, fits.ImageHDU,pandas.DataFrame or astropy.table.Table
+        If it is path-like, it must contain FITS files to extract header. If CCD-like, the header
+        information will be used for selecting elements to select.
+
+    extension: int, str, (str, int)
+        The extension of FITS to be used. It can be given as integer (0-indexing) of the extension,
+        ``EXTNAME`` (single str), or a tuple of str and int: ``(EXTNAME, EXTVER)``. If `None`
+        (default), the *first extension with data* will be used.
+
+    unit: Unit or str, optional
+        The unit of the CCDs to be loaded.
+        Used only when ``fitslist`` is not a list of ``CCDData`` and ``prefer_ccddata`` is `True`.
+
+    table_filecol: str
+        The column name of the ``summary_table`` which contains the path to the FITS files.
+
+    trim_fits_section : str or None, optional
+        The ``fits_section`` of ``ccdproc.trim_image``. Region of ``ccd`` from which the overscan is
+        extracted; see `~ccdproc.subtract_overscan` for details.
+        Default is `None`.
+
+    prefer_ccddata: bool, optional
+        Whether to prefer to return CCDData objects if possible. If `True`, path-like, ndarray, or
+        table-like input will return a list of CCDData. If `False` (default), only the paths will be
+        returned unless the ``inputs`` is consist of CCDData.
+
+    type_key, type_val: str, list of str
+        The header keyword for the ccd type, and the value you want to match.
+
+    Return
+    ------
+    matched: list of Path or list of CCDData
+        list containing Path to files if ``prefer_ccddata`` is `False`. Otherwise it is a list
+        containing loaded CCDData after loading the files. If ``ccdlist`` is given a priori, list of
+        CCDData will be returned regardless of ``prefer_ccddata``.
+    '''
+    def _parse_val(value):
+        val = str(value)
+        if val.lstrip('+-').isdigit():  # if int
+            result = int(val)
+        else:
+            try:
+                result = float(val)
+            except ValueError:
+                result = str(val)
+        return result
+
+    def _check_mismatch(row, keys, values):
+        mismatch = False
+        for k, v in zip(keys, values):
+            hdr_val = _parse_val(row[k])
+            parse_v = _parse_val(v)
+            if (hdr_val != parse_v):
+                mismatch = True
+                break
+        return mismatch
+
+    # Check for type_key and type_val
+    type_key, type_val, _ = chk_keyval(type_key=type_key, type_val=type_val, group_key=None)
+    # I made this but think it is unnecessary as all string type_val must be subject to regex...
+    # I am leaving it here just in case in the future I find it necessary.
+    #   YPBach 2021-01-08 17:36:53 (KST: GMT+09:00)
+    # regex : bool or list of bool optional.
+    #     Whether to use regex for ``type_val`` matching. Default is `False`. If it is a list, it must
+    #     have the identical length to ``type_key`` and ``type_val``. An example is that you want to
+    #     select ``OBJECT`` with regex of ``'NGC.*'``, but ``EXPTIME`` of ``120``, which is a numeric.
+    #     Sometimes the header will have ``'120.0'``, which may not be easily selected by regex. In that
+    #     case, an internal parser is easier to use to catch any numeric values that must be regarded as
+    #     the same thing. A possible usage is: ``type_key=["OBJECT", "EXPTIME"], type_val=["NGC*", 120],
+    #     regex=[True, False]``.
+    # if isinstance(regex, bool):
+    #     regex = [regex]*len(type_key)
+    # else:
+    #     try:
+    #         if len(regex) != len(type_key):
+    #             raise ValueError("Length of regex differ from type_key and type_val.")
+    #         if not all(isinstance(r, bool) for r in regex):
+    #             raise TypeError("If regex is not bool, it must be list of bool.")
+    #     except TypeError:
+    #         raise TypeError("If regex is not bool, it must be list of bool.")
+
+    # Setting whether we have to select a subset from the list
+    selecting = True if len(type_key) > 0 else False
+
+    if verbose:
+        print("Analyzing FITS... ", end='')
+
+    if isinstance(inputs, Table):
+        summary_table = inputs.to_pandas()
+        fitslist = summary_table[table_filecol].to_list()
+    elif isinstance(inputs, pd.DataFrame):
+        summary_table = inputs
+        fitslist = summary_table[table_filecol].to_list()
+    else:
+        # No need to sort here because the real "sort" will be done later in make_summary
+        fitslist = inputs2list(inputs, sort=False, accept_ccdlike=True, check_coherency=False)
+        if selecting:
+            summary_table = make_summary(
+                fitslist,
+                extension=extension,  # extension will be parsed within make_summary (no need to care here)
+                verbose=verbose,
+                fname_option='relative',
+                keywords=type_key,
+                sort_by=None,
+                pandas=True,
+            )
+        else:
+            summary_table = None
+
+    if summary_table is not None:
+        try:
+            summary_table.reset_index(inplace=True)
+        except ValueError:
+            pass
+
+    if verbose:
+        print("Done.", end='')
+
+    # ****************************************************************************************************** #
+    # *                                       SELECT AND LOAD TO MATCHED                                   * #
+    # ****************************************************************************************************** #
+    # == Do regex matching if type_val[i] is string ======================================================== #
+    _type_key = []
+    _type_val = []
+    if selecting:
+        for k, v in zip(type_key, type_val):
+            if isinstance(v, str):
+                match_mask = summary_table[k].str.match(v)
+                summary_table = summary_table[match_mask]
+                fitslist = fitslist[match_mask]
+            else:  # not used as regex
+                _type_key.append(k)
+                _type_val.append(v)
+                continue  # need to do _check_mismatch below
+
+    matched = []
+    if selecting:
+        # == Select FITS based on type_key and type_val ==================================================== #
+        for i, row in summary_table.iterrows():
+            # I intentionally used iterrows instead of making mask, because for some cases the keyword
+            # (e.g., an angle) can contain both str and float among CCDs.
+            #    For example, if we want to select ``angle == 0.0``, masking cannot work because the
+            # column has dtype of object (``summary_table[column].dtype`` is ``object```).
+            #    Instead, _check_mismatch tries to convert the value found in the header to int, and
+            # if it fails, tries float, and finally uses str. This is the most natural way I could
+            # think of.
+            # ysBach, 2020-05-15 09:44:13 (KST: GMT+09:00)
+            mismatch = _check_mismatch(row, _type_key, _type_val)
+            if mismatch:  # skip this row (file)
+                continue
+
+            # if not skipped:
+            item = fitslist[i]
+            if isinstance(item, CCDData):
+                if trim_fits_section is None:
+                    matched.append(item)
+                else:
+                    matched.append(trim_image(item, fits_section=trim_fits_section))
+            else:  # it must be a path to a file
+                fpath = Path(item)
+                if prefer_ccddata:
+                    # extension will be parsed within load_ccd (no need to care here)
+                    ccd_i = load_ccd(fpath, extension=extension, unit=unit)
+                    if trim_fits_section is not None:
+                        ccd_i = trim_image(ccd_i, fits_section=trim_fits_section)
+                    matched.append(ccd_i)
+                else:
+                    matched.append(fpath)
+    else:
+        # == Use all item in fitslist ====================================================================== #
+        # summary_table is not used.
+        for item in fitslist:
+            if isinstance(item, CCDData):
+                if trim_fits_section is None:
+                    matched.append(item)
+                else:
+                    matched.append(trim_image(item, fits_section=trim_fits_section))
+            else:  # it must be a path to a file
+                if prefer_ccddata:
+                    # extension will be parsed within load_ccd (no need to care here)
+                    ccd_i = load_ccd(item, extension=extension, unit=unit)
+                    if trim_fits_section is not None:
+                        ccd_i = trim_image(ccd_i, fits_section=trim_fits_section)
+                    matched.append(ccd_i)
+                else:  # TODO: Is is better to remove Path here?
+                    matched.append(Path(item))
+
+    # ****************************************************************************************************** #
+    # *                                     PRINT INFO MESSAGE OR WARNING                                  * #
+    # ****************************************************************************************************** #
+
+    if len(matched) == 0:
+        if selecting:
+            warn(f'No FITS file had "{str(type_key)} = {str(type_val)}" Maybe int/float/str confusing?')
+        else:
+            warn('No FITS file found')
+    else:
+        if selecting:
+            N = len(matched)
+            ks = str(type_key)
+            vs = str(type_val)
+            if verbose:
+                if prefer_ccddata:
+                    print(f'{N} FITS files with "{ks} = {vs}" are loaded.')
+                else:
+                    print(f'{N} FITS files with "{ks} = {vs}" are selected.')
+        else:
+            if verbose and prefer_ccddata:
+                print('{:d} FITS files are loaded.'.format(len(matched)))
+
+    return matched
 
 
 def stack_FITS(fitslist=None, summary_table=None, extension=None,
@@ -150,9 +374,6 @@ def stack_FITS(fitslist=None, summary_table=None, extension=None,
     type_key, type_val: str, list of str
         The header keyword for the ccd type, and the value you want to match.
 
-    regex : bool, optional.
-        Whether to use regex for ``type_val`` matching. Default is `False`
-
     asccd : bool, optional.
         Whether to load as ``astropy.nddata.CCDData``. If `False`, numpy ndarray will be used. Works
         only if ``ccddata = True``.
@@ -164,6 +385,8 @@ def stack_FITS(fitslist=None, summary_table=None, extension=None,
         loaded CCDData after loading the files. If ``ccdlist`` is given a priori, list of CCDData will
         be returned regardless of ``ccddata``.
     '''
+    warn("stack_FITS is deprecated; use select_fits.", DeprecationWarning)
+
     def _parse_val(value):
         val = str(value)
         if val.lstrip('+-').isdigit():  # if int
@@ -227,10 +450,10 @@ def stack_FITS(fitslist=None, summary_table=None, extension=None,
             raise TypeError("summary_table must be an astropy Table or Pandas DataFrame. "
                             + f"It's now {type(summary_table)}.")
         else:
-        try:
-            summary_table.reset_index(inplace=True)
-        except ValueError:
-            pass
+            try:
+                summary_table.reset_index(inplace=True)
+            except ValueError:
+                pass
         fitslist = summary_table[table_filecol].tolist()
 
     if verbose:
