@@ -138,8 +138,9 @@ def make_summary(inputs=None, extension=None, verify_fix=False,
     fitslist = inputs2list(inputs, sort=False, accept_ccdlike=True, check_coherency=False)
 
     if len(fitslist) == 0:
-        print("No FITS file found.")
-        return
+        if verbose:
+            print("No FITS file found.")
+        return None
 
     def _get_fname_fsize_hdr(item, idx, extension):
         if isinstance(item, CCDData):
