@@ -65,7 +65,7 @@ LACOSMIC_KEYS = {'sigclip': 4.5,
                  'psfbeta': 4.765}
 
 
-def inputs2list(inputs, sort=True, accept_ccdlike=True, check_coherency=False):
+def inputs2list(inputs, sort=True, accept_ccdlike=True, path_to_text=False, check_coherency=False):
     ''' Convert glob pattern or list-like of path-like to list of Path
 
     Parameters
@@ -104,7 +104,10 @@ def inputs2list(inputs, sort=True, accept_ccdlike=True, check_coherency=False):
                         f"{kind} is given in the {i}-th element. Turn off accept_ccdlike or use path-like."
                     )
             else:  # assume it is path-like
-                outlist.append(Path(item))
+                if path_to_text:
+                    outlist.append(str(item))
+                else:
+                    outlist.append(Path(item))
     else:
         raise TypeError(f"inputs type ({type(inputs)})not accepted.")
 
