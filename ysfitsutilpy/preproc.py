@@ -722,26 +722,25 @@ def bdf_process(ccd, output=None,
         raise TypeError(f"ccd must be CCDData (now it is {type(ccd)})")
     PROCESS = []
     proc = ccd.copy()
-    hdr_new = proc.header
 
     # Add PROCESS key
-    if PROCESS not in hdr_new:
-        hdr_new["PROCESS"] = ("", "The processed history (left-most is first): see comment.")
-        add_to_header(hdr_new, 'c',
+    if "PROCESS" not in proc.header:
+        proc.header["PROCESS"] = ("", "The processed history (left-most is first): see comment.")
+        add_to_header(proc.header, 'c',
                       ("Standard PROCESS key includes B=bias, D=dark, F=flat, "
                        + "T=trim, W=WCS (astrometry), C=CRrej, Fr=fringe.")
                       )
 
     # Log the CCDPROC version
-    if "CCDPROCV" in hdr_new:
-        if str(hdr_new["CCDPROCV"]) != str(ccdproc.__version__):
+    if "CCDPROCV" in proc.header:
+        if str(proc.header["CCDPROCV"]) != str(ccdproc.__version__):
             add_to_header(
-                hdr_new, "h",
-                f"The ccdproc version prior to this modification was {hdr_new['CCDPROCV']}.")
-            hdr_new["CCDPROCV"] = (ccdproc.__version__, "ccdproc version used for processing.")
+                proc.header, "h",
+                f"The ccdproc version prior to this modification was {proc.header['CCDPROCV']}.")
+            proc.header["CCDPROCV"] = (ccdproc.__version__, "ccdproc version used for processing.")
         # else (no version change): do nothing.
     else:
-        hdr_new["CCDPROCV"] = (ccdproc.__version__, "ccdproc version used for processing.")
+        proc.header["CCDPROCV"] = (ccdproc.__version__, "ccdproc version used for processing.")
 
     # Set for BIAS
     if mbiaspath is None and mbias is None:
@@ -756,7 +755,7 @@ def bdf_process(ccd, output=None,
         if not calc_err:
             mbias.uncertainty = None
         PROCESS.append("B")
-        hdr_new["BIASPATH"] = (str(mbiaspath), "Path to the used bias file")
+        proc.header["BIASPATH"] = (str(mbiaspath), "Path to the used bias file")
 
     # Set for DARK
     if mdarkpath is None and mdark is None:
@@ -770,12 +769,12 @@ def bdf_process(ccd, output=None,
             mdarkpath = "<User>"
         if not calc_err:
             mdark.uncertainty = None
-        PROCESS.append("D")
+        proc.header.append("D")
         hdr_new["DARKPATH"] = (str(mdarkpath), "Path to the used dark file")
 
         if dark_scale:
             # TODO: what if dark_exposure, data_exposure are given explicitly?
-            add_to_header(hdr_new, 'h', str_dscale.format(exposure_key), verbose=verbose_bdf)
+            add_to_header(proc.header, 'h', str_dscale.format(exposure_key), verbose=verbose_bdf)
 
     # Set for FLAT
     if mflatpath is None and mflat is None:
@@ -805,10 +804,10 @@ def bdf_process(ccd, output=None,
         if not calc_err:
             mfringe.uncertainty = None
         PROCESS.append("Fr")
-        hdr_new["FRINPATH"] = (str(mfringepath), "Path to the used fringe")
+        proc.header["FRINPATH"] = (str(mfringepath), "Path to the used fringe")
         if fringe_scale_section is not None:
-            hdr_new["FRINSECT"] = (fringe_scale_section, "FITS section used for scaling fringe")
-            hdr_new["FRINFUNC"] = (fringe_scale_fun.__name__, "Function used for fringe scaling")
+            proc.header["FRINSECT"] = (fringe_scale_section, "FITS section used for scaling fringe")
+            proc.header["FRINFUNC"] = (fringe_scale_fun.__name__, "Function used for fringe scaling")
 
     # Set gain and rdnoise if at least one of calc_err and do_crrej is True.
     if calc_err or do_crrej:
@@ -833,15 +832,16 @@ def bdf_process(ccd, output=None,
         mbias = trim_ccd(mbias, **sect) if do_bias else None
         mdark = trim_ccd(mdark, **sect) if do_dark else None
         mflat = trim_ccd(mflat, **sect) if do_flat else None
+        mfringe = trim_ccd(mfringe, **sect) if do_fringe else None
         PROCESS.append("T")
 
-        add_to_header(hdr_new, 'h', str_trim.format(trim_fits_section), verbose=verbose_bdf, t_ref=_t)
+        add_to_header(proc.header, 'h', str_trim.format(trim_fits_section), verbose=verbose_bdf, t_ref=_t)
 
     # Do BIAS
     if do_bias:
         _t = Time.now()
         proc = subtract_bias(proc, mbias)
-        add_to_header(hdr_new, 'h', str_bias.format(mbiaspath), verbose=verbose_bdf, t_ref=_t)
+        add_to_header(proc.header, 'h', str_bias.format(mbiaspath), verbose=verbose_bdf, t_ref=_t)
 
     # Do DARK
     if do_dark:
@@ -853,7 +853,7 @@ def bdf_process(ccd, output=None,
                              exposure_time=exposure_key,
                              exposure_unit=exposure_unit,
                              scale=dark_scale)
-        add_to_header(hdr_new, 'h', str_dark.format(mdarkpath), verbose=verbose_bdf, t_ref=_t)
+        add_to_header(proc.header, 'h', str_dark.format(mdarkpath), verbose=verbose_bdf, t_ref=_t)
 
     # Make UNCERT extension before doing FLAT and FRINGE
     #   It is better to make_errmap a priori because of mathematical and
@@ -866,7 +866,7 @@ def bdf_process(ccd, output=None,
         s = [str_e0]
         if do_dark:
             s.append(str_ed)
-        add_to_header(hdr_new, 'h', s, verbose=verbose_bdf, t_ref=_t)
+        add_to_header(proc.header, 'h', s, verbose=verbose_bdf, t_ref=_t)
 
     # Do FLAT
     if do_flat:
@@ -881,29 +881,29 @@ def bdf_process(ccd, output=None,
         if calc_err and mflat.uncertainty is not None:
             s.append(str_ef)
 
-        add_to_header(hdr_new, 'h', s, verbose=verbose_bdf, t_ref=_t)
+        add_to_header(proc.header, 'h', s, verbose=verbose_bdf, t_ref=_t)
 
     # Normalize by the exposure time (e.g., ADU per sec)
     if normalize_exposure:
         _t = Time.now()
         if data_exposure is None:
-            data_exposure = hdr_new[exposure_key]
+            data_exposure = proc.header[exposure_key]
         proc = proc.divide(data_exposure)  # uncertainty will also be..
-        add_to_header(hdr_new, 'h', str_nexp, verbose=verbose_bdf, t_ref=_t)
+        add_to_header(proc.header, 'h', str_nexp, verbose=verbose_bdf, t_ref=_t)
 
     # Normalize by the mean value
     if normalize_average:
         _t = Time.now()
         avg = np.mean(proc.data)
         proc = proc.divide(avg)
-        add_to_header(hdr_new, 'h', str_navg, verbose=verbose_bdf, t_ref=_t)
+        add_to_header(proc.header, 'h', str_navg, verbose=verbose_bdf, t_ref=_t)
 
     # Normalize by the median value
     if normalize_median:
         _t = Time.now()
         med = np.median(proc.data)
         proc = proc.divide(med)
-        add_to_header(hdr_new, 'h', str_nmed, verbose=verbose_bdf, t_ref=_t)
+        add_to_header(proc.header, 'h', str_nmed, verbose=verbose_bdf, t_ref=_t)
 
     # Do CRREJ
     if do_crrej:
@@ -912,9 +912,11 @@ def bdf_process(ccd, output=None,
             warn("You are not specifying CR-rejection parameters! It can be"
                  + " dangerous to use defaults blindly.")
 
-        if (("B" in hdr_new["PROCESS"]) + ("D" in hdr_new["PROCESS"]) + ("F" in hdr_new["PROCESS"])) < 2:
+        if (("B" in proc.header["PROCESS"])
+            + ("D" in proc.header["PROCESS"])
+                + ("F" in proc.header["PROCESS"])) < 2:
             warn("L.A. Cosmic should be run AFTER bias, dark, flat process. You have only done"
-                 + f" {hdr_new['PROCESS']}. See http://www.astro.yale.edu/dokkum/lacosmic/notes.html")
+                 + f" {proc.header['PROCESS']}. See http://www.astro.yale.edu/dokkum/lacosmic/notes.html")
 
         proc, _ = crrej(
             proc,
@@ -933,19 +935,18 @@ def bdf_process(ccd, output=None,
         if fringe_scale_section is not None:
             sl = fitsxy2py(fringe_scale_section)
             scale = fringe_scale_fun(proc.data[sl]) / fringe_scale_fun(mfringe.data[sl])
-            hdr_new["FRINSCAL"] = (scale, "Scale factor multiplied to fringe")
+            proc.header["FRINSCAL"] = (scale, "Scale factor multiplied to fringe")
             s = str_fringe_scale
         else:
             scale = 1  # Not 1.0 so that (ccd in int) - (mfringe in int) remains int.
             s = str_fringe_noscale
         mfringe.data *= scale
         proc.data = proc.subtract(mfringe).data  # should I calc. error..?
-        add_to_header(hdr_new, 'h', s, verbose=verbose_bdf, t_ref=_t)
+        add_to_header(proc.header, 'h', s, verbose=verbose_bdf, t_ref=_t)
 
     proc = CCDData_astype(proc, dtype=dtype, uncertainty_dtype=uncertainty_dtype)
-    update_process(hdr_new, PROCESS, key="PROCESS", delimiter='-', add_comment=True)
-    update_tlm(hdr_new)
-    proc.header = hdr_new
+    update_process(proc.header, PROCESS, key="PROCESS", delimiter='-', add_comment=True)
+    update_tlm(proc.header)
 
     if output is not None:
         if verbose_bdf:
