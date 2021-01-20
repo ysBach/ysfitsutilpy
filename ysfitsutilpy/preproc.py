@@ -770,7 +770,7 @@ def bdf_process(ccd, output=None,
         if not calc_err:
             mdark.uncertainty = None
         proc.header.append("D")
-        hdr_new["DARKPATH"] = (str(mdarkpath), "Path to the used dark file")
+        proc.header["DARKPATH"] = (str(mdarkpath), "Path to the used dark file")
 
         if dark_scale:
             # TODO: what if dark_exposure, data_exposure are given explicitly?
@@ -789,7 +789,7 @@ def bdf_process(ccd, output=None,
         if not calc_err:
             mflat.uncertainty = None
         PROCESS.append("F")
-        hdr_new["FLATPATH"] = (str(mflatpath), "Path to the used flat file")
+        proc.header["FLATPATH"] = (str(mflatpath), "Path to the used flat file")
 
     # set for FRINGE
     if mfringepath is None and mfringe is None:
@@ -926,7 +926,6 @@ def bdf_process(ccd, output=None,
             rdnoise=rdnoise_Q,  # already parsed from local variables above
             verbose=verbose_crrej,
             **crrej_kwargs)
-        hdr_new = proc.header
 
     # To avoid ``pssl`` in cr rejection, subtract fringe AFTER the CRREJ.
     # Do FRINGE
