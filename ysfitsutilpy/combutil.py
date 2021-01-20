@@ -43,7 +43,8 @@ def weighted_mean(ccds, unit='adu'):
     return nccd
 
 
-def group_fits(summary_table, type_key=None, type_val=None, group_key=None):
+def group_fits(summary_table, type_key=None, type_val=None, group_key=None, table_filecol="file",
+               verbose=False):
     ''' Organize the group_by and type_key for stack_FITS
     Parameters
     ----------
@@ -84,14 +85,14 @@ def group_fits(summary_table, type_key=None, type_val=None, group_key=None):
     ...                     type_key=g_key,
     ...                     type_val=g_val)
     '''
-    if (not isinstance(summary_table, Table)) and (not isinstance(summary_table, pd.DataFrame)):
+    if isinstance(summary_table, Table):
+        st = summary_table.copy().to_pandas()
+    elif isinstance(summary_table, pd.DataFrame):
+        st = summary_table.copy()
+    else:
         raise TypeError(
             f"summary_table must be an astropy Table or Pandas DataFrame. It's now {type(summary_table)}."
         )
-    elif isinstance(summary_table, Table):
-        st = summary_table.to_pandas()
-    else:
-        st = summary_table.copy()
 
     type_key, type_val, group_key = chk_keyval(type_key=type_key, type_val=type_val, group_key=group_key)
 
@@ -99,17 +100,18 @@ def group_fits(summary_table, type_key=None, type_val=None, group_key=None):
         raise ValueError("At least one of type_key and group_key should not be empty!")
 
     # For simplicity, crop the original data by type_key and type_val first.
-    for k, v in zip(type_key, type_val):
-        st = st[st[k] == v]
-
+    if type_key and type_val:  # if not empty list
+        fpaths = select_fits(st, table_filecol=table_filecol, prefer_ccddata=False,
+                             type_key=type_key, type_val=type_val, verbose=verbose, path_to_text=True)
+        st = st[st[table_filecol].isin(fpaths)]
     group_type_key = type_key + group_key
     grouped = st.groupby(group_key)
 
     return grouped, group_type_key
 
 
-def select_fits(inputs, extension=None, unit=None, table_filecol="file", trim_fits_section=None,
-                prefer_ccddata=False, type_key=None, type_val=None, verbose=True):
+def select_fits(inputs, extension=None, unit=None, trim_fits_section=None, table_filecol="file",
+                prefer_ccddata=False, type_key=None, type_val=None, path_to_text=False, verbose=True):
     ''' Stacks the FITS files specified in fitslist
 
     Parameters
@@ -122,23 +124,28 @@ def select_fits(inputs, extension=None, unit=None, table_filecol="file", trim_fi
         The extension of FITS to be used. It can be given as integer (0-indexing) of the extension,
         ``EXTNAME`` (single str), or a tuple of str and int: ``(EXTNAME, EXTVER)``. If `None`
         (default), the *first extension with data* will be used.
+        Ignored if ``inputs`` is table-like.
 
     unit: Unit or str, optional
         The unit of the CCDs to be loaded.
         Used only when ``fitslist`` is not a list of ``CCDData`` and ``prefer_ccddata`` is `True`.
-
-    table_filecol: str
-        The column name of the ``summary_table`` which contains the path to the FITS files.
+        Ignored if ``inputs`` is table-like.
 
     trim_fits_section : str or None, optional
         The ``fits_section`` of ``ccdproc.trim_image``. Region of ``ccd`` from which the overscan is
         extracted; see `~ccdproc.subtract_overscan` for details.
         Default is `None`.
+        Ignored if ``inputs`` is table-like.
+
+    table_filecol: str
+        The column name of the ``summary_table`` which contains the path to the FITS files.
+        Ignored if ``inputs`` is CCD-like.
 
     prefer_ccddata: bool, optional
         Whether to prefer to return CCDData objects if possible. If `True`, path-like, ndarray, or
         table-like input will return a list of CCDData. If `False` (default), only the paths will be
         returned unless the ``inputs`` is consist of CCDData.
+        Ignored if ``inputs`` is already CCD-like.
 
     type_key, type_val: str, list of str
         The header keyword for the ccd type, and the value you want to match.
@@ -209,7 +216,8 @@ def select_fits(inputs, extension=None, unit=None, table_filecol="file", trim_fi
         fitslist = summary_table[table_filecol].to_list()
     else:
         # No need to sort here because the real "sort" will be done later in make_summary
-        fitslist = inputs2list(inputs, sort=False, accept_ccdlike=True, check_coherency=False)
+        fitslist = inputs2list(inputs, sort=False, accept_ccdlike=True, check_coherency=False,
+                               path_to_text=path_to_text)
         if selecting:
             summary_table = make_summary(
                 fitslist,
@@ -225,12 +233,12 @@ def select_fits(inputs, extension=None, unit=None, table_filecol="file", trim_fi
 
     if summary_table is not None:
         try:
-            summary_table.reset_index(inplace=True)
+            summary_table.reset_index(inplace=True, drop=True)
         except ValueError:
             pass
 
     if verbose:
-        print("Done.", end='')
+        print("Done.")
 
     # ****************************************************************************************************** #
     # *                                       SELECT AND LOAD TO MATCHED                                   * #
@@ -243,7 +251,11 @@ def select_fits(inputs, extension=None, unit=None, table_filecol="file", trim_fi
             if isinstance(v, str):
                 match_mask = summary_table[k].str.match(v)
                 summary_table = summary_table[match_mask]
-                fitslist = fitslist[match_mask]
+                fitslist = np.array(fitslist)[match_mask].tolist()  # NOTE: Is there a better way to do this?
+                try:
+                    summary_table.reset_index(inplace=True, drop=True)
+                except ValueError:
+                    pass
             else:  # not used as regex
                 _type_key.append(k)
                 _type_val.append(v)
@@ -281,7 +293,10 @@ def select_fits(inputs, extension=None, unit=None, table_filecol="file", trim_fi
                         ccd_i = trim_image(ccd_i, fits_section=trim_fits_section)
                     matched.append(ccd_i)
                 else:
-                    matched.append(fpath)
+                    if path_to_text:
+                        matched.append(str(fpath))
+                    else:
+                        matched.append(fpath)
     else:
         # == Use all item in fitslist ====================================================================== #
         # summary_table is not used.
@@ -299,7 +314,10 @@ def select_fits(inputs, extension=None, unit=None, table_filecol="file", trim_fi
                         ccd_i = trim_image(ccd_i, fits_section=trim_fits_section)
                     matched.append(ccd_i)
                 else:  # TODO: Is is better to remove Path here?
-                    matched.append(Path(item))
+                    if path_to_text:
+                        matched.append(str(item))
+                    else:
+                        matched.append(Path(item))
 
     # ****************************************************************************************************** #
     # *                                     PRINT INFO MESSAGE OR WARNING                                  * #
