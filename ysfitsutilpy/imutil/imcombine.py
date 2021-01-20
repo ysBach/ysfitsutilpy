@@ -1,17 +1,20 @@
 from pathlib import Path
-from astropy.io.fits.verify import VerifyError
 
 import bottleneck as bn
 import numpy as np
+import pandas as pd
+from astropy.io.fits.verify import VerifyError
 from astropy.nddata import CCDData
 from astropy.table import Table
 from astropy.time import Time
 from astropy.wcs import WCS
 
+from ..combutil import group_fits
+from ..filemgmt import make_summary
 from ..hdrutil import (add_to_header, calc_offset_physical, calc_offset_wcs,
                        update_tlm)
 from ..misc import (_image_shape, _parse_data_header, _parse_extension,
-                    get_size, inputs2list, load_ccd, write2fits)
+                    get_size, inputs2list, is_list_like, load_ccd, write2fits)
 from . import docstrings
 from .util_comb import (_set_cenfunc, _set_combfunc, _set_gain_rdns,
                         _set_int_dtype, _set_keeprej, _set_mask,
@@ -19,7 +22,7 @@ from .util_comb import (_set_cenfunc, _set_combfunc, _set_gain_rdns,
                         get_zsw)
 from .util_reject import ccdclip_mask, sigclip_mask
 
-__all__ = ["imcombine", "ndcombine"]
+__all__ = ["group_combine", "imcombine", "ndcombine"]
 
 '''
 removed : headers, project, masktype, maskvalue, sigscale, grow
@@ -46,6 +49,72 @@ nkeep                  : nkeep & maxrej
 mclip                  : cenfunc
 lsigma    , hsigma     : sigma uple
 '''
+
+
+def group_combine(inputs, type_key=None, type_val=None, group_key=None, verbose=1, **kwargs):
+    ''' Combine sub-groups of FITS files from the given input.
+    Parameters
+    ----------
+    inputs : glob pattern, list-like of path-like, list-like of CCDData-like
+        The `~glob` pattern for files (e.g., ``"2020*[012].fits"``) or list of files (each element must
+        be path-like or CCDData). Although it is not a good idea, a mixed list of CCDData and paths to
+        the files is also acceptable. For the purpose of imcombine function, the best use is to use the
+        `~glob` pattern or list of paths.
+
+    type_key, type_val : str, list of str
+        The header keyword for the ccd type, and the value you want to match.
+
+    group_key : None, str, list of str, optional
+        The header keyword which will be used to make groups for the CCDs that have selected from
+        ``type_key`` and ``type_val``. If `None` (default), no grouping will occur, but it will return
+        the `~pandas.DataFrameGroupBy` object will be returned for the sake of consistency.
+
+    verbose : int
+        Larger number means it becomes more verbose::
+            * 0: print nothing
+            * 1: Only very essential things from this function
+            * 2: + verbose from each imcombine
+
+    **kwargs :
+        The keyword arguments for ``imcombine``.
+
+    Return
+    ------
+    combined : dict of CCDData
+        The dict object where keys are the header value of the ``group_key`` and the values are the
+        combined images in CCDData object. If multiple keys for ``group_key`` is given, the key of this
+        dict is a tuple.
+    '''
+    if isinstance(inputs, Table):
+        inputs = inputs.to_pandas()
+        group_combine(inputs, **kwargs)
+    elif not isinstance(inputs, pd.DataFrame):
+        inputs = make_summary(inputs, pandas=True, verbose=False)  # TODO: use ``extension``??
+        group_combine(inputs, **kwargs)
+
+    gs, g_key = group_fits(inputs, type_key=type_key, type_val=type_val, group_key=group_key)
+    if verbose >= 1:
+        nt = len(type_key)
+        print(f"Group and combine by {g_key[nt:]} (total {len(gs)} groups)")
+    combined = {}
+    for g_val, group in gs:
+        if is_list_like(g_val):
+            if len(g_val) == 1:
+                g_val = g_val[0]
+        if verbose >= 1:
+            print(f"* {g_val}...")
+        files = group["file"].to_list()
+        if len(files) == 0:
+            if verbose >= 1:
+                print("No FITS to combine.")
+            combined[g_val] = None
+        elif len(files) == 1:
+            if verbose >= 1:
+                print("Only 1 FITS to combine -- returning it without any modification.")
+            combined[g_val] = load_ccd(files[0])
+        else:
+            combined[g_val] = imcombine(files, verbose=verbose >= 2, **kwargs)
+    return combined
 
 
 def _update_hdr(header, ncombine, imcmb_key, imcmb_val, offset_mode=None, offsets=None):
