@@ -13,9 +13,9 @@ from astropy.io import fits
 from astropy.time import Time
 from astropy.wcs import WCS
 
-from .misc import _parse_extension, change_to_quantity, str_now, _parse_data_header
+from .misc import _parse_extension, change_to_quantity, str_now, _parse_data_header, is_list_like
 
-__all__ = ["add_to_header",
+__all__ = ["add_to_header", "update_process",
            "wcs_crota", "center_radec", "calc_offset_wcs", "calc_offset_physical",
            "key_remover", "key_mapper",
            "get_from_header", "get_if_none", "wcsremove", "fov_radius",
@@ -117,6 +117,52 @@ def update_tlm(header):
                value=now,
                comment="UT of last modification of this FITS file",
                after=f"NAXIS{header['NAXIS']}")
+
+
+def update_process(header, process=None, key="PROCESS", delimiter='-', add_comment=True,
+                   additional_comment=dict()):
+    """ update the process history keyword in the header.
+    Parameters
+    ----------
+    header : header
+        The header to update the ``PROCESS`` (tunable by ``key`` parameter) keyword.
+
+    process : str or list-like of str
+        The additional process keys to add to the header.
+
+    key : str, optional.
+        The key for the process-related header keyword.
+
+    delimiter : str, optional.
+        The delimiter for each process. It can be null string (``''``). The best is to match it with
+        the pre-existing delimiter of the ``header[key]``.
+
+    additional_comment : dict, optional.
+        The additional comment to add. For instance, ``dict(v="vertical pattern", f="fourier
+        pattern")`` will add a new line of comment which reads "User added items for ``key``:
+        v=vertical pattern, f=fourier pattern."
+    """
+    if isinstance(process, str):
+        process = [process]
+    elif not is_list_like(process):
+        raise TypeError("additional_process must be str or list-like.")
+    else:
+        process = list(process)
+
+    if key in header:
+        process = [header[key]] + process
+
+    header[key] = (delimiter.join(process), "The processed history (left-most is first): see comment.")
+    if add_comment:
+        add_to_header(
+            header, 'c',
+            f"Standard items for {key} includes B=bias, D=dark, F=flat, T=trim, W=WCS, C=CRrej, Fr=fringe."
+        )
+
+    if additional_comment:
+        addstr = [f"{k}={v}" for k, v in additional_comment.items()]
+        addstr = ', '.join(addstr)
+        add_to_header(header, 'c', f"User added items for {key}: {addstr}.")
 
 
 def wcs_crota(wcs, degree=True):
