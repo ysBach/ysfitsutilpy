@@ -1,6 +1,3 @@
-from typing import Type
-from pandas.io.stata import ValueLabelTypeMismatch
-from build.lib.ysfitsutilpy.misc import inputs2list
 from pathlib import Path
 from warnings import warn
 
@@ -16,7 +13,7 @@ from ccdproc import combine, trim_image
 from .ccdutil import CCDData_astype, trim_ccd
 from .filemgmt import load_if_exists, make_summary
 from .hdrutil import add_to_header
-from .misc import chk_keyval, load_ccd
+from .misc import chk_keyval, load_ccd, inputs2list
 
 
 __all__ = ["sstd", "weighted_mean", "group_fits", "select_fits", "stack_FITS", "combine_ccd"]
