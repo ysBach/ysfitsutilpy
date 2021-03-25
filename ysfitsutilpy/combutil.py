@@ -13,7 +13,7 @@ from ccdproc import combine, trim_image
 from .ccdutil import CCDData_astype, trim_ccd
 from .filemgmt import load_if_exists, make_summary
 from .hdrutil import add_to_header
-from .misc import chk_keyval, load_ccd, inputs2list
+from .misc import chk_keyval, load_ccd, inputs2list, _parse_extension
 
 
 __all__ = ["sstd", "weighted_mean", "group_fits", "select_fits", "stack_FITS", "combine_ccd"]
@@ -803,6 +803,8 @@ def combine_ccd(fitslist=None, summary_table=None, table_filecol="file",
 
     if reject_method is None:
         reject_method = 'no'
+
+    extension = _parse_extension(extension)
 
     # Select CCDs by
     ccdlist = stack_FITS(
