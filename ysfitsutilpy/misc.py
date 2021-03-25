@@ -320,7 +320,8 @@ def _parse_image(ccdlike, extension=None, name=None, force_ccddata=False, prefer
 
     prefer_ccddata: bool, optional.
         Mildly use `~astropy.nddata.CCDData`, i.e., return `~astropy.nddata.CCDData` only if ``im`` was
-        `~astropy.nddata.CCDData` or Path-like to a FITS file.
+        `~astropy.nddata.CCDData`, HDU object, or Path-like to a FITS file, but **not** if it was
+        ndarray or numbers. If `False` (default), it prefers ndarray.
 
     Returns
     -------
@@ -931,12 +932,12 @@ def load_ccd(path, extension=None, ccddata=True, as_ccd=True, use_wcs=True, unit
             try:  # Read uncertainty if exists
                 e_u = _parse_extension(extension_uncertainty)
                 unc = _read_by_fitsio(hdul, path, e_u)
-            except OSError:  # fitsio gives OSError if the extension is not found
+            except (OSError, ValueError):  # if the extension is not found
                 unc = None
             try:  # Read uncertainty if exists
                 e_m = _parse_extension(extension_mask)
                 mask = _read_by_fitsio(hdul, path, e_m)
-            except OSError:  # fitsio gives OSError if the extension is not found
+            except (OSError, ValueError):  # if the extension is not found
                 mask = None
 
             flag = None  # FIXME: add this line when CCDData starts to support flags.
@@ -1104,7 +1105,7 @@ def binning(arr, factor_x=None, factor_y=None, factors=None, order_xyz=True, bin
     ----
     This kind of binning is ~ 20-30 to upto 10^5 times faster than astropy.nddata's block_reduce:
 
-    >>> from astropy.nddata import block_reduce
+    >>> from astropy.nddata.blocks import block_reduce
     >>> import ysfitsutilpy as yfu
     >>> from astropy.nddata import CCDData
     >>> import numpy as np
@@ -1260,16 +1261,20 @@ def give_stats(item, extension=None, percentiles=[1, 99], N_extrema=None, return
     >>> import json
     >>> percentiles = json.loads(ccd.header['percentiles'])
     '''
-    try:  # if Path-like, replace ``item`` to ndarray or CCDData
-        fpath = Path(item)
-        if return_header:
-            item = CCDData.read(fpath, extension)
-        else:
-            item = fitsio.FITS(fpath)[extension].read()
-    except (TypeError, ValueError):
-        pass
+    if is_list_like(item):
+        data = np.array(item)
+        hdr = None
+    else:
+        try:  # if Path-like, replace ``item`` to ndarray or CCDData
+            fpath = Path(item)
+            if return_header:
+                item = CCDData.read(fpath, extension)
+            else:
+                item = fitsio.FITS(fpath)[extension].read()
+        except (TypeError, ValueError):
+            pass
 
-    data, hdr = _parse_data_header(item)
+        data, hdr = _parse_data_header(item)
 
     if nanfunc:
         minf = bn.nanmin
