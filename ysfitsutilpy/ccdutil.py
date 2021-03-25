@@ -269,7 +269,7 @@ def trim_ccd(ccd, fits_section=None, update_header=True, verbose=False):
     return trimmed_ccd
 
 
-def bezel_ccd(ccd, bezel_x=None, bezel_y=None, replace=np.nan, verbose=False):
+def bezel_ccd(ccd, bezel_x=None, bezel_y=None, replace=np.nan, update_header=True, verbose=False):
     """ Replace pixel values at the edges of the image.
 
     Parameters
@@ -319,8 +319,10 @@ def bezel_ccd(ccd, bezel_x=None, bezel_y=None, replace=np.nan, verbose=False):
         return bezel
 
     _t = Time.now()
+
+    ccd = _parse_image(ccd, force_ccddata=True)[0]
     if ccd.data.ndim != 2:
-        raise ValueError("Only 2-D CCDData is supported yet.")
+        raise ValueError("Only 2-D input data is supported yet.")
 
     ny, nx = ccd.data.shape
 
@@ -332,7 +334,10 @@ def bezel_ccd(ccd, bezel_x=None, bezel_y=None, replace=np.nan, verbose=False):
 
     if replace is None:
         sl = (f"[{bezel_x[0] + 1}:{nx - bezel_x[1]},{bezel_y[0] + 1}:{ny - bezel_y[1]}]")
-        nccd = trim_ccd(ccd, fits_section=sl) if isinstance(ccd, CCDData) else np.array(ccd)[fitsxy2py(sl)]
+        if isinstance(ccd, CCDData):
+            nccd = trim_ccd(ccd, fits_section=sl, update_header=update_header)
+        else:
+            nccd = np.array(ccd)[fitsxy2py(sl)]
         # i.e., use trim_ccd if CCDData, and use python slice if ndarray-like
     else:
         nccd = ccd.copy()
@@ -340,12 +345,14 @@ def bezel_ccd(ccd, bezel_x=None, bezel_y=None, replace=np.nan, verbose=False):
         nccd.data[ny - bezel_y[1]:, :] = replace
         nccd.data[:, :bezel_x[0]] = replace
         nccd.data[:, nx - bezel_x[0]:] = replace
-        add_to_header(
-            nccd.header, 'h', t_ref=_t, verbose=verbose,
-            s=f"Replaced pixels with bezel width {bezel_x} along x and {bezel_y} along y with {replace}."
-        )
+        if update_header:
+            add_to_header(
+                nccd.header, 'h', t_ref=_t, verbose=verbose,
+                s=f"Replaced pixels with bezel width {bezel_x} along x and {bezel_y} along y with {replace}."
+            )
 
-    update_tlm(nccd.header)
+    if update_header:
+        update_tlm(nccd.header)
 
     return nccd
 
@@ -484,7 +491,7 @@ def bin_ccd(ccd, factor_x=1, factor_y=1, binfunc=np.mean, trim_end=False, update
     Note
     ----
     This is ~ 20-30 to upto 10^5 times faster than astropy.nddata's block_reduce:
-    >>> from astropy.nddata import block_reduce
+    >>> from astropy.nddata.blocks import block_reduce
     >>> import ysfitsutilpy as yfu
     >>> from astropy.nddata import CCDData
     >>> import numpy as np
