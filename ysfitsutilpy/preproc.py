@@ -23,7 +23,7 @@ __all__ = [
 str_bias = "Bias subtracted (see BIASPATH)"
 str_dark = "Dark subtracted (see DARKPATH)"
 str_dscale = "Dark scaling using {}"
-str_flat = "Flat corrected (see FLATPATH)"
+str_flat = "Flat corrected by image/flat*flat_norm_value (see FLATPATH; FLATNORM)"
 str_fringe_noscale = "Fringe subtracted (see FRINPATH)"
 str_fringe_scale = ("Finge subtracted with scaling (image - scale*fringe)"
                     + "(see FRINPATH, FRINSECT, FRINFUNC and FRINSCAL)")
@@ -593,7 +593,7 @@ def bdf_process(ccd, output=None,
                 rdnoise=None, rdnoise_key="RDNOISE", rdnoise_unit=u.electron,
                 exposure_key="EXPTIME", exposure_unit=u.s, dark_exposure=None, data_exposure=None,
                 dark_scale=False, normalize_exposure=False, normalize_average=False, normalize_median=False,
-                flat_min_value=None, flat_norm_value=None,
+                flat_min_value=None, flat_norm_value=1.,
                 do_crrej=False, crrej_kwargs=None, propagate_crmask=False,
                 verbose_crrej=False, verbose_bdf=True, output_verify='fix',
                 overwrite=True, dtype="float32", uncertainty_dtype="float32"):
@@ -688,10 +688,11 @@ def bdf_process(ccd, output=None,
         Default is `None`.
 
     flat_norm_value : float or None, optional.
-        norm_value of `ccdproc.flat_correct`. If not `None`, normalize flat field by this argument
-        rather than the mean of the image. This allows fixing several different flat fields to have the
-        same scale. If this value is negative or 0, a ``ValueError``. is raised.
-        Default is `None`.
+        The norm_value of `ccdproc.flat_correct`. If `None`, the flat is internally normalized by its
+        mean before the flat correction, i.e., the flat correction will be like
+        ``image/flat*mean(flat)``.
+        If not `None`, the flat correction will be like ``image/flat*flat_norm_value``.
+        Default is 1 (**different** from `ccdproc` which uses `None` as default).
 
     crrej_kwargs : dict or None, optional.
         If `None` (default), uses some default values (see ``crrej``). It is always discouraged to use
@@ -790,6 +791,7 @@ def bdf_process(ccd, output=None,
             mflat.uncertainty = None
         PROCESS.append("F")
         proc.header["FLATPATH"] = (str(mflatpath), "Path to the used flat file")
+        proc.header["FLATNORM"] = (flat_norm_value, "flat_norm_value (none = mean of input flat)")
 
     # set for FRINGE
     if mfringepath is None and mfringe is None:
