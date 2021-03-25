@@ -113,10 +113,17 @@ def update_tlm(header):
     ''' Adds the IRAF-like ``FITS-TLM`` right after ``NAXISi``.
     '''
     now = Time(Time.now(), precision=0).isot
-    header.set("FITS-TLM",
-               value=now,
-               comment="UT of last modification of this FITS file",
-               after=f"NAXIS{header['NAXIS']}")
+    try:
+        del header["FITS-TLM"]
+    except KeyError:
+        pass
+    try:
+        header.set("FITS-TLM",
+                   value=now,
+                   comment="UT of last modification of this FITS file",
+                   after=f"NAXIS{header['NAXIS']}")
+    except AttributeError:  # If header is OrderedDict
+        header["FITS-TLM"] = (now, "UT of last modification of this FITS file")
 
 
 def update_process(header, process=None, key="PROCESS", delimiter='-', add_comment=True,
