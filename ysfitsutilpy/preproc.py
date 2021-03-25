@@ -4,6 +4,7 @@ import astroscrappy
 import ccdproc
 import numpy as np
 from astropy import units as u
+from astropy.io import fits
 from astropy.nddata import CCDData, StdDevUncertainty
 from astropy.stats import sigma_clipped_stats
 from astropy.time import Time
@@ -12,9 +13,9 @@ from ccdproc import flat_correct, subtract_bias, subtract_dark
 
 from .ccdutil import (CCDData_astype, errormap, propagate_ccdmask,
                       set_ccd_gain_rdnoise, trim_ccd)
-from .hdrutil import add_to_header, update_tlm, update_process
-from .misc import (LACOSMIC_KEYS, change_to_quantity, _parse_data_header, fitsxy2py,
-                   load_ccd)
+from .hdrutil import add_to_header, update_process, update_tlm
+from .misc import (LACOSMIC_KEYS, _parse_data_header, change_to_quantity,
+                   fitsxy2py, load_ccd)
 
 __all__ = [
     "crrej", "medfilt_bpm", "bdf_process"]
@@ -890,21 +891,21 @@ def bdf_process(ccd, output=None,
         _t = Time.now()
         if data_exposure is None:
             data_exposure = proc.header[exposure_key]
-        proc = proc.divide(data_exposure)  # uncertainty will also be..
+        proc.data = proc.data/data_exposure  # uncertainty will also be..
         add_to_header(proc.header, 'h', str_nexp, verbose=verbose_bdf, t_ref=_t)
 
     # Normalize by the mean value
     if normalize_average:
         _t = Time.now()
         avg = np.mean(proc.data)
-        proc = proc.divide(avg)
+        proc.data = proc.data/avg
         add_to_header(proc.header, 'h', str_navg, verbose=verbose_bdf, t_ref=_t)
 
     # Normalize by the median value
     if normalize_median:
         _t = Time.now()
         med = np.median(proc.data)
-        proc = proc.divide(med)
+        proc.data = proc.data/med
         add_to_header(proc.header, 'h', str_nmed, verbose=verbose_bdf, t_ref=_t)
 
     # Do CRREJ
