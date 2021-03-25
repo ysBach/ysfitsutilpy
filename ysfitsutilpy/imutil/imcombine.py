@@ -94,16 +94,16 @@ def group_combine(inputs, type_key=None, type_val=None, group_key=None, verbose=
 
     gs, g_key = group_fits(inputs, type_key=type_key, type_val=type_val, group_key=group_key)
     if verbose >= 1:
-        nt = len(type_key)
+        nt = 0 if type_key is None else len(type_key)
         print(f"Group and combine by {g_key[nt:]} (total {len(gs)} groups)")
     combined = {}
     for g_val, group in gs:
         if is_list_like(g_val):
             if len(g_val) == 1:
                 g_val = g_val[0]
-        if verbose >= 1:
-            print(f"* {g_val}...")
         files = group["file"].to_list()
+        if verbose >= 1:
+            print(f"* {g_val}... ({len(files)} files)")
         if len(files) == 0:
             if verbose >= 1:
                 print("No FITS to combine.")
