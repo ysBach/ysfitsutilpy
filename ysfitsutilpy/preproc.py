@@ -4,7 +4,6 @@ import astroscrappy
 import ccdproc
 import numpy as np
 from astropy import units as u
-from astropy.io import fits
 from astropy.nddata import CCDData, StdDevUncertainty
 from astropy.stats import sigma_clipped_stats
 from astropy.time import Time

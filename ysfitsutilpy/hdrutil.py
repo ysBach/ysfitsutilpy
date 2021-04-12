@@ -2,7 +2,6 @@
 Collection of functions that are rather header-dependent than the data.
 '''
 import re
-from pathlib import Path
 from warnings import warn
 
 import numpy as np
