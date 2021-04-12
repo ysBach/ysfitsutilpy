@@ -18,8 +18,6 @@ from astropy.nddata import CCDData
 from astropy.time import Time
 from astropy.visualization import ImageNormalize, ZScaleInterval
 from astropy.wcs import WCS
-from numpy.core.numeric import outer
-from numpy.lib.arraysetops import isin
 
 __all__ = ["MEDCOMB_KEYS_INT", "SUMCOMB_KEYS_INT", "MEDCOMB_KEYS_FLT32", "LACOSMIC_KEYS",
            "get_size", "is_list_like", "circular_mask", "_image_shape", "_offsets2slice",
@@ -478,6 +476,11 @@ def _parse_extension(*args, ext=None, extname=None, extver=None):
 
     This is essential for fits_ccddata_reader, because it only has ``hdu``, not all three of ext,
     extname, and extver.
+
+    Note
+    ----
+    %timeit yfu._parse_extension()
+    # 1.52 µs +- 69.3 ns per loop (mean +- std. dev. of 7 runs, 1000000 loops each)
     """
 
     err_msg = ('Redundant/conflicting extension arguments(s): {}'.format(
@@ -1171,7 +1174,6 @@ def binning(arr, factor_x=None, factor_y=None, factors=None, order_xyz=True, bin
     funcaxis = np.arange(1, binned.ndim + 1, 2).astype(int)
     binned = binfunc(binned, axis=tuple(funcaxis))
     return binned
-
 
 
 def fitsxy2py(fits_section):

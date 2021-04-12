@@ -14,8 +14,8 @@ from ccdproc import flat_correct, subtract_bias, subtract_dark
 from .ccdutil import (CCDData_astype, errormap, propagate_ccdmask,
                       set_ccd_gain_rdnoise, trim_ccd)
 from .hdrutil import add_to_header, update_process, update_tlm
-from .misc import (LACOSMIC_KEYS, _parse_data_header, change_to_quantity,
-                   fitsxy2py, load_ccd)
+from .misc import (LACOSMIC_KEYS, _parse_data_header, _parse_image,
+                   change_to_quantity, fitsxy2py, load_ccd)
 
 __all__ = [
     "crrej", "medfilt_bpm", "bdf_process"]
@@ -585,7 +585,7 @@ def medfilt_bpm(ccd, cadd=1.e-10, std_model="std", gain=1., rdnoise=0., snoise=0
 
 # NOTE: crrej should be done AFTER bias/dark and flat correction:
 # http://www.astro.yale.edu/dokkum/lacosmic/notes.html
-def bdf_process(ccd, output=None,
+def bdf_process(ccd, output=None, extension=None,
                 mbiaspath=None, mdarkpath=None, mflatpath=None, mfringepath=None,
                 mbias=None, mdark=None, mflat=None, mfringe=None,
                 fringe_scale_fun=np.mean, fringe_scale_section=None,
@@ -718,16 +718,36 @@ def bdf_process(ccd, output=None,
         ``np.float64``.
         Default is `None`.
     '''
+    def _load_master(path, master):
+        if path is None and master is None:
+            do = False
+            master = None
+        else:  # at least one is given
+            do = True
+            if master is None:
+                master = load_ccd(path, unit=unit, ccddata=True, use_wcs=False)
+
+            # Make master as CCDData
+            master, _, _ = _parse_image(master, force_ccddata=True)
+
+            if path is None:
+                path = "<User>"
+
+            if not calc_err:
+                master.uncertainty = None
+
+        return do, master, path
 
     # Initial setting
-    if not isinstance(ccd, CCDData):
-        raise TypeError(f"ccd must be CCDData (now it is {type(ccd)})")
+    # if not isinstance(ccd, CCDData):
+    #     raise TypeError(f"ccd must be CCDData (now it is {type(ccd)})")
+    ccd, _, _ = _parse_image(ccd, extension=extension, force_ccddata=True)
     PROCESS = []
     proc = ccd.copy()
 
     # Add PROCESS key
     if "PROCESS" not in proc.header:
-        proc.header["PROCESS"] = ("", "The processed history (left-most is first): see comment.")
+        proc.header["PROCESS"] = ("", "Process (order: 1-2-3-...): see comment.")
         add_to_header(proc.header, 'c',
                       ("Standard PROCESS key includes B=bias, D=dark, F=flat, "
                        + "T=trim, W=WCS (astrometry), C=CRrej, Fr=fringe.")
@@ -745,32 +765,14 @@ def bdf_process(ccd, output=None,
         proc.header["CCDPROCV"] = (ccdproc.__version__, "ccdproc version used for processing.")
 
     # Set for BIAS
-    if mbiaspath is None and mbias is None:
-        do_bias = False
-        mbias = None
-    else:
-        do_bias = True
-        if mbias is None:
-            mbias = load_ccd(mbiaspath, unit=unit, ccddata=True, use_wcs=False)
-        if mbiaspath is None:
-            mbiaspath = "<User>"
-        if not calc_err:
-            mbias.uncertainty = None
+    do_bias, mbias, mbiaspath = _load_master(mbiaspath, mbias)
+    if do_bias:
         PROCESS.append("B")
         proc.header["BIASPATH"] = (str(mbiaspath), "Path to the used bias file")
 
     # Set for DARK
-    if mdarkpath is None and mdark is None:
-        do_dark = False
-        mdark = None
-    else:
-        do_dark = True
-        if mdark is None:
-            mdark = load_ccd(mdarkpath, unit=unit, ccddata=True, use_wcs=False)
-        if mdarkpath is None:
-            mdarkpath = "<User>"
-        if not calc_err:
-            mdark.uncertainty = None
+    do_dark, mdark, mdarkpath = _load_master(mdarkpath, mdark)
+    if do_dark:
         proc.header.append("D")
         proc.header["DARKPATH"] = (str(mdarkpath), "Path to the used dark file")
 
@@ -779,33 +781,15 @@ def bdf_process(ccd, output=None,
             add_to_header(proc.header, 'h', str_dscale.format(exposure_key), verbose=verbose_bdf)
 
     # Set for FLAT
-    if mflatpath is None and mflat is None:
-        do_flat = False
-        mflat = None
-    else:
-        do_flat = True
-        if mflat is None:
-            mflat = load_ccd(mflatpath, unit=unit, ccddata=True, use_wcs=False)
-        if mflatpath is None:
-            mflatpath = "<User>"
-        if not calc_err:
-            mflat.uncertainty = None
+    do_flat, mflat, mflatpath = _load_master(mflatpath, mflat)
+    if do_flat:
         PROCESS.append("F")
         proc.header["FLATPATH"] = (str(mflatpath), "Path to the used flat file")
         proc.header["FLATNORM"] = (flat_norm_value, "flat_norm_value (none = mean of input flat)")
 
     # set for FRINGE
-    if mfringepath is None and mfringe is None:
-        do_fringe = False
-        mfringe = None
-    else:
-        do_fringe = True
-        if mfringe is None:
-            mfringe = load_ccd(mfringepath, unit=unit, ccddata=True, use_wcs=False)
-        if mfringepath is None:
-            mfringepath = "<User>"
-        if not calc_err:
-            mfringe.uncertainty = None
+    do_fringe, mfringe, mfringepath = _load_master(mfringepath, mfringe)
+    if do_fringe:
         PROCESS.append("Fr")
         proc.header["FRINPATH"] = (str(mfringepath), "Path to the used fringe")
         if fringe_scale_section is not None:
