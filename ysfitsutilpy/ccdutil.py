@@ -10,6 +10,7 @@ from astropy.nddata import CCDData, Cutout2D
 from astropy.time import Time
 from astropy.wcs import WCS
 from ccdproc import trim_image
+from scipy.interpolate import griddata
 
 from .hdrutil import (add_to_header, calc_offset_physical, get_if_none,
                       update_tlm)
@@ -19,7 +20,7 @@ from .misc import (_parse_data_header, _parse_image, binning, fitsxy2py,
 __all__ = [
     "set_ccd_attribute", "set_ccd_gain_rdnoise",
     "propagate_ccdmask",
-    "trim_ccd", "bezel_ccd", "cutccd", "bin_ccd",
+    "trim_ccd", "bezel_ccd", "cutccd", "bin_ccd", "fixpix",
     "CCDData_astype", "make_errmap",
     "errormap"
 ]
@@ -468,7 +469,7 @@ def cutccd(ccd, position, size, mode='trim', fill_value=np.nan):
     return nccd
 
 
-def bin_ccd(ccd, factor_x=1, factor_y=1, binfunc=np.mean, trim_end=False, update_header=True):
+def bin_ccd(ccd, factor_x=1, factor_y=1, binfunc=np.mean, trim_end=False, update_header=True, copy=True):
     ''' Bins the given ccd.
 
     Paramters
@@ -515,7 +516,12 @@ def bin_ccd(ccd, factor_x=1, factor_y=1, binfunc=np.mean, trim_end=False, update
 
     if factor_x == 1 and factor_y == 1:
         return ccd
-    _ccd = ccd.copy()
+
+    if copy:
+        _ccd = ccd.copy()
+    else:
+        _ccd = ccd
+
     _ccd.data = binning(_ccd.data,
                         factor_x=factor_x,
                         factor_y=factor_y,
@@ -533,7 +539,51 @@ def bin_ccd(ccd, factor_x=1, factor_y=1, binfunc=np.mean, trim_end=False, update
     return _ccd
 
 
-def CCDData_astype(ccd, dtype='float32', uncertainty_dtype=None):
+def fixpix(ccd, mask, extension=None, method='nearest', fill_value=0, update_header=True, copy=True):
+    ''' Interpolate the missing values in the CCD (similar to IRAF's PROTO.FIXPIX)
+    Parameters
+    ----------
+    ccd : CCDData-like (e.g., PrimaryHDU, ImageHDU, HDUList), ndarray, path-like, or number-like
+        The CCD data to be "fixed".
+
+    mask : ndarray (bool)
+        The mask to be used for fixing pixels (pixels to be fixed are where `mask` is `True`).
+
+    extension: int, str, (str, int)
+        The extension of FITS to be used. It can be given as integer (0-indexing) of the extension,
+        ``EXTNAME`` (single str), or a tuple of str and int: ``(EXTNAME, EXTVER)``. If `None`
+        (default), the *first extension with data* will be used.
+
+    method: str
+        The interpolation method. Even the ``'linear'`` method takes too long time in many cases, so
+        the default is ``'nearest'``.
+    '''
+    _t_start = Time.now()
+
+    if copy:
+        _ccd = ccd.copy()
+    else:
+        _ccd = ccd
+
+    data, _, _ = _parse_image(_ccd, extension=extension, force_ccddata=False, prefer_ccddata=False)
+    x_idx, y_idx = np.meshgrid(np.arange(0, data.shape[1] - 0.1), np.arange(0, data.shape[0] - 0.1))
+    mask = mask.astype(bool)
+    x_valid = x_idx[~mask]
+    y_valid = y_idx[~mask]
+    z_valid = data[~mask]
+    _ccd.data = griddata((x_valid, y_valid), z_valid, (x_idx, y_idx), method=method, fill_value=fill_value)
+    if update_header:
+        _ccd.header["FIXPMETH"] = (method, "The interpolation method for fixpix")
+        _ccd.header["FIXPFILL"] = (fill_value, "The filling value if interpolation fails")
+        _ccd.header["FIXPNPIX"] = (np.count_nonzero(mask), "Total num of pixesl fixed by pixfix.")
+        # add as history
+        add_to_header(_ccd.header, 'h', t_ref=_t_start, s="Pixel values fixed by fixpix")
+    update_tlm(_ccd.header)
+
+    return _ccd
+
+
+def CCDData_astype(ccd, dtype='float32', uncertainty_dtype=None, copy=True):
     ''' Assign dtype to the CCDData object (numpy uses float64 default).
 
     Parameters
@@ -556,7 +606,10 @@ def CCDData_astype(ccd, dtype='float32', uncertainty_dtype=None):
     >>> ccd.uncertainty = np.sqrt(ccd.data)
     >>> ccd = yfu.CCDData_astype(ccd, dtype='int16', uncertainty_dtype='float32')
     '''
-    nccd = ccd.copy()
+    if copy:
+        nccd = ccd.copy()
+    else:
+        nccd = ccd
     nccd.data = nccd.data.astype(dtype)
 
     try:
