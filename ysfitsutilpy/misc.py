@@ -299,7 +299,8 @@ def _parse_data_header(ccdlike, extension=None, parse_data=True, parse_header=Tr
     return data, hdr
 
 
-def _parse_image(ccdlike, extension=None, name=None, force_ccddata=False, prefer_ccddata=False):
+def _parse_image(ccdlike, extension=None, name=None, force_ccddata=False, prefer_ccddata=False,
+                 use_ccddata_if_path=True):
     '''Parse and return input image as desired format (ndarray or CCDData)
     Parameters
     ----------
@@ -320,6 +321,11 @@ def _parse_image(ccdlike, extension=None, name=None, force_ccddata=False, prefer
         Mildly use `~astropy.nddata.CCDData`, i.e., return `~astropy.nddata.CCDData` only if ``im`` was
         `~astropy.nddata.CCDData`, HDU object, or Path-like to a FITS file, but **not** if it was
         ndarray or numbers. If `False` (default), it prefers ndarray.
+
+    use_ccddata_if_path : bool, optional.
+        Whether to load the full CCD information (using `~astropy.nddata.CCDData`). If `False`,
+        `fitsio.read` will be used without parsing header, significantly increasing the IO speed.
+        Default is `True`.
 
     Returns
     -------
@@ -380,7 +386,7 @@ def _parse_image(ccdlike, extension=None, name=None, force_ccddata=False, prefer
         imtype = "HDUList"
     elif isinstance(ccdlike, np.ndarray):
         # force_ccddata: CCDData // prefer_ccddata: ndarray // else: ndarray
-        new_im = CCDData(data=ccdlike, unit='adu') if force_ccddata else ccdlike
+        new_im = CCDData(data=ccdlike.copy(), unit='adu') if force_ccddata else ccdlike
         imtype = "ndarray"
     else:
         try:  # IF number (ex: im = 1.3)
@@ -395,7 +401,7 @@ def _parse_image(ccdlike, extension=None, name=None, force_ccddata=False, prefer
                 fpath = Path(ccdlike)
                 imname = f"{str(fpath)}{extstr}" if has_no_name else name
                 # set redundant extensions to None so that only the part specified by ``extension`` be loaded:
-                new_im = load_ccd(fpath, extension, ccddata=(force_ccddata or prefer_ccddata),
+                new_im = load_ccd(fpath, extension, ccddata=use_ccddata_if_path,
                                   extension_uncertainty=None, extension_mask=None)
                 imtype = "path"
             except TypeError:
