@@ -318,9 +318,9 @@ def crrej(ccd, mask=None, propagate_crmask=False, update_header=True,
 #   rdn**2)
 def medfilt_bpm(ccd, cadd=1.e-10, std_model="std", gain=1., rdnoise=0., snoise=0.,
                 sigclip_kw=dict(sigma=3., maxiters=5, std_ddof=1), std_section=None,
-                size=5, mode='reflect', cval=0.0, origin=0, med_sub_clip=None, med_rat_clip=[0.5, 2],
-                std_rat_clip=[-5, 5], dtype='float32', update_header=True,
-                verbose=False, logical='and', full=False):
+                size=5, footprint=None, mode='reflect', cval=0.0, origin=0,
+                med_sub_clip=None, med_rat_clip=[0.5, 2], std_rat_clip=[-5, 5],
+                dtype='float32', update_header=True, verbose=False, logical='and', full=False):
     ''' Find bad pixels from median filtering technique (non standard..?)
     Parameters
     ----------
@@ -350,7 +350,7 @@ def medfilt_bpm(ccd, cadd=1.e-10, std_model="std", gain=1., rdnoise=0., snoise=0
         is used, which is many times not desirable due to the celestial objects in the FOV and
         computational cost. This is **ignored** if ``std_model='ccd'``.
 
-    size, mode, cval, origin : optional.
+    size, footprint, mode, cval, origin : optional.
         The parameters to obtain the median-filtered map. See `scipy.ndimage.median_filter`.
 
     med_sub_clip : list of two float or `None`, optional.
@@ -460,7 +460,7 @@ def medfilt_bpm(ccd, cadd=1.e-10, std_model="std", gain=1., rdnoise=0., snoise=0
     else:
         slices = [slice(None, None, None)]*arr.ndim
 
-    medfilt_kw = dict(size=size, mode=mode, cval=cval, origin=origin)
+    medfilt_kw = dict(size=size, footprint=footprint, mode=mode, cval=cval, origin=origin)
 
     _t = Time.now()
     med_filt = median_filter(arr, **medfilt_kw)
