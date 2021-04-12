@@ -368,7 +368,7 @@ def _parse_image(ccdlike, extension=None, name=None, force_ccddata=False, prefer
 
     if isinstance(ccdlike, CCDData):
         # force_ccddata: CCDData // prefer_ccddata: CCDData // else: ndarray
-        new_im = ccdlike if (force_ccddata or prefer_ccddata) else ccdlike.data.copy()
+        new_im = ccdlike.copy() if (force_ccddata or prefer_ccddata) else ccdlike.data.copy()
         imtype = "CCDdata"
     elif isinstance(ccdlike, (fits.PrimaryHDU, fits.ImageHDU)):
         # force_ccddata: CCDData // prefer_ccddata: CCDData // else: ndarray
