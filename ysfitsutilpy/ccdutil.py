@@ -11,6 +11,7 @@ from astropy.time import Time
 from astropy.wcs import WCS
 from ccdproc import trim_image
 from scipy.interpolate import griddata
+from scipy.ndimage import label as ndlabel
 
 from .hdrutil import (add_to_header, calc_offset_physical, get_if_none,
                       update_tlm)
@@ -539,8 +540,143 @@ def bin_ccd(ccd, factor_x=1, factor_y=1, binfunc=np.mean, trim_end=False, update
     return _ccd
 
 
-def fixpix(ccd, mask, extension=None, method='nearest', fill_value=0, update_header=True, copy=True):
-    ''' Interpolate the missing values in the CCD (similar to IRAF's PROTO.FIXPIX)
+def fixpix(ccd, mask, extension=None, priority=None, update_header=True, use_ccddata_if_path=True):
+    ''' Interpolate the masked location (N-D generalization of IRAF PROTO.FIXPIX)
+    Parameters
+    ----------
+    ccd : CCDData-like (e.g., PrimaryHDU, ImageHDU, HDUList), ndarray, path-like, or number-like
+        The CCD data to be "fixed".
+
+    mask : ndarray (bool)
+        The mask to be used for fixing pixels (pixels to be fixed are where `mask` is `True`).
+
+    extension: int, str, (str, int), None
+        The extension of FITS to be used. It can be given as integer (0-indexing) of the extension,
+        ``EXTNAME`` (single str), or a tuple of str and int: ``(EXTNAME, EXTVER)``. If `None`
+        (default), the *first extension with data* will be used.
+
+    priority: tuple of int, None, optional.
+        The priority of axis as a tuple of non-repeating `int` from ``0`` to `ccd.ndim`. It will be
+        used if the mask has the same size along two or more of the directions. To specify, use the
+        integers for axis directions, descending priority. For example,  ``(2, 1, 0)`` will be
+        identical to `priority=None` (default) for 3-D images.
+        Default is `None` to follow IRAF's PROTO.FIXPIX: Priority is higher for larger axis number
+        (e.g., in 2-D, x-axis (axis=1) has higher priority than y-axis (axis=0)).
+    '''
+    _t_start = Time.now()
+
+    _ccd, _, _ = _parse_image(ccd, extension=extension, force_ccddata=True, use_ccddata_if_path=use_ccddata_if_path)
+    data = _ccd.data
+    naxis = _ccd.shape
+
+    if _ccd.shape != mask.shape:
+        raise ValueError(f"ccd and mask must have the identical shape; now {_ccd.shape} VS {mask.shape}.")
+
+    ndim = data.ndim
+
+    if priority is None:
+        priority = tuple([i for i in range(ndim)][::-1])
+    elif len(priority) != ndim:
+        raise ValueError(f"len(priority) and ccd.ndim must be the same; now {len(priority)} VS {ccd.ndim}.")
+    elif not isinstance(priority, tuple):
+        priority = tuple(priority)
+    elif np.min(priority) != 0 or np.max(priority) != ndim:
+        raise ValueError("priority must be a tuple of non-repeating int from 0 to ccd.ndim")
+
+    structures = [np.zeros([3]*ndim) for i in range(ndim)]
+    for i in range(ndim):
+        sls = [[slice(1, 2, None)]*ndim for i in range(ndim)][0]
+        sls[i] = slice(None, None, None)
+        structures[i][sls] = 1
+    # structures[i] is the structure to obtain the num. of connected pix. along axis=i
+
+    pixels = []
+    n_axs = []
+    labels = []
+
+    for structure in structures:
+        _label, _nlabel = ndlabel(mask, structure=structure)
+        _pixels = {}
+        _n_axs = {}
+        for k in range(1, _nlabel + 1):
+            _label_k = (_label == k)
+            _pixels[k] = np.where(_label_k)
+            _n_axs[k] = np.count_nonzero(_label_k)
+        labels.append(_label)
+        pixels.append(_pixels)
+        n_axs.append(_n_axs)
+
+    idxs = np.where(mask)
+    for pos in np.array(idxs).T:
+        # The label of this position in each axis
+        label_pos = [lab.item(*pos) for lab in labels]
+        # number of pixels of the same label for each direction
+        n_ax = [_n_ax[lab] for _n_ax, lab in zip(n_axs, label_pos)]
+
+        # The shortest axis along which the interpolation will happen,
+        # OR, if 1+ directions having same minimum length, select this axis according to `priority`
+        interp_ax = np.where(n_ax == np.min(n_ax))[0]
+        if len(interp_ax) > 1:
+            for i_ax in priority:  # check in the identical order to `priority`
+                if i_ax in interp_ax:
+                    interp_ax = i_ax
+                    break
+        else:
+            interp_ax = interp_ax[0]
+        # The coordinates of the pixels having the identical label to this pixel position, along the
+        # shortest axis
+        coord_samelabel = pixels[interp_ax][label_pos[interp_ax]]
+        isinvalid = []
+        coord_slice = []
+        coord_init = []
+        coord_last = []
+        for i in range(ndim):
+            invalid = False
+            if i == interp_ax:
+                init = np.min(coord_samelabel[i]) - 1
+                last = np.max(coord_samelabel[i]) + 1
+                # distance between the initial/last points to be used for the interpolation, along the
+                # interpolation axis:
+                delta = last - init
+                # grid for interpolation:
+                grid = np.arange(1, delta - 0.1, 1)
+                # Slice to be used for interpolation:
+                sl = slice(init + 1, last, None)  # Should be done here, BEFORE the if clause below.
+
+                # Check if lower/upper are all outside the image
+                if init < 0 and last >= naxis[i]:
+                    invalid = True
+                elif init < 0:  # if only one of lower/upper is outside the image
+                    init = last
+                elif last >= naxis[i]:
+                    last = init
+            else:
+                init = coord_samelabel[i][0]  # coord_samelabel[i] is nothing but an array of same numbers
+                last = coord_samelabel[i][0]  # coord_samelabel[i] is nothing but an array of same numbers
+                sl = slice(init, last + 1, None)
+
+            coord_init.append(init)
+            coord_last.append(last)
+            coord_slice.append(sl)
+            isinvalid.append(invalid)
+
+        val_init = data.item(tuple(coord_init))
+        val_last = data.item(tuple(coord_last))
+        data[coord_slice].flat = (val_last - val_init)/delta*grid + val_init
+
+    if update_header:
+        _ccd.header["FIXPNPIX"] = (np.count_nonzero(mask), "Total num of pixels fixed by pixfix.")
+        # add as history
+        add_to_header(_ccd.header, 'h', t_ref=_t_start, s="Pixel values fixed by fixpix")
+    update_tlm(_ccd.header)
+
+    return _ccd
+
+# FIXME: Remove this after fixpix is completed
+
+
+def fixpix_griddata(ccd, mask, extension=None, method='nearest', fill_value=0, update_header=True):
+    ''' Interpolate the masked location (cf. IRAF's PROTO.FIXPIX)
     Parameters
     ----------
     ccd : CCDData-like (e.g., PrimaryHDU, ImageHDU, HDUList), ndarray, path-like, or number-like
@@ -560,18 +696,16 @@ def fixpix(ccd, mask, extension=None, method='nearest', fill_value=0, update_hea
     '''
     _t_start = Time.now()
 
-    if copy:
-        _ccd = ccd.copy()
-    else:
-        _ccd = ccd
+    _ccd, _, _ = _parse_image(ccd, extension=extension, force_ccddata=True)
+    data = _ccd.data
 
-    data, _, _ = _parse_image(_ccd, extension=extension, force_ccddata=False, prefer_ccddata=False)
     x_idx, y_idx = np.meshgrid(np.arange(0, data.shape[1] - 0.1), np.arange(0, data.shape[0] - 0.1))
     mask = mask.astype(bool)
     x_valid = x_idx[~mask]
     y_valid = y_idx[~mask]
     z_valid = data[~mask]
     _ccd.data = griddata((x_valid, y_valid), z_valid, (x_idx, y_idx), method=method, fill_value=fill_value)
+
     if update_header:
         _ccd.header["FIXPMETH"] = (method, "The interpolation method for fixpix")
         _ccd.header["FIXPFILL"] = (fill_value, "The filling value if interpolation fails")
