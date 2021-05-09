@@ -771,6 +771,7 @@ def bdf_process(ccd, output=None, extension=None,
 
     # Set for DARK
     do_dark, mdark, mdarkpath = _load_master(mdarkpath, mdark)
+
     if do_dark:
         proc.header.append("D")
         proc.header["DARKPATH"] = (str(mdarkpath), "Path to the used dark file")
@@ -813,7 +814,7 @@ def bdf_process(ccd, output=None, extension=None,
     # Do TRIM
     if trim_fits_section is not None:
         _t = Time.now()
-        sect = dict(fits_section=trim_fits_section)
+        sect = dict(fits_section=trim_fits_section, update_header=False)
         proc = trim_ccd(proc, **sect)
         mbias = trim_ccd(mbias, **sect) if do_bias else None
         mdark = trim_ccd(mdark, **sect) if do_dark else None
@@ -832,6 +833,17 @@ def bdf_process(ccd, output=None, extension=None,
     # Do DARK
     if do_dark:
         _t = Time.now()
+        if dark_scale and data_exposure is None:
+            try:
+                data_exposure = proc.header[exposure_key]
+            except (KeyError, AttributeError) as e:
+                raise e(f"Dark must be scaled but data's exposure time ({exposure_key}) is not found from.")
+        if dark_scale and dark_exposure is None:
+            try:
+                dark_exposure = mdark.header[exposure_key]
+            except (KeyError, AttributeError) as e:
+                raise e(f"Dark must be scaled but dark's exposure time ({exposure_key}) is not found from.")
+
         proc = subtract_dark(proc,
                              mdark,
                              dark_exposure=dark_exposure,
