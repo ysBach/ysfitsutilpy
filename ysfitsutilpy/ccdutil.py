@@ -224,24 +224,23 @@ def propagate_ccdmask(ccd, additional_mask=None):
 
 def trim_ccd(ccd, fits_section=None, update_header=True, verbose=False):
     _t = Time.now()
-    trim_str = f"Trimmed using {fits_section}"
     trimmed_ccd = trim_image(ccd, fits_section=fits_section, add_keyword=update_header)
-    ndim = ccd.data.ndim  # ndim == NAXIS keyword
-    shape = ccd.data.shape
-
-    if fits_section:
-        trim_slice = fitsxy2py(fits_section)
-        ltvs = []
-        for i_python, npix in enumerate(shape):
-            # If section is [10:X], the LTV must be -9, not -10.
-            ltvs.append(-1*trim_slice[i_python].indices(npix)[0])
-    else:
-        ltvs = [0.]*ndim
-
-    # python shape is in z, y, x order, so reverse it
-    ltvs = ltvs[::-1]
 
     if update_header:
+        trim_str = f"Trimmed using {fits_section}"
+        ndim = ccd.data.ndim  # ndim == NAXIS keyword
+        shape = ccd.data.shape
+        if fits_section:
+            trim_slice = fitsxy2py(fits_section)
+            ltvs = []
+            for i_python, npix in enumerate(shape):
+                # If section is [10:X], the LTV must be -9, not -10.
+                ltvs.append(-1*trim_slice[i_python].indices(npix)[0])
+        else:
+            ltvs = [0.]*ndim
+
+        # python shape is in z, y, x order, so reverse it
+        ltvs = ltvs[::-1]
         hdr = trimmed_ccd.header
         for i_axis, ltv in enumerate(ltvs):
             i = i_axis + 1
@@ -266,7 +265,8 @@ def trim_ccd(ccd, fits_section=None, update_header=True, verbose=False):
 
     if verbose:
         add_to_header(trimmed_ccd.header, 'h', trim_str, t_ref=_t, verbose=verbose)
-        update_tlm(trimmed_ccd.header)
+
+    update_tlm(trimmed_ccd.header)
 
     return trimmed_ccd
 
@@ -540,17 +540,18 @@ def bin_ccd(ccd, factor_x=1, factor_y=1, binfunc=np.mean, trim_end=False, update
     return _ccd
 
 
-def fixpix(ccd, mask, extension=None, priority=None, update_header=True, use_ccddata_if_path=True):
+def fixpix(ccd, mask, maskpath=None, extension=None, mask_extension=None, priority=None,
+           update_header=True, use_ccddata_if_path=True):
     ''' Interpolate the masked location (N-D generalization of IRAF PROTO.FIXPIX)
     Parameters
     ----------
     ccd : CCDData-like (e.g., PrimaryHDU, ImageHDU, HDUList), ndarray, path-like, or number-like
         The CCD data to be "fixed".
 
-    mask : ndarray (bool)
+    mask : CCDData-like (e.g., PrimaryHDU, ImageHDU, HDUList), ndarray, path-like
         The mask to be used for fixing pixels (pixels to be fixed are where `mask` is `True`).
 
-    extension: int, str, (str, int), None
+    extension, mask_extension: int, str, (str, int), None
         The extension of FITS to be used. It can be given as integer (0-indexing) of the extension,
         ``EXTNAME`` (single str), or a tuple of str and int: ``(EXTNAME, EXTVER)``. If `None`
         (default), the *first extension with data* will be used.
@@ -563,9 +564,16 @@ def fixpix(ccd, mask, extension=None, priority=None, update_header=True, use_ccd
         Default is `None` to follow IRAF's PROTO.FIXPIX: Priority is higher for larger axis number
         (e.g., in 2-D, x-axis (axis=1) has higher priority than y-axis (axis=0)).
     '''
+    if mask is None:
+        return ccd.copy()
+
     _t_start = Time.now()
 
-    _ccd, _, _ = _parse_image(ccd, extension=extension, force_ccddata=True, use_ccddata_if_path=use_ccddata_if_path)
+    _ccd, _, _ = _parse_image(ccd, extension=extension, force_ccddata=True,
+                              use_ccddata_if_path=use_ccddata_if_path)
+    mask, maskpath, _ = _parse_image(mask, extension=mask_extension, force_ccddata=True,
+                                     name=maskpath, use_ccddata_if_path=False)
+    mask = mask.data.astype(bool)
     data = _ccd.data
     naxis = _ccd.shape
 
@@ -665,9 +673,10 @@ def fixpix(ccd, mask, extension=None, priority=None, update_header=True, use_ccd
         data[coord_slice].flat = (val_last - val_init)/delta*grid + val_init
 
     if update_header:
-        _ccd.header["FIXPNPIX"] = (np.count_nonzero(mask), "Total num of pixels fixed by pixfix.")
+        _ccd.header["FIXPNPIX"] = (np.count_nonzero(mask), "Total num of pixels fixed by fixpix.")
+        _ccd.header["FIXPPATH"] = (maskpath, "The mask used for fixpix.")
         # add as history
-        add_to_header(_ccd.header, 'h', t_ref=_t_start, s="Pixel values fixed by fixpix")
+        add_to_header(_ccd.header, 'h', t_ref=_t_start, s="Pixel values fixed by fixpix.")
     update_tlm(_ccd.header)
 
     return _ccd
