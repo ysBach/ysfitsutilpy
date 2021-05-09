@@ -1345,14 +1345,10 @@ def give_stats(item, extension=None, percentiles=[1, 99], N_extrema=None, return
             if N_extrema > 99:
                 warn("N_extrema > 99 may not work properly in header.")
             for i in range(N_extrema):
-                hdr[f"STATLO{i+1:02d}"] = (
-                    result['ext_lo'][i],
-                    f"Lower extreme values (N_extrema={N_extrema})"
-                )
-                hdr[f"STATHI{i+1:02d}"] = (
-                    result['ext_hi'][i],
-                    f"Upper extreme values (N_extrema={N_extrema})"
-                )
+                hdr[f"STATLO{i+1:02d}"] = (result['ext_lo'][i],
+                                           f"Lower extreme values (N_extrema={N_extrema})")
+                hdr[f"STATHI{i+1:02d}"] = (result['ext_hi'][i],
+                                           f"Upper extreme values (N_extrema={N_extrema})")
         return result, hdr
     return result
 
