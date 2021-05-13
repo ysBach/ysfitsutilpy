@@ -9,7 +9,6 @@ install_requires = [
     'numpy',
     'astropy >= 2.0',
     'ccdproc >= 1.3',
-    'fitsio',
     'bottleneck'
 ]
 

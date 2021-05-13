@@ -10,7 +10,6 @@ from warnings import warn
 
 import bottleneck as bn
 import ccdproc
-import fitsio
 import numpy as np
 from astropy import units as u
 from astropy.io import fits
@@ -18,6 +17,13 @@ from astropy.nddata import CCDData
 from astropy.time import Time
 from astropy.visualization import ImageNormalize, ZScaleInterval
 from astropy.wcs import WCS
+
+try:
+    import fitsio
+    HAS_FITSIO = True
+except ImportError:
+    HAS_FITSIO = False
+
 
 __all__ = ["MEDCOMB_KEYS_INT", "SUMCOMB_KEYS_INT", "MEDCOMB_KEYS_FLT32", "LACOSMIC_KEYS",
            "get_size", "is_list_like", "circular_mask", "_image_shape", "_offsets2slice",
@@ -265,13 +271,14 @@ def _parse_data_header(ccdlike, extension=None, parse_data=True, parse_header=Tr
             hdr = ccdlike.copy() if copy else ccdlike
         else:
             hdr = None
-    elif isinstance(ccdlike, fitsio.FITSHDR):
-        import copy
-        data = None  # regardless of parse_data
-        if parse_header:
-            hdr = copy.deepcopy(ccdlike) if copy else ccdlike
-        else:
-            hdr = None
+    elif HAS_FITSIO:
+        if isinstance(ccdlike, fitsio.FITSHDR):
+            import copy
+            data = None  # regardless of parse_data
+            if parse_header:
+                hdr = copy.deepcopy(ccdlike) if copy else ccdlike
+            else:
+                hdr = None
     else:
         try:
             data = float(ccdlike) if (parse_data or parse_header) else None
@@ -289,9 +296,15 @@ def _parse_data_header(ccdlike, extension=None, parse_data=True, parse_header=Tr
                     hdr = hdu.header if parse_header else None
                 else:
                     if isinstance(extension, tuple):
-                        data = fitsio.read(Path(ccdlike), ext=extension[0], extver=extension[1])
+                        if HAS_FITSIO:
+                            data = fitsio.read(Path(ccdlike), ext=extension[0], extver=extension[1])
+                        else:
+                            data = fits.getdata(Path(ccdlike), *extension)
                     else:
-                        data = fitsio.read(Path(ccdlike), ext=extension)
+                        if HAS_FITSIO:
+                            data = fitsio.read(Path(ccdlike), ext=extension)
+                        else:
+                            data = fits.getdata(Path(ccdlike), extension)
                     hdr = None
             except TypeError:
                 raise TypeError(f"ccdlike type ({type(ccdlike)}) is not acceptable to find header and data.")
@@ -880,41 +893,40 @@ def load_ccd(path, extension=None, ccddata=True, as_ccd=True, use_wcs=True, unit
     except TypeError:
         raise TypeError(f"You must provide Path-like, not {type(path)}.")
 
-    if ccddata and as_ccd:  # if at least one of these is False, it uses fitsio.
-        extension = _parse_extension(extension)
-        extension_uncertainty = _parse_extension(extension_uncertainty)
-        extension_mask = _parse_extension(extension_mask)
-        extension_flag = None if extension_flags is None else _parse_extension(extension_flags)
-        # If not None, this happens: NotImplementedError: loading flags is currently not supported.
+    extension = _parse_extension(extension)
 
-        reader_kw = dict(hdu=extension, hdu_uncertainty=extension_uncertainty, hdu_mask=extension_mask,
-                         hdu_flags=extension_flag, key_uncertainty_type=key_uncertainty_type, memmap=memmap,
-                         **kwd)
+    if HAS_FITSIO:
+        if ccddata and as_ccd:  # if at least one of these is False, it uses fitsio.
+            extension_uncertainty = _parse_extension(extension_uncertainty)
+            extension_mask = _parse_extension(extension_mask)
+            extension_flag = None if extension_flags is None else _parse_extension(extension_flags)
+            # If not None, this happens: NotImplementedError: loading flags is currently not supported.
 
-        # FIXME: Remove this if block in the future if WCS issue is resolved.
-        if use_wcs:  # Because of the TPV WCS issue
-            hdr = fits.getheader(path)
-            reader_kw["wcs"] = WCS(hdr)
-            del hdr
+            reader_kw = dict(hdu=extension, hdu_uncertainty=extension_uncertainty, hdu_mask=extension_mask,
+                             hdu_flags=extension_flag, key_uncertainty_type=key_uncertainty_type,
+                             memmap=memmap, **kwd)
 
-        try:
-            ccd = CCDData.read(path, unit=unit, **reader_kw)
-        except ValueError:  # e.g., user did not give unit and there's no BUNIT
-            ccd = CCDData.read(path, unit='adu', **reader_kw)
-        # if prefer_bunit:
-        #     try:  # Try with no unit to CCDData
-        #         ccd = CCDData.read(path, unit=None, **reader_kw)
-        #     except ValueError:  # Try with user-given unit to CCDData
-        #         ccd = CCDData.read(path, unit=unit, **reader_kw)
-        # else:  # prefer user's input
-        #     ccd = CCDData.read(path, unit=unit, **reader_kw)
+            # FIXME: Remove this if block in the future if WCS issue is resolved.
+            if use_wcs:  # Because of the TPV WCS issue
+                hdr = fits.getheader(path)
+                reader_kw["wcs"] = WCS(hdr)
+                del hdr
 
-        return ccd
+            try:
+                ccd = CCDData.read(path, unit=unit, **reader_kw)
+            except ValueError:  # e.g., user did not give unit and there's no BUNIT
+                ccd = CCDData.read(path, unit='adu', **reader_kw)
+            # if prefer_bunit:
+            #     try:  # Try with no unit to CCDData
+            #         ccd = CCDData.read(path, unit=None, **reader_kw)
+            #     except ValueError:  # Try with user-given unit to CCDData
+            #         ccd = CCDData.read(path, unit=unit, **reader_kw)
+            # else:  # prefer user's input
+            #     ccd = CCDData.read(path, unit=unit, **reader_kw)
 
-    else:
-        extension = _parse_extension(extension)
+            return ccd
+
         # Use fitsio and only load the data as soon as possible. This is much quicker than astropy's getdata
-
         def _read_by_fitsio(_hdul, _path, _extension):
             try:
                 if is_list_like(_extension):
@@ -928,8 +940,8 @@ def load_ccd(path, extension=None, ccddata=True, as_ccd=True, use_wcs=True, unit
             return arr
 
         hdul = fitsio.FITS(path)
+        data = _read_by_fitsio(hdul, path, extension)
         if load_primary_only_fitsio and extension_uncertainty is None and extension_mask is None:
-            data = _read_by_fitsio(hdul, path, extension)
             hdul.close()
             if return_full_fitsio:
                 return data, None, None, None
@@ -937,7 +949,6 @@ def load_ccd(path, extension=None, ccddata=True, as_ccd=True, use_wcs=True, unit
                 return data
 
         else:
-            data = _read_by_fitsio(hdul, path, extension)
             try:  # Read uncertainty if exists
                 e_u = _parse_extension(extension_uncertainty)
                 unc = _read_by_fitsio(hdul, path, e_u)
@@ -952,6 +963,32 @@ def load_ccd(path, extension=None, ccddata=True, as_ccd=True, use_wcs=True, unit
             flag = None  # FIXME: add this line when CCDData starts to support flags.
             hdul.close()
             return data, unc, mask, flag
+
+    else:
+        extension_uncertainty = _parse_extension(extension_uncertainty)
+        extension_mask = _parse_extension(extension_mask)
+        extension_flag = None if extension_flags is None else _parse_extension(extension_flags)
+        # If not None, this happens: NotImplementedError: loading flags is currently not supported.
+
+        reader_kw = dict(hdu=extension, hdu_uncertainty=extension_uncertainty, hdu_mask=extension_mask,
+                         hdu_flags=extension_flag, key_uncertainty_type=key_uncertainty_type,
+                         memmap=memmap, **kwd)
+
+        # FIXME: Remove this if block in the future if WCS issue is resolved.
+        if use_wcs:  # Because of the TPV WCS issue
+            hdr = fits.getheader(path)
+            reader_kw["wcs"] = WCS(hdr)
+            del hdr
+
+        try:
+            ccd = CCDData.read(path, unit=unit, **reader_kw)
+        except ValueError:  # e.g., user did not give unit and there's no BUNIT
+            ccd = CCDData.read(path, unit='adu', **reader_kw)
+
+        if ccddata and as_ccd:  # if at least one of these is False, it uses fitsio.
+            return ccd
+        else:
+            return ccd.data
 
 
 def write2fits(data, header, output, return_ccd=False, **kwargs):
@@ -1278,7 +1315,10 @@ def give_stats(item, extension=None, percentiles=[1, 99], N_extrema=None, return
             if return_header:
                 item = CCDData.read(fpath, extension)
             else:
-                item = fitsio.FITS(fpath)[extension].read()
+                if HAS_FITSIO:
+                    item = fitsio.FITS(fpath)[extension].read()
+                else:
+                    item = fits.getdata(fpath)[extension]
         except (TypeError, ValueError):
             pass
 
