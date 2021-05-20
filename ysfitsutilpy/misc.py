@@ -887,6 +887,11 @@ def load_ccd(path, extension=None, ccddata=True, as_ccd=True, use_wcs=True, unit
         9.42 ms +/- 391 µs per loop (mean +/- std. dev. of 7 runs, 100 loops each)
     ```
     '''
+    def ext_umf(ext):
+        """ Return None if ext is None, otherwise, parse it (usu. returns 0)
+        """
+        return None if ext is None else _parse_extension(ext)
+
     try:
         path = Path(path)
     except TypeError:
@@ -896,9 +901,9 @@ def load_ccd(path, extension=None, ccddata=True, as_ccd=True, use_wcs=True, unit
 
     if HAS_FITSIO:
         if ccddata and as_ccd:  # if at least one of these is False, it uses fitsio.
-            extension_uncertainty = _parse_extension(extension_uncertainty)
-            extension_mask = _parse_extension(extension_mask)
-            extension_flag = None if extension_flags is None else _parse_extension(extension_flags)
+            extension_uncertainty = ext_umf(extension_uncertainty)
+            extension_mask = ext_umf(extension_mask)
+            extension_flag = ext_umf(extension_flags)
             # If not None, this happens: NotImplementedError: loading flags is currently not supported.
 
             reader_kw = dict(hdu=extension, hdu_uncertainty=extension_uncertainty, hdu_mask=extension_mask,
