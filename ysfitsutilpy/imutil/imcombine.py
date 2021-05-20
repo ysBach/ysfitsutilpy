@@ -14,7 +14,8 @@ from ..filemgmt import make_summary
 from ..hdrutil import (add_to_header, calc_offset_physical, calc_offset_wcs,
                        update_tlm)
 from ..misc import (_image_shape, _parse_data_header, _parse_extension,
-                    get_size, inputs2list, is_list_like, load_ccd, write2fits)
+                    get_size, inputs2list, is_list_like, load_ccd, str_now,
+                    write2fits)
 from . import docstrings
 from .util_comb import (_set_cenfunc, _set_combfunc, _set_gain_rdns,
                         _set_int_dtype, _set_keeprej, _set_mask,
@@ -22,7 +23,7 @@ from .util_comb import (_set_cenfunc, _set_combfunc, _set_gain_rdns,
                         get_zsw)
 from .util_reject import ccdclip_mask, sigclip_mask
 
-__all__ = ["group_combine", "imcombine", "ndcombine"]
+__all__ = ["group_combine", "group_save", "imcombine", "ndcombine"]
 
 '''
 removed : headers, project, masktype, maskvalue, sigscale, grow
@@ -51,7 +52,8 @@ lsigma    , hsigma     : sigma uple
 '''
 
 
-def group_combine(inputs, type_key=None, type_val=None, group_key=None, verbose=1, **kwargs):
+def group_combine(inputs, type_key=None, type_val=None, group_key=None, verbose=1,
+                  fmt='', outdir=None, **kwargs):
     ''' Combine sub-groups of FITS files from the given input.
     Parameters
     ----------
@@ -75,6 +77,21 @@ def group_combine(inputs, type_key=None, type_val=None, group_key=None, verbose=
             * 1: Only very essential things from this function
             * 2: + verbose from each imcombine
 
+    fmt : str, optinal.
+        The f-string for the output file names.
+
+        ..example:: If `group_key="EXPTIME"` and we had two groups of ``EXPTIME`` is 1.0 and 2.0,
+
+          * ``"dark_{:.1f}s"`` -> ``dark_1.0s.fits`` and ``dark_2.0s.fits``
+          * For float, non-specification such as ``"d{}"`` is not recommended (filename can be ``0.3000...``).
+
+        ..example:: If two `group_key`'s are used, resulting in ``("B", 2.0)``, ``("V", 12.0)``, ...:
+
+          * ``"flat_{2:04.1f}_{1:s}"`` -> ``"flat_02.0_B.fits"`` and ``"flat_12.0_V.fits"``
+
+    outdir : path-like, optinal.
+        The directory where the output fits files will be saved.
+
     **kwargs :
         The keyword arguments for ``imcombine``.
 
@@ -85,17 +102,40 @@ def group_combine(inputs, type_key=None, type_val=None, group_key=None, verbose=
         combined images in CCDData object. If multiple keys for ``group_key`` is given, the key of this
         dict is a tuple.
     '''
-    if isinstance(inputs, Table):
-        inputs = inputs.to_pandas()
-        group_combine(inputs, **kwargs)
-    elif not isinstance(inputs, pd.DataFrame):
-        inputs = make_summary(inputs, pandas=True, verbose=False)  # TODO: use ``extension``??
-        group_combine(inputs, **kwargs)
+    def _group_save(ccd, groupname, fmt='', verbose=1, outdir=None):
+        ''' Saves the results.
+        '''
+        outdir = Path('.') if outdir is None else Path(outdir)
+        if verbose and not outdir.exists():
+            print(f"\tOutput directory: '{outdir}' <- does not exist! It will be newly made.")
 
-    gs, g_key = group_fits(inputs, type_key=type_key, type_val=type_val, group_key=group_key)
+        outdir.mkdir(exist_ok=True, parents=True)
+
+        if not fmt:
+            fmt = "_".join(['{}']*len(group_key))
+            if verbose:
+                print("\tWarning: fmt is not specified! Output file names might be ugly.")
+
+        if isinstance(groupname, tuple):
+            fname = fmt.format(*groupname) + ".fits"
+        else:
+            fname = fmt.format(groupname) + ".fits"
+
+        fpath = outdir/fname
+        if verbose >= 1:
+            if fpath.exists():
+                print(f"\t{fpath} will be overridden.")
+            else:
+                print(f"\t{fpath}")
+        ccd.write(fpath, overwrite=True)
+
+    _t = Time.now()
+
+    summary = make_summary(inputs)
+    gs, gt_key = group_fits(summary, type_key=type_key, type_val=type_val, group_key=group_key)
     if verbose >= 1:
-        nt = 0 if type_key is None else len(type_key)
-        print(f"Group and combine by {g_key[nt:]} (total {len(gs)} groups)")
+        print(f"Group and combine by {group_key} (total {len(gs)} groups)")
+
     combined = {}
     for g_val, group in gs:
         if is_list_like(g_val):
@@ -112,9 +152,46 @@ def group_combine(inputs, type_key=None, type_val=None, group_key=None, verbose=
             if verbose >= 1:
                 print("Only 1 FITS to combine -- returning it without any modification.")
             combined[g_val] = load_ccd(files[0])
+            if outdir is not None or fmt:
+                _group_save(combined[g_val], g_val, fmt=fmt, outdir=outdir)
         else:
             combined[g_val] = imcombine(files, verbose=verbose >= 2, **kwargs)
+            if outdir is not None or fmt:
+                _group_save(combined[g_val], g_val, fmt=fmt, outdir=outdir)
+
+    if verbose >= 1:
+        print(str_now(t_ref=_t))
+
     return combined
+
+
+def group_save(combined, fmt='', verbose=1, outdir=None):
+    ''' Saves the group_combine results.
+    Paramters
+    ---------
+    combined : dict
+        The result from `group_combine` function.
+    '''
+    outdir = Path('.') if outdir is None else Path(outdir)
+    if verbose and not outdir.exists():
+        print(f"\tOutput directory: '{outdir}' <- does not exist! It will be newly made.")
+
+    outdir.mkdir(exist_ok=True, parents=True)
+
+    if not fmt:
+        fmt = "_".join(['{}']*len(list(combined.keys())[0]))
+        if verbose:
+            print("\tWarning: fmt is not specified! Output file names might be ugly.")
+
+    for k, ccd in combined.items():
+        if isinstance(k, tuple):
+            fname = fmt.format(*k) + ".fits"
+        else:
+            fname = fmt.format(k) + ".fits"
+        fpath = outdir/fname
+        if verbose >= 1 and fpath.exists():
+            print(f"The pre-existing file {fpath} will be overridden.")
+        ccd.write(fpath, overwrite=True)
 
 
 def _update_hdr(header, ncombine, imcmb_key, imcmb_val, offset_mode=None, offsets=None):
