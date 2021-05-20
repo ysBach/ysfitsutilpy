@@ -271,14 +271,13 @@ def _parse_data_header(ccdlike, extension=None, parse_data=True, parse_header=Tr
             hdr = ccdlike.copy() if copy else ccdlike
         else:
             hdr = None
-    elif HAS_FITSIO:
-        if isinstance(ccdlike, fitsio.FITSHDR):
-            import copy
-            data = None  # regardless of parse_data
-            if parse_header:
-                hdr = copy.deepcopy(ccdlike) if copy else ccdlike
-            else:
-                hdr = None
+    elif HAS_FITSIO and isinstance(ccdlike, fitsio.FITSHDR):
+        import copy
+        data = None  # regardless of parse_data
+        if parse_header:
+            hdr = copy.deepcopy(ccdlike) if copy else ccdlike
+        else:
+            hdr = None
     else:
         try:
             data = float(ccdlike) if (parse_data or parse_header) else None
