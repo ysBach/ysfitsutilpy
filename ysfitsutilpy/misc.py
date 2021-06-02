@@ -930,43 +930,45 @@ def load_ccd(path, extension=None, ccddata=True, as_ccd=True, use_wcs=True, unit
 
             return ccd
 
-        # Use fitsio and only load the data as soon as possible. This is much quicker than astropy's getdata
-        def _read_by_fitsio(_hdul, _path, _extension):
-            try:
-                if is_list_like(_extension):
-                    # length == 2 is already checked in _parse_extension.
-                    arr = _hdul[_extension[0], _extension[1]].read()
-                else:
-                    arr = _hdul[_extension].read()
-            except OSError:
-                raise ValueError(f"Extension `{_extension}` is not found (file: {_path})")
-
-            return arr
-
-        hdul = fitsio.FITS(path)
-        data = _read_by_fitsio(hdul, path, extension)
-        if load_primary_only_fitsio and extension_uncertainty is None and extension_mask is None:
-            hdul.close()
-            if return_full_fitsio:
-                return data, None, None, None
-            else:
-                return data
-
         else:
-            try:  # Read uncertainty if exists
-                e_u = _parse_extension(extension_uncertainty)
-                unc = _read_by_fitsio(hdul, path, e_u)
-            except (OSError, ValueError):  # if the extension is not found
-                unc = None
-            try:  # Read uncertainty if exists
-                e_m = _parse_extension(extension_mask)
-                mask = _read_by_fitsio(hdul, path, e_m)
-            except (OSError, ValueError):  # if the extension is not found
-                mask = None
+            # Use fitsio and only load the data as soon as possible.
+            # This is much quicker than astropy's getdata
+            def _read_by_fitsio(_hdul, _path, _extension):
+                try:
+                    if is_list_like(_extension):
+                        # length == 2 is already checked in _parse_extension.
+                        arr = _hdul[_extension[0], _extension[1]].read()
+                    else:
+                        arr = _hdul[_extension].read()
+                except OSError:
+                    raise ValueError(f"Extension `{_extension}` is not found (file: {_path})")
 
-            flag = None  # FIXME: add this line when CCDData starts to support flags.
-            hdul.close()
-            return data, unc, mask, flag
+                return arr
+
+            hdul = fitsio.FITS(path)
+            data = _read_by_fitsio(hdul, path, extension)
+            if load_primary_only_fitsio and extension_uncertainty is None and extension_mask is None:
+                hdul.close()
+                if return_full_fitsio:
+                    return data, None, None, None
+                else:
+                    return data
+
+            else:
+                try:  # Read uncertainty if exists
+                    e_u = _parse_extension(extension_uncertainty)
+                    unc = _read_by_fitsio(hdul, path, e_u)
+                except (OSError, ValueError):  # if the extension is not found
+                    unc = None
+                try:  # Read uncertainty if exists
+                    e_m = _parse_extension(extension_mask)
+                    mask = _read_by_fitsio(hdul, path, e_m)
+                except (OSError, ValueError):  # if the extension is not found
+                    mask = None
+
+                flag = None  # FIXME: add this line when CCDData starts to support flags.
+                hdul.close()
+                return data, unc, mask, flag
 
     else:
         extension_uncertainty = _parse_extension(extension_uncertainty)
@@ -992,7 +994,21 @@ def load_ccd(path, extension=None, ccddata=True, as_ccd=True, use_wcs=True, unit
         if ccddata and as_ccd:  # if at least one of these is False, it uses fitsio.
             return ccd
         else:
-            return ccd.data
+            if load_primary_only_fitsio and extension_uncertainty is None and extension_mask is None:
+                if return_full_fitsio:
+                    return ccd.data, None, None, None
+                else:
+                    return ccd.data
+            else:
+                try:
+                    unc = np.array(ccd.uncertainty.array)
+                except AttributeError:
+                    unc = None
+                mask = None if ccd.mask is None else np.array(ccd.mask)
+                flag = None  # FIXME: add this line when CCDData starts to support flags.
+                return ccd.data, unc, mask, flag
+
+
 
 
 def write2fits(data, header, output, return_ccd=False, **kwargs):
