@@ -971,6 +971,9 @@ def load_ccd(path, extension=None, ccddata=True, as_ccd=True, use_wcs=True, unit
                 return data, unc, mask, flag
 
     else:
+        ignore_u = True if extension_uncertainty is None else False
+        ignore_m = True if extension_mask is None else False
+
         extension_uncertainty = _parse_extension(extension_uncertainty)
         extension_mask = _parse_extension(extension_mask)
         extension_flag = None if extension_flags is None else _parse_extension(extension_flags)
@@ -993,10 +996,8 @@ def load_ccd(path, extension=None, ccddata=True, as_ccd=True, use_wcs=True, unit
 
         # Force them to be None if extension is not specified
         # (astropy.NDData.CCDData forces them to be loaded, which is not desirable imho)
-        if extension_uncertainty is None:
-            ccd.uncertainty = None
-        if extension_mask is None:
-            ccd.mask = None
+        ccd.uncertainty = None if ignore_u else ccd.uncertainty
+        ccd.mask = None if ignore_m else ccd.mask
 
         if ccddata and as_ccd:  # if at least one of these is False, it uses fitsio.
             return ccd
@@ -1014,7 +1015,6 @@ def load_ccd(path, extension=None, ccddata=True, as_ccd=True, use_wcs=True, unit
                 mask = None if ccd.mask is None else np.array(ccd.mask)
                 flag = None  # FIXME: add this line when CCDData starts to support flags.
                 return ccd.data, unc, mask, flag
-
 
 
 
