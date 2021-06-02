@@ -991,6 +991,13 @@ def load_ccd(path, extension=None, ccddata=True, as_ccd=True, use_wcs=True, unit
         except ValueError:  # e.g., user did not give unit and there's no BUNIT
             ccd = CCDData.read(path, unit='adu', **reader_kw)
 
+        # Force them to be None if extension is not specified
+        # (astropy.NDData.CCDData forces them to be loaded, which is not desirable imho)
+        if extension_uncertainty is None:
+            ccd.uncertainty = None
+        if extension_mask is None:
+            ccd.mask = None
+
         if ccddata and as_ccd:  # if at least one of these is False, it uses fitsio.
             return ccd
         else:
