@@ -155,20 +155,23 @@ def update_process(header, process=None, key="PROCESS", delimiter='-', add_comme
     else:
         process = list(process)
 
-    if key in header:
+    haskey = key in header
+    if haskey:
         process = [header[key]] + process
-
-    header[key] = (delimiter.join(process), "The processed history (left-most is first): see comment.")
-    if add_comment:
+        # do not additionally add comment.
+    elif add_comment:
+        # add comment.
         add_to_header(
             header, 'c',
             f"Standard items for {key} includes B=bias, D=dark, F=flat, T=trim, W=WCS, C=CRrej, Fr=fringe."
         )
 
+    header[key] = (delimiter.join(process), "Process (order: 1-2-3-...): see comment.")
+
     if additional_comment:
         addstr = [f"{k}={v}" for k, v in additional_comment.items()]
         addstr = ', '.join(addstr)
-        add_to_header(header, 'c', f"User added items for {key}: {addstr}.")
+        add_to_header(header, 'c', f"User added items to {key}: {addstr}.")
 
 
 def wcs_crota(wcs, degree=True):
