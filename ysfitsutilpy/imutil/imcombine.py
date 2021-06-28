@@ -229,7 +229,7 @@ def imcombine(
         pclip=-0.5,
         logfile=None,
         combine='average',
-        dtype='float32',
+        dtype='float32', dtype_std='float32', dtype_low=None, dtype_upp=None,
         irafmode=True,
         memlimit=2.5e+9,
         verbose=False,
@@ -548,10 +548,6 @@ def imcombine(
         irafmode=irafmode,
         full=True
     )
-    comb = comb.astype(dtype)
-    std = std.astype(dtype)
-    low = low.astype(dtype)
-    upp = upp.astype(dtype)
 
     mask_total = mask_full | mask_thresh | mask_rej
 
@@ -575,6 +571,7 @@ def imcombine(
         unit = 'adu'
 
     add_to_header(hdr0, 'h', t_ref=_t, verbose=verbose, s="Rejection and combination done")
+    comb = comb.astype(dtype)
     comb = CCDData(data=comb, header=hdr0, unit=unit)
 
     if verbose:
@@ -588,12 +585,15 @@ def imcombine(
             raise VerifyError("Use output_verify='fix'")
 
     if output_std is not None:
+        std = std.astype(dtype_std)
         write2fits(std, hdr0, output_std, return_ccd=False, **kwargs)
 
     if output_low is not None:
+        low = low.astype(dtype) if dtype_low is None else low.astype(dtype_low)
         write2fits(low, hdr0, output_low, return_ccd=False, **kwargs)
 
     if output_upp is not None:
+        upp = low.astype(dtype) if dtype_upp is None else upp.astype(dtype_upp)
         write2fits(upp, hdr0, output_upp, return_ccd=False, **kwargs)
 
     if output_nrej is not None:  # Do this BEFORE output_mask!!
