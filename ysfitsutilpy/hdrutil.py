@@ -61,7 +61,7 @@ def add_to_header(header, histcomm, s, precision=3, time_fmt="{:.>72s}", t_ref=N
         The Python 3 format string to format the time in the terminal.
 
     set_kw : dict, optional.
-        The keyword arguments added to ``Header.set()``. Default is ``{'after':-1}``, i.e., the history
+        The keyword arguments added to `Header.set()`. Default is ``{'after':-1}``, i.e., the history
         or comment will be appended to the very last part of the header.
 
     Note
@@ -131,7 +131,7 @@ def update_process(header, process=None, key="PROCESS", delimiter='-', add_comme
     Parameters
     ----------
     header : header
-        The header to update the ``PROCESS`` (tunable by ``key`` parameter) keyword.
+        The header to update the ``PROCESS`` (tunable by `key` parameter) keyword.
 
     process : str or list-like of str
         The additional process keys to add to the header.
@@ -145,7 +145,7 @@ def update_process(header, process=None, key="PROCESS", delimiter='-', add_comme
 
     additional_comment : dict, optional.
         The additional comment to add. For instance, ``dict(v="vertical pattern", f="fourier
-        pattern")`` will add a new line of comment which reads "User added items for ``key``:
+        pattern")`` will add a new line of comment which reads "User added items for `key`:
         v=vertical pattern, f=fourier pattern."
     """
     if isinstance(process, str):
@@ -213,11 +213,11 @@ def center_radec(header, center_of_image=True, ra_key="RA", dec_key="DEC",
 
     center_of_image : bool, optional
         If `True`, WCS information will be extracted from the header, rather than relying on the
-        ``ra_key`` and ``dec_key`` keywords directly. If `False`, ``ra_key`` and ``dec_key`` from the
+        `ra_key` and `dec_key` keywords directly. If `False`, `ra_key` and `dec_key` from the
         header will be understood as the "center" and the RA, DEC of that location will be returned.
 
     equinox, frame : str, optional
-        The ``equinox`` and ``frame`` for SkyCoord. Default (`None`) will use the default of
+        The `equinox` and `frame` for SkyCoord. Default (`None`) will use the default of
         SkyCoord. Important only if ``usewcs=False``.
 
     XX_key : str, optional
@@ -269,12 +269,12 @@ def calc_offset_wcs(target, reference, loc_target='center', loc_reference='cente
 
     loc_target : str (center, origin) or ndarray optional.
         The location to calculate the position (in pixels and in xyz order). Default is ``'center'``
-        (half of ``NAXISi`` keys in ``target``). The ``location``'s world coordinate is calculated from
-        the WCS information in ``target``. Then it will be transformed to the image coordinate of
-        ``reference``.
+        (half of ``NAXISi`` keys in `target`). The `location`'s world coordinate is calculated from
+        the WCS information in `target`. Then it will be transformed to the image coordinate of
+        `reference`.
 
     loc_reference : str (center, origin) or ndarray optional.
-        The location of the reference point (in pixels and in xyz order) in ``reference``'s coordinate
+        The location of the reference point (in pixels and in xyz order) in `reference`'s coordinate
         to calculate the offset.
 
     order_xyz : bool, optional.
@@ -325,7 +325,7 @@ def calc_offset_physical(target, reference=None, order_xyz=True, ignore_ltm=True
 
     reference : CCDData, PrimaryHDU, ImageHDU, HDUList, Header, ndarray, number-like, path-like
         The reference to extract header to calculate the position *from*. If `None`, it is basically
-        identical to extract the LTV values from ``target``.
+        identical to extract the LTV values from `target`.
         Default is `None`.
 
     order_xyz : bool, optional.
@@ -334,11 +334,11 @@ def calc_offset_physical(target, reference=None, order_xyz=True, ignore_ltm=True
 
     ignore_ltm : bool, optional.
         Whether to assuem the LTM matrix is identity. If it is not and ``ignore_ltm=False``, a
-        ``NotImplementedError`` will be raised, i.e., non-identity LTM matrices are not supported.
+        `NotImplementedError` will be raised, i.e., non-identity LTM matrices are not supported.
 
     Notes
     -----
-    Similar to ``calc_offset_wcs``, but with locations fixed to origin (as non-identity LTM matrix is
+    Similar to `calc_offset_wcs`, but with locations fixed to origin (as non-identity LTM matrix is
     not supported). Also, input of WCS is not accepted because astropy's wcs module does not parse
     LTV/LTM from header.
     '''
@@ -441,8 +441,8 @@ def key_remover(header, remove_keys, deepremove=True):
     deepremove : True, optional
         FITS standard does not have any specification of duplication of keywords as discussed in the
         following issue: https://github.com/astropy/ccdproc/issues/464 If it is set to `True`, ALL
-        the keywords having the name specified in ``remove_keys`` will be removed. If not, only the
-        first occurence of each key in ``remove_keys`` will be removed. It is more sensical to set it
+        the keywords having the name specified in `remove_keys` will be removed. If not, only the
+        first occurence of each key in `remove_keys` will be removed. It is more sensical to set it
         `True` in most of the cases.
     '''
     nhdr = header.copy()
@@ -482,7 +482,7 @@ def key_mapper(header, keymap=None, deprecation=False, remove=False):
         Default is `False`.
 
     remove : bool, optional.
-        Whether to remove the original keyword. ``deprecation`` is ignored if ``remove=True``.
+        Whether to remove the original keyword. `deprecation` is ignored if ``remove=True``.
         Default is `False`.
 
     Returns
@@ -547,7 +547,7 @@ def get_from_header(header, key, unit=None, verbose=True, default=0):
         appropriate type will be assigned.
     '''
     # If using q = header.get(key, default=default), we cannot give any meaningful verboses infostr.
-    # Anyway the ``header.get`` sourcecode contains only 4-line:
+    # Anyway the `header.get` sourcecode contains only 4-line:
     # ``try: return header[key] // except (KeyError, IndexError): return default.
     key = key.upper()
     try:

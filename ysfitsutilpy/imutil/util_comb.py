@@ -1,4 +1,3 @@
-from typing import Type
 import bottleneck as bn
 import numpy as np
 from astropy.stats import sigma_clipped_stats
@@ -52,7 +51,7 @@ def get_zsw(arr, zero, scale, weight, zero_kw, scale_kw,
         Returns
         -------
         nonnan_function: The function without NaN policy
-        check_isfinite: Whether the ``isfinite`` must be tested.
+        check_isfinite: Whether the `isfinite` must be tested.
         '''
         if fun == bn.nanmean:
             return np.mean
@@ -73,14 +72,14 @@ def get_zsw(arr, zero, scale, weight, zero_kw, scale_kw,
                 calcfun = bn.nanmean
             elif zswstr in ['med', 'medi', 'median']:
                 calcfun = bn.nanmedian
-            # sigclip calcfun's below have dummy ``axis`` parameter because if not, the ``zsw =
-            # fun_simple(data, axis=None)`` code below raises unwanted TypeError, so that ``redo`` is
+            # sigclip calcfun's below have dummy `axis` parameter because if not, the ``zsw =
+            # fun_simple(data, axis=None)`` code below raises unwanted TypeError, so that `redo` is
             # always `True`.
             elif zswstr in ['avg_sc', 'average_sc', 'mean_sc']:
-                _ = zsw_kw.pop('axis', None)  # if exist ``axis``, remove it.
+                _ = zsw_kw.pop('axis', None)  # if exist `axis`, remove it.
                 calcfun = lambda x, axis: sigma_clipped_stats(x, axis=None, **zsw_kw)[0]
             elif zswstr in ['med_sc', 'medi_sc', 'median_sc']:
-                _ = zsw_kw.pop('axis', None)  # if exist ``axis``, remove it.
+                _ = zsw_kw.pop('axis', None)  # if exist `axis`, remove it.
                 calcfun = lambda x, axis: sigma_clipped_stats(x, axis=None, **zsw_kw)[1]
             else:
                 raise ValueError(f"zero/scale/weight ({zero_scale_weight}) not understood")
@@ -123,12 +122,12 @@ def get_zsw(arr, zero, scale, weight, zero_kw, scale_kw,
             if isinstance(sl, int):
                 try:
                     zsw = [(fun(arr[i].ravel()[::sl], axis=None)) for i in range(arr.shape[0])]
-                except TypeError:  # original fun has no ``axis`` parameter
+                except TypeError:  # original fun has no `axis` parameter
                     zsw = [(fun(arr[i].ravel()[::sl])) for i in range(arr.shape[0])]
             else:
                 try:
                     zsw = [(fun(arr[(i, *sl)], axis=None)) for i in range(arr.shape[0])]
-                except TypeError:  # original fun has no ``axis`` parameter
+                except TypeError:  # original fun has no `axis` parameter
                     zsw = [(fun(arr[(i, *sl)])) for i in range(arr.shape[0])]
         # raise ValueError()
         return np.atleast_1d(zsw)
@@ -239,7 +238,7 @@ def _calculate_step_sizes(x_size, y_size, num_chunks):
     Notes
     -----
     Calculate the strides in x and y to achieve at least the
-    ``num_chunks`` pieces.
+    `num_chunks` pieces.
 
     Direct copy from ccdproc:
     https://github.com/astropy/ccdproc/blob/b9ec64dfb59aac1d9ca500ad172c4eb31ec305f8/ccdproc/combiner.py#L500

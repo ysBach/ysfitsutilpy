@@ -54,7 +54,7 @@ def group_fits(summary_table, type_key=None, type_val=None, group_key=None, tabl
 
     group_key : None, str, list of str, optional
         The header keyword which will be used to make groups for the CCDs that have selected from
-        ``type_key`` and ``type_val``. If `None` (default), no grouping will occur, but it will return
+        `type_key` and `type_val`. If `None` (default), no grouping will occur, but it will return
         the `~pandas.DataFrameGroupBy` object will be returned for the sake of consistency.
 
     Return
@@ -63,8 +63,8 @@ def group_fits(summary_table, type_key=None, type_val=None, group_key=None, tabl
         The table after the grouping process.
 
     group_type_key : list of str
-        The ``type_key`` that can directly be used for ``stack_FITS`` for each element of
-        ``grouped.groups``. Basically this is ``type_key + group_key``.
+        The `type_key` that can directly be used for `stack_FITS` for each element of
+        `grouped.groups`. Basically this is ``type_key + group_key``.
 
     Example
     -------
@@ -121,28 +121,28 @@ def select_fits(inputs, extension=None, unit=None, trim_fits_section=None, table
         The extension of FITS to be used. It can be given as integer (0-indexing) of the extension,
         ``EXTNAME`` (single str), or a tuple of str and int: ``(EXTNAME, EXTVER)``. If `None`
         (default), the *first extension with data* will be used.
-        Ignored if ``inputs`` is table-like.
+        Ignored if `inputs` is table-like.
 
     unit: Unit or str, optional
         The unit of the CCDs to be loaded.
-        Used only when ``fitslist`` is not a list of ``CCDData`` and ``prefer_ccddata`` is `True`.
-        Ignored if ``inputs`` is table-like.
+        Used only when `fitslist` is not a list of `~astropy.nddata.CCDData` and `prefer_ccddata` is
+        `True`. Ignored if `inputs` is table-like.
 
     trim_fits_section : str or None, optional
-        The ``fits_section`` of ``ccdproc.trim_image``. Region of ``ccd`` from which the overscan is
-        extracted; see `~ccdproc.subtract_overscan` for details.
+        The `fits_section` of `ccdproc.trim_image`. Region of `~astropy.nddata.CCDData` from which
+        the overscan is extracted; see `~ccdproc.subtract_overscan` for details.
         Default is `None`.
-        Ignored if ``inputs`` is table-like.
+        Ignored if `inputs` is table-like.
 
     table_filecol: str
-        The column name of the ``summary_table`` which contains the path to the FITS files.
-        Ignored if ``inputs`` is CCD-like.
+        The column name of the `summary_table` which contains the path to the FITS files.
+        Ignored if `inputs` is CCD-like.
 
     prefer_ccddata: bool, optional
         Whether to prefer to return CCDData objects if possible. If `True`, path-like, ndarray, or
         table-like input will return a list of CCDData. If `False` (default), only the paths will be
-        returned unless the ``inputs`` is consist of CCDData.
-        Ignored if ``inputs`` is already CCD-like.
+        returned unless the `inputs` is consist of CCDData.
+        Ignored if `inputs` is already CCD-like.
 
     type_key, type_val: str, list of str
         The header keyword for the ccd type, and the value you want to match.
@@ -150,9 +150,9 @@ def select_fits(inputs, extension=None, unit=None, trim_fits_section=None, table
     Return
     ------
     matched: list of Path or list of CCDData
-        list containing Path to files if ``prefer_ccddata`` is `False`. Otherwise it is a list
-        containing loaded CCDData after loading the files. If ``ccdlist`` is given a priori, list of
-        CCDData will be returned regardless of ``prefer_ccddata``.
+        list containing Path to files if `prefer_ccddata` is `False`. Otherwise it is a list
+        containing loaded CCDData after loading the files. If `ccdlist` is given a priori, list of
+        CCDData will be returned regardless of `prefer_ccddata`.
     '''
     def _parse_val(value):
         val = str(value)
@@ -181,8 +181,8 @@ def select_fits(inputs, extension=None, unit=None, trim_fits_section=None, table
     # I am leaving it here just in case in the future I find it necessary.
     #   YPBach 2021-01-08 17:36:53 (KST: GMT+09:00)
     # regex : bool or list of bool optional.
-    #     Whether to use regex for ``type_val`` matching. Default is `False`. If it is a list, it must
-    #     have the identical length to ``type_key`` and ``type_val``. An example is that you want to
+    #     Whether to use regex for `type_val` matching. Default is `False`. If it is a list, it must
+    #     have the identical length to `type_key` and `type_val`. An example is that you want to
     #     select ``OBJECT`` with regex of ``'NGC.*'``, but ``EXPTIME`` of ``120``, which is a numeric.
     #     Sometimes the header will have ``'120.0'``, which may not be easily selected by regex. In that
     #     case, an internal parser is easier to use to catch any numeric values that must be regarded as
@@ -265,7 +265,7 @@ def select_fits(inputs, extension=None, unit=None, trim_fits_section=None, table
             # I intentionally used iterrows instead of making mask, because for some cases the keyword
             # (e.g., an angle) can contain both str and float among CCDs.
             #    For example, if we want to select ``angle == 0.0``, masking cannot work because the
-            # column has dtype of object (``summary_table[column].dtype`` is ``object```).
+            # column has dtype of object (``summary_table[column].dtype`` is `object``).
             #    Instead, _check_mismatch tries to convert the value found in the header to int, and
             # if it fails, tries float, and finally uses str. This is the most natural way I could
             # think of.
@@ -353,15 +353,15 @@ def stack_FITS(fitslist=None, summary_table=None, extension=None,
     fitslist: None, list of path-like, or list of CCDData
         The list of path to FITS files or the list of CCDData to be stacked. It is useful to give list
         of CCDData if you have already stacked/loaded FITS file into a list by your own criteria. If
-        `None` (default), you must give ``fitslist`` or ``summary_table``. If it is not `None`,
-        this function will do very similar job to that of ``ccdproc.combine``. Although it is not a
+        `None` (default), you must give `fitslist` or `summary_table`. If it is not `None`,
+        this function will do very similar job to that of `ccdproc.combine`. Although it is not a
         good idea, a mixed list of CCDData and paths to the files is also acceptable.
 
     summary_table: None, pandas.DataFrame or astropy.table.Table
         The table which contains the metadata of files. If there are many FITS files and you want to
-        use stacking many times, it is better to make a summary table by ``filemgmt.make_summary`` and
+        use stacking many times, it is better to make a summary table by `filemgmt.make_summary` and
         use that instead of opening FITS files' headers every time you call this function. If you want
-        to use ``summary_table`` instead of ``fitslist`` and have set ``ccddata=True``, you must not
+        to use `summary_table` instead of `fitslist` and have set ``ccddata=True``, you must not
         have `None` or ``NaN`` value in the ``summary_table[table_filecol]``.
 
     extension: int, str, (str, int)
@@ -371,34 +371,34 @@ def stack_FITS(fitslist=None, summary_table=None, extension=None,
 
     unit: Unit or str, optional
         The unit of the CCDs to be loaded.
-        Used only when ``fitslist`` is not a list of ``CCDData`` and ``ccddata`` is `True`.
+        Used only when `fitslist` is not a list of `~astropy.nddata.CCDData` and `ccddata` is `True`.
 
     table_filecol: str
-        The column name of the ``summary_table`` which contains the path to the FITS files.
+        The column name of the `summary_table` which contains the path to the FITS files.
 
     trim_fits_section : str or None, optional
-        The ``fits_section`` of ``ccdproc.trim_image``. Region of ``ccd`` from which the overscan is
-        extracted; see `~ccdproc.subtract_overscan` for details.
+        The `fits_section` of `ccdproc.trim_image`. Region of `~astropy.nddata.CCDData` from which
+        the overscan is extracted; see `~ccdproc.subtract_overscan` for details.
         Default is `None`.
 
     ccddata: bool, optional
         Whether to return file paths or loaded CCDData. If `False`, it is a function to select FITS
-        files using ``type_key`` and ``type_val`` without using much memory.
-        This is ignored if ``fitslist`` is given and composed of ``CCDData`` objects.
+        files using `type_key` and `type_val` without using much memory.
+        This is ignored if `fitslist` is given and composed of `~astropy.nddata.CCDData` objects.
 
     type_key, type_val: str, list of str
         The header keyword for the ccd type, and the value you want to match.
 
     asccd : bool, optional.
-        Whether to load as ``astropy.nddata.CCDData``. If `False`, numpy ndarray will be used. Works
+        Whether to load as `~astropy.nddata.CCDData`. If `False`, numpy ndarray will be used. Works
         only if ``ccddata = True``.
 
     Return
     ------
     matched: list of Path or list of CCDData
-        list containing Path to files if ``ccddata`` is `False`. Otherwise it is a list containing
-        loaded CCDData after loading the files. If ``ccdlist`` is given a priori, list of CCDData will
-        be returned regardless of ``ccddata``.
+        list containing Path to files if `ccddata` is `False`. Otherwise it is a list containing
+        loaded CCDData after loading the files. If `ccdlist` is given a priori, list of CCDData will
+        be returned regardless of `ccddata`.
     '''
     warn("stack_FITS is deprecated; use select_fits.", DeprecationWarning)
 
@@ -584,27 +584,27 @@ def combine_ccd(fitslist=None, summary_table=None, table_filecol="file",
     fitslist: path-like, list of path-like, or list of CCDData
         The list of path to FITS files or the list of CCDData to be stacked. It is useful to give list
         of CCDData if you have already stacked/loaded FITS file into a list by your own criteria. If
-        `None` (default), you must give ``fitslist`` or ``summary_table``. If it is not `None`, this
-        function will do very similar job to that of ``ccdproc.combine``. Although it is not a good
+        `None` (default), you must give `fitslist` or `summary_table`. If it is not `None`, this
+        function will do very similar job to that of `ccdproc.combine`. Although it is not a good
         idea, a mixed list of CCDData and paths to the files is also acceptable.
 
     summary_table: pandas.DataFrame or astropy.table.Table
         The table which contains the metadata of files. If there are many FITS files and you want to
-        use stacking many times, it is better to make a summary table by ``filemgmt.make_summary`` and
+        use stacking many times, it is better to make a summary table by `filemgmt.make_summary` and
         use that instead of opening FITS files' headers every time you call this function. If you want
-        to use ``summary_table`` instead of ``fitslist`` and have set ``ccddata=True``, you must not
+        to use `summary_table` instead of `fitslist` and have set ``ccddata=True``, you must not
         have `None` or ``NaN`` value in the ``summary_table[table_filecol]``.
 
     table_filecol: str
-        The column name of the ``summary_table`` which contains the path to the FITS files.
+        The column name of the `summary_table` which contains the path to the FITS files.
 
     trim_fits_section : str or None, optional
-        The ``fits_section`` of ``ccdproc.trim_image``. Region of ``ccd`` from which the overscan is
-        extracted; see `~ccdproc.subtract_overscan` for details.
+        The `fits_section` of `ccdproc.trim_image`. Region of `~astropy.nddata.CCDData` from which the
+        overscan is extracted; see `~ccdproc.subtract_overscan` for details.
         Default is `None`.
 
     output : path-like or None, optional.
-        The path if you want to save the resulting ``ccd`` object.
+        The path if you want to save the resulting `~astropy.nddata.CCDData` object.
         Default is `None`.
 
     unit : `~astropy.units.Unit` or str, optional.
@@ -619,11 +619,11 @@ def combine_ccd(fitslist=None, summary_table=None, table_filecol="file",
         Default is `None`.
 
     combine_method : str or None, optinal.
-        The ``method`` for ``ccdproc.combine``, i.e., {'average', 'median', 'sum'}
+        The `method` for `ccdproc.combine`, i.e., {'average', 'median', 'sum'}
         Default is `None`.
 
     reject_method : str
-        Made for simple use of ``ccdproc.combine``, [None, 'minmax', 'sigclip' == 'sigma_clip',
+        Made for simple use of `ccdproc.combine`, [None, 'minmax', 'sigclip' == 'sigma_clip',
         'extrema' == 'ext']. Automatically turns on the option, e.g., ``clip_extrema = True`` or
         ``sigma_clip = True``. Leave it blank for no rejection.
         Default is `None`.
@@ -642,7 +642,7 @@ def combine_ccd(fitslist=None, summary_table=None, table_filecol="file",
         Default is ``"EXPTIME"``.
 
     combine_uncertainty_function : callable, None, optional
-        The uncertainty calculation function of ``ccdproc.combine``. If `None` use the default
+        The uncertainty calculation function of `ccdproc.combine`. If `None` use the default
         uncertainty func when using average, median or sum combine, otherwise use the function
         provided.
         Default is `None`.
@@ -659,8 +659,8 @@ def combine_ccd(fitslist=None, summary_table=None, table_filecol="file",
 
     type_key, type_val: str, list of str
         The header keyword for the ccd type, and the value you want to match. For an open HDU named
-        ``hdu``, e.g., only the files which satisfies ``hdu[extension].header[type_key] == type_val``
-        among all the ``fitslist`` will be used.
+        `hdu`, e.g., only the files which satisfies ``hdu[extension].header[type_key] == type_val``
+        among all the `fitslist` will be used.
 
     output_verify : str
         Output verification option.  Must be one of ``"fix"``, ``"silentfix"``, ``"ignore"``,
@@ -674,7 +674,7 @@ def combine_ccd(fitslist=None, summary_table=None, table_filecol="file",
         Default is ``2.e9``.
 
     **kwarg:
-        kwargs for the ``ccdproc.combine``. See its documentation. This includes (RHS are the default
+        kwargs for the `ccdproc.combine`. See its documentation. This includes (RHS are the default
         values)
         ```
         weights=None,

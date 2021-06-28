@@ -56,10 +56,10 @@ def set_ccd_attribute(ccd, name, value=None, key=None, default=None, unit=None, 
 
     wrapper : function object, None, optional.
         The wrapper function that will be applied to the found value. Other keyword arguments should be
-        given as a dict to ``wrapper_kw``.
+        given as a dict to `wrapper_kw`.
 
     wrapper_kw : dict, optional.
-        The keyword argument to ``wrapper``.
+        The keyword argument to `wrapper`.
 
     Example
     -------
@@ -122,16 +122,16 @@ def set_ccd_gain_rdnoise(ccd, verbose=True, update_header=True,
     Parameters
     ----------
     gain, rdnoise : None, float, astropy.Quantity, optional.
-        The gain and readnoise value. If ``gain`` or ``readnoise`` is specified, they are interpreted
-        with ``gain_unit`` and ``rdnoise_unit``, respectively. If they are not specified, this function
-        will seek for the header with keywords of ``gain_key`` and ``rdnoise_key``, and interprete the
-        header value in the unit of ``gain_unit`` and ``rdnoise_unit``, respectively.
+        The gain and readnoise value. If `gain` or `readnoise` is specified, they are interpreted with
+        `gain_unit` and `rdnoise_unit`, respectively. If they are not specified, this function will
+        seek for the header with keywords of `gain_key` and `rdnoise_key`, and interprete the header
+        value in the unit of `gain_unit` and `rdnoise_unit`, respectively.
 
     gain_key, rdnoise_key : str, optional.
-        See ``gain``, ``rdnoise`` explanation above.
+        See `gain`, `rdnoise` explanation above.
 
     gain_unit, rdnoise_unit : str, astropy.Unit, optional.
-        See ``gain``, ``rdnoise`` explanation above.
+        See `gain`, `rdnoise` explanation above.
 
     verbose : bool, optional.
         The verbose option.
@@ -153,7 +153,7 @@ def propagate_ccdmask(ccd, additional_mask=None):
     Parameters
     ----------
     ccd : CCDData, ndarray
-        The ccd to extract mask. If ndarray, it will only return a copy of ``additional_mask``.
+        The ccd to extract mask. If ndarray, it will only return a copy of `additional_mask`.
 
     additional_mask : mask-like, None
         The mask to be propagated.
@@ -286,7 +286,7 @@ def bezel_ccd(ccd, bezel_x=None, bezel_y=None, replace=np.nan, update_header=Tru
     replace : None, float-like, optinoal.
         If `None`, it is identical to trimming the CCD with given bezels. If given as float-like, the
         bezel pixels will be replaced with this value. Defaults to ``np.nan`` to keep the size of the
-        input ``ccd``.
+        input `ccd`.
 
     Returns
     -------
@@ -359,6 +359,7 @@ def bezel_ccd(ccd, bezel_x=None, bezel_y=None, replace=np.nan, update_header=Tru
     return nccd
 
 
+# FIXME: not finished.
 def trim_overlap(inputs, extension=None, coordinate='image'):
     ''' Trim only the overlapping regions of the two CCDs
     Parameters
@@ -392,6 +393,7 @@ def trim_overlap(inputs, extension=None, coordinate='image'):
     offsets, new_shape = _image_shape(shapes, offsets, method='overlap', intify_offsets=False)
 
 
+# FIXME: docstring looks strange
 def cutccd(ccd, position, size, mode='trim', fill_value=np.nan):
     ''' Converts the Cutout2D object to proper CCDData.
 
@@ -401,42 +403,42 @@ def cutccd(ccd, position, size, mode='trim', fill_value=np.nan):
         The ccd to be trimmed.
 
     position : tuple or `~astropy.coordinates.SkyCoord`
-        The position of the cutout array's center with respect to the ``data`` array.  The position can
+        The position of the cutout array's center with respect to the ``data`` array. The position can
         be specified either as a ``(x, y)`` tuple of pixel coordinates or a
-        `~astropy.coordinates.SkyCoord`, in which case ``wcs`` is a required input.
+        `~astropy.coordinates.SkyCoord`, in which case wcs is a required input.
 
     size : int, array-like, `~astropy.units.Quantity`
-        The size of the cutout array along each axis.  If ``size`` is a scalar number or a scalar
-        `~astropy.units.Quantity`, then a square cutout of ``size`` will be created.  If ``size`` has
-        two elements, they should be in ``(ny, nx)`` order.  Scalar numbers in ``size`` are assumed to
-        be in units of pixels.  ``size`` can also be a `~astropy.units.Quantity` object or contain
-        `~astropy.units.Quantity` objects.  Such `~astropy.units.Quantity` objects must be in pixel or
-        angular units.  For all cases, ``size`` will be converted to an integer number of pixels,
-        rounding the the nearest integer.  See the ``mode`` keyword for additional details on the final
-        cutout size.
+        The size of the cutout array along each axis. If `size` is a scalar number or a scalar
+        `~astropy.units.Quantity`, then a square cutout of `size` will be created. If `size` has two
+        elements, they should be in ``(ny, nx)`` order. Scalar numbers in `size` are assumed to be in
+        units of pixels. `size` can also be a `~astropy.units.Quantity` object or contain
+        `~astropy.units.Quantity` objects. Such `~astropy.units.Quantity` objects must be in pixel or
+        angular units. For all cases, `size` will be converted to an integer number of pixels, rounding
+        the the nearest integer. See the `mode` keyword for additional details on the final cutout
+        size.
 
         .. note::
-            If ``size`` is in angular units, the cutout size is converted to pixels using the pixel
+            If `size` is in angular units, the cutout size is converted to pixels using the pixel
             scales along each axis of the image at the ``CRPIX`` location.  Projection and other
             non-linear distortions are not taken into account.
 
     wcs : `~astropy.wcs.WCS`, optional
-        A WCS object associated with the input ``data`` array.  If ``wcs`` is not `None`, then the
+        A WCS object associated with the input `data` array.  If `wcs` is not `None`, then the
         returned cutout object will contain a copy of the updated WCS for the cutout data array.
 
     mode : {'trim', 'partial', 'strict'}, optional
         The mode used for creating the cutout data array.  For the ``'partial'`` and ``'trim'`` modes,
-        a partial overlap of the cutout array and the input ``data`` array is sufficient. For the
-        ``'strict'`` mode, the cutout array has to be fully contained within the ``data`` array,
+        a partial overlap of the cutout array and the input `data` array is sufficient. For the
+        ``'strict'`` mode, the cutout array has to be fully contained within the `data` array,
         otherwise an `~astropy.nddata.utils.PartialOverlapError` is raised.   In all modes,
         non-overlapping arrays will raise a `~astropy.nddata.utils.NoOverlapError`.  In ``'partial'``
-        mode, positions in the cutout array that do not overlap with the ``data`` array will be filled
-        with ``fill_value``.  In ``'trim'`` mode only the overlapping elements are returned, thus the
-        resulting cutout array may be smaller than the requested ``shape``.
+        mode, positions in the cutout array that do not overlap with the `data` array will be filled
+        with `fill_value`.  In ``'trim'`` mode only the overlapping elements are returned, thus the
+        resulting cutout array may be smaller than the requested `shape`.
 
     fill_value : number, optional
         If ``mode='partial'``, the value to fill pixels in the cutout array that do not overlap with
-        the input ``data``. ``fill_value`` must have the same ``dtype`` as the input ``data`` array.
+        the input `data`. `fill_value` must have the same `dtype` as the input `data` array.
     '''
     hdr_orig = ccd.header
     w = WCS(hdr_orig)
@@ -681,9 +683,8 @@ def fixpix(ccd, mask, maskpath=None, extension=None, mask_extension=None, priori
 
     return _ccd
 
+
 # FIXME: Remove this after fixpix is completed
-
-
 def fixpix_griddata(ccd, mask, extension=None, method='nearest', fill_value=0, update_header=True):
     ''' Interpolate the masked location (cf. IRAF's PROTO.FIXPIX)
     Parameters
@@ -760,7 +761,7 @@ def CCDData_astype(ccd, dtype='float32', uncertainty_dtype=None, copy=True):
             uncertainty_dtype = dtype
         nccd.uncertainty.array = nccd.uncertainty.array.astype(uncertainty_dtype)
     except AttributeError:
-        # If there is no uncertainty attribute in the input ``ccd``
+        # If there is no uncertainty attribute in the input `ccd`
         pass
 
     update_tlm(nccd.header)
@@ -769,13 +770,13 @@ def CCDData_astype(ccd, dtype='float32', uncertainty_dtype=None, copy=True):
 
 def make_errmap(ccd, gain_epadu=1, rdnoise_electron=0, flat_err=0.0, subtracted_dark=None,
                 return_variance=False, detail=False):
-    ''' Calculate the simple error map. Use ``errormap`` instead.
+    ''' Use `errormap` instead.
 
     Parameters
     ----------
     ccd: array-like
         The ccd data which will be used to generate error map. It must be bias subtracted. If dark is
-        subtracted, give ``subtracted_dark``. This array will be added to ``ccd.data`` and used to
+        subtracted, give `subtracted_dark`. This array will be added to ``ccd.data`` and used to
         calculate the Poisson noise term. If the amount of this subtracted dark is negligible, you may
         just set ``subtracted_dark = None`` (default).
 
@@ -803,7 +804,7 @@ def make_errmap(ccd, gain_epadu=1, rdnoise_electron=0, flat_err=0.0, subtracted_
     >>> params = dict(gain_epadu=hdr["GAIN"], rdnoise_electron=hdr["RDNOISE"], subtracted_dark=dark.data)
     >>> ccd.uncertainty = StdDevUncertainty(make_errmap(ccd, **params))
     '''
-    print("Use ``errormap`` instead.")
+    print("Use `errormap` instead.")
 
     data, _ = _parse_data_header(ccd)
     data[data < 0] = 0  # make all negative pixel to 0
@@ -826,7 +827,7 @@ def make_errmap(ccd, gain_epadu=1, rdnoise_electron=0, flat_err=0.0, subtracted_
         if isinstance(dark, CCDData):
             dark = dark.data
         # If subtracted dark is negative, this may cause negative pixel
-        # in ``data``:
+        # in `data`:
         data += dark
 
     var_Poisson = data / gain_epadu  # (data * gain) / gain**2 to make it ADU
@@ -848,7 +849,7 @@ def errormap(ccd_biassub, gain_epadu=1, rdnoise_electron=0, subtracted_dark=None
     ----------
     ccd : CCDData, PrimaryHDU, ImageHDU, ndarray.
         The ccd data which will be used to generate error map. It must be **bias subtracted**. If dark
-        is subtracted, give ``subtracted_dark``. This array will be added to ``ccd.data`` and used to
+        is subtracted, give `subtracted_dark`. This array will be added to ``ccd.data`` and used to
         calculate the Poisson noise term. If the amount of this subtracted dark is negligible, you may
         just set ``subtracted_dark = None`` (default).
 
@@ -877,7 +878,7 @@ def errormap(ccd_biassub, gain_epadu=1, rdnoise_electron=0, subtracted_dark=None
         uncertainty.
 
     dark_std_min : 'rdnoise', float, optional.
-        The minimum value for ``dark_std``. Any ``dark_std`` value below this will be replaced by this
+        The minimum value for `dark_std`. Any `dark_std` value below this will be replaced by this
         value. If ``'rdnoise'`` (default), the ``rdnoise_electron/gain_epadu`` will be used.
 
     return_variance: bool, optional

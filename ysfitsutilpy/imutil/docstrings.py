@@ -18,20 +18,20 @@ def REJECT_PARAMETERS_COMMON(indent=0):
     return _fix(
         """
 mask : ndarray, optional.
-    The initial mask provided prior to any rejection. ``arr`` and ``mask`` must have the identical
+    The initial mask provided prior to any rejection. `arr` and `mask` must have the identical
     shape.
 
 sigma : float-like, optional.
-    The sigma-factors to be muiltiplied to the sigma values. Overridden by ``sigma_lower`` and/or
-    ``sigma_upper``, if input.
+    The sigma-factors to be muiltiplied to the sigma values. Overridden by `sigma_lower` and/or
+    `sigma_upper`, if input.
 
 sigma_lower : float or `None`, optional
     The number of standard deviations to use as the lower bound for the clipping limit. If `None` then
-    the value of ``sigma`` is used. The default is `None`.
+    the value of `sigma` is used. The default is `None`.
 
 sigma_upper : float or `None`, optional
     The number of standard deviations to use as the upper bound for the clipping limit. If `None` then
-    the value of ``sigma`` is used. The default is `None`.
+    the value of `sigma` is used. The default is `None`.
 
 maxiters : int, optional.
     The maximum number of iterations to do the rejection. It is silently converted to int if it is not.
@@ -50,9 +50,9 @@ maxrej : float or int, optional.
 cenfunc : str, optional.
     The centering function to be used.
 
-        * median if  ``cenfunc in ['med', 'medi', 'median']``
-        * average if ``cenfunc in ['avg', 'average', 'mean']``
-        * lower median if ``cenfunc in ['lmed', 'lmd', 'lmedian']``
+        * median if  `cenfunc` in ``{'med', 'medi', 'median'}``
+        * average if `cenfunc` in ``{'avg', 'average', 'mean'}``
+        * lower median if `cenfunc` in ``{'lmed', 'lmd', 'lmedian'}``
 
     The lower median means the median which takes the lower value when even number of data is left.
     This is suggested to be robust against cosmic-ray hit according to IRAF IMCOMBINE manual.
@@ -71,17 +71,17 @@ full : bool, optional.
 def REJECT_RETURNS_COMMON(indent=0):
     return _fix("""
 o_mask : ndarray of bool
-    The mask of the same shape as ``arr`` and ``mask``.
+    The mask of the same shape as `arr` and `mask`.
 
-o_low, o_upp : ndarray of ``dtype``
+o_low, o_upp : ndarray of `dtype`
     Returned only if ``full = True``. The lower and upper bounds used for sigma clipping. Data with
     ``(arr < o_low) | (o_upp < arr)`` are masked. Shape of ``arr.shape[1:]``.
 
 o_nit : ndarray of int or int
-    Returned only if ``full = True``. The number of iterations until it is halted.
+    Returned only if `full` is `True`. The number of iterations until it is halted.
 
 o_code : ndarray of uint8
-    Returned only if ``full = True``. Each element is a ``uint8`` value with::
+    Returned only if `full` is `True`. Each element is a ``uint8`` value with::
 
         *      (0): maxiters reached without any flag below
         * 1-th (1): maxiters == 0 (no iteration happened)
@@ -89,8 +89,8 @@ o_code : ndarray of uint8
         * 3-th (4): remaining ndata < nkeep reached
         * 4-th (8): rejected ndata > maxrej reached
 
-    The code of 10 is, for example, 1010 in binary, so the iteration finished before ``maxiters``
-    (2-th flag) because pixels more than ``maxrej`` are rejected (4-th flag).
+    The code of 10 is, for example, 1010 in binary, so the iteration finished before `maxiters`
+    (2-th flag) because pixels more than `maxrej` are rejected (4-th flag).
 """, indent)
 
 
@@ -120,7 +120,7 @@ thresholds : 2-float list-like, optional.
 zero : str or 1-d array
     The *zero* value to subtract from each image *after* thresholding, but *before* scaling/offset
     shifting/rejection/combination. If an array, it is directly subtracted from each image, (so it must
-    have size identical to the number of images). If ``str``, the zero-level is:
+    have size identical to the number of images). If `str`, the zero-level is:
 
         - **Average** if ``'avg'|'average'|'mean'``
         - **Median** if ``'med'|'medi'|'median'``
@@ -129,16 +129,16 @@ zero : str or 1-d array
         - **Sigma-clipped median** if
           ``'med_sc'|'medi_sc'|'median_sc'``
 
-    For options for sigma-clipped statistics, see ``zero_kw``.
+    For options for sigma-clipped statistics, see `zero_kw`.
 
     .. note::
-        By using ``zero="med_sc"``, the user can crudely subtract sky value from each frame before
+        By using `zero` of ``"med_sc"``, the user can crudely subtract sky value from each frame before
         combining.
 
 scale : str or 1-d array
     The way to scale each image *after* thresholding/zeroing, but *before* offset
     shifting/rejection/combination. If an array, it is directly understood as the **raw scales**, and
-    it must have size identical to the number of images. If ``str``, the raw scale is:
+    it must have size identical to the number of images. If `str`, the raw scale is:
 
         - **Exposure time** (``exposure_key`` in header of each FITS)
           if ``'exp'|'expos'|'exposure'|'exptime'``
@@ -149,60 +149,60 @@ scale : str or 1-d array
         - **Sigma-clipped median** if
           ``'med_sc'|'medi_sc'|'median_sc'``
 
-    The true scale is obtained by ``scales / scales[0]`` if ``scale_to_0th`` is `True`, following
+    The true scale is obtained by ``scales / scales[0]`` if `scale_to_0th` is `True`, following
     IRAF's convention. Otherwise, the absolute value from the raw scale will be used. For options for
-    sigma-clipped statistics, see ``scale_kw``.
+    sigma-clipped statistics, see `scale_kw`.
 
     .. note::
         Using ``scale="avg_sc", scale_to_0th=False`` is useful for flat combining.
 
 zero_to_0th : bool, optional.
     Whether to re-base the zero values such that all images have identical zero values as that of the
-    0-th image (in python, ``zero - zero[0]``). This is the behavior of IRAF, so ``zero_to_0th`` is
+    0-th image (in python, ``zero - zero[0]``). This is the behavior of IRAF, so `zero_to_0th` is
     `True` by default.
 
 scale_to_0th : bool, optional.
     Whether to re-scale the scales such that ``scale[0]`` is unity (in python, ``scale/scale[0]``).
-    This is the behavior of IRAF, so ``scale_to_0th`` is `True` by default.
+    This is the behavior of IRAF, so `scale_to_0th` is `True` by default.
 
 zero_kw, scale_kw : dict
-    Used only if ``scale`` or ``zero`` are sigma-clipped mean, median, etc (ending with ``_sc`` such as
+    Used only if `scale` or `zero` are sigma-clipped mean, median, etc (ending with ``_sc`` such as
     ``median_sc``, ``avg_sc``). The keyword arguments for `astropy.stats.sigma_clipped_stats`. By
     default, ``std_ddof=1`` (note that `~astropy.stats.sigma_clipped_stats` has default
     ``std_ddof=0``.)
 
     .. note::
-        #. If ``axis`` is specified, it will be ignored.
+        #. If `axis` is specified, it will be ignored.
 
         #. Sigma-clipping in astropy has *cumulative rejection* algorithm by default. This may give
-           unwanted results especially when ``sigma`` in this ``zero_kw`` or ``scale_kw`` is small
+           unwanted results especially when `sigma` in this `zero_kw` or `scale_kw` is small
            (around 1), but this is not likely a problem since both zero and scale will be determined
            from all the pixels, which is usually more than an order of a million.
 
 sigma : 2-float list-like, optional.
     The sigma-factors to be used for sigma-clip rejeciton in ``(sigma_lower, sigma_upper)``. Defaults
     to ``(3, 3)``, which means 3-sigma clipping from the "sigma" values determined by the method
-    specified by ``reject``. If a single float, it will be used for both the lower and upper values.
+    specified by `reject`. If a single float, it will be used for both the lower and upper values.
 
 maxiters : int, optional.
     The maximum number of iterations to do the rejection (for sigma-clipping). It is silently converted
-    to ``int`` if it is not.
+    to `int` if it is not.
 
 ddof : int, optional.
-    The delta-degrees of freedom (see `numpy.std`). It is silently converted to ``int`` if it is not.
+    The delta-degrees of freedom (see `numpy.std`). It is silently converted to `int` if it is not.
 
 nkeep : float or int, optional.
     The minimum number of pixels that should be left after rejection. If ``nkeep < 1``, it is regarded
     as fraction of the total number of pixels along the axis to combine. This corresponds to *positive*
-    ``nkeep`` parameter of IRAF `IMCOMBINE`_. If number of remaining non-nan value is fewer than
-    ``nkeep``, the masks at that position will be reverted to the previous iteration, and rejection
+    `nkeep` parameter of IRAF `IMCOMBINE`_. If number of remaining non-nan value is fewer than
+    `nkeep`, the masks at that position will be reverted to the previous iteration, and rejection
     code will be added by number 4.
 
 maxrej : float or int, optional.
     The maximum number of pixels that can be rejected during the rejection. If ``maxrej < 1``, it is
     regarded as fraction of the total number of pixels along the axis to combine. This corresponds to
-    *negative* ``nkeep`` parameter of IRAF `IMCOMBINE`_. In IRAF, only one of ``nkeep`` and ``maxrej``
-    can be set. If number of rejected pixels at a position exceeds ``maxrej``, the masks at that
+    *negative* `nkeep` parameter of IRAF `IMCOMBINE`_. In IRAF, only one of `nkeep` and `maxrej`
+    can be set. If number of rejected pixels at a position exceeds `maxrej`, the masks at that
     position will be reverted to the previous iteration, and rejection code will be added by number 8.
 
 cenfunc : str, optional.
@@ -212,7 +212,7 @@ cenfunc : str, optional.
         - average if ``'avg'|'average'|'mean'``
         - lower median if ``'lmed'|'lmd'|'lmedian'``
 
-    For lower median, see note in ``combine``.
+    For lower median, see note in `combine`.
 
 n_minmax : 2-float or 2-int list-like, optional.
     The number of low and high pixels to be rejected by the "minmax" algorithm. These numbers are
@@ -269,7 +269,7 @@ combine: str, optional.
 def NDCOMB_RETURNS_COMMON(indent=0):
     return _fix("""
 std : ndarray
-    The standard deviation map of the survived pixels (with ``ddof``).
+    The standard deviation map of the survived pixels (with `ddof`).
 
 mask_total : ndarray (dtype bool)
     The full mask, ``N+1``-D. Identical to original FITS files' masks propagated with ``| mask_rej |
@@ -277,12 +277,12 @@ mask_total : ndarray (dtype bool)
     ``np.count_nonzero(mask_total, axis=0)``.
 
 mask_rej, mask_thresh : ndarray(dtype bool)
-    The masks (``N``-D) from the rejection process and thresholding process (``thresholds``). Threshold
+    The masks (``N``-D) from the rejection process and thresholding process (`thresholds`). Threshold
     is done prior to any rejection or scaling/zeroing. Number of rejected pixels at each position for
     each process can be obtained by, e.g., ``nrej = np.count_nonzero(mask_rej, axis=0)``. Note that
-    ``mask_rej`` consumes less memory than ``nrej``.
+    `mask_rej` consumes less memory than `nrej`.
 
-low, upp : ndarray (dtype ``dtype``)
+low, upp : ndarray (dtype `dtype`)
     The lower and upper bounds (``N``-D) to reject pixel values at each position (``(data < low) | (upp
     < data)`` are removed).
 
@@ -326,9 +326,9 @@ offsets : str or (n, m)-d array
     For both wcs or physical cases, the raw offsets for *each* frame is nothing but an ``m``-D tuple
     consists of ``offset_raw[i] = CRPIX{m-i}`` or ``LTV{m-i}[_{m-i}]``. The reason to subtract ``i`` is
     because python has ``z, y, x`` order of indexing while WCS information is in ``x, y, z`` order. If
-    it is a ``j``-th image, ``offsets[j, :] = offset_raw``, and ``offsets`` has shape of ``(n, m)``.
+    it is a ``j``-th image, ``offsets[j, :] = offset_raw``, and `offsets` has shape of ``(n, m)``.
 
-    This raw ``offsets`` are then modified such that the minimum offsets in each axis becomes zero (in
+    This raw `offsets` are then modified such that the minimum offsets in each axis becomes zero (in
     pythonic way, ``np.max(offsets, axis=0) - offsets``). The offsets are used to determine the final
     output image's shape.
 

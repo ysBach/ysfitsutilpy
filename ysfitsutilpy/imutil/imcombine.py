@@ -2,7 +2,6 @@ from pathlib import Path
 
 import bottleneck as bn
 import numpy as np
-import pandas as pd
 from astropy.io.fits.verify import VerifyError
 from astropy.nddata import CCDData
 from astropy.table import Table
@@ -68,7 +67,7 @@ def group_combine(inputs, type_key=None, type_val=None, group_key=None, verbose=
 
     group_key : None, str, list of str, optional
         The header keyword which will be used to make groups for the CCDs that have selected from
-        ``type_key`` and ``type_val``. If `None` (default), no grouping will occur, but it will return
+        `type_key` and `type_val`. If `None` (default), no grouping will occur, but it will return
         the `~pandas.DataFrameGroupBy` object will be returned for the sake of consistency.
 
     verbose : int
@@ -93,13 +92,13 @@ def group_combine(inputs, type_key=None, type_val=None, group_key=None, verbose=
         The directory where the output fits files will be saved.
 
     **kwargs :
-        The keyword arguments for ``imcombine``.
+        The keyword arguments for `imcombine`.
 
     Return
     ------
     combined : dict of CCDData
-        The dict object where keys are the header value of the ``group_key`` and the values are the
-        combined images in CCDData object. If multiple keys for ``group_key`` is given, the key of this
+        The dict object where keys are the header value of the `group_key` and the values are the
+        combined images in CCDData object. If multiple keys for `group_key` is given, the key of this
         dict is a tuple.
     '''
     def _group_save(ccd, groupname, fmt='', verbose=1, outdir=None):
@@ -305,7 +304,7 @@ def imcombine(
     extract_hdr = extract_hdr or extract_exptime or extract_gain or extract_rdnoise or extract_snoise
 
     # == Extract header info =============================================================================== #
-    # TODO: if offsets is None and ``fsize_tot`` << memlimit, why not
+    # TODO: if offsets is None and `fsize_tot` << memlimit, why not
     # just load all data here?
     # initialize
     use_wcs, use_phy = False, False
@@ -677,15 +676,15 @@ imcombine.__doc__ = '''A helper function for ndcombine to cope with FITS files.
 
         .. note::
             If the user ever want to use masking, it's more convenient to use ``'MASK'`` extension to
-            the FITS files or replace bad pixel to very large or small numbers and use ``thresholds``.
+            the FITS files or replace bad pixel to very large or small numbers and use `thresholds`.
 
     extension, extension_uncertainty, extension_mask : int, str, (str, int)
         The extension of FITS, uncertainty, and mask to be used. It can be given as integer
         (0-indexing) of the extension, ``EXTNAME`` (single str), or a tuple of str and int: ``(EXTNAME,
-        EXTVER)``. If `None` (default), the *first extension with data* will be used.
-        If ``extension_uncertainty`` or ``extension_mask`` is `None` (default), uncertainty and mask
-        are all ignored (turned off). Currently error-propagation or weighted combine is not supported,
-        so only ``extension_mask`` can give difference to the output.
+        EXTVER)``. If `None` (default), the *first extension with data* will be used. If
+        `extension_uncertainty` or `extension_mask` is `None` (default), uncertainty and mask are all
+        ignored (turned off). Currently error-propagation or weighted combine is not supported, so only
+        `extension_mask` can give difference to the output.
 
     {}
 
@@ -703,30 +702,30 @@ imcombine.__doc__ = '''A helper function for ndcombine to cope with FITS files.
 
     exposure_key : str, optional.
         The header keyword which contains the information about the exposure time of each FITS file.
-        This is used only if scaling is done for exposure time (see ``scale``).
+        This is used only if scaling is done for exposure time (see `scale`).
 
     irafmode : bool, optional.
         Whether to use IRAF-like pixel restoration scheme.
 
     output : path-like, optional
-        The path to the final combined FITS file. It has dtype of ``dtype`` and dimension identical to
+        The path to the final combined FITS file. It has dtype of `dtype` and dimension identical to
         each input image. Optional keyword arguments for ``fits.writeto()`` can be provided as
         ``**kwargs``.
 
     output_xxx : path-like, optional
         The output path to the mask, number of rejected pixels at each position, final
         ``nanstd(ddof=ddof)`` result, lower and upper bounds for rejection, and the integer codes for
-        the rejection algorithm (see ``mask_total``, ``mask_rej``, ``sigma``, ``low``, ``upp``, and
-        ``rejcode`` in Returns.)
+        the rejection algorithm (see `mask_total`, `mask_rej`, `sigma`, `low`, `upp`, and `rejcode` in
+        Returns.)
 
     return_dict : bool, optional.
         Whether to return the results as dict (works only if ``full=True``).
 
     Returns
     -------
-    Returns the followings depending on ``full`` and ``return_dict``.
+    Returns the followings depending on `full` and `return_dict`.
 
-    comb : `astropy.nddata.CCDData` (dtype ``dtype``)
+    comb : `astropy.nddata.CCDData` (dtype `dtype`)
         The combined data.
 
     {}

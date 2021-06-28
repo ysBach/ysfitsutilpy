@@ -2,7 +2,7 @@ import numpy as np
 
 from ..ccdutil import CCDData_astype, trim_ccd
 from ..hdrutil import update_tlm
-from ..misc import load_ccd, inputs2list, _parse_image
+from ..misc import inputs2list, _parse_image
 
 __all__ = ['imcopy']
 
@@ -31,13 +31,13 @@ def imcopy(inputs, extension=None, fits_sections=None, outputs=None, return_ccd=
 
     outputs : path-like or array-like of such, optional.
         The output paths of each FITS file to be copied. If array-like, it must have the shape of ``(M,
-        N)`` where ``M`` and ``N`` are the sizes of ``fpaths`` and ``fits_sections``, respectively.
+        N)`` where ``M`` and ``N`` are the sizes of `fpaths` and `fits_sections`, respectively.
 
     return_ccd : bool, optional.
-        Whether to load the FITS files as ``CCDData`` and return it.
+        Whether to load the FITS files as `~astropy.nddata.CCDData` and return it.
 
     dtype : dtype, optional.
-        The dtype for the ``outputs`` or returning ccds.
+        The dtype for the `outputs` or returning ccds.
 
     kwargs : optionals
         The keyword arguments for ``CCDData.write``.
@@ -45,7 +45,7 @@ def imcopy(inputs, extension=None, fits_sections=None, outputs=None, return_ccd=
     Return
     ------
     results: CCDData or list of CCDData
-        Only if ``return_ccd`` is set `True`. A sinlge `~astropy.nddata.CCDData will be returned if
+        Only if `return_ccd` is set `True`. A sinlge `~astropy.nddata.CCDData will be returned if
         only one was input. Otherwise, the same number of `~astropy.nddata.CCDData will be gathered as
         a list and returned.
     Note
@@ -116,14 +116,14 @@ def imcopy(inputs, extension=None, fits_sections=None, outputs=None, return_ccd=
     for i, item in enumerate(inputs):
         ccd = _parse_image(item, extension=extension, force_ccddata=True)[0]
         result = []
-        if to_trim:  # n CCDData will be in ``result``
+        if to_trim:  # n CCDData will be in `result`
             for sect in sects:
                 # FIXME: use ccdproc.trim_image when trim_ccd is removed.
                 nccd = trim_ccd(ccd, fits_section=sect)
                 nccd = CCDData_astype(nccd, dtype=dtype)
                 update_tlm(nccd.header)
                 result.append(nccd)
-        else:  # only one single CCDData will be in ``result``
+        else:  # only one single CCDData will be in `result`
             nccd = CCDData_astype(ccd, dtype=dtype)
             update_tlm(nccd.header)
             result.append(nccd)

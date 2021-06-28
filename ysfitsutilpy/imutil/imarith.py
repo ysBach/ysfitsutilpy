@@ -150,8 +150,8 @@ def imarith(im1, op, im2, output=None, extension1=None, extension2=None, name1=N
 
     name1, name2: str, optional.
         The names of the images that will be logged into the header (``HISTORY``). If `None`, function
-        automatically chooses appropriate name for it: the number (if ``im`` is number-like), the path
-        (if ``im`` is path-like), or explanatory strings (if ``im`` is either ndarray or
+        automatically chooses appropriate name for it: the number (if `im` is number-like), the path
+        (if `im` is path-like), or explanatory strings (if `im` is either ndarray or
         `~astropy.nddata.CCDData`)
 
     replace : np.nan, float-like, optional.
@@ -160,7 +160,7 @@ def imarith(im1, op, im2, output=None, extension1=None, extension2=None, name1=N
         nan and inf are **not** representable in integer data types.
 
     header_params : str or dict, optional.
-        If a string, the output file's ``OBJECT`` keyword will be replaced by ``headdr_params``. If a
+        If a string, the output file's ``OBJECT`` keyword will be replaced by `headdr_params`. If a
         dict, it must be a dict of header keyword and value pairs, so that the output file's header
         will have those key-value pairs (care is needed since it overwrites the pre-existing keys). If
         dict, it can be ``{key:value}`` or ``{key:(value, comment)}``.
@@ -178,10 +178,10 @@ def imarith(im1, op, im2, output=None, extension1=None, extension2=None, name1=N
         is used. Error calculation is done only if ``ignore_header=False`` at the moment.
 
     ignore_header : bool, optional.
-        Whether to ignore all the header informations of ``im1`` and ``im2``. This will boost the speed
+        Whether to ignore all the header informations of `im1` and `im2`. This will boost the speed
         of the code because none of the effort will be put to find/parse header of any file. A cost is
         that virtually no information (including unit such as ``BUNIT``) is preserved in the output.
-        The returned HDU will only have meaningful ``HISTORY``. ``offsets`` will be also be ignored,
+        The returned HDU will only have meaningful ``HISTORY``. `offsets` will be also be ignored,
         and it will raise critical error if FITS images have different shape.
         Error propagation is of course impossible at this moment, because there is no way to infer the
         extension for the uncertainty and its type (wheter variance or standard deviation, etc.)
@@ -189,17 +189,17 @@ def imarith(im1, op, im2, output=None, extension1=None, extension2=None, name1=N
     Returns
     -------
     ccd : `~astropy.nddata.CCDData`
-        If ``ignore_header`` is `False` (default).
+        If `ignore_header` is `False` (default).
 
     hdu : `~astropy.io.fits.PrimaryHDU`
-        If ``ignore_header`` is `True`. This is not in `~astropy.nddata.CCDData` format since there is
+        If `ignore_header` is `True`. This is not in `~astropy.nddata.CCDData` format since there is
         no way to infer the unit (e.g., ``BUNIT``).
 
     Notes
     -----
     Performance tip: if you iterate over many images but one is fixed (e.g., ``imarith(images[i], '/',
     mflat_path) for i in range(100)``), **load the multiply used file** and give that HDU or
-    `~astropy.nddata.CCDData` to ``imarith``.
+    `~astropy.nddata.CCDData` to `imarith`.
 
     Converting an array to CCDData takes only ~ 10 us regardless on the array size on MBP 15"*; this
     is because most time is spent on metadata generation. Note, however, that *reading* a FITS file

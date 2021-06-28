@@ -37,7 +37,7 @@ def load_if_exists(path, loader, if_not=None, verbose=True, **kwargs):
         The path to be searched.
 
     loader : a function
-        The loader to load ``path``. Can be ``CCDData.read``, ``np.loadtxt``, etc.
+        The loader to load `path`. Can be ``CCDData.read``, ``np.loadtxt``, etc.
 
     if_not : str
         Give a python code as a str to be run if the loading failed.
@@ -98,22 +98,22 @@ def make_summary(inputs=None, extension=None, verify_fix=False,
         The directory and file name of the output summary file.
 
     format : str, optional
-        The astropy.table.Table output format. Only works if ``pandas`` is `False`.
+        The astropy.table.Table output format. Only works if `pandas` is `False`.
 
     keywords : list or str(``"*"``), optional
         The list of the keywords to extract (keywords should be in str).
 
     example_header : None or path-like, optional
         The path including the filename of the output summary text file. If specified, the header of
-        the 0-th element of ``inputs`` will be extracted (if glob-pattern is given, the 0-th element is
-        random, so be careful) and saved to ``example_header``. Use `None` (default) to skip this.
+        the 0-th element of `inputs` will be extracted (if glob-pattern is given, the 0-th element is
+        random, so be careful) and saved to `example_header`. Use `None` (default) to skip this.
 
     pandas : bool, optional
         Whether to return pandas. If `False`, astropy table object is returned. It will save csv
-        format regardless of ``format``.
+        format regardless of `format`.
 
     sort_by : str, optional
-        The column name to sort the results. It can be any element of ``keywords`` or ``'file'``, which
+        The column name to sort the results. It can be any element of `keywords` or `'file'`, which
         sorts the table by the file name.
 
     Return
@@ -266,7 +266,7 @@ def fits_newpath(fpath, rename_by, mkdir_by=None, header=None, delimiter='_', fi
         will be made with the header value of the keys.
 
     header : Header object, optional
-        The header to extract ``rename_by`` and mkdir_by``. If `None`, the function will do ``header
+        The header to extract `rename_by` and `mkdir_by`. If `None`, the function will do ``header
         = fits.getheader(fpath)``.
 
     delimiter : str, optional
@@ -276,9 +276,9 @@ def fits_newpath(fpath, rename_by, mkdir_by=None, header=None, delimiter='_', fi
         The string that will be inserted if the keyword is not found from the header.
 
     fileext : str, optional
-        The extension of the file name to be returned. Normally it should be ``'fits'`` since this
-        function is ``fits_newname``, but you may prefer, e.g., ``'fit'`` for some reason. If
-        ``fileext`` does not start with a period (``"."``), it is automatically added to the final file
+        The extension of the file name to be returned. Normally it should be ``'.fits'`` since this
+        function is `fits_newname`, but you may prefer, e.g., ``'.fit'`` for some reason. If
+        `fileext` does not start with a period (``"."``), it is automatically added to the final file
         name in front of the ``fileext``.
     '''
 
@@ -326,7 +326,7 @@ def fitsrenamer(fpath=None, header=None, newtop=None, rename_by=["OBJECT"], mkdi
 
     newtop : path-like
         The top path for the new FITS file. If `None`, the new path will share the parent path with
-        ``fpath``.
+        `fpath`.
 
     rename_by : list of str, optional
         The keywords of the FITS header to rename by.
@@ -344,7 +344,7 @@ def fitsrenamer(fpath=None, header=None, newtop=None, rename_by=["OBJECT"], mkdi
         manually if needed.
 
     keymap : dict or None, optional
-        If not `None`, the keymapping is done by using the dict of ``keymap`` in the format of
+        If not `None`, the keymapping is done by using the dict of `keymap` in the format of
         ``{<standard_key>:<original_key>}``.
 
     key_deprecation : bool, optional
@@ -352,8 +352,8 @@ def fitsrenamer(fpath=None, header=None, newtop=None, rename_by=["OBJECT"], mkdi
         the original keywords' comments will become ``Deprecated. See <standard_key>.``.
 
     trim_fits_section : str or None, optional
-        Region of ``ccd`` from which the overscan is extracted; see `~ccdproc.subtract_overscan` for
-        details. Default is `None`.
+        Region of ``CCDData`` from which the overscan is extracted; see `~ccdproc.subtract_overscan`
+        for details. Default is `None`.
 
     fillnan : str, optional
         The string that will be inserted if the keyword is not found from the header.

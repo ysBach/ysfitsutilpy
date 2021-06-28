@@ -165,7 +165,7 @@ def _iter_rej(
     return (mask, low, upp, nit, code)
 
 
-# TODO: let ``cenfunc`` be function object...?
+# TODO: let `cenfunc` be function object...?
 
 # ********************************************************************************************************** #
 # *                                             SIGMA-CLIPPING                                             * #
@@ -203,12 +203,12 @@ def sigclip_mask(
         return o_mask
 
 
-sigclip_mask.__doc__ = ''' Finds masks of ``arr`` by sigma-clipping.
+sigclip_mask.__doc__ = ''' Finds masks of `arr` by sigma-clipping.
 
     Parameters
     ----------
     arr : ndarray
-        The array to be subjected for masking. ``arr`` and ``mask`` must
+        The array to be subjected for masking. `arr` and `mask` must
         have the identical shape.
 
     {}
@@ -315,12 +315,12 @@ def ccdclip_mask(
         return o_mask
 
 
-ccdclip_mask.__doc__ = ''' Finds masks of ``arr`` by CCD noise model.
+ccdclip_mask.__doc__ = ''' Finds masks of `arr` by CCD noise model.
 
     Parameters
     ----------
     arr : ndarray
-        The array to be subjected for masking. ``arr`` and ``mask`` must have the identical shape. It
+        The array to be subjected for masking. `arr` and `mask` must have the identical shape. It
         must be in DN, i.e., **not** gain corrected.
 
     {}
