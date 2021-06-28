@@ -744,14 +744,6 @@ def bdf_process(ccd, output=None, extension=None,
     PROCESS = []
     proc = ccd.copy()
 
-    # Add PROCESS key
-    if "PROCESS" not in proc.header:
-        proc.header["PROCESS"] = ("", "Process (order: 1-2-3-...): see comment.")
-        add_to_header(proc.header, 'c',
-                      ("Standard PROCESS key includes B=bias, D=dark, F=flat, "
-                       + "T=trim, W=WCS (astrometry), C=CRrej, Fr=fringe.")
-                      )
-
     # Log the CCDPROC version
     if "CCDPROCV" in proc.header:
         if str(proc.header["CCDPROCV"]) != str(ccdproc.__version__):
@@ -773,7 +765,7 @@ def bdf_process(ccd, output=None, extension=None,
     do_dark, mdark, mdarkpath = _load_master(mdarkpath, mdark)
 
     if do_dark:
-        proc.header.append("D")
+        PROCESS.append("D")
         proc.header["DARKPATH"] = (str(mdarkpath), "Path to the used dark file")
 
         if dark_scale:
@@ -942,7 +934,7 @@ def bdf_process(ccd, output=None, extension=None,
         add_to_header(proc.header, 'h', s, verbose=verbose_bdf, t_ref=_t)
 
     proc = CCDData_astype(proc, dtype=dtype, uncertainty_dtype=uncertainty_dtype)
-    update_process(proc.header, PROCESS, key="PROCESS", delimiter='-', add_comment=True)
+    update_process(proc.header, PROCESS, key="PROCESS", delimiter='-')
     update_tlm(proc.header)
 
     if output is not None:
