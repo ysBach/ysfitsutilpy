@@ -11,9 +11,11 @@ from warnings import warn
 import bottleneck as bn
 import ccdproc
 import numpy as np
+import pandas as pd
 from astropy import units as u
 from astropy.io import fits
 from astropy.nddata import CCDData
+from astropy.table import Table
 from astropy.time import Time
 from astropy.visualization import ImageNormalize, ZScaleInterval
 from astropy.wcs import WCS
@@ -74,7 +76,9 @@ def inputs2list(inputs, sort=True, accept_ccdlike=True, path_to_text=False, chec
 
     Parameters
     ----------
-    inputs : str, path-like, CCDData, fits.PrimaryHDU, fits.ImageHDU
+    inputs : str, path-like, CCDData, fits.PrimaryHDU, fits.ImageHDU, DataFrame-convertable.
+        If DataFrame-convertable, e.g., pd.DataFrame or astropy.table.Table, it must have column named
+        ``"file"``. Otherwise, please use, e.g., ``inputs = list(that_table["filenamecolumn"])``.
 
     '''
     contains_ccdlike = False
@@ -92,6 +96,12 @@ def inputs2list(inputs, sort=True, accept_ccdlike=True, path_to_text=False, chec
         else:
             kind = type(inputs)
             raise TypeError(f"{kind} is given as `inputs`. Turn off accept_ccdlike or use path-like.")
+    elif isinstance(inputs, (Table, pd.DataFrame)):
+        # Do this before is_list_like because DataFrame returns True in is_list_like as it is iterable.
+        try:
+            outlist = list(inputs["file"])
+        except KeyError:
+            raise KeyError("If inputs is DataFrame convertible, it must have column named 'file'.")
     elif is_list_like(inputs):
         type_ref = type(inputs[0])
         outlist = []
@@ -155,6 +165,8 @@ def get_size(obj, seen=None):
 def is_list_like(obj):
     ''' Direct copy from pandas, with slight modification
     https://github.com/pandas-dev/pandas/blob/bdb00f2d5a12f813e93bc55cdcd56dcb1aae776e/pandas/_libs/lib.pyx#L1026
+
+    Note that pd.DataFrame also returns True.
     '''
     return(
         isinstance(obj, Iterable)
@@ -1015,7 +1027,6 @@ def load_ccd(path, extension=None, ccddata=True, as_ccd=True, use_wcs=True, unit
                 mask = None if ccd.mask is None else np.array(ccd.mask)
                 flag = None  # FIXME: add this line when CCDData starts to support flags.
                 return ccd.data, unc, mask, flag
-
 
 
 def write2fits(data, header, output, return_ccd=False, **kwargs):
