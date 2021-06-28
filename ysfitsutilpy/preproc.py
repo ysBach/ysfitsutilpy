@@ -858,6 +858,21 @@ def bdf_process(ccd, output=None, extension=None,
             s.append(str_ed)
         add_to_header(proc.header, 'h', s, verbose=verbose_bdf, t_ref=_t)
 
+    # Do FRINGE
+    if do_fringe:
+        _t = Time.now()
+        if fringe_scale_section is not None:
+            sl = fitsxy2py(fringe_scale_section)
+            scale = fringe_scale_fun(proc.data[sl]) / fringe_scale_fun(mfringe.data[sl])
+            proc.header["FRINSCAL"] = (scale, "Scale factor multiplied to fringe")
+            s = str_fringe_scale
+        else:
+            scale = 1  # Not 1.0 so that (ccd in int) - (mfringe in int) remains int.
+            s = str_fringe_noscale
+        mfringe.data *= scale
+        proc.data = proc.subtract(mfringe).data  # should I calc. error..?
+        add_to_header(proc.header, 'h', s, verbose=verbose_bdf, t_ref=_t)
+
     # Do FLAT
     if do_flat:
         # Flat error propagation is done automatically by
@@ -918,20 +933,6 @@ def bdf_process(ccd, output=None, extension=None,
             **crrej_kwargs)
 
     # To avoid ``pssl`` in cr rejection, subtract fringe AFTER the CRREJ.
-    # Do FRINGE
-    if do_fringe:
-        _t = Time.now()
-        if fringe_scale_section is not None:
-            sl = fitsxy2py(fringe_scale_section)
-            scale = fringe_scale_fun(proc.data[sl]) / fringe_scale_fun(mfringe.data[sl])
-            proc.header["FRINSCAL"] = (scale, "Scale factor multiplied to fringe")
-            s = str_fringe_scale
-        else:
-            scale = 1  # Not 1.0 so that (ccd in int) - (mfringe in int) remains int.
-            s = str_fringe_noscale
-        mfringe.data *= scale
-        proc.data = proc.subtract(mfringe).data  # should I calc. error..?
-        add_to_header(proc.header, 'h', s, verbose=verbose_bdf, t_ref=_t)
 
     proc = CCDData_astype(proc, dtype=dtype, uncertainty_dtype=uncertainty_dtype)
     update_process(proc.header, PROCESS, key="PROCESS", delimiter='-')
