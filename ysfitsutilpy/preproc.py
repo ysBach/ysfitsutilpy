@@ -586,7 +586,7 @@ def medfilt_bpm(ccd, cadd=1.e-10, std_model="std", gain=1., rdnoise=0., snoise=0
 # http://www.astro.yale.edu/dokkum/lacosmic/notes.html
 def bdf_process(ccd, output=None, extension=None,
                 mbiaspath=None, mdarkpath=None, mflatpath=None, mfringepath=None,
-                mbias=None, mdark=None, mflat=None, mfringe=None,
+                mbias=None, mdark=None, mflat=None, mfringe=None, fringe_flat_fielded=False,
                 fringe_scale_fun=np.mean, fringe_scale_section=None,
                 trim_fits_section=None, calc_err=False, unit=None,
                 gain=None, gain_key="GAIN", gain_unit=u.electron/u.adu,
@@ -625,6 +625,11 @@ def bdf_process(ccd, output=None, extension=None,
         The FITS-convention section of the fringe and object (science) frames to match the fringe
         pattern before the subtraction. If `None`, this scaling is turned off. To use all region, use
         such as ``'[:, :]`` for 2-D.
+
+    fringe_flat_fielded : bool, optional.
+        Whether the fringe frame is flat-fielded. If `True`, fringe is subtracted AFTER flat-fielding
+        the input frame. Otherwise (default), fringe is subtracted BEFORE flat-fielding the input
+        frame.
 
     trim_fits_section: str, optional.
         Region of ``ccd`` to be trimmed; see ``ccdproc.subtract_overscan`` for details. Default is
@@ -736,6 +741,21 @@ def bdf_process(ccd, output=None, extension=None,
                 master.uncertainty = None
 
         return do, master, path
+
+    def _sub_frin(proc, mfringe, fringe_scale_fun=np.mean, fringe_scale_section=None):
+        _t = Time.now()
+        if fringe_scale_section is not None:
+            sl = fitsxy2py(fringe_scale_section)
+            scale = fringe_scale_fun(proc.data[sl]) / fringe_scale_fun(mfringe.data[sl])
+            proc.header["FRINSCAL"] = (scale, "Scale factor multiplied to fringe")
+            s = str_fringe_scale
+        else:
+            scale = 1  # Not 1.0 so that (ccd in int) - (mfringe in int) remains int.
+            s = str_fringe_noscale
+        mfringe.data *= scale
+        proc.data = proc.subtract(mfringe).data  # should I calc. error..?
+        add_to_header(proc.header, 'h', s, verbose=verbose_bdf, t_ref=_t)
+        return proc
 
     # Initial setting
     # if not isinstance(ccd, CCDData):
@@ -858,20 +878,10 @@ def bdf_process(ccd, output=None, extension=None,
             s.append(str_ed)
         add_to_header(proc.header, 'h', s, verbose=verbose_bdf, t_ref=_t)
 
-    # Do FRINGE
-    if do_fringe:
-        _t = Time.now()
-        if fringe_scale_section is not None:
-            sl = fitsxy2py(fringe_scale_section)
-            scale = fringe_scale_fun(proc.data[sl]) / fringe_scale_fun(mfringe.data[sl])
-            proc.header["FRINSCAL"] = (scale, "Scale factor multiplied to fringe")
-            s = str_fringe_scale
-        else:
-            scale = 1  # Not 1.0 so that (ccd in int) - (mfringe in int) remains int.
-            s = str_fringe_noscale
-        mfringe.data *= scale
-        proc.data = proc.subtract(mfringe).data  # should I calc. error..?
-        add_to_header(proc.header, 'h', s, verbose=verbose_bdf, t_ref=_t)
+    # Do FRINGE **before** flat if not `fringe_flat_fielded`
+    if do_fringe and not fringe_flat_fielded:
+        proc = _sub_frin(proc, mfringe, fringe_scale_fun=fringe_scale_fun,
+                         fringe_scale_section=fringe_scale_section)
 
     # Do FLAT
     if do_flat:
@@ -887,6 +897,11 @@ def bdf_process(ccd, output=None, extension=None,
             s.append(str_ef)
 
         add_to_header(proc.header, 'h', s, verbose=verbose_bdf, t_ref=_t)
+
+    # Do FRINGE **after** flat if `fringe_flat_fielded`
+    if do_fringe and fringe_flat_fielded:
+        proc = _sub_frin(proc, mfringe, fringe_scale_fun=fringe_scale_fun,
+                         fringe_scale_section=fringe_scale_section)
 
     # Normalize by the exposure time (e.g., ADU per sec)
     if normalize_exposure:
