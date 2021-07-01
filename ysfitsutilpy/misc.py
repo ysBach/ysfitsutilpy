@@ -1296,7 +1296,8 @@ def fitsxy2py(fits_section):
 
 
 # TODO: add sigma-clipped statistics option (hdr key can be using "SIGC", e.g., SIGCAVG.)
-def give_stats(item, extension=None, percentiles=[1, 99], N_extrema=None, return_header=False, nanfunc=False):
+def give_stats(item, extension=None, statsecs=None, percentiles=[1, 99], N_extrema=None,
+               return_header=False, nanfunc=False):
     ''' Calculates simple statistics.
 
     Parameters
@@ -1308,6 +1309,9 @@ def give_stats(item, extension=None, percentiles=[1, 99], N_extrema=None, return
         The extension of FITS to be used. It can be given as integer (0-indexing) of the extension,
         ``EXTNAME`` (single str), or a tuple of str and int: ``(EXTNAME, EXTVER)``. If `None`
         (default), the *first extension with data* will be used.
+
+    statsecs : str, list of str, optional.
+        The FITS-convention section to calculate the statistics.
 
     percentiles: list-like, optional
         The percentiles to be calculated.
@@ -1352,27 +1356,16 @@ def give_stats(item, extension=None, percentiles=[1, 99], N_extrema=None, return
     >>> ccd = CCDData.read("bias_bin11.fits", unit='adu')
     >>> _, hdr = (ccd, N_extrema=10, update_header=True)
     >>> ccd.header = hdr
-    To read the stringfied list into python list (e.g., percentiles):
-    >>> import json
-    >>> percentiles = json.loads(ccd.header['percentiles'])
+    # To read the stringfied list into python list (e.g., percentiles):
+    # >>> import json
+    # >>> percentiles = json.loads(ccd.header['percentiles'])
     '''
-    if is_list_like(item):
-        data = np.array(item)
-        hdr = None
-    else:
-        try:  # if Path-like, replace `item` to ndarray or CCDData
-            fpath = Path(item)
-            if return_header:
-                item = CCDData.read(fpath, extension)
-            else:
-                if HAS_FITSIO:
-                    item = fitsio.FITS(fpath)[extension].read()
-                else:
-                    item = fits.getdata(fpath)[extension]
-        except (TypeError, ValueError):
-            pass
+    data, hdr = _parse_data_header(item, extension=extension)
+    if statsecs is not None:
+        statsecs = [statsecs] if isinstance(statsecs, str) else list(statsecs)
+        data = np.array([data[fitsxy2py(sec)] for sec in statsecs])
 
-        data, hdr = _parse_data_header(item)
+    data = data.ravel()
 
     if nanfunc:
         minf = bn.nanmin
@@ -1396,7 +1389,8 @@ def give_stats(item, extension=None, percentiles=[1, 99], N_extrema=None, return
                   med=medf(data),
                   std=stdf(data, ddof=1),
                   percentiles=percentiles,
-                  pct=pctf(data, percentiles)
+                  pct=pctf(data, percentiles),
+                  slices=statsecs
                   )
     # d_pct = np.percentile(data, percentiles)
     # for i, pct in enumerate(percentiles):
@@ -1430,6 +1424,10 @@ def give_stats(item, extension=None, percentiles=[1, 99], N_extrema=None, return
         for i, p in enumerate(percentiles):
             hdr[f"PERCTS{i+1:02d}"] = (p, "The percentile used in STATPCii")
             hdr[f"STATPC{i+1:02d}"] = (result['pct'][i], "Percentile value at PERCTSii")
+
+        if statsecs is not None:
+            for i, sec in enumerate(statsecs):
+                hdr[f"STATSEC{i+1:01d}"] = (sec, "Sections used for statistics")
 
         if N_extrema is not None:
             if N_extrema > 99:
