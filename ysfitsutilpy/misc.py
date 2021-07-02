@@ -31,7 +31,9 @@ __all__ = ["MEDCOMB_KEYS_INT", "SUMCOMB_KEYS_INT", "MEDCOMB_KEYS_FLT32", "LACOSM
            "get_size", "is_list_like", "circular_mask", "_image_shape", "_offsets2slice",
            "load_ccd", "write2fits",
            "_parse_data_header", "_parse_image", "_has_header", "_parse_extension",
-           "str_now", "change_to_quantity", "binning", "fitsxy2py", "give_stats", "chk_keyval"]
+           "str_now", "change_to_quantity", "binning", "fitsxy2py", "give_stats",
+           "quantile_lh", "quantile_sigma",
+           "chk_keyval"]
 
 
 MEDCOMB_KEYS_INT = dict(dtype='int16',
@@ -283,9 +285,9 @@ def _parse_data_header(ccdlike, extension=None, parse_data=True, parse_header=Tr
             hdr = ccdlike[extension].header.copy() if copy else ccdlike[extension].header
         else:
             hdr = None
-    elif isinstance(ccdlike, np.ndarray):
+    elif isinstance(ccdlike, (np.ndarray, list, tuple)):
         if parse_data:
-            data = ccdlike.copy() if copy else ccdlike
+            data = np.array(ccdlike, copy=copy)
         else:
             data = None
         hdr = None  # regardless of parse_header
@@ -1382,16 +1384,17 @@ def give_stats(item, extension=None, statsecs=None, percentiles=[1, 99], N_extre
         stdf = np.std
         pctf = np.percentile
 
-    result = dict(num=np.size(data),
-                  min=minf(data),
-                  max=maxf(data),
-                  avg=avgf(data),
-                  med=medf(data),
-                  std=stdf(data, ddof=1),
-                  percentiles=percentiles,
-                  pct=pctf(data, percentiles),
-                  slices=statsecs
-                  )
+    result = dict(
+        num=np.size(data),
+        min=minf(data),
+        max=maxf(data),
+        avg=avgf(data),
+        med=medf(data),
+        std=stdf(data, ddof=1),
+        percentiles=percentiles,
+        pct=pctf(data, percentiles),
+        slices=statsecs
+    )
     # d_pct = np.percentile(data, percentiles)
     # for i, pct in enumerate(percentiles):
     #     result[f"percentile_{round(pct, 4)}"] = d_pct[i]
@@ -1439,6 +1442,87 @@ def give_stats(item, extension=None, statsecs=None, percentiles=[1, 99], N_extre
                                            f"Upper extreme values (N_extrema={N_extrema})")
         return result, hdr
     return result
+
+
+def quantile_lh(a, lq, hq, axis=None, nanfunc=False, interpolation='linear', linterp=None, hinterp=None):
+    """Find quantiles for lower and higher values
+    Parameters
+    ----------
+    a : ndarray
+
+    lq, hq : array_like of float
+        Quantile or sequence of quantiles to compute, which must be between 0 and 1 inclusive.
+
+    axis : {int, tuple of int, None}, optional
+        Axis or axes along which the quantiles are computed. The default is to compute the quantile(s)
+        along a flattened version of the array.
+
+    nanfunc : bool, optional.
+        Whether to use `~np.nanquantile` instead of `~np.qualtile`. Default: `False`.
+
+    interpolation, linterp, hinterp : {'linear', 'lower', 'higher', 'midpoint', 'nearest'}, optional.
+        This optional parameter specifies the interpolation method to use when the desired quantile
+        lies between two data points ``i < j``:
+        * 'linear': ``i + (j - i) * fraction``, where ``fraction`` is the fractional part of the index
+          surrounded by ``i`` and ``j``.
+        * 'lower': ``i``.
+        * 'higher': ``j``.
+        * 'nearest': ``i`` or ``j``, whichever is nearest.
+        * 'midpoint': ``(i + j) / 2``.
+        To tune the interpolation method for lower and higher quantiles individually, set `linterp` and
+        `hinterp` separately. An idea is to use ``linterp='higher', hinterp='lower'`` to estimate the
+        robust standard deviation estimate.
+    """
+    linterp = interpolation if linterp is None else linterp
+    hinterp = interpolation if hinterp is None else hinterp
+
+    qfunc = np.nanquantile if nanfunc else np.quantile
+
+    try:
+        lq = float(lq)
+        hq = float(hq)
+    except TypeError:
+        raise TypeError("lq and hq must be floats, not array-like.")
+
+    if linterp == hinterp:
+        out = qfunc(a, (lq, hq), axis=axis, interpolation=linterp)
+    else:
+        out_l = qfunc(a, lq, axis=axis, interpolation=linterp)
+        out_h = qfunc(a, hq, axis=axis, interpolation=hinterp)
+        out = [out_l, out_h]
+
+    return out
+
+
+def quantile_sigma(a, axis=None, nanfunc=False, interpolation='linear', linterp=None, hinterp=None):
+    """ Extract "sigma" (std. dev.) from quantile to avoid bad values.
+    Parameters
+    ----------
+    a : ndarray
+
+    axis : {int, tuple of int, None}, optional
+        Axis or axes along which the quantiles are computed. The default is to compute the
+        quantile(s) along a flattened version of the array.
+
+    nanfunc : bool, optional.
+        Whether to use `~np.nanquantile` instead of `~np.quantile`. Default: `False`.
+
+    interpolation, linterp, hinterp : {'linear', 'lower', 'higher', 'midpoint', 'nearest'}, optional.
+        This optional parameter specifies the interpolation method to use when the desired quantile
+        lies between two data points ``i < j``:
+        * 'linear': ``i + (j - i) * fraction``, where ``fraction`` is the fractional part of the index
+          surrounded by ``i`` and ``j``.
+        * 'lower': ``i``.
+        * 'higher': ``j``.
+        * 'nearest': ``i`` or ``j``, whichever is nearest.
+        * 'midpoint': ``(i + j) / 2``.
+        To tune the interpolation method for lower and higher quantiles individually, set `linterp` and
+        `hinterp` separately. An idea is to use ``linterp='higher', hinterp='lower'`` to estimate the
+        robust standard deviation estimate.
+    """
+    low, upp = quantile_lh(a, 0.1587, 0.8413, axis=axis, nanfunc=nanfunc,
+                           interpolation=interpolation, linterp=linterp, hinterp=hinterp)
+    return np.abs(upp - low)/2
 
 
 # FIXME: I am not sure whether these gain conversions are universal or just
