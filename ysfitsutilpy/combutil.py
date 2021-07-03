@@ -12,8 +12,7 @@ from ccdproc import combine, trim_image
 
 from .filemgmt import load_if_exists, make_summary
 from .hduutil import (CCDData_astype, _parse_extension, add_to_header,
-                      inputs2list, load_ccd, trim_ccd)
-from .misc import chk_keyval
+                      inputs2list, load_ccd, trim_ccd, chk_keyval)
 
 __all__ = ["sstd", "weighted_mean", "group_fits", "select_fits", "stack_FITS", "combine_ccd"]
 

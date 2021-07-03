@@ -5,9 +5,10 @@ from astropy.io import fits
 from astropy.nddata import CCDData
 from astropy.time import Time
 
-from ..hduutil import (CCDData_astype, add_to_header, calc_offset_physical,
+from ..hduutil import (CCDData_astype, _has_header, _parse_extension,
+                       _parse_image, add_to_header, calc_offset_physical,
                        calc_offset_wcs, trim_ccd, update_tlm)
-from ..misc import _has_header, _offsets2slice, _parse_extension, _parse_image
+from ..misc import _offsets2slice
 
 __all__ = ["imarith"]
 

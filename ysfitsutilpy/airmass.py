@@ -11,7 +11,7 @@ from astropy.coordinates import AltAz, EarthLocation, SkyCoord
 from astropy.io.fits import Card
 from astropy.time import Time
 
-from .hdrutil import get_if_none
+from .hduutil import get_if_none
 
 __all__ = ["calc_airmass", "airmass_obs", "airmass_from_hdr"]
 

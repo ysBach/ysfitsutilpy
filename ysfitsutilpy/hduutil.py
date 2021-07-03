@@ -1591,8 +1591,8 @@ def fixpix_griddata(ccd, mask, extension=None, method='nearest', fill_value=0, u
     return _ccd
 
 
-def make_errmap(ccd, gain_epadu=1, rdnoise_electron=0, flat_err=0.0, subtracted_dark=None,
-                return_variance=False):
+def make_errormap(ccd, gain_epadu=1, rdnoise_electron=0, flat_err=0.0, subtracted_dark=None,
+                  return_variance=False):
     print("Use `errormap` instead.")
     return errormap(ccd, gain_epadu=gain_epadu, rdnoise_electron=rdnoise_electron,
                     subtracted_dark=subtracted_dark, flat_err=flat_err, return_variance=return_variance)

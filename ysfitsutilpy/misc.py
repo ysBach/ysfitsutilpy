@@ -1,8 +1,6 @@
 '''
 (Basic) Functions that are completely INDEPENDENT of all other modules of this package.
 '''
-from warnings import warn
-
 import ccdproc
 import numpy as np
 from astropy import units as u
@@ -12,8 +10,7 @@ from astropy.time import Time
 __all__ = ["MEDCOMB_KEYS_INT", "SUMCOMB_KEYS_INT", "MEDCOMB_KEYS_FLT32", "LACOSMIC_KEYS",
            "circular_mask", "_image_shape", "_offsets2slice",
            "str_now", "change_to_quantity", "binning", "fitsxy2py",
-           "quantile_lh", "quantile_sigma",
-           "chk_keyval"]
+           "quantile_lh", "quantile_sigma"]
 
 
 MEDCOMB_KEYS_INT = dict(dtype='int16',
