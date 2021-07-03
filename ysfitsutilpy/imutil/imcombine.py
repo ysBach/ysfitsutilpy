@@ -13,7 +13,7 @@ from ..filemgmt import make_summary
 from ..hduutil import (_parse_data_header, _parse_extension, add_to_header,
                        calc_offset_physical, calc_offset_wcs, get_size,
                        inputs2list, is_list_like, load_ccd, str_now,
-                       update_tlm, write2fits)
+                       update_tlm, write2fits, fitsxy2py)
 from ..misc import _image_shape
 from . import docstrings
 from .util_comb import (_set_cenfunc, _set_combfunc, _set_gain_rdns,
@@ -256,6 +256,7 @@ def imcombine(
     e_u = None if extension_uncertainty is None else _parse_extension(extension_uncertainty)
     e_m = None if extension_mask is None else _parse_extension(extension_mask)
     extract_hdr = imcmb_key not in [None, '', '$I']
+    slice_load = None if fits_section is None else fitsxy2py(fits_section)
 
     if logfile is not None:
         logfile = Path(logfile)
@@ -336,7 +337,7 @@ def imcombine(
     extract_hdr = extract_hdr or use_wcs or use_phy
     for i, item in enumerate(items):
         if extract_hdr:
-            _, hdr = _parse_data_header(item, extension=extension, parse_data=False, copy=False)
+            _, hdr = _parse_data_header(item, extension=extension, copy=False)
             if imcmb_key not in [None, '']:
                 if imcmb_key == "$I":
                     try:
@@ -389,7 +390,11 @@ def imcombine(
                     imcmb_val.append(Path(item).name)
                 except TypeError:
                     imcmb_val.append(f"User-provided {type(item)}")
-            shapes[i, ] = _parse_data_header(item, extension=extension, parse_header=False)[0].shape
+            data = _parse_data_header(item, extension=extension, parse_header=False)[0]
+            if fits_section is not None:
+                shapes[i, ] = data[slice_load].shape
+            else:
+                shapes[i, ] = data.shape
     # ------------------------------------------------------------------------------------------------------ #
 
     # == Check the size of the temporary array for combination ============================================= #
@@ -507,8 +512,8 @@ def imcombine(
         weights[i] = _w[0]
 
         # -- Insertion --------------------------------------------------------------------------------- #
-        arr_full[tuple(slices)] = _data
-        mask_full[tuple(slices)] = _mask
+        arr_full[tuple(slices)] = _data if slice_load is None else _data[slice_load]
+        mask_full[tuple(slices)] = _mask if slice_load is None or _mask is None else _mask[slice_load]
         if _var is not None:
             var_full[slices] = _var
 
@@ -522,7 +527,7 @@ def imcombine(
             print("{:^45s}|{:^9s}|{:^9s}|{:^9s}".format("input", "zero", "scale", "weight"))
             print("-"*80)
             for item, z, s, w in zip(items, zeros, scales, weights):
-                print("{:>45s}|{:9f}|{:9f}|{:9f}".format(item, z, s, w))
+                print("{:>45s}|{:9f}|{:9f}|{:9f}".format(item[-45:], z, s, w))
             print("-"*80)
             print()
         else:
