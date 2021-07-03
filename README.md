@@ -28,25 +28,56 @@ An example usage to make a summary file of FITS files:
 ```python
 import ysfitsutilpy as yfu
 
-from pathlib import Path
-
 # The keywords you want to extract (from the headers of FITS files)
-keys = ["OBS-TIME", "FILTER", "OBJECT"]  # actually it is case-insensitive
-
-# The working path (directory) and save path
-TOPPATH = Path("./observation_2018-01-01")
-savepath = TOPPATH/"summary_20180101.csv"
-
-# list of all the fits files in Path object
-allfits = list((TOPPATH/"rawdata").glob("*.fits"))
+keys = ["DATE-OBS", "FILTER", "OBJECT"]  # actually it is case-insensitive
 
 summary = yfu.make_summary(
-    allfits,
+    "observation_2018-01-01/R*.fits",
     keywords=keys,
-    fname_option='name',
-    sort_by="DATE-OBS",
-    output=savepath,
+    fname_option='name',  # 'file' column will contain only the name of the file (not full path)
+    sort_by="DATE-OBS",  # 'file's will be sorted based on "DATE-OBS" value in the header
+    output="summary_2018-01-01.csv",
     pandas=True  # default: False, so that astropy table is returned.
 )
+
 summary
+# shows results of the summary CSV file.
+
+```
+
+A simple example to combine multiple images:
+```python
+import ysfitsutilpy as yfu
+
+comb = yfu.imcombine(
+    "observation_2018-01-01/R*M101*.fits",
+    combine="med",  # med, median | avg, mean, average | sum
+    reject="sc",  # sc, sigc, sigclip, ... | ccd, ccdc, ccdclip
+    sigma=[2, 2],  # default is [3., 3.]
+    offset="wcs",  # combine by integer shift based on WCS information in headers
+    output="combined.fits",
+    output_err="comb_err.fits",  # errormap of survived pixels
+    output_mask="comb_mask.fits",  # N+1-dimensional mask of the rejected pixel positions
+    output_nrej="comb_nrej.fits",  # number of pixels rejected in the output file.
+    output_low="comb_low.fits",  # the lower limit used in pixel value rejection
+    output_upp="comb_upp.fits",  # the upper limit used in pixel value rejection
+    output_rejcode="comb_rejcode.fits",  # represents what rejection has happened (see docstring)
+    full=True,
+    verbose=True
+)
+```
+
+A quick dark combine:
+```python
+import ysfitsutilpy as yfu
+
+# Say dark frames have header OBJECT = "calib" && "IMAGE-TYP" = "DARK"
+comb = yfu.imcombine(
+    "observation_2018-01-01/*DARK*.fits",
+    type_key=["OBJECT", "IMAGE-TYP"],
+    type_val=["calib", "DARK"],
+    group_key=["FILTER", "EXPTIME"],
+    fmt="dark_{:s}_{:.1f}sec.fits",  # output file name format
+    outdir="cal-dark"
+)
 ```
