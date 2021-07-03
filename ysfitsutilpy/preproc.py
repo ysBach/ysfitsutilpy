@@ -10,11 +10,11 @@ from astropy.time import Time
 from astroscrappy import detect_cosmics
 from ccdproc import flat_correct, subtract_bias, subtract_dark
 
-from .ccdutil import (CCDData_astype, errormap, propagate_ccdmask,
-                      set_ccd_gain_rdnoise, trim_ccd)
-from .hdrutil import add_to_header, update_process, update_tlm
-from .misc import (LACOSMIC_KEYS, _parse_data_header, _parse_image,
-                   change_to_quantity, fitsxy2py, load_ccd)
+from .hduutil import (CCDData_astype, _parse_data_header, _parse_image,
+                      add_to_header, errormap, load_ccd, propagate_ccdmask,
+                      set_ccd_gain_rdnoise, trim_ccd, update_process,
+                      update_tlm)
+from .misc import LACOSMIC_KEYS, change_to_quantity, fitsxy2py
 
 __all__ = [
     "crrej", "medfilt_bpm", "bdf_process"]

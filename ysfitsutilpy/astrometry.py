@@ -381,7 +381,7 @@ def query_nova(server=Client.default_url, apikey=None, upload=None,
         Get a list of jobs associated with a given tag
 
     public: str, optional
-        Hide this submission from other users. If ``None`` (default), code
+        Hide this submission from other users. If `None` (default), code
         ``'y'`` is used, i.e., it is a public submission. Otherwise, code
         ``'n'`` is used, i.e., private submission, and the input value (which
         is not necessarily ``'n'``) will be added to a list called ``args``.

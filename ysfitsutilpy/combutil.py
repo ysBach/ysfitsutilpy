@@ -10,11 +10,10 @@ from astropy.table import Table
 from astropy.time import Time
 from ccdproc import combine, trim_image
 
-from .ccdutil import CCDData_astype, trim_ccd
 from .filemgmt import load_if_exists, make_summary
-from .hdrutil import add_to_header
-from .misc import chk_keyval, load_ccd, inputs2list, _parse_extension
-
+from .hduutil import (CCDData_astype, _parse_extension, add_to_header,
+                      inputs2list, load_ccd, trim_ccd)
+from .misc import chk_keyval
 
 __all__ = ["sstd", "weighted_mean", "group_fits", "select_fits", "stack_FITS", "combine_ccd"]
 

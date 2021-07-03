@@ -1,8 +1,7 @@
 import numpy as np
 
-from ..ccdutil import CCDData_astype, trim_ccd
-from ..hdrutil import update_tlm
-from ..misc import inputs2list, _parse_image
+from ..hduutil import (CCDData_astype, _parse_image, inputs2list, trim_ccd,
+                       update_tlm)
 
 __all__ = ['imcopy']
 

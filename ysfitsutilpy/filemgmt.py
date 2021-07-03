@@ -5,17 +5,17 @@ Contians convenience funcitons which are
 '''
 
 from pathlib import Path
-from astropy.io.fits.verify import VerifyError
-import numpy as np
-
-from astropy.table import Table
-from astropy.nddata import CCDData
-from astropy.io import fits
 from warnings import warn
+
 import ccdproc
-from .hdrutil import key_mapper, key_remover
-from .ccdutil import cutccd
-from .misc import inputs2list, _parse_extension
+import numpy as np
+from astropy.io import fits
+from astropy.io.fits.verify import VerifyError
+from astropy.nddata import CCDData
+from astropy.table import Table
+
+from .hduutil import (_parse_extension, cut_ccd, inputs2list, key_mapper,
+                      key_remover)
 
 __all__ = ["mkdir", "load_if_exists",
            "make_summary", "fits_newpath", "fitsrenamer"]
@@ -414,7 +414,7 @@ def fitsrenamer(fpath=None, header=None, newtop=None, rename_by=["OBJECT"], mkdi
         size = (ny, nx)  # yx order
         # Make CCDData instance as dummy object
         _ccd = CCDData(data, header=hdr, unit='adu')
-        _ccd = cutccd(_ccd, cent, size)
+        _ccd = cut_ccd(_ccd, cent, size)
         data = _ccd.data
         hdr = _ccd.header
 

@@ -10,11 +10,11 @@ from astropy.wcs import WCS
 
 from ..combutil import group_fits
 from ..filemgmt import make_summary
-from ..hdrutil import (add_to_header, calc_offset_physical, calc_offset_wcs,
-                       update_tlm)
-from ..misc import (_image_shape, _parse_data_header, _parse_extension,
-                    get_size, inputs2list, is_list_like, load_ccd, str_now,
-                    write2fits)
+from ..hduutil import (_parse_data_header, _parse_extension, add_to_header,
+                       calc_offset_physical, calc_offset_wcs, get_size,
+                       inputs2list, is_list_like, load_ccd, str_now,
+                       update_tlm, write2fits)
+from ..misc import _image_shape
 from . import docstrings
 from .util_comb import (_set_cenfunc, _set_combfunc, _set_gain_rdns,
                         _set_int_dtype, _set_keeprej, _set_mask,
@@ -36,7 +36,7 @@ bpmasks                : ?
 rejmask                : output_mask
 nrejmasks              : output_nrej
 expmasks               : Should I implement???
-sigma                  : output_sigma
+sigma                  : output_err
 outtype                : dtype
 outlimits              : fits_section
 expname                : exposure_key
@@ -229,22 +229,23 @@ def imcombine(
         pclip=-0.5,
         logfile=None,
         combine='average',
-        dtype='float32', dtype_std='float32', dtype_low=None, dtype_upp=None,
+        dtype='float32', dtype_err='float32', dtype_low=None, dtype_upp=None,
         irafmode=True,
         memlimit=2.5e+9,
         verbose=False,
         full=False,
+        return_variance=False,
         imcmb_key='$I',
         exposure_key="EXPTIME",
         output=None, output_mask=None, output_nrej=None,
-        output_std=None, output_low=None, output_upp=None,
+        output_err=None, output_low=None, output_upp=None,
         output_rejcode=None, return_dict=False,
         **kwargs
 ):
     if verbose:
         _t1 = Time.now()
         print(_t1.iso)
-        print("\tOrganizing", end='... ')
+        print("- Organizing", end='... ')
 
     items = inputs2list(inputs, sort=True, accept_ccdlike=True, check_coherency=True)
     ncombine = len(items)
@@ -423,7 +424,7 @@ def imcombine(
     # == Setup offset-ed array ============================================================================= #
     # NOTE: Using NaN does not set array with dtype of int... Any solution?
     if verbose:
-        print("\tLoading, calculating offsets with zero/scale")
+        print("- Loading, calculating offsets with zero/scale", end="... ")
 
     if extension_uncertainty is not None:
         var_full = np.nan*np.zeros(shape=(ncombine, *sh_comb), dtype=dtype)
@@ -511,16 +512,30 @@ def imcombine(
         if _var is not None:
             var_full[slices] = _var
 
+    if verbose:
+        print("Done.")
+
+    if verbose:
+        if isinstance(items[0], str):
+            print()
+            print("-"*80)
+            print("{:^45s}|{:^9s}|{:^9s}|{:^9s}".format("input", "zero", "scale", "weight"))
+            print("-"*80)
+            for item, z, s, w in zip(items, zeros, scales, weights):
+                print("{:>45s}|{:9f}|{:9f}|{:9f}".format(item, z, s, w))
+            print("-"*80)
+            print()
+        else:
+            pass
+    # ------------------------------------------------------------------------------------------------------ #
+
     add_to_header(hdr0, 'h', t_ref=_t, verbose=verbose,
                   s=f"Loaded {ncombine} FITS, calculated zero, scale, weights")
 
-    # ------------------------------------------------------------------------------------------------------ #
-
     # == Combine with rejection! =========================================================================== #
-    if verbose:
-        print("\tRejection and combination")
     _t = Time.now()
-    comb, std, mask_rej, mask_thresh, low, upp, nit, rejcode = ndcombine(
+
+    comb, err, mask_rej, mask_thresh, low, upp, nit, rejcode = ndcombine(
         arr=arr_full,
         mask=mask_full,
         copy=False,  # No need to retain arr_full.
@@ -546,7 +561,9 @@ def imcombine(
         snoise=sns,   # it is sns, not snoise , as it was updated above.
         pclip=pclip,
         irafmode=irafmode,
-        full=True
+        full=True,
+        return_variance=return_variance,
+        verbose=verbose
     )
 
     mask_total = mask_full | mask_thresh | mask_rej
@@ -575,7 +592,7 @@ def imcombine(
     comb = CCDData(data=comb, header=hdr0, unit=unit)
 
     if verbose:
-        print("Writing output FITS", end="... ")
+        print("\n- Writing output FITS", end="... ")
 
     # == Save FITS files =================================================================================== #
     if output is not None:
@@ -584,9 +601,9 @@ def imcombine(
         except VerifyError:
             raise VerifyError("Use output_verify='fix'")
 
-    if output_std is not None:
-        std = std.astype(dtype_std)
-        write2fits(std, hdr0, output_std, return_ccd=False, **kwargs)
+    if output_err is not None:
+        err = err.astype(dtype_err)
+        write2fits(err, hdr0, output_err, return_ccd=False, **kwargs)
 
     if output_low is not None:
         low = low.astype(dtype) if dtype_low is None else low.astype(dtype_low)
@@ -616,7 +633,7 @@ def imcombine(
     # == Write logfile ===================================================================================== #
     if logfile is not None:
         if verbose:
-            print("Writing summary table", end='...')
+            print("\n- Writing summary table", end='...')
         # Use astropy table rather than import pandas
         for name in ['scales', 'zeros', 'weights']:
             table_dict[name] = eval(f'list({name})')
@@ -634,14 +651,14 @@ def imcombine(
 
     if verbose:
         _t2 = Time.now()
-        print("Finished.")
+        print()
         print(_t2.iso, f"(TOTAL dt = {(_t2 - _t1).sec:5.3} sec)")
 
     # == Return ============================================================================================ #
     if full:
         if return_dict:
             return dict(comb=comb,
-                        std=std,
+                        err=err,
                         mask_total=mask_total,
                         mask_rej=mask_rej,
                         mask_thresh=mask_thresh,
@@ -651,7 +668,7 @@ def imcombine(
                         rejcode=rejcode
                         )
         else:
-            return (comb, std, mask_total, mask_rej, mask_thresh,
+            return (comb, err, mask_total, mask_rej, mask_thresh,
                     low, upp, nit, rejcode)
     else:
         return comb
@@ -714,9 +731,10 @@ imcombine.__doc__ = '''A helper function for ndcombine to cope with FITS files.
 
     output_xxx : path-like, optional
         The output path to the mask, number of rejected pixels at each position, final
-        ``nanstd(ddof=ddof)`` result, lower and upper bounds for rejection, and the integer codes for
-        the rejection algorithm (see `mask_total`, `mask_rej`, `sigma`, `low`, `upp`, and `rejcode` in
-        Returns.)
+        ``nanstd(combined, ddof=ddof, axis=0)`` (if `return_variance` is `False`) or ``nanvar(combined,
+        ddof=ddof, axis=0)`` (if `return_variance` is `True`) result, lower and upper bounds for
+        rejection, and the integer codes for the rejection algorithm (see `mask_total`, `mask_rej`,
+        `err`, `low`, `upp`, and `rejcode` in Returns.)
 
     return_dict : bool, optional.
         Whether to return the results as dict (works only if ``full=True``).
@@ -761,6 +779,7 @@ def ndcombine(
         irafmode=True,
         verbose=False,
         full=False,
+        return_variance=False
 ):
     if copy:
         arr = arr.copy()
@@ -777,6 +796,17 @@ def ndcombine(
     ddof = int(ddof)
 
     combfunc = _set_combfunc(combine, nameonly=False, nan=True)
+
+    if verbose and reject is not None:
+        print("- Rejection")
+        if thresholds != [-np.inf, np.inf]:
+            print(f"-- thresholds (low, upp) = {thresholds}")
+        print(f"-- reject={reject} (irafmode={irafmode})")
+        print(f"--       params: nkeep={nkeep}, maxrej={maxrej}, maxiters={maxiters}, cenfunc={cenfunc}")
+        print(f"  (for sigclip): sigma={sigma}, ddof={ddof}")
+        print(f"  (for ccdclip): gain={gain}, rdnoise={rdnoise}, snoise={snoise}")
+        # print(f"    (for pclip)  : spclip={pclip}")
+        # print(f" (for minmaxclip): n_minmax={n_minmax}")
 
     # == 01 - Thresholding + Initial masking =============================================================== #
     # Updating mask: _mask = _mask | mask_thresh
@@ -868,6 +898,9 @@ def ndcombine(
     else:
         raise ValueError("reject not understood.")
 
+    if reject is not None and verbose:
+        print("Done.")
+
     _mask |= mask_rej
 
     # ------------------------------------------------------------------------------------------------------ #
@@ -878,19 +911,28 @@ def ndcombine(
     # Replace rejected / masked pixel to NaN and backup for debugging purpose. This is done to reduce
     # memory (instead of doing _arr = arr.copy())
     # backup_nan = arr[_mask]
+    if verbose:
+        print(f"- Combining: {combine}-combine", end="... ")
     arr[_mask] = np.nan
 
     # Combine and calc sigma
     comb = combfunc(arr, axis=0)
-    if full:
-        std = bn.nanstd(arr, ddof=ddof, axis=0)
+    if verbose:
+        print("Done.")
 
     # Restore NaN-replaced pixels of arr for debugging purpose.
     # arr[_mask] = backup_nan
     # arr[mask_thresh] = backup_thresh_inmask
-
     if full:
-        return comb, std, mask_rej, mask_thresh, low, upp, nit, rejcode
+        if verbose:
+            print(f"- Error calc (`full=False` to skip): return_variance={return_variance}", end='... ')
+        if return_variance:
+            err = bn.nanvar(arr, ddof=ddof, axis=0)
+        else:
+            err = bn.nanstd(arr, ddof=ddof, axis=0)
+        if verbose:
+            print("Done.")
+        return comb, err, mask_rej, mask_thresh, low, upp, nit, rejcode
     else:
         return comb
 

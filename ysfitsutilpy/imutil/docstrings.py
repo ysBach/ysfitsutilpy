@@ -268,8 +268,9 @@ combine: str, optional.
 
 def NDCOMB_RETURNS_COMMON(indent=0):
     return _fix("""
-std : ndarray
-    The standard deviation map of the survived pixels (with `ddof`).
+err : ndarray
+    The standard deviation map (if `return_variance` is `False`) or the variance map (if
+    `return_variance` is `True`) of the survived pixels (with `ddof`).
 
 mask_total : ndarray (dtype bool)
     The full mask, ``N+1``-D. Identical to original FITS files' masks propagated with ``| mask_rej |
