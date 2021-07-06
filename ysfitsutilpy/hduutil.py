@@ -489,7 +489,7 @@ def _parse_extension(*args, ext=None, extname=None, extver=None):
     return ext
 
 
-def load_ccd(path, extension=None, ccddata=True, as_ccd=True, use_wcs=True, unit=None,
+def load_ccd(path, extension=None, fits_section=None, ccddata=True, as_ccd=True, use_wcs=True, unit=None,
              extension_uncertainty="UNCERT", extension_mask='MASK', extension_flags=None,
              load_primary_only_fitsio=True, return_full_fitsio=False,
              key_uncertainty_type='UTYPE', memmap=False, **kwd):
@@ -498,6 +498,9 @@ def load_ccd(path, extension=None, ccddata=True, as_ccd=True, use_wcs=True, unit
     ---------
     path : path-like
         The path to the FITS file to load.
+
+    fits_section : str, optional.
+        Region of `~astropy.nddata.CCDData` from which the data is extracted. Default is `None`.
 
     extension: int, str, (str, int)
         The extension of FITS to be used. It can be given as integer (0-indexing) of the extension,
@@ -682,25 +685,38 @@ def load_ccd(path, extension=None, ccddata=True, as_ccd=True, use_wcs=True, unit
             # else:  # prefer user's input
             #     ccd = CCDData.read(path, unit=unit, **reader_kw)
 
+            if fits_section is not None:
+                ccd = trim_ccd(ccd, fits_section=fits_section)
+
             return ccd
 
         else:
             # Use fitsio and only load the data as soon as possible.
             # This is much quicker than astropy's getdata
-            def _read_by_fitsio(_hdul, _path, _extension):
+            def _read_by_fitsio(_hdul, _path, _extension, _fits_section=None):
                 try:
-                    if is_list_like(_extension):
-                        # length == 2 is already checked in _parse_extension.
-                        arr = _hdul[_extension[0], _extension[1]].read()
+                    if _fits_section is not None:
+                        sl = fitsxy2py(_fits_section)
+                        if is_list_like(_extension):
+                            # length == 2 is already checked in _parse_extension.
+                            arr = _hdul[_extension[0], _extension[1]][sl]
+                        else:
+                            arr = _hdul[_extension][sl]
                     else:
-                        arr = _hdul[_extension].read()
+                        if is_list_like(_extension):
+                            # length == 2 is already checked in _parse_extension.
+                            arr = _hdul[_extension[0], _extension[1]].read()
+                        else:
+                            arr = _hdul[_extension].read()
                 except OSError:
                     raise ValueError(f"Extension `{_extension}` is not found (file: {_path})")
+                except ValueError:
+                    raise ValueError()
 
                 return arr
 
             hdul = fitsio.FITS(path)
-            data = _read_by_fitsio(hdul, path, extension)
+            data = _read_by_fitsio(hdul, path, extension, _fits_section=fits_section)
             if load_primary_only_fitsio and extension_uncertainty is None and extension_mask is None:
                 hdul.close()
                 if return_full_fitsio:
@@ -711,12 +727,12 @@ def load_ccd(path, extension=None, ccddata=True, as_ccd=True, use_wcs=True, unit
             else:
                 try:  # Read uncertainty if exists
                     e_u = _parse_extension(extension_uncertainty)
-                    unc = _read_by_fitsio(hdul, path, e_u)
+                    unc = _read_by_fitsio(hdul, path, e_u, _fits_section=fits_section)
                 except (OSError, ValueError):  # if the extension is not found
                     unc = None
                 try:  # Read uncertainty if exists
                     e_m = _parse_extension(extension_mask)
-                    mask = _read_by_fitsio(hdul, path, e_m)
+                    mask = _read_by_fitsio(hdul, path, e_m, _fits_section=fits_section)
                 except (OSError, ValueError):  # if the extension is not found
                     mask = None
 
@@ -752,6 +768,9 @@ def load_ccd(path, extension=None, ccddata=True, as_ccd=True, use_wcs=True, unit
         # (astropy.NDData.CCDData forces them to be loaded, which is not desirable imho)
         ccd.uncertainty = None if ignore_u else ccd.uncertainty
         ccd.mask = None if ignore_m else ccd.mask
+
+        if fits_section is not None:
+            ccd = trim_ccd(ccd, fits_section=fits_section)
 
         if ccddata and as_ccd:  # if at least one of these is False, it uses fitsio.
             return ccd
@@ -1083,6 +1102,8 @@ def trim_ccd(ccd, fits_section=None, update_header=True, verbose=False):
     _t = Time.now()
     trimmed_ccd = trim_image(ccd, fits_section=fits_section, add_keyword=update_header)
 
+    trim_str = ''
+
     if update_header:
         trim_str = f"Trimmed using {fits_section}"
         ndim = ccd.data.ndim  # ndim == NAXIS keyword
@@ -1120,7 +1141,7 @@ def trim_ccd(ccd, fits_section=None, update_header=True, verbose=False):
                     if f"LTM{i}_{j}" not in hdr:
                         hdr[f"LTM{i}_{j}"] = 0.
 
-    if verbose:
+    if verbose and trim_str:
         add_to_header(trimmed_ccd.header, 'h', trim_str, t_ref=_t, verbose=verbose)
 
     update_tlm(trimmed_ccd.header)
@@ -1538,8 +1559,8 @@ def fixpix(ccd, mask, maskpath=None, extension=None, mask_extension=None, priori
         data[coord_slice].flat = (val_last - val_init)/delta*grid + val_init
 
     if update_header:
-        _ccd.header["FIXPNPIX"] = (np.count_nonzero(mask), "Total num of pixels fixed by fixpix.")
-        _ccd.header["FIXPPATH"] = (maskpath, "The mask used for fixpix.")
+        _ccd.header["MASKNPIX"] = (np.count_nonzero(mask), "Total num of pixels fixed by fixpix.")
+        _ccd.header["MASKFILE"] = (maskpath, "Applied mask data for fixpix.")
         # add as history
         add_to_header(_ccd.header, 'h', t_ref=_t_start, s="Pixel values fixed by fixpix.")
     update_tlm(_ccd.header)
@@ -1580,9 +1601,9 @@ def fixpix_griddata(ccd, mask, extension=None, method='nearest', fill_value=0, u
     _ccd.data = griddata((x_valid, y_valid), z_valid, (x_idx, y_idx), method=method, fill_value=fill_value)
 
     if update_header:
-        _ccd.header["FIXPMETH"] = (method, "The interpolation method for fixpix")
-        _ccd.header["FIXPFILL"] = (fill_value, "The filling value if interpolation fails")
-        _ccd.header["FIXPNPIX"] = (np.count_nonzero(mask), "Total num of pixesl fixed by pixfix.")
+        _ccd.header["MASKMETH"] = (method, "The interpolation method for fixpix")
+        _ccd.header["MASKFILL"] = (fill_value, "The fill value if interpol. fails in fixpix")
+        _ccd.header["MASKNPIX"] = (np.count_nonzero(mask), "Total num of pixesl fixed by fixpix.")
         # add as history
         add_to_header(_ccd.header, 'h', t_ref=_t_start, s="Pixel values fixed by fixpix")
     update_tlm(_ccd.header)
