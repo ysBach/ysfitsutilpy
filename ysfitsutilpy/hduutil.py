@@ -145,7 +145,7 @@ def _parse_data_header(ccdlike, extension=None, parse_data=True, parse_header=Tr
 
     Paramters
     ---------
-    ccdlike : CCDData, PrimaryHDU, ImageHDU, HDUList, Header, ndarray, number-like, path-like
+    ccdlike : CCDData, PrimaryHDU, ImageHDU, HDUList, Header, ndarray, number-like, path-like, None
         The object to be parsed into data and header.
 
     extension: int, str, (str, int)
@@ -159,8 +159,8 @@ def _parse_data_header(ccdlike, extension=None, parse_data=True, parse_header=Tr
 
     Returns
     -------
-    data : ndarray
-        The data part of the input `ccdlike`.
+    data : ndarray, None
+        The data part of the input `ccdlike`. If `ccdlike` is ``''`` or `None`, `None` is returned.
 
     hdr : Header, None
         The header if header exists; otherwise, `None` is returned.
@@ -171,7 +171,10 @@ def _parse_data_header(ccdlike, extension=None, parse_data=True, parse_header=Tr
     copy of the data and/or header, especially to CHECK if it has header, while _parse_image is to deal
     mainly with the data (and has options to return as CCDData).
     '''
-    if isinstance(ccdlike, ASTROPY_CCD_TYPES):
+    if ccdlike is None or not ccdlike:
+        data = None
+        hdr = None
+    elif isinstance(ccdlike, ASTROPY_CCD_TYPES):
         if parse_data:
             data = ccdlike.data.copy() if copy else ccdlike.data
         else:
