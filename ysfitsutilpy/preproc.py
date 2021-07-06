@@ -20,13 +20,13 @@ __all__ = [
     "crrej", "medfilt_bpm", "bdf_process"]
 
 # Set strings for header history & print (if verbose)
-str_bias = "Bias subtracted (see BIASPATH)"
-str_dark = "Dark subtracted (see DARKPATH)"
+str_bias = "Bias subtracted (see BIASFRM)"
+str_dark = "Dark subtracted (see DARKFRM)"
 str_dscale = "Dark scaling using {}"
-str_flat = "Flat corrected by image/flat*flat_norm_value (see FLATPATH; FLATNORM)"
-str_fringe_noscale = "Fringe subtracted (see FRINPATH)"
+str_flat = "Flat corrected by image/flat*flat_norm_value (see FLATFRM; FLATNORM)"
+str_fringe_noscale = "Fringe subtracted (see FRINFRM)"
 str_fringe_scale = ("Finge subtracted with scaling (image - scale*fringe)"
-                    + "(see FRINPATH, FRINSECT, FRINFUNC and FRINSCAL)")
+                    + "(see FRINFRM, FRINSECT, FRINFUNC and FRINSCAL)")
 str_trim = "Trim by FITS section {} (see LTV, LTM, TRIMIM)"
 str_e0 = "Readnoise propagated with Poisson noise (using gain above) of source."
 str_ed = "Poisson noise from subtracted dark was propagated."
@@ -614,8 +614,8 @@ def bdf_process(ccd, output=None, extension=None,
     mbias, mdark, mflat, mfringe : CCDData, optional.
         The master bias, dark, and flat in `~astropy.nddata.CCDData`. If this is given, the files
         provided by ``mbiaspath``, ``mdarkpath``, ``mflatpath`` and/or ``mfringe`` are **not** loaded,
-        but these paths will be used for header (``BIASPATH``, ``DARKPATH``, ``FLATPATH`` and/or
-        ``FRINPATH``). If the paths are not given, the header values will be ``<User>``.
+        but these paths will be used for header (``BIASFRM``, ``DARKFRM``, ``FLATFRM`` and/or
+        ``FRINFRM``). If the paths are not given, the header values will be ``<User>``.
 
     fringe_scale_fun : function object, optional.
         The function to be used to scale the fringe before subtraction, specified by the region
@@ -779,14 +779,14 @@ def bdf_process(ccd, output=None, extension=None,
     do_bias, mbias, mbiaspath = _load_master(mbiaspath, mbias)
     if do_bias:
         PROCESS.append("B")
-        proc.header["BIASPATH"] = (str(mbiaspath), "Path to the used bias file")
+        proc.header["BIASFRM"] = (str(mbiaspath), "Applied bias frame")
 
     # Set for DARK
     do_dark, mdark, mdarkpath = _load_master(mdarkpath, mdark)
 
     if do_dark:
         PROCESS.append("D")
-        proc.header["DARKPATH"] = (str(mdarkpath), "Path to the used dark file")
+        proc.header["DARKFRM"] = (str(mdarkpath), "Applied dark frame")
 
         if dark_scale:
             # TODO: what if dark_exposure, data_exposure are given explicitly?
@@ -796,14 +796,14 @@ def bdf_process(ccd, output=None, extension=None,
     do_flat, mflat, mflatpath = _load_master(mflatpath, mflat)
     if do_flat:
         PROCESS.append("F")
-        proc.header["FLATPATH"] = (str(mflatpath), "Path to the used flat file")
+        proc.header["FLATFRM"] = (str(mflatpath), "Applied flat frame")
         proc.header["FLATNORM"] = (flat_norm_value, "flat_norm_value (none = mean of input flat)")
 
     # set for FRINGE
     do_fringe, mfringe, mfringepath = _load_master(mfringepath, mfringe)
     if do_fringe:
         PROCESS.append("Fr")
-        proc.header["FRINPATH"] = (str(mfringepath), "Path to the used fringe")
+        proc.header["FRINFRM"] = (str(mfringepath), "Applied fringe frame")
         if fringe_scale_section is not None:
             proc.header["FRINSECT"] = (fringe_scale_section, "FITS section used for scaling fringe")
             proc.header["FRINFUNC"] = (fringe_scale_fun.__name__, "Function used for fringe scaling")
