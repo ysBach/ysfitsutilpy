@@ -70,7 +70,7 @@ def airmass_obs(targetcoord, obscoord, ut, exptime, scale=750., full=False):
 
     scale : float, optional
         Earth radius divided by the atmospheric height (usually scale height) of the atmosphere. In
-        IRAF documentation, it is mistakenly written that this ``scale`` is the "scale height".
+        IRAF documentation, it is mistakenly written that this `scale` is the "scale height".
 
     Notes
     -----
@@ -113,12 +113,13 @@ def airmass_obs(targetcoord, obscoord, ut, exptime, scale=750., full=False):
 
 
 # TODO: change key, unit, etc as input dict.
-def airmass_from_hdr(header, ra=None, dec=None, ut=None, exptime=None,
-                     lon=None, lat=None, height=None, equinox=None, frame=None, scale=750.,
-                     ra_key="RA", dec_key="DEC", ut_key="DATE-OBS", lon_key="LONGITUD", lat_key="LATITUDE",
-                     height_key="HEIGHT", exptime_key="EXPTIME", equinox_key="EPOCH", frame_key="RADECSYS",
-                     ra_unit=u.hourangle, dec_unit=u.deg, exptime_unit=u.s, lon_unit=u.deg, lat_unit=u.deg,
-                     height_unit=u.m, ut_format='isot', ut_scale='utc', return_header=False, verbose=False):
+def airmass_from_hdr(
+        header, ra=None, dec=None, ut=None, exptime=None, lon=None, lat=None, height=None,
+        equinox=None, frame=None, scale=750., ra_key="RA", dec_key="DEC", ut_key="DATE-OBS",
+        lon_key="LONGITUD", lat_key="LATITUDE", height_key="HEIGHT", exptime_key="EXPTIME",
+        equinox_key="EPOCH", frame_key="RADECSYS", ra_unit=u.hourangle, dec_unit=u.deg, exptime_unit=u.s,
+        lon_unit=u.deg, lat_unit=u.deg, height_unit=u.m, ut_format='isot', ut_scale='utc',
+        return_header=False, verbose=False):
     ''' Calculate airmass using the header.
     Parameters
     ----------
@@ -136,7 +137,7 @@ def airmass_from_hdr(header, ra=None, dec=None, ut=None, exptime=None,
         The longitude, latitude, and height of the observatory. See astropy.coordinates.EarthLocation.
 
     equinox, frame: str, optional
-        The ``equinox`` and ``frame`` for SkyCoord.
+        The `equinox` and `frame` for SkyCoord.
 
     scale: float, optional
         Earth radius divided by the atmospheric height (usually scale height) of the atmosphere.
@@ -148,7 +149,7 @@ def airmass_from_hdr(header, ra=None, dec=None, ut=None, exptime=None,
         The unit of ``XX``
 
     ut_format, ut_scale: str, optional
-        The ``format`` and ``scale`` for Time.
+        The `format` and `scale` for Time.
 
     return_header: bool, optional
         Whether to return the updated header.

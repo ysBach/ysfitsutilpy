@@ -10,7 +10,7 @@ from astropy.wcs import WCS
 
 from ..combutil import group_fits
 from ..filemgmt import make_summary
-from ..hduutil import (_parse_data_header, _parse_extension, add_to_header,
+from ..hduutil import (_parse_data_header, _parse_extension, add2hdr,
                        calc_offset_physical, calc_offset_wcs, get_size,
                        inputs2list, is_list_like, load_ccd, str_now,
                        update_tlm, write2fits, fitsxy2py)
@@ -51,8 +51,8 @@ lsigma    , hsigma     : sigma uple
 '''
 
 
-def group_combine(inputs, type_key=None, type_val=None, group_key=None, verbose=1,
-                  fmt='', outdir=None, **kwargs):
+def group_combine(
+        inputs, type_key=None, type_val=None, group_key=None, verbose=1, fmt='', outdir=None, **kwargs):
     ''' Combine sub-groups of FITS files from the given input.
     Parameters
     ----------
@@ -240,8 +240,7 @@ def imcombine(
         output=None, output_mask=None, output_nrej=None,
         output_err=None, output_low=None, output_upp=None,
         output_rejcode=None, return_dict=False,
-        **kwargs
-):
+        **kwargs):
     if verbose:
         _t1 = Time.now()
         print(_t1.iso)
@@ -535,7 +534,7 @@ def imcombine(
             pass
     # ------------------------------------------------------------------------------------------------------ #
 
-    add_to_header(hdr0, 'h', t_ref=_t, verbose=verbose,
+    add2hdr(hdr0, 'h', t_ref=_t, verbose=verbose,
                   s=f"Loaded {ncombine} FITS, calculated zero, scale, weights")
 
     # == Combine with rejection! =========================================================================== #
@@ -593,7 +592,7 @@ def imcombine(
     except (KeyError, IndexError):
         unit = 'adu'
 
-    add_to_header(hdr0, 'h', t_ref=_t, verbose=verbose, s="Rejection and combination done")
+    add2hdr(hdr0, 'h', t_ref=_t, verbose=verbose, s="Rejection and combination done")
     comb = comb.astype(dtype)
     comb = CCDData(data=comb, header=hdr0, unit=unit)
 
@@ -785,8 +784,7 @@ def ndcombine(
         irafmode=True,
         verbose=False,
         full=False,
-        return_variance=False
-):
+        return_variance=False):
     if copy:
         arr = arr.copy()
 
@@ -922,7 +920,7 @@ def ndcombine(
     # memory (instead of doing _arr = arr.copy())
     # backup_nan = arr[_mask]
     if verbose:
-        print(f"- Combining")
+        print("- Combining")
         print(f"-- combine = {combine}")
     arr[_mask] = np.nan
 

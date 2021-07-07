@@ -11,8 +11,8 @@ __all__ = ["sigclip_mask"]
 
 def _iter_rej(
         arr, mask=None, sigma_lower=3., sigma_upper=3., maxiters=5, ddof=0, nkeep=3, maxrej=None,
-        cenfunc='median', ccdclip=False, irafmode=True, rdnoise_ref=0., snoise_ref=0., scale_ref=1, zero_ref=0
-):
+        cenfunc='median', ccdclip=False, irafmode=True, rdnoise_ref=0., snoise_ref=0., scale_ref=1,
+        zero_ref=0):
     """ The common function for iterative rejection algorithms.
 
     Parameters
@@ -171,9 +171,8 @@ def _iter_rej(
 # *                                             SIGMA-CLIPPING                                             * #
 # ********************************************************************************************************** #
 def sigclip_mask(
-    arr, mask=None, sigma=3., sigma_lower=None, sigma_upper=None, maxiters=5, ddof=0, nkeep=3, maxrej=None,
-    cenfunc='median', irafmode=False, axis=0, full=True
-):
+        arr, mask=None, sigma=3., sigma_lower=None, sigma_upper=None, maxiters=5, ddof=0, nkeep=3,
+        maxrej=None, cenfunc='median', irafmode=False, axis=0, full=True):
     if axis != 0:
         raise ValueError("Currently only axis=0 is supported")
 
@@ -224,9 +223,7 @@ sigclip_mask.__doc__ = ''' Finds masks of `arr` by sigma-clipping.
 # ********************************************************************************************************** #
 # *                                              MINMAX CLIPPING                                           * #
 # ********************************************************************************************************** #
-def _minmax(
-        arr, mask=None, q_low=0, q_upp=0, cenfunc='median'
-):
+def _minmax(arr, mask=None, q_low=0, q_upp=0, cenfunc='median'):
     # General setup (nkeep and maxrej as dummy)
     _arr, _masks, _, cenfunc, _nvals = _setup_reject(
         arr=arr, mask=mask, nkeep=1, maxrej=None, cenfunc=cenfunc
@@ -269,8 +266,7 @@ def _minmax(
 def ccdclip_mask(
         arr, mask=None, sigma=3., sigma_lower=None, sigma_upper=None, maxiters=5, ddof=0, nkeep=3,
         maxrej=None, cenfunc='median', irafmode=False, axis=0, gain=1., rdnoise=0., snoise=0.,
-        scale_ref=1, zero_ref=0, dtype='float32', full=True
-):
+        scale_ref=1, zero_ref=0, dtype='float32', full=True):
     if axis != 0:
         raise ValueError("Currently only axis=0 is supported")
 

@@ -106,8 +106,7 @@ def _regularize_offsets(offsets, offset_order_xyz=True, intify_offsets=False):
 
 
 def _image_shape(
-    shapes, offsets, method='outer', offset_order_xyz=True, intify_offsets=False, pythonize_offsets=True
-):
+        shapes, offsets, method='outer', offset_order_xyz=True, intify_offsets=False, pythonize_offsets=True):
     '''shapes and offsets must be in the order of python/numpy (i.e., z, y, x order).
 
     Paramters
@@ -167,9 +166,8 @@ def _image_shape(
 
 
 def _offsets2slice(
-    shapes, offsets, method='outer', shape_order_xyz=False, offset_order_xyz=True, outer_for_stack=True,
-    fits_convention=False
-):
+        shapes, offsets, method='outer', shape_order_xyz=False, offset_order_xyz=True, outer_for_stack=True,
+        fits_convention=False):
     """ Calculates the slices for each image when to extract overlapping parts.
 
     Parameters

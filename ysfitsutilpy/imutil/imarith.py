@@ -6,7 +6,7 @@ from astropy.nddata import CCDData
 from astropy.time import Time
 
 from ..hduutil import (CCDData_astype, _has_header, _parse_extension,
-                       _parse_image, add_to_header, calc_offset_physical,
+                       _parse_image, add2hdr, calc_offset_physical,
                        calc_offset_wcs, trim_ccd, update_tlm)
 from ..misc import _offsets2slice
 
@@ -29,7 +29,7 @@ def _update_hdr(header, params, name1, op, name2, output, error_calc=False, t_re
         infostr += f" -> {output}"
     if error_calc:
         infostr += " with error propagation"
-    add_to_header(header, 'h', s=infostr, t_ref=t_ref, verbose=verbose)
+    add2hdr(header, 'h', s=infostr, t_ref=t_ref, verbose=verbose)
     update_tlm(header)
 
 
@@ -52,12 +52,11 @@ def _ccddata_operator(op):
 def _replace_nan(res, header, replace=None):
     if replace is not None:
         res.data[~np.isfinite(res.data)] = replace
-        add_to_header(header, 'h', f"Non-finite pixels replaced by {replace}", time_fmt=None)
+        add2hdr(header, 'h', f"Non-finite pixels replaced by {replace}", time_fmt=None)
 
 
 def _load_im_name_hdr(
-    im1, im2, name1, name2, extension1, extension2, offsets=None, force_ccddata=False, verbose=False
-):
+        im1, im2, name1, name2, extension1, extension2, offsets=None, force_ccddata=False, verbose=False):
     ''' Prepare images as ndarray unless FORCING to become CCDData.
     It, however, *tries* to find at least one image with header for logging.
     '''
@@ -127,10 +126,9 @@ def _load_im_name_hdr(
 
 
 def imarith(
-    im1, op, im2, output=None, extension1=None, extension2=None, name1=None, name2=None,
-    offsets=None, replace=0, header_params=None, dtype='float32', error_calc=False, ignore_header=False,
-    overwrite=False, verbose=True
-):
+        im1, op, im2, output=None, extension1=None, extension2=None, name1=None, name2=None,
+        offsets=None, replace=0, header_params=None, dtype='float32', error_calc=False, ignore_header=False,
+        overwrite=False, verbose=True):
     ''' Similar to IRAF IMARITH
     Parameters
     ----------

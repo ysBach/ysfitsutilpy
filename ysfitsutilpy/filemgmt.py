@@ -17,8 +17,9 @@ from astropy.table import Table
 from .hduutil import (_parse_extension, cut_ccd, inputs2list, key_mapper,
                       key_remover)
 
-__all__ = ["mkdir", "load_if_exists",
-           "make_summary", "fits_newpath", "fitsrenamer"]
+__all__ = [
+    "mkdir", "load_if_exists", "make_summary", "fits_newpath", "fitsrenamer"
+]
 
 
 def mkdir(fpath, mode=0o777, exist_ok=True):
@@ -70,9 +71,9 @@ def load_if_exists(path, loader, if_not=None, verbose=True, **kwargs):
     return loaded
 
 
-def make_summary(inputs=None, extension=None, verify_fix=False,
-                 fname_option='relative', output=None, format='ascii.csv', keywords=[],
-                 example_header=None, sort_by='file', pandas=False, verbose=True):
+def make_summary(
+        inputs=None, extension=None, verify_fix=False, fname_option='relative', output=None,
+        format='ascii.csv', keywords=[], example_header=None, sort_by='file', pandas=False, verbose=True):
     """ Extracts summary from the headers of FITS files.
 
     Parameters
@@ -311,9 +312,10 @@ def fits_newpath(fpath, rename_by, mkdir_by=None, header=None, delimiter='_', fi
     return newpath
 
 
-def fitsrenamer(fpath=None, header=None, newtop=None, rename_by=["OBJECT"], mkdir_by=None, delimiter='_',
-                archive_dir=None, keymap=None, key_deprecation=True, remove_keys=None, overwrite=False,
-                fillnan="", trim_fits_section=None, verbose=True, add_header=None):
+def fitsrenamer(
+        fpath=None, header=None, newtop=None, rename_by=["OBJECT"], mkdir_by=None, delimiter='_',
+        archive_dir=None, keymap=None, key_deprecation=True, remove_keys=None, overwrite=False,
+        fillnan="", trim_fits_section=None, verbose=True, add_header=None):
     ''' Renames a FITS file by ``rename_by`` with delimiter.
 
     Parameters

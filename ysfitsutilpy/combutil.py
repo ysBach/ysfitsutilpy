@@ -11,7 +11,7 @@ from astropy.time import Time
 from ccdproc import combine, trim_image
 
 from .filemgmt import load_if_exists, make_summary
-from .hduutil import (CCDData_astype, _parse_extension, add_to_header,
+from .hduutil import (CCDData_astype, _parse_extension, add2hdr,
                       inputs2list, load_ccd, trim_ccd, chk_keyval)
 
 __all__ = ["sstd", "weighted_mean", "group_fits", "select_fits", "stack_FITS", "combine_ccd"]
@@ -39,8 +39,7 @@ def weighted_mean(ccds, unit='adu'):
 
 
 def group_fits(
-    summary_table, type_key=None, type_val=None, group_key=None, table_filecol="file", verbose=False
-):
+        summary_table, type_key=None, type_val=None, group_key=None, table_filecol="file", verbose=False):
     ''' Organize the group_by and type_key for stack_FITS
     Parameters
     ----------
@@ -53,8 +52,8 @@ def group_fits(
 
     group_key : None, str, list of str, optional
         The header keyword which will be used to make groups for the CCDs that have selected from
-        `type_key` and `type_val`. If `None` (default), no grouping will occur, but it will return
-        the `~pandas.DataFrameGroupBy` object will be returned for the sake of consistency.
+        `type_key` and `type_val`. If `None` (default), no grouping will occur, but it will return the
+        `~pandas.DataFrameGroupBy` object will be returned for the sake of consistency.
 
     Return
     ------
@@ -62,8 +61,8 @@ def group_fits(
         The table after the grouping process.
 
     group_type_key : list of str
-        The `type_key` that can directly be used for `stack_FITS` for each element of
-        `grouped.groups`. Basically this is ``type_key + group_key``.
+        The `type_key` that can directly be used for `stack_FITS` for each element of `grouped.groups`.
+        Basically this is ``type_key + group_key``.
 
     Example
     -------
@@ -107,9 +106,8 @@ def group_fits(
 
 
 def select_fits(
-    inputs, extension=None, unit=None, trim_fits_section=None, table_filecol="file", prefer_ccddata=False,
-    type_key=None, type_val=None, path_to_text=False, verbose=True
-):
+        inputs, extension=None, unit=None, trim_fits_section=None, table_filecol="file", prefer_ccddata=False,
+        type_key=None, type_val=None, path_to_text=False, verbose=True):
     ''' Stacks the FITS files specified in fitslist
 
     Parameters
@@ -130,8 +128,8 @@ def select_fits(
         `True`. Ignored if `inputs` is table-like.
 
     trim_fits_section : str or None, optional
-        The `fits_section` of `ccdproc.trim_image`. Region of `~astropy.nddata.CCDData` from which
-        the overscan is extracted; see `~ccdproc.subtract_overscan` for details.
+        The `fits_section` of `ccdproc.trim_image`. Region of `~astropy.nddata.CCDData` from which the
+        overscan is extracted; see `~ccdproc.subtract_overscan` for details.
         Default is `None`.
         Ignored if `inputs` is table-like.
 
@@ -151,9 +149,9 @@ def select_fits(
     Return
     ------
     matched: list of Path or list of CCDData
-        list containing Path to files if `prefer_ccddata` is `False`. Otherwise it is a list
-        containing loaded CCDData after loading the files. If `ccdlist` is given a priori, list of
-        CCDData will be returned regardless of `prefer_ccddata`.
+        list containing Path to files if `prefer_ccddata` is `False`. Otherwise it is a list containing
+        loaded CCDData after loading the files. If `ccdlist` is given a priori, list of CCDData will be
+        returned regardless of `prefer_ccddata`.
     '''
     def _parse_val(value):
         val = str(value)
@@ -344,9 +342,8 @@ def select_fits(
 
 
 def stack_FITS(
-    fitslist=None, summary_table=None, extension=None, unit=None, table_filecol="file", trim_fits_section=None,
-    ccddata=True, asccd=True, type_key=None, type_val=None, verbose=True
-):
+        fitslist=None, summary_table=None, extension=None, unit=None, table_filecol="file",
+        trim_fits_section=None, ccddata=True, asccd=True, type_key=None, type_val=None, verbose=True):
     ''' Stacks the FITS files specified in fitslist
 
     Parameters
@@ -354,16 +351,16 @@ def stack_FITS(
     fitslist: None, list of path-like, or list of CCDData
         The list of path to FITS files or the list of CCDData to be stacked. It is useful to give list
         of CCDData if you have already stacked/loaded FITS file into a list by your own criteria. If
-        `None` (default), you must give `fitslist` or `summary_table`. If it is not `None`,
-        this function will do very similar job to that of `ccdproc.combine`. Although it is not a
-        good idea, a mixed list of CCDData and paths to the files is also acceptable.
+        `None` (default), you must give `fitslist` or `summary_table`. If it is not `None`, this
+        function will do very similar job to that of `ccdproc.combine`. Although it is not a good idea,
+        a mixed list of CCDData and paths to the files is also acceptable.
 
     summary_table: None, pandas.DataFrame or astropy.table.Table
         The table which contains the metadata of files. If there are many FITS files and you want to
         use stacking many times, it is better to make a summary table by `filemgmt.make_summary` and
         use that instead of opening FITS files' headers every time you call this function. If you want
-        to use `summary_table` instead of `fitslist` and have set ``ccddata=True``, you must not
-        have `None` or ``NaN`` value in the ``summary_table[table_filecol]``.
+        to use `summary_table` instead of `fitslist` and have set ``ccddata=True``, you must not have
+        `None` or ``NaN`` value in the ``summary_table[table_filecol]``.
 
     extension: int, str, (str, int)
         The extension of FITS to be used. It can be given as integer (0-indexing) of the extension,
@@ -378,8 +375,8 @@ def stack_FITS(
         The column name of the `summary_table` which contains the path to the FITS files.
 
     trim_fits_section : str or None, optional
-        The `fits_section` of `ccdproc.trim_image`. Region of `~astropy.nddata.CCDData` from which
-        the overscan is extracted; see `~ccdproc.subtract_overscan` for details.
+        The `fits_section` of `ccdproc.trim_image`. Region of `~astropy.nddata.CCDData` from which the
+        overscan is extracted; see `~ccdproc.subtract_overscan` for details.
         Default is `None`.
 
     ccddata: bool, optional
@@ -397,9 +394,9 @@ def stack_FITS(
     Return
     ------
     matched: list of Path or list of CCDData
-        list containing Path to files if `ccddata` is `False`. Otherwise it is a list containing
-        loaded CCDData after loading the files. If `ccdlist` is given a priori, list of CCDData will
-        be returned regardless of `ccddata`.
+        list containing Path to files if `ccddata` is `False`. Otherwise it is a list containing loaded
+        CCDData after loading the files. If `ccdlist` is given a priori, list of CCDData will be
+        returned regardless of `ccddata`.
     '''
     warn("stack_FITS is deprecated; use select_fits.", DeprecationWarning)
 
@@ -567,13 +564,12 @@ def stack_FITS(
 
 
 def combine_ccd(
-    fitslist=None, summary_table=None, table_filecol="file", trim_fits_section=None, output=None, unit=None,
-    subtract_frame=None, combine_method='median', reject_method=None,
-    normalize_exposure=False, normalize_average=False, normalize_median=False,
-    exposure_key='EXPTIME', mem_limit=2e9, combine_uncertainty_function=None,
-    extension=None, type_key=None, type_val=None, dtype="float32", uncertainty_dtype="float32",
-    output_verify='fix', overwrite=False, verbose=True, **kwargs
-):
+        fitslist=None, summary_table=None, table_filecol="file", trim_fits_section=None, output=None,
+        unit=None, subtract_frame=None, combine_method='median', reject_method=None,
+        normalize_exposure=False, normalize_average=False, normalize_median=False,
+        exposure_key='EXPTIME', mem_limit=2e9, combine_uncertainty_function=None,
+        extension=None, type_key=None, type_val=None, dtype="float32", uncertainty_dtype="float32",
+        output_verify='fix', overwrite=False, verbose=True, **kwargs):
     ''' Combining images
     Slight variant from ccdproc.
     # TODO: accept the input like ``sigma_clip_func='median'``, etc.
@@ -583,15 +579,15 @@ def combine_ccd(
         The list of path to FITS files or the list of CCDData to be stacked. It is useful to give list
         of CCDData if you have already stacked/loaded FITS file into a list by your own criteria. If
         `None` (default), you must give `fitslist` or `summary_table`. If it is not `None`, this
-        function will do very similar job to that of `ccdproc.combine`. Although it is not a good
-        idea, a mixed list of CCDData and paths to the files is also acceptable.
+        function will do very similar job to that of `ccdproc.combine`. Although it is not a good idea,
+        a mixed list of CCDData and paths to the files is also acceptable.
 
     summary_table: pandas.DataFrame or astropy.table.Table
         The table which contains the metadata of files. If there are many FITS files and you want to
         use stacking many times, it is better to make a summary table by `filemgmt.make_summary` and
         use that instead of opening FITS files' headers every time you call this function. If you want
-        to use `summary_table` instead of `fitslist` and have set ``ccddata=True``, you must not
-        have `None` or ``NaN`` value in the ``summary_table[table_filecol]``.
+        to use `summary_table` instead of `fitslist` and have set ``ccddata=True``, you must not have
+        `None` or ``NaN`` value in the ``summary_table[table_filecol]``.
 
     table_filecol: str
         The column name of the `summary_table` which contains the path to the FITS files.
@@ -621,9 +617,9 @@ def combine_ccd(
         Default is `None`.
 
     reject_method : str
-        Made for simple use of `ccdproc.combine`, [None, 'minmax', 'sigclip' == 'sigma_clip',
-        'extrema' == 'ext']. Automatically turns on the option, e.g., ``clip_extrema = True`` or
-        ``sigma_clip = True``. Leave it blank for no rejection.
+        Made for simple use of `ccdproc.combine`, [None, 'minmax', 'sigclip' == 'sigma_clip', 'extrema'
+        == 'ext']. Automatically turns on the option, e.g., ``clip_extrema = True`` or ``sigma_clip =
+        True``. Leave it blank for no rejection.
         Default is `None`.
 
     normalize_exposure : bool, optional.
@@ -632,7 +628,7 @@ def combine_ccd(
 
     normalize_average, normalize_median : bool, optional.
         Whether to normalize the values by the average or median value of each frame before combining.
-        Only up to one of these must be True.
+        Only up to one of these must be `True`.
         Default is `False`.
 
     exposure_key : str, optional
@@ -640,7 +636,7 @@ def combine_ccd(
         Default is ``"EXPTIME"``.
 
     combine_uncertainty_function : callable, None, optional
-        The uncertainty calculation function of `ccdproc.combine`. If `None` use the default
+        The uncertainty calculation function of `~ccdproc.combine`. If `None` use the default
         uncertainty func when using average, median or sum combine, otherwise use the function
         provided.
         Default is `None`.
@@ -843,21 +839,21 @@ def combine_ccd(
                            sort_by=None)
         exptimes = tmp[exposure_key].tolist()
         scale = 1 / np.array(exptimes)
-        add_to_header(header, 'h', str_nexp, verbose=verbose)
+        add2hdr(header, 'h', str_nexp, verbose=verbose)
 
     # Normalize by pixel average
     if normalize_average:
         def invavg(a):
             return 1 / np.mean(a)
         scale = invavg
-        add_to_header(header, 'h', str_navg, verbose=verbose)
+        add2hdr(header, 'h', str_navg, verbose=verbose)
 
     # Normalize by pixel median
     if normalize_median:
         def invmed(a):
             return 1 / np.median(a)
         scale = invmed
-        add_to_header(header, 'h', str_nmed, verbose=verbose)
+        add2hdr(header, 'h', str_nmed, verbose=verbose)
 
     # Set rejection switches
     clip_extrema, minmax_clip, sigma_clip = _set_reject_method(reject_method)
@@ -897,7 +893,7 @@ def combine_ccd(
                            str(combine_method),
                            str(reject_method),
                            kwargs)
-    add_to_header(header, 'h', s, verbose=verbose, t_ref=_t)
+    add2hdr(header, 'h', s, verbose=verbose, t_ref=_t)
     # header.add_history(str_history.format(ncombine,
     #                                       str(type_key),
     #                                       str(type_val),
@@ -909,7 +905,7 @@ def combine_ccd(
         _t = Time.now()
         subtract = CCDData(subtract_frame.copy())
         master.data = master.subtract(subtract).data
-        add_to_header(header, 'h', str_subt, header, verbose=verbose, t_ref=_t)
+        add2hdr(header, 'h', str_subt, header, verbose=verbose, t_ref=_t)
 
     if trim_fits_section is not None:
         master = trim_ccd(master, fits_section=trim_fits_section,

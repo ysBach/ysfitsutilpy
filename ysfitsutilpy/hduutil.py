@@ -46,7 +46,7 @@ __all__ = [
     "fixpix", "fixpix_griddata",
     "make_errormap", "errormap",
     # ! header update:
-    "add_to_header", "update_tlm", "update_process", "key_remover", "key_mapper", "chk_keyval",
+    "add2hdr", "update_tlm", "update_process", "key_remover", "key_mapper", "chk_keyval",
     # ! header accessor:
     "get_from_header", "get_if_none",
     # ! WCS related:
@@ -246,8 +246,8 @@ def _parse_data_header(ccdlike, extension=None, parse_data=True, parse_header=Tr
     return data, hdr
 
 
-def _parse_image(ccdlike, extension=None, name=None, force_ccddata=False, prefer_ccddata=False,
-                 use_ccddata_if_path=True):
+def _parse_image(
+        ccdlike, extension=None, name=None, force_ccddata=False, prefer_ccddata=False, use_ccddata_if_path=True):
     '''Parse and return input image as desired format (ndarray or CCDData)
     Parameters
     ----------
@@ -492,10 +492,11 @@ def _parse_extension(*args, ext=None, extname=None, extver=None):
     return ext
 
 
-def load_ccd(path, extension=None, fits_section=None, ccddata=True, as_ccd=True, use_wcs=True, unit=None,
-             extension_uncertainty="UNCERT", extension_mask='MASK', extension_flags=None,
-             load_primary_only_fitsio=True, return_full_fitsio=False,
-             key_uncertainty_type='UTYPE', memmap=False, **kwd):
+def load_ccd(
+        path, extension=None, fits_section=None, ccddata=True, as_ccd=True, use_wcs=True, unit=None,
+        extension_uncertainty="UNCERT", extension_mask='MASK', extension_flags=None,
+        load_primary_only_fitsio=True, return_full_fitsio=False, key_uncertainty_type='UTYPE', memmap=False,
+        **kwd):
     ''' Loads FITS file of CCD image data (not table, etc).
     Paramters
     ---------
@@ -906,8 +907,9 @@ def CCDData_astype(ccd, dtype='float32', uncertainty_dtype=None, copy=True):
     return nccd
 
 
-def set_ccd_attribute(ccd, name, value=None, key=None, default=None, unit=None, header_comment=None,
-                      update_header=True, verbose=True, wrapper=None, wrapper_kw={}):
+def set_ccd_attribute(
+        ccd, name, value=None, key=None, default=None, unit=None, header_comment=None, update_header=True,
+        verbose=True, wrapper=None, wrapper_kw={}):
     ''' Set attributes from given paramters.
 
     Parameters
@@ -986,16 +988,16 @@ def set_ccd_attribute(ccd, name, value=None, key=None, default=None, unit=None, 
 
             ccd.header[key] = (value_Q.value, header_comment)
         # add as history
-        add_to_header(ccd.header, 'h', s, t_ref=_t_start)
+        add2hdr(ccd.header, 'h', s, t_ref=_t_start)
 
     setattr(ccd, name, value_Q)
     update_tlm(ccd.header)
 
 
 # TODO: This is quite much overlapping with get_gain_rdnoise...
-def set_ccd_gain_rdnoise(ccd, verbose=True, update_header=True,
-                         gain=None, gain_key="GAIN", gain_unit=u.electron/u.adu,
-                         rdnoise=None, rdnoise_key="RDNOISE", rdnoise_unit=u.electron):
+def set_ccd_gain_rdnoise(
+        ccd, verbose=True, update_header=True, gain=None, rdnoise=None,
+        gain_key="GAIN", rdnoise_key="RDNOISE", gain_unit=u.electron/u.adu, rdnoise_unit=u.electron):
     """ A convenience set_ccd_attribute for gain and readnoise.
 
     Parameters
@@ -1096,7 +1098,7 @@ def propagate_ccdmask(ccd, additional_mask=None):
 #         else:
 #             hdr["LTM2_2"] = 1.
 
-#     add_to_header(trimmed_ccd.header, 'h', trim_str, t_ref=_t, verbose=verbose)
+#     add2hdr(trimmed_ccd.header, 'h', trim_str, t_ref=_t, verbose=verbose)
 #     update_tlm(trimmed_ccd.header)
 
 #     return trimmed_ccd
@@ -1145,7 +1147,7 @@ def trim_ccd(ccd, fits_section=None, update_header=True, verbose=False):
                         hdr[f"LTM{i}_{j}"] = 0.
 
     if verbose and trim_str:
-        add_to_header(trimmed_ccd.header, 'h', trim_str, t_ref=_t, verbose=verbose)
+        add2hdr(trimmed_ccd.header, 'h', trim_str, t_ref=_t, verbose=verbose)
 
     update_tlm(trimmed_ccd.header)
 
@@ -1230,7 +1232,7 @@ def bezel_ccd(ccd, bezel_x=None, bezel_y=None, replace=np.nan, update_header=Tru
         nccd.data[:, :bezel_x[0]] = replace
         nccd.data[:, nx - bezel_x[0]:] = replace
         if update_header:
-            add_to_header(
+            add2hdr(
                 nccd.header, 'h', t_ref=_t, verbose=verbose,
                 s=f"Replaced pixels with bezel width {bezel_x} along x and {bezel_y} along y with {replace}."
             )
@@ -1422,15 +1424,16 @@ def bin_ccd(ccd, factor_x=1, factor_y=1, binfunc=np.mean, trim_end=False, update
         _ccd.header["XBINNING"] = (factor_x, "Binning done after the observation in X direction")
         _ccd.header["YBINNING"] = (factor_y, "Binning done after the observation in Y direction")
         # add as history
-        add_to_header(
+        add2hdr(
             _ccd.header, 'h', t_ref=_t_start, s=f"Binned by (xbin, ybin) = ({factor_x}, {factor_y}) "
         )
     update_tlm(_ccd.header)
     return _ccd
 
 
-def fixpix(ccd, mask, maskpath=None, extension=None, mask_extension=None, priority=None,
-           update_header=True, use_ccddata_if_path=True):
+def fixpix(
+        ccd, mask, maskpath=None, extension=None, mask_extension=None, priority=None, update_header=True,
+        use_ccddata_if_path=True):
     ''' Interpolate the masked location (N-D generalization of IRAF PROTO.FIXPIX)
     Parameters
     ----------
@@ -1565,7 +1568,7 @@ def fixpix(ccd, mask, maskpath=None, extension=None, mask_extension=None, priori
         _ccd.header["MASKNPIX"] = (np.count_nonzero(mask), "Total num of pixels fixed by fixpix.")
         _ccd.header["MASKFILE"] = (maskpath, "Applied mask data for fixpix.")
         # add as history
-        add_to_header(_ccd.header, 'h', t_ref=_t_start, s="Pixel values fixed by fixpix.")
+        add2hdr(_ccd.header, 'h', t_ref=_t_start, s="Pixel values fixed by fixpix.")
     update_tlm(_ccd.header)
 
     return _ccd
@@ -1608,21 +1611,22 @@ def fixpix_griddata(ccd, mask, extension=None, method='nearest', fill_value=0, u
         _ccd.header["MASKFILL"] = (fill_value, "The fill value if interpol. fails in fixpix")
         _ccd.header["MASKNPIX"] = (np.count_nonzero(mask), "Total num of pixesl fixed by fixpix.")
         # add as history
-        add_to_header(_ccd.header, 'h', t_ref=_t_start, s="Pixel values fixed by fixpix")
+        add2hdr(_ccd.header, 'h', t_ref=_t_start, s="Pixel values fixed by fixpix")
     update_tlm(_ccd.header)
 
     return _ccd
 
 
-def make_errormap(ccd, gain_epadu=1, rdnoise_electron=0, flat_err=0.0, subtracted_dark=None,
-                  return_variance=False):
+def make_errormap(
+        ccd, gain_epadu=1, rdnoise_electron=0, flat_err=0.0, subtracted_dark=None, return_variance=False):
     print("Use `errormap` instead.")
     return errormap(ccd, gain_epadu=gain_epadu, rdnoise_electron=rdnoise_electron,
                     subtracted_dark=subtracted_dark, flat_err=flat_err, return_variance=return_variance)
 
 
-def errormap(ccd_biassub, gain_epadu=1, rdnoise_electron=0, subtracted_dark=None, flat=None,
-             dark_std=None, flat_err=None, dark_std_min='rdnoise', return_variance=False):
+def errormap(
+        ccd_biassub, gain_epadu=1, rdnoise_electron=0, subtracted_dark=None, flat=None, dark_std=None,
+        flat_err=None, dark_std_min='rdnoise', return_variance=False):
     ''' Calculate the detailed pixel-wise error map in ADU unit.
 
     Parameters
@@ -1718,8 +1722,9 @@ def errormap(ccd_biassub, gain_epadu=1, rdnoise_electron=0, subtracted_dark=None
     # var_dark_err = (dark_err/flat)**2
 
 
-def add_to_header(header, histcomm, s, precision=3, time_fmt="{:.>72s}", t_ref=None,
-                  dt_fmt="(dt = {:.3f} s)", verbose=False, set_kw={'after': -1}):
+def add2hdr(
+        header, histcomm, s, precision=3, time_fmt="{:.>72s}", t_ref=None, dt_fmt="(dt = {:.3f} s)",
+        verbose=False, set_kw={'after': -1}):
     ''' Automatically add timestamp as well as HISTORY or COMMENT string
 
     Parameters
@@ -1743,7 +1748,7 @@ def add_to_header(header, histcomm, s, precision=3, time_fmt="{:.>72s}", t_ref=N
         Examples::
           * ``"{:s}"``: plain time ``2020-01-01T01:01:01.23``
           * ``"({:s})"``: plain time in parentheses ``(2020-01-01T01:01:01.23)``
-          * ``"{:_^72s}"``: center align, filling with ``_``.
+          * ``"{:_^72s}"``: center align, filling with gain_key="GAIN", ``_``.
 
     t_ref : Time
         The reference time. If not `None`, delta time is calculated.
@@ -1764,22 +1769,22 @@ def add_to_header(header, histcomm, s, precision=3, time_fmt="{:.>72s}", t_ref=N
     Note
     ----
     The timming benchmark shows that,
-    %timeit add_to_header(hdu.header, 'comm', 'aadfaer sdf')
+    %timeit add2hdr(hdu.header, 'comm', 'aadfaer sdf')
     310 µs +/- 2.93 µs per loop (mean +/- std. dev. of 7 runs, 1000 loops each)
 
-    %timeit add_to_header(hdu.header, 'comM', 'aadfaer sdf')
+    %timeit add2hdr(hdu.header, 'comM', 'aadfaer sdf')
     309 µs +/- 2.48 µs per loop (mean +/- std. dev. of 7 runs, 1000 loops each)
 
-    %timeit add_to_header(hdu.header, 'comMent', 'aadfaer sdf')
+    %timeit add2hdr(hdu.header, 'comMent', 'aadfaer sdf')
     15.4 ms +/- 299 µs per loop (mean +/- std. dev. of 7 runs, 100 loops each)
     '''
     pall = locals()
     if histcomm.lower() in ['h', 'hist']:
         pall['histcomm'] = 'HISTORY'
-        return add_to_header(**pall)
+        return add2hdr(**pall)
     elif histcomm.lower() in ['c', 'com', 'comm']:
         pall['histcomm'] = 'COMMENT'
-        return add_to_header(**pall)
+        return add2hdr(**pall)
     # The "elif not in raise" gives large bottleneck if, e.g., ``histcomm="ComMent"``...
     # elif histcomm.lower() not in ['history', 'comment']:
     #     raise ValueError("Only HISTORY or COMMENT are supported now.")
@@ -1822,8 +1827,8 @@ def update_tlm(header):
         header["FITS-TLM"] = (now, "UT of last modification of this FITS file")
 
 
-def update_process(header, process=None, key="PROCESS", delimiter='-', add_comment=True,
-                   additional_comment=dict()):
+def update_process(
+        header, process=None, key="PROCESS", delimiter='-', add_comment=True, additional_comment=dict()):
     """ update the process history keyword in the header.
     Parameters
     ----------
@@ -1858,7 +1863,7 @@ def update_process(header, process=None, key="PROCESS", delimiter='-', add_comme
         # do not additionally add comment.
     elif add_comment:
         # add comment.
-        add_to_header(
+        add2hdr(
             header, 'c',
             f"Standard items for {key} includes B=bias, D=dark, F=flat, T=trim, W=WCS, C=CRrej, Fr=fringe."
         )
@@ -1868,7 +1873,7 @@ def update_process(header, process=None, key="PROCESS", delimiter='-', add_comme
     if additional_comment:
         addstr = [f"{k}={v}" for k, v in additional_comment.items()]
         addstr = ', '.join(addstr)
-        add_to_header(header, 'c', f"User added items to {key}: {addstr}.")
+        add2hdr(header, 'c', f"User added items to {key}: {addstr}.")
 
 
 def key_remover(header, remove_keys, deepremove=True):
@@ -2119,10 +2124,10 @@ def wcs_crota(wcs, degree=True):
     return crota
 
 
-def center_radec(header, center_of_image=True, ra_key="RA", dec_key="DEC",
-                 equinox=None, frame=None, equinox_key="EPOCH",
-                 frame_key="RADECSYS", ra_unit=u.hourangle, dec_unit=u.deg,
-                 mode='all', verbose=True, plain=False):
+def center_radec(
+        header, center_of_image=True, ra_key="RA", dec_key="DEC", equinox=None, frame=None,
+        equinox_key="EPOCH", frame_key="RADECSYS", ra_unit=u.hourangle, dec_unit=u.deg,
+        mode='all', verbose=True, plain=False):
     ''' Returns the central ra/dec from header or WCS.
     Note
     ----
@@ -2177,7 +2182,7 @@ def center_radec(header, center_of_image=True, ra_key="RA", dec_key="DEC",
 
 
 def calc_offset_wcs(target, reference, loc_target='center', loc_reference='center', order_xyz=True,
-                    intify_offset=False):
+        intify_offset=False):
     ''' The pixel offset of target's location when using WCS in referene.
 
     Parameters
@@ -2351,8 +2356,9 @@ def fov_radius(header, unit=u.deg):
 
 
 # TODO: do not load data extension if not explicitly ordered
-def wcsremove(path=None, additional_keys=[], extension=None, output=None, output_verify='fix', overwrite=False,
-              verbose=True, close=True):
+def wcsremove(
+        path=None, additional_keys=[], extension=None, output=None, output_verify='fix', overwrite=False,
+        verbose=True, close=True):
     ''' Remove most WCS related keywords from the header.
 
     Paramters
@@ -2498,8 +2504,9 @@ def convert_bit(fname, original_bit=12, target_bit=16):
 
 
 # TODO: add sigma-clipped statistics option (hdr key can be using "SIGC", e.g., SIGCAVG.)
-def give_stats(item, extension=None, statsecs=None, percentiles=[1, 99], N_extrema=None,
-               return_header=False, nanfunc=False):
+def give_stats(
+        item, extension=None, statsecs=None, percentiles=[1, 99], N_extrema=None,
+        return_header=False, nanfunc=False):
     ''' Calculates simple statistics.
 
     Parameters
