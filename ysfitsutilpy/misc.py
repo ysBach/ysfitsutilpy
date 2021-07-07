@@ -64,7 +64,7 @@ def circular_mask(shape, center=None, radius=None, center_xyz=True):
     center_xyz : bool, optional.
         Whether the center is in xyz order.
 
-    Direct copy from
+    Idea copied from
     https://stackoverflow.com/questions/44865023/how-can-i-create-a-circular-mask-for-a-numpy-array
     '''
     if center is None:  # use the middle of the image
@@ -105,8 +105,9 @@ def _regularize_offsets(offsets, offset_order_xyz=True, intify_offsets=False):
     return _offsets
 
 
-def _image_shape(shapes, offsets, method='outer', offset_order_xyz=True, intify_offsets=False,
-                 pythonize_offsets=True):
+def _image_shape(
+    shapes, offsets, method='outer', offset_order_xyz=True, intify_offsets=False, pythonize_offsets=True
+):
     '''shapes and offsets must be in the order of python/numpy (i.e., z, y, x order).
 
     Paramters
@@ -165,8 +166,10 @@ def _image_shape(shapes, offsets, method='outer', offset_order_xyz=True, intify_
     return _offsets, tuple(shape_out)
 
 
-def _offsets2slice(shapes, offsets, method='outer', shape_order_xyz=False, offset_order_xyz=True,
-                   outer_for_stack=True, fits_convention=False):
+def _offsets2slice(
+    shapes, offsets, method='outer', shape_order_xyz=False, offset_order_xyz=True, outer_for_stack=True,
+    fits_convention=False
+):
     """ Calculates the slices for each image when to extract overlapping parts.
 
     Parameters
@@ -307,7 +310,7 @@ def str_now(precision=3, fmt="{:.>72s}", t_ref=None, dt_fmt="(dt = {:.3f} s)", r
 
 
 def change_to_quantity(x, desired='', to_value=False):
-    ''' Change the non-Quantity object to astropy Quantity.
+    ''' Change the non-Quantity object to astropy Quantity or vice versa.
 
     Parameters
     ----------
