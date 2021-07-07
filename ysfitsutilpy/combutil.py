@@ -38,8 +38,9 @@ def weighted_mean(ccds, unit='adu'):
     return nccd
 
 
-def group_fits(summary_table, type_key=None, type_val=None, group_key=None, table_filecol="file",
-               verbose=False):
+def group_fits(
+    summary_table, type_key=None, type_val=None, group_key=None, table_filecol="file", verbose=False
+):
     ''' Organize the group_by and type_key for stack_FITS
     Parameters
     ----------
@@ -105,8 +106,10 @@ def group_fits(summary_table, type_key=None, type_val=None, group_key=None, tabl
     return grouped, group_type_key
 
 
-def select_fits(inputs, extension=None, unit=None, trim_fits_section=None, table_filecol="file",
-                prefer_ccddata=False, type_key=None, type_val=None, path_to_text=False, verbose=True):
+def select_fits(
+    inputs, extension=None, unit=None, trim_fits_section=None, table_filecol="file", prefer_ccddata=False,
+    type_key=None, type_val=None, path_to_text=False, verbose=True
+):
     ''' Stacks the FITS files specified in fitslist
 
     Parameters
@@ -340,10 +343,10 @@ def select_fits(inputs, extension=None, unit=None, trim_fits_section=None, table
     return matched
 
 
-def stack_FITS(fitslist=None, summary_table=None, extension=None,
-               unit=None, table_filecol="file", trim_fits_section=None,
-               ccddata=True, asccd=True, type_key=None, type_val=None,
-               verbose=True):
+def stack_FITS(
+    fitslist=None, summary_table=None, extension=None, unit=None, table_filecol="file", trim_fits_section=None,
+    ccddata=True, asccd=True, type_key=None, type_val=None, verbose=True
+):
     ''' Stacks the FITS files specified in fitslist
 
     Parameters
@@ -563,17 +566,14 @@ def stack_FITS(fitslist=None, summary_table=None, extension=None,
     return matched
 
 
-def combine_ccd(fitslist=None, summary_table=None, table_filecol="file",
-                trim_fits_section=None, output=None, unit=None,
-                subtract_frame=None, combine_method='median',
-                reject_method=None, normalize_exposure=False,
-                normalize_average=False, normalize_median=False,
-                exposure_key='EXPTIME', mem_limit=2e9,
-                combine_uncertainty_function=None,
-                extension=None, type_key=None, type_val=None,
-                dtype="float32", uncertainty_dtype="float32",
-                output_verify='fix', overwrite=False,
-                verbose=True, **kwargs):
+def combine_ccd(
+    fitslist=None, summary_table=None, table_filecol="file", trim_fits_section=None, output=None, unit=None,
+    subtract_frame=None, combine_method='median', reject_method=None,
+    normalize_exposure=False, normalize_average=False, normalize_median=False,
+    exposure_key='EXPTIME', mem_limit=2e9, combine_uncertainty_function=None,
+    extension=None, type_key=None, type_val=None, dtype="float32", uncertainty_dtype="float32",
+    output_verify='fix', overwrite=False, verbose=True, **kwargs
+):
     ''' Combining images
     Slight variant from ccdproc.
     # TODO: accept the input like ``sigma_clip_func='median'``, etc.
@@ -881,7 +881,8 @@ def combine_ccd(fitslist=None, summary_table=None, table_filecol="file",
             hdu=extension,
             scale=scale,
             dtype=dtype,
-            **kwargs)
+            **kwargs
+        )
 
     header["COMBVER"] = (ccdproc.__version__,
                          "ccdproc version used for combine.")
