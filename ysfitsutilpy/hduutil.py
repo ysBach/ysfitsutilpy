@@ -171,7 +171,7 @@ def _parse_data_header(ccdlike, extension=None, parse_data=True, parse_header=Tr
     copy of the data and/or header, especially to CHECK if it has header, while _parse_image is to deal
     mainly with the data (and has options to return as CCDData).
     '''
-    if ccdlike is None or not ccdlike:
+    if ccdlike is None or ccdlike == '':
         data = None
         hdr = None
     elif isinstance(ccdlike, ASTROPY_CCD_TYPES):
