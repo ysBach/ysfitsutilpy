@@ -55,8 +55,9 @@ def _replace_nan(res, header, replace=None):
         add_to_header(header, 'h', f"Non-finite pixels replaced by {replace}", time_fmt=None)
 
 
-def _load_im_name_hdr(im1, im2, name1, name2, extension1, extension2, offsets=None, force_ccddata=False,
-                      verbose=False):
+def _load_im_name_hdr(
+    im1, im2, name1, name2, extension1, extension2, offsets=None, force_ccddata=False, verbose=False
+):
     ''' Prepare images as ndarray unless FORCING to become CCDData.
     It, however, *tries* to find at least one image with header for logging.
     '''
@@ -125,9 +126,11 @@ def _load_im_name_hdr(im1, im2, name1, name2, extension1, extension2, offsets=No
     return im1, im2, im1name, im2name, hdr_ref
 
 
-def imarith(im1, op, im2, output=None, extension1=None, extension2=None, name1=None, name2=None,
-            offsets=None, replace=0, header_params=None, dtype='float32', error_calc=False,
-            ignore_header=False, overwrite=False, verbose=True):
+def imarith(
+    im1, op, im2, output=None, extension1=None, extension2=None, name1=None, name2=None,
+    offsets=None, replace=0, header_params=None, dtype='float32', error_calc=False, ignore_header=False,
+    overwrite=False, verbose=True
+):
     ''' Similar to IRAF IMARITH
     Parameters
     ----------
