@@ -55,7 +55,7 @@ str_cr = ("Cosmic-Ray rejected by astroscrappy (v {}), with parameters: {}")
 #                        rdnoise=None, rdnoise_key="RDNOISE",
 #                        rdnoise_unit=u.electron, verbose=True,
 #                        update_header=True):
-#     ''' Get gain and readnoise from given paramters.
+#     """ Get gain and readnoise from given paramters.
 #     gain, rdnoise : None, float, astropy.Quantity, optional.
 #         The gain and readnoise value. If ``gain`` or ``readnoise`` is
 #         specified, they are interpreted with ``gain_unit`` and
@@ -80,7 +80,7 @@ str_cr = ("Cosmic-Ray rejected by astroscrappy (v {}), with parameters: {}")
 #     ----
 #     If gain and readout noise are not found properly, the default values
 #     of 1.0 and 0.0 with corresponding units will be returned.
-#     '''
+#     """
 #     gain_Q, gain_from = get_if_none(
 #         gain, ccd.header, key=gain_key, unit=gain_unit,
 #         verbose=verbose, default=1.0)
@@ -101,12 +101,12 @@ str_cr = ("Cosmic-Ray rejected by astroscrappy (v {}), with parameters: {}")
 #     return gain_Q, rdnoise_Q
 
 
-def crrej(ccd, mask=None, propagate_crmask=False, update_header=True,
-          add_process=True, gain=None, rdnoise=None, verbose=True,
-          sigclip=4.5, sigfrac=0.5, objlim=1.0, satlevel=np.inf,
-          pssl=0.0, niter=4, sepmed=False, cleantype='medmask',
-          fsmode='median', psfmodel='gauss', psffwhm=2.5, psfsize=7,
-          psfk=None, psfbeta=4.765):
+def crrej(
+    ccd, mask=None, propagate_crmask=False, update_header=True, add_process=True, gain=None, rdnoise=None,
+    sigclip=4.5, sigfrac=0.5, objlim=1.0, satlevel=np.inf, pssl=0.0, niter=4, sepmed=False,
+    cleantype='medmask', fsmode='median', psfmodel='gauss', psffwhm=2.5, psfsize=7, psfk=None, psfbeta=4.765,
+    verbose=True
+):
     """ Do cosmic-ray rejection using L.A.Cosmic default parameters.
     Parameters
     ----------
@@ -316,12 +316,14 @@ def crrej(ccd, mask=None, propagate_crmask=False, update_header=True,
 # TODO: put medfilt_min
 #   to get std at each pixel by medfilt[<medfilt_min] = 0, and std = sqrt((1+snoise)*medfilt/gain +
 #   rdn**2)
-def medfilt_bpm(ccd, cadd=1.e-10, std_model="std", gain=1., rdnoise=0., snoise=0.,
-                sigclip_kw=dict(sigma=3., maxiters=5, std_ddof=1), std_section=None,
-                size=5, footprint=None, mode='reflect', cval=0.0, origin=0,
-                med_sub_clip=None, med_rat_clip=[0.5, 2], std_rat_clip=[-5, 5],
-                dtype='float32', update_header=True, verbose=False, logical='and', full=False):
-    ''' Find bad pixels from median filtering technique (non standard..?)
+def medfilt_bpm(
+    ccd, cadd=1.e-10, std_model="std", gain=1., rdnoise=0., snoise=0., size=5,
+    sigclip_kw=dict(sigma=3., maxiters=5, std_ddof=1), std_section=None,
+    footprint=None, mode='reflect', cval=0.0, origin=0,
+    med_sub_clip=None, med_rat_clip=[0.5, 2], std_rat_clip=[-5, 5],
+    dtype='float32', update_header=True, verbose=False, logical='and', full=False
+):
+    """ Find bad pixels from median filtering technique (non standard..?)
     Parameters
     ----------
     ccd : `~astropy.nddata.CCDData`
@@ -331,27 +333,31 @@ def medfilt_bpm(ccd, cadd=1.e-10, std_model="std", gain=1., rdnoise=0., snoise=0
         A very small const to be added to the input array to avoid resulting value of 0.0 in the median
         filtered image which raises zero-division in median ratio (image/|median_filtered|).
 
-    model : str, optional.
+    std_model : {"std", "ccd"} optional.
         The model used to calculate the std (standard deviation) map.
 
-          * ``'std'``: Simple standard deviation is calculated.
-          * ``'ccd'``: Using CCD noise model (``sqrt{(1 + snoise)*med_filt/gain + (rdnoise/gain)**2}``)
+          * ``"std"``: Simple standard deviation is calculated.
+          * ``"ccd"``: Using CCD noise model (``sqrt{(1 + snoise)*med_filt/gain + (rdnoise/gain)**2}``)
 
-        For ``'std'``, the arguments ``std_section`` and ``sigclip_kw`` are used, while if ``'ccd'``,
-        arguments ``gain``, ``rdnoise``, ``snoise`` will be used.
+        For ``'std'``, the arguments `std_section` and `sigclip_kw` are used, while if ``'ccd'``,
+        arguments `gain`, `rdnoise`, `snoise` will be used.
+
+    size, footprint, mode, cval, origin : optional.
+        The parameters to obtain the median-filtered map. See `~scipy.ndimage.median_filter`.
 
     sigclip_kw : dict, optional.
-        The paramters used for `astropy.stats.sigma_clipped_stats` when estimating the sky standard
-        deviation at ``std_section``. This is **ignored** if ``std_model='ccd'``.
+        The paramters used for `~astropy.stats.sigma_clipped_stats` when estimating the sky standard
+        deviation at `std_section`. This is **ignored** if ``std_model='ccd'``.
 
     std_section : str, optinal.
         The region in FITS standard (1-indexing, end-inclusive, xyz order) to estimate the sky standard
-        deviation to obtain the ``std_ratio``. If `None` (default), the full region of the given array
+        deviation to obtain the `std_ratio`. If `None` (default), the full region of the given array
         is used, which is many times not desirable due to the celestial objects in the FOV and
         computational cost. This is **ignored** if ``std_model='ccd'``.
 
-    size, footprint, mode, cval, origin : optional.
-        The parameters to obtain the median-filtered map. See `scipy.ndimage.median_filter`.
+    gain, rdnoise, snoise : float, optional.
+        The gain (electrons/ADU), readout noise (electrons), and sensitivity noise (fractional error
+        from flat fielding) of the frame. These are **ignored** if ``std_model="std"``.
 
     med_sub_clip : list of two float or `None`, optional.
         The thresholds to find bad pixel by ``med_sub = ccd.data - median_filter(ccd.data)``. The
@@ -368,7 +374,7 @@ def medfilt_bpm(ccd, cadd=1.e-10, std_model="std", gain=1., rdnoise=0., snoise=0
         clipping will be turned off if it is `None` (default). If a list, must be in the order of
         ``[lower, upper]`` and at most two of these can be `None`.
 
-    logical : str of ``['and', '&', 'or', '|']`` or list, optional.
+    logical : {'and', '&', 'or', '|'} or list of these, optional.
         The logic to propagate masks determined by the ``_clip``'s. The mask is propagated such as
         ``posmask = med_sub > med_sub_clip[1] &/| med_ratio > med_rat_clip[1] &/| std_ratio >
         std_rat_clip[1]``. If a list, it must contain two str of these, in the order of
@@ -379,7 +385,7 @@ def medfilt_bpm(ccd, cadd=1.e-10, std_model="std", gain=1., rdnoise=0., snoise=0
     ccd : CCDData
         The badpixel removed result.
 
-    The followings are returned as ``dict`` only if ``full=True``.
+    The followings are returned as dict only if ``full=True``.
 
     posmask, negmask : ndarry of bool
         The masked pixels by positive/negative criteria.
@@ -389,7 +395,7 @@ def medfilt_bpm(ccd, cadd=1.e-10, std_model="std", gain=1., rdnoise=0., snoise=0
 
     Notes
     -----
-    ``med_sub_clips`` is usually not necessary but useful to detect hot pixels in dark frames (no
+    `med_sub_clips` is usually not necessary but useful to detect hot pixels in dark frames (no
     light) for some special circumstances. ::
 
       1. Median additive difference (data-medfilt) generated,
@@ -398,7 +404,7 @@ def medfilt_bpm(ccd, cadd=1.e-10, std_model="std", gain=1., rdnoise=0., snoise=0
       4. posmask and negmask calculated by clips MB_[ADD/RAT/STD]_[U/L] and logic MB_[N/P]LOG (see keywords),
       5. Pixels of (posmask | negmask) are repleced with median filtered frame.
 
-    '''
+    """
     from scipy.ndimage import median_filter
 
     def _sanitize_clips(clips):
@@ -584,42 +590,44 @@ def medfilt_bpm(ccd, cadd=1.e-10, std_model="std", gain=1., rdnoise=0., snoise=0
 
 # NOTE: crrej should be done AFTER bias/dark and flat correction:
 # http://www.astro.yale.edu/dokkum/lacosmic/notes.html
-def bdf_process(ccd, output=None, extension=None,
-                mbiaspath=None, mdarkpath=None, mflatpath=None, mfringepath=None,
-                mbias=None, mdark=None, mflat=None, mfringe=None, fringe_flat_fielded=False,
-                fringe_scale_fun=np.mean, fringe_scale_section=None,
-                trim_fits_section=None, calc_err=False, unit=None,
-                gain=None, gain_key="GAIN", gain_unit=u.electron/u.adu,
-                rdnoise=None, rdnoise_key="RDNOISE", rdnoise_unit=u.electron,
-                exposure_key="EXPTIME", exposure_unit=u.s, dark_exposure=None, data_exposure=None,
-                dark_scale=False, normalize_exposure=False, normalize_average=False, normalize_median=False,
-                flat_min_value=None, flat_norm_value=1.,
-                do_crrej=False, crrej_kwargs=None, propagate_crmask=False,
-                verbose_crrej=False, verbose_bdf=True, output_verify='fix',
-                overwrite=True, dtype="float32", uncertainty_dtype="float32"):
-    ''' Do bias, dark and flat process.
+def bdf_process(
+    ccd, output=None, extension=None,
+    mbiaspath=None, mdarkpath=None, mflatpath=None, mfringepath=None,
+    mbias=None, mdark=None, mflat=None, mfringe=None,
+    fringe_flat_fielded=False, fringe_scale_fun=np.mean, fringe_scale_section=None,
+    trim_fits_section=None,
+    calc_err=False, unit=None,
+    gain=None, gain_key="GAIN", gain_unit=u.electron/u.adu,
+    rdnoise=None, rdnoise_key="RDNOISE", rdnoise_unit=u.electron,
+    exposure_key="EXPTIME", exposure_unit=u.s, dark_exposure=None, data_exposure=None, dark_scale=False,
+    normalize_exposure=False, normalize_average=False, normalize_median=False,
+    flat_min_value=None, flat_norm_value=1.,
+    do_crrej=False, crrej_kwargs=None, propagate_crmask=False, verbose_crrej=False,
+    verbose_bdf=True, output_verify='fix', overwrite=True, dtype="float32", uncertainty_dtype="float32"
+):
+    """ Do bias, dark and flat process.
     Parameters
     ----------
     ccd : CCDData
         The ccd to be processed.
 
     output : path-like or None, optional.
-        The path if you want to save the resulting ``ccd`` object. Default is `None`.
+        The path if you want to save the resulting `ccd` object. Default is `None`.
 
     mbiaspath, mdarkpath, mflatpath, mfringepath : path-like, optional.
         The path to master bias, dark, flat, and fringe FITS files. If `None`, the corresponding
-        process is not done. These can be provided in addition to ``mbias``, ``mdark``, ``mflat``,
-        and/or ``mfringe``.
+        process is not done. These can be provided in addition to `mbias`, `mdark`, `mflat`, and/or
+        `mfringe`.
 
     mbias, mdark, mflat, mfringe : CCDData, optional.
         The master bias, dark, and flat in `~astropy.nddata.CCDData`. If this is given, the files
-        provided by ``mbiaspath``, ``mdarkpath``, ``mflatpath`` and/or ``mfringe`` are **not** loaded,
-        but these paths will be used for header (``BIASFRM``, ``DARKFRM``, ``FLATFRM`` and/or
-        ``FRINFRM``). If the paths are not given, the header values will be ``<User>``.
+        provided by `mbiaspath`, `mdarkpath`, `mflatpath` and/or `mfringe` are **not** loaded, but
+        these paths will be used for header (``BIASFRM``, ``DARKFRM``, ``FLATFRM`` and/or ``FRINFRM``).
+        If the paths are not given, the header values will be ``<User>``.
 
     fringe_scale_fun : function object, optional.
         The function to be used to scale the fringe before subtraction, specified by the region
-        ``fringe_scale_section``. This scaling is not done if ``fringe_scale_section`` is `None`.
+        `fringe_scale_section`. This scaling is not done if `fringe_scale_section` is `None`.
 
     fringe_scale_section : str, optional.
         The FITS-convention section of the fringe and object (science) frames to match the fringe
@@ -632,7 +640,7 @@ def bdf_process(ccd, output=None, extension=None,
         frame.
 
     trim_fits_section: str, optional.
-        Region of ``ccd`` to be trimmed; see ``ccdproc.subtract_overscan`` for details. Default is
+        Region of `ccd` to be trimmed; see `~ccdproc.subtract_overscan` for details. Default is
         `None`.
 
     calc_err : bool, optional.
@@ -648,25 +656,25 @@ def bdf_process(ccd, output=None, extension=None,
     gain, rdnoise : None, float, astropy.Quantity, optional.
         The gain and readnoise value. These are all ignored if ``calc_err=False`` and
         ``do_crrej=False``. If ``calc_err=True``, it automatically seeks for suitable gain and
-        readnoise value. If ``gain`` or ``readnoise`` is specified, they are interpreted with
-        ``gain_unit`` and ``rdnoise_unit``, respectively. If they are not specified, this function will
-        seek for the header with keywords of ``gain_key`` and ``rdnoise_key``, and interprete the
-        header value in the unit of ``gain_unit`` and ``rdnoise_unit``, respectively.
+        readnoise value. If `gain` or `readnoise` is specified, they are interpreted with `gain_unit`
+        and `rdnoise_unit`, respectively. If they are not specified, this function will seek for the
+        header with keywords of `gain_key` and `rdnoise_key`, and interprete the header value in the
+        unit of `gain_unit` and `rdnoise_unit`, respectively.
 
     gain_key, rdnoise_key : str, optional.
-        See ``gain``, ``rdnoise`` explanation above.
+        See `gain`, `rdnoise` explanation above.
         These are all ignored if ``calc_err=False``.
 
     gain_unit, rdnoise_unit : str, astropy.Unit, optional.
-        See ``gain``, ``rdnoise`` explanation above.
+        See `gain`, `rdnoise` explanation above.
         These are all ignored if ``calc_err=False``.
 
     dark_exposure, data_exposure : None, float, astropy Quantity, optional.
         The exposure times of dark and data frame, respectively. They should both be specified or both
         `None`. These are all ignored if ``mdarkpath=None``. If both are not specified while
-        ``mdarkpath`` is given, then the code automatically seeks for header's ``exposure_key``. Then
-        interprete the value as the quantity with unit ``exposure_unit``. If ``mdkarpath`` is not
-        `None`, then these are passed to ``ccdproc.subtract_dark``.
+        `mdarkpath` is given, then the code automatically seeks for header's `exposure_key`. Then
+        interprete the value as the quantity with unit `exposure_unit`. If `mdkarpath` is not
+        `None`, then these are passed to `~ccdproc.subtract_dark`.
 
     exposure_key : str, optional.
         The header keyword for exposure time.
@@ -700,7 +708,7 @@ def bdf_process(ccd, output=None, extension=None,
         Default is 1 (**different** from `ccdproc` which uses `None` as default).
 
     crrej_kwargs : dict or None, optional.
-        If `None` (default), uses some default values (see ``crrej``). It is always discouraged to use
+        If `None` (default), uses some default values (see `crrej`). It is always discouraged to use
         default except for quick validity-checking, because even the official L.A. Cosmic codes in
         different versions (IRAF, IDL, Python, etc) have different default parameters, i.e., there is
         nothing which can be regarded as _the default_. To see all possible keywords, do
@@ -708,7 +716,7 @@ def bdf_process(ccd, output=None, extension=None,
         https://nbviewer.jupyter.org/github/ysbach/AO2019/blob/master/Notebooks/07-Cosmic_Ray_Rejection.ipynb
 
     propagate_crmask : bool, optional.
-        Whether to save (propagate) the mask from CR rejection (``astroscrappy``) to the CCD's mask.
+        Whether to save (propagate) the mask from CR rejection (`astroscrappy`) to the CCD's mask.
         Default is `False`.
 
     output_verify : str
@@ -718,10 +726,10 @@ def bdf_process(ccd, output=None, extension=None,
         documentation below: http://docs.astropy.org/en/stable/io/fits/api/verification.html#verify
 
     dtype : str or `numpy.dtype` or None, optional.
-        Allows user to set dtype. See `numpy.array` ``dtype`` parameter description. If `None` it uses
+        Allows user to set dtype. See `numpy.array` `dtype` parameter description. If `None` it uses
         ``np.float64``.
         Default is `None`.
-    '''
+    """
     def _load_master(path, master):
         if path is None and master is None:
             do = False
