@@ -463,6 +463,7 @@ def imcombine(
         try:
             _data, _var, _mask, _ = load_ccd(
                 _item,
+                fits_section=fits_section,
                 ccddata=False,
                 extension=extension,
                 extension_mask=e_m,
@@ -512,8 +513,8 @@ def imcombine(
         weights[i] = _w[0]
 
         # -- Insertion --------------------------------------------------------------------------------- #
-        arr_full[tuple(slices)] = _data if slice_load is None else _data[slice_load]
-        mask_full[tuple(slices)] = _mask if slice_load is None or _mask is None else _mask[slice_load]
+        arr_full[tuple(slices)] = _data
+        mask_full[tuple(slices)] = _mask
         if _var is not None:
             var_full[slices] = _var
 
@@ -527,7 +528,7 @@ def imcombine(
             print("{:^45s}|{:^9s}|{:^9s}|{:^9s}".format("input", "zero", "scale", "weight"))
             print("-"*80)
             for item, z, s, w in zip(items, zeros, scales, weights):
-                print("{:>45s}|{:9f}|{:9f}|{:9f}".format(item[-45:], z, s, w))
+                print("{:>45s}|{:3e}|{:3e}|{:3e}".format(item[-45:], z, s, w))
             print("-"*80)
             print()
         else:
@@ -808,9 +809,13 @@ def ndcombine(
             print(f"-- thresholds (low, upp) = {thresholds}")
         print(f"-- reject={reject} (irafmode={irafmode})")
         print(f"--       params: nkeep={nkeep}, maxrej={maxrej}, maxiters={maxiters}, cenfunc={cenfunc}")
-        print(f"  (for sigclip): sigma={sigma}, ddof={ddof}")
-        print(f"  (for ccdclip): gain={gain}, rdnoise={rdnoise}, snoise={snoise}")
-        # print(f"    (for pclip)  : spclip={pclip}")
+        if reject_fullname == "sigclip":
+            print(f"  (for sigclip): sigma={sigma}, ddof={ddof}")
+        elif reject_fullname == "ccdclip":
+            print(f"  (for ccdclip): gain={gain}, rdnoise={rdnoise}, snoise={snoise}")
+        # elif reject_fullname == "pclip":
+        #   print(f"    (for pclip)  : spclip={pclip}")
+        # elif reject_fullname == "minmax":
         # print(f" (for minmaxclip): n_minmax={n_minmax}")
 
     # == 01 - Thresholding + Initial masking =============================================================== #
@@ -917,7 +922,8 @@ def ndcombine(
     # memory (instead of doing _arr = arr.copy())
     # backup_nan = arr[_mask]
     if verbose:
-        print(f"- Combining: {combine}-combine", end="... ")
+        print(f"- Combining")
+        print(f"-- combine = {combine}")
     arr[_mask] = np.nan
 
     # Combine and calc sigma
@@ -930,7 +936,9 @@ def ndcombine(
     # arr[mask_thresh] = backup_thresh_inmask
     if full:
         if verbose:
-            print(f"- Error calc (`full=False` to skip): return_variance={return_variance}", end='... ')
+            print( "- Error calculation")
+            print("-- to skip this, use `full=False`")
+            print(f"-- return_variance={return_variance}, ddof={ddof}")
         if return_variance:
             err = bn.nanvar(arr, ddof=ddof, axis=0)
         else:
