@@ -81,9 +81,9 @@ def circular_mask(shape, center=None, radius=None, center_xyz=True):
 
     slices = tuple([slice(None, npix, None) for npix in shape])
 
-    ZYX = np.ogrid[slices]
-    dist_sq = [(ZYX[i] - center[i])**2 for i in range(len(shape))]
-    dist_from_center = np.sqrt(np.sum(dist_sq))
+    zyx = np.ogrid[slices]
+    dist_sq = [((zyx[i] - center[i])**2) for i in range(len(shape))]
+    dist_from_center = np.sqrt(np.sum(np.array(dist_sq, dtype=object)))
 
     mask = dist_from_center <= radius
     return mask
