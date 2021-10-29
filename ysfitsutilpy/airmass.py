@@ -13,6 +13,16 @@ from astropy.time import Time
 
 from .hduutil import get_if_none
 
+try:
+    import numexpr as ne
+    HAS_NE = True
+    NEVAL = ne.evaluate  # "n"umerical "eval"uator
+    NPSTR = ""
+except ImportError:
+    HAS_NE = False
+    NEVAL = eval  # "n"umerical "eval"uator
+    NPSTR = "np."
+
 __all__ = ["calc_airmass", "airmass_obs", "airmass_from_hdr"]
 
 
@@ -40,8 +50,8 @@ def calc_airmass(zd_deg=None, cos_zd=None, scale=750.):
         http://stsdas.stsci.edu/cgi-bin/gethelp.cgi?setairmass
 
     '''
-    if zd_deg is None and cos_zd is None:
-        raise ValueError("Either zd_deg or cos_zd should not be None.")
+    if not ((zd_deg is None) ^ (cos_zd is None)):
+        raise ValueError("One and only one of `zd_deg` or `cos_zd` should be given.")
 
     if cos_zd is None:
         cos_zd = np.cos(np.deg2rad(zd_deg))
