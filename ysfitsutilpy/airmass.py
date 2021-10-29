@@ -13,16 +13,6 @@ from astropy.time import Time
 
 from .hduutil import get_if_none
 
-try:
-    import numexpr as ne
-    HAS_NE = True
-    NEVAL = ne.evaluate  # "n"umerical "eval"uator
-    NPSTR = ""
-except ImportError:
-    HAS_NE = False
-    NEVAL = eval  # "n"umerical "eval"uator
-    NPSTR = "np."
-
 __all__ = ["calc_airmass", "airmass_obs", "airmass_from_hdr"]
 
 
