@@ -92,7 +92,7 @@ def get_zsw(
                 raise ValueError("If scale/zero/weight are array-like, they must be of "
                                  + "size = arr.shape[0] (number of images to combine).")
             calc_zsw = False
-            zsw = np.array(zero_scale_weight)
+            zsw = np.array(zero_scale_weight).ravel()  # to make 0-D to 1-D
             calcfun = None
         return calc_zsw, zsw, calcfun
 
