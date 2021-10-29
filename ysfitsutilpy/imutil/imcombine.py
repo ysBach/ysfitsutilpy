@@ -111,7 +111,8 @@ def group_combine(
         outdir.mkdir(exist_ok=True, parents=True)
 
         if not fmt:
-            fmt = "_".join(['{}']*len(group_key))
+            nk = len(group_key) if is_list_like(group_key) else 1  # 1 if str
+            fmt = "_".join(['{}']*nk)
             if verbose:
                 print("\tWarning: fmt is not specified! Output file names might be ugly.")
 
@@ -257,6 +258,12 @@ def imcombine(
     extract_hdr = imcmb_key not in [None, '', '$I']
     slice_load = None if fits_section is None else fitsxy2py(fits_section)
 
+    # These must be initialized at the early stage.
+    zeros = np.zeros(shape=ncombine)
+    scales = np.ones(shape=ncombine)
+    weights = np.ones(shape=ncombine)
+
+
     if logfile is not None:
         logfile = Path(logfile)
         table_dict = dict(file=[], filesize=[])
@@ -291,7 +298,6 @@ def imcombine(
     if isinstance(scale, str):
         if scale.lower() in ["exp", "expos", "exposure", "exptime"]:
             extract_exptime = True
-            scales = np.ones(ncombine, dtype=dtype)
 
     if reject_fullname == 'ccdclip':
         extract_gain, gns = _set_gain_rdns(gain, ncombine, dtype=dtype)
@@ -302,7 +308,6 @@ def imcombine(
         extract_rdnoise, rds = False, 0
         extract_snoise, sns = False, 0
 
-    extract_hdr = extract_hdr or extract_exptime or extract_gain or extract_rdnoise or extract_snoise
 
     # == Extract header info =============================================================================== #
     # TODO: if offsets is None and `fsize_tot` << memlimit, why not
@@ -333,7 +338,8 @@ def imcombine(
 
     imcmb_val = []
     # iterate over files
-    extract_hdr = extract_hdr or use_wcs or use_phy
+    extract_hdr = (extract_hdr or extract_exptime or extract_gain or extract_rdnoise or extract_snoise
+                   or use_wcs or use_phy)
     for i, item in enumerate(items):
         if extract_hdr:
             _, hdr = _parse_data_header(item, extension=extension, copy=False)
@@ -435,9 +441,6 @@ def imcombine(
 
     arr_full = np.nan*np.zeros(shape=(ncombine, *sh_comb), dtype=dtype)
     mask_full = np.zeros(shape=(ncombine, *sh_comb), dtype=bool)
-    zeros = np.zeros(shape=ncombine)
-    scales = np.ones(shape=ncombine)
-    weights = np.ones(shape=ncombine)
 
     _t = Time.now()
     for i, (_item, _offset, _shape) in enumerate(zip(items, offsets, shapes)):
