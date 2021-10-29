@@ -15,6 +15,7 @@ from astropy.io import fits
 from astropy.nddata import CCDData, Cutout2D
 from astropy.table import Table
 from astropy.time import Time
+from astropy.stats import mad_std
 from astropy.visualization import ImageNormalize, ZScaleInterval
 from astropy.wcs import WCS, Wcsprm
 from ccdproc import trim_image
@@ -28,6 +29,16 @@ try:
     HAS_FITSIO = True
 except ImportError:
     HAS_FITSIO = False
+
+try:
+    import numexpr as ne
+    HAS_NE = True
+    NEVAL = ne.evaluate  # "n"umerical "eval"uator
+    NPSTR = ""
+except ImportError:
+    HAS_NE = False
+    NEVAL = eval  # "n"umerical "eval"uator
+    NPSTR = "np."
 
 
 __all__ = [
@@ -1567,8 +1578,10 @@ def fixpix(
     if update_header:
         _ccd.header["MASKNPIX"] = (np.count_nonzero(mask), "Total num of pixels fixed by fixpix.")
         _ccd.header["MASKFILE"] = (maskpath, "Applied mask data for fixpix.")
+        # MASKFILE: name identical to IRAF
         # add as history
         add2hdr(_ccd.header, 'h', t_ref=_t_start, s="Pixel values fixed by fixpix.")
+        update_process(_ccd.header, "P", additional_comment=dict(P="Pixel values fixed by fixpix."))
     update_tlm(_ccd.header)
 
     return _ccd
@@ -1625,8 +1638,8 @@ def make_errormap(
 
 
 def errormap(
-        ccd_biassub, gain_epadu=1, rdnoise_electron=0, subtracted_dark=None, flat=None, dark_std=None,
-        flat_err=None, dark_std_min='rdnoise', return_variance=False):
+        ccd_biassub, gain_epadu=1, rdnoise_electron=0, subtracted_dark=0., flat=1., dark_std=0.,
+        flat_err=0., dark_std_min='rdnoise', return_variance=False):
     ''' Calculate the detailed pixel-wise error map in ADU unit.
 
     Parameters
@@ -1642,10 +1655,11 @@ def errormap(
 
     subtracted_dark : array-like
         The subtracted dark map.
+        Default: 0.
 
     flat : ndarray, optional.
-        The flat field value. There is no need that flat values are normalized. If `None` (default), a
-        constant flat of value ``1`` is used.
+        The flat field value. There is no need that flat values are normalized.
+        Default: 1.
 
     flat_err : float, array-like optional.
         The uncertainty of the flat, which is obtained by the central limit theorem (sample standard
@@ -1654,12 +1668,13 @@ def errormap(
         (see, e.g., eq 10 of StetsonPB 1987, PASP, 99, 191) set as Stetson used 0.0075 (0.75%
         fractional uncertainty), and the same is implemented to IRAF DAOPHOT:
         http://stsdas.stsci.edu/cgi-bin/gethelp.cgi?daopars
+        Default: 0.
 
     dark_std : float, array-like, optional.
         The sample standard deviation of dark pixels. It **should not be divided by the number of dark
         frames**, because we are interested in the uncertainty in the dark (prediction), not the
-        confidence interval of the *mean* of the dark. If `None`, it is assumed dark has no
-        uncertainty.
+        confidence interval of the *mean* of the dark.
+        Default: 0.
 
     dark_std_min : 'rdnoise', float, optional.
         The minimum value for `dark_std`. Any `dark_std` value below this will be replaced by this
@@ -1692,29 +1707,23 @@ def errormap(
     elif isinstance(rdnoise_electron, str):
         rdnoise_electron = float(rdnoise_electron)
 
-    # restore dark for Poisson term calculation
-    if subtracted_dark is not None:
-        data += subtracted_dark
-
-    if flat is None:
-        flat = 1
-
-    var = data / (gain_epadu*flat**2)
-    var += (rdnoise_electron/(gain_epadu*flat))**2
-
-    if dark_std is not None:
-        if dark_std_min == 'rdnoise':
-            dark_std_min = rdnoise_electron/gain_epadu
+    if dark_std_min == 'rdnoise':
+        dark_std_min = rdnoise_electron/gain_epadu
+    if isinstance(dark_std, np.ndarray):
         dark_std[dark_std < dark_std_min] = dark_std_min
-        var += (dark_std/flat)**2
 
-    if flat_err is not None:
-        var += data**2*(flat_err/flat)**2
+    # Calculate the full variance map
+    # restore dark for Poisson term calculation
+    eval_str = '''(data + subtracted_dark)/(gain_epadu*flat**2)
+        + (dark_std/flat)**2
+        + data**2*(flat_err/flat)**2
+        + (rdnoise_electron/(gain_epadu*flat))**2
+    '''
 
     if return_variance:
-        return var
+        return NEVAL(eval_str)
     else:  # Sqrt is the most time-consuming part...
-        return np.sqrt(var)
+        return NEVAL(f"{NPSTR}sqrt({eval_str})")
 
     # var_pois = data / (gain_epadu * flat**2)
     # var_rdn = (rdnoise_electron/(gain_epadu*flat))**2
@@ -1844,6 +1853,10 @@ def update_process(
     delimiter : str, optional.
         The delimiter for each process. It can be null string (``''``). The best is to match it with
         the pre-existing delimiter of the ``header[key]``.
+
+    add_comment : bool, optional.
+        Whether to add a comment to the header if there was no `key` (``"PROCESS"`` by default) in the
+        header.
 
     additional_comment : dict, optional.
         The additional comment to add. For instance, ``dict(v="vertical pattern", f="fourier
@@ -2182,7 +2195,7 @@ def center_radec(
 
 
 def calc_offset_wcs(target, reference, loc_target='center', loc_reference='center', order_xyz=True,
-        intify_offset=False):
+                    intify_offset=False):
     ''' The pixel offset of target's location when using WCS in referene.
 
     Parameters
@@ -2598,6 +2611,7 @@ def give_stats(
         avg=avgf(data),
         med=medf(data),
         std=stdf(data, ddof=1),
+        madstd=mad_std(data, ignore_nan=not nanfunc),
         percentiles=percentiles,
         pct=pctf(data, percentiles),
         slices=statsecs
