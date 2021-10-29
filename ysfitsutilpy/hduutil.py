@@ -38,7 +38,7 @@ try:
 except ImportError:
     HAS_NE = False
     NEVAL = eval  # "n"umerical "eval"uator
-    NPSTR = "np."
+    NPSTR = "np"
 
 
 __all__ = [
@@ -1723,7 +1723,7 @@ def errormap(
     if return_variance:
         return NEVAL(eval_str)
     else:  # Sqrt is the most time-consuming part...
-        return NEVAL(f"{NPSTR}sqrt({eval_str})")
+        return NEVAL(f"{NPSTR}.sqrt({eval_str})")
 
     # var_pois = data / (gain_epadu * flat**2)
     # var_rdn = (rdnoise_electron/(gain_epadu*flat))**2
