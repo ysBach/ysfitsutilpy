@@ -54,7 +54,7 @@ __all__ = [
     "propagate_ccdmask",
     # ! ccdproc:
     "trim_ccd", "bezel_ccd", "trim_overlap", "cutccd", "cut_ccd", "bin_ccd",
-    "fixpix", "fixpix_griddata",
+    "fixpix",
     "make_errormap", "errormap",
     # ! header update:
     "add2hdr", "update_tlm", "update_process", "key_remover", "key_mapper", "chk_keyval",
@@ -1442,9 +1442,10 @@ def bin_ccd(ccd, factor_x=1, factor_y=1, binfunc=np.mean, trim_end=False, update
     return _ccd
 
 
+# TODO: Need something (e.g., cython with pythran) to boost the speed of this function.
 def fixpix(
-        ccd, mask, maskpath=None, extension=None, mask_extension=None, priority=None, update_header=True,
-        use_ccddata_if_path=True):
+        ccd, mask=None, maskpath=None, extension=None, mask_extension=None, priority=None,
+        update_header=True, use_ccddata_if_path=True):
     ''' Interpolate the masked location (N-D generalization of IRAF PROTO.FIXPIX)
     Parameters
     ----------
@@ -1452,7 +1453,8 @@ def fixpix(
         The CCD data to be "fixed".
 
     mask : CCDData-like (e.g., PrimaryHDU, ImageHDU, HDUList), ndarray, path-like
-        The mask to be used for fixing pixels (pixels to be fixed are where `mask` is `True`).
+        The mask to be used for fixing pixels (pixels to be fixed are where `mask` is `True`). If
+        `None`, nothing will happen and `ccd` is returned.
 
     extension, mask_extension: int, str, (str, int), None
         The extension of FITS to be used. It can be given as integer (0-indexing) of the extension,
@@ -1466,6 +1468,24 @@ def fixpix(
         identical to `priority=None` (default) for 3-D images.
         Default is `None` to follow IRAF's PROTO.FIXPIX: Priority is higher for larger axis number
         (e.g., in 2-D, x-axis (axis=1) has higher priority than y-axis (axis=0)).
+
+    Examples
+    --------
+    Timing test: MBP 15" [2018, macOS 11.4, i7-8850H (2.6 GHz; 6-core), RAM 16 GB (2400MHz DDR4),
+    Radeon Pro 560X (4GB)], 2021-11-05 11:14:04 (KST: GMT+09:00)
+    >>> np.random.RandomState(123)  # RandomState(MT19937) at 0x7FAECA768D40
+    >>> data = np.random.normal(size=(1000, 1000))
+    >>> mask = np.zeros_like(data).astype(bool)
+    >>> mask[10, 10] = True
+    >>> %timeit yfu.fixpix(data, mask)
+    19.7 ms +- 1.53 ms per loop (mean +- std. dev. of 7 runs, 100 loops each)
+    >>> print(data[9:12, 9:12], yfu.fixpix(data, mask)[9:12, 9:12])
+    # [[ 1.64164502 -1.00385046 -1.24748504]
+    #  [-1.31877621  1.37965928  0.66008966]
+    #  [-0.7960262  -0.14613834 -1.34513327]]
+    # [[ 1.64164502 -1.00385046 -1.24748504]
+    #  [-1.31877621 -0.32934328  0.66008966]
+    #  [-0.7960262  -0.14613834 -1.34513327]] adu
     '''
     if mask is None:
         return ccd.copy()
@@ -1578,56 +1598,57 @@ def fixpix(
     if update_header:
         _ccd.header["MASKNPIX"] = (np.count_nonzero(mask), "Total num of pixels fixed by fixpix.")
         _ccd.header["MASKFILE"] = (maskpath, "Applied mask data for fixpix.")
+        _ccd.header["MASKORD"] = (priority, "Axis priority for fixpix (python order)")
         # MASKFILE: name identical to IRAF
         # add as history
         add2hdr(_ccd.header, 'h', t_ref=_t_start, s="Pixel values fixed by fixpix.")
-        update_process(_ccd.header, "P", additional_comment=dict(P="Pixel values fixed by fixpix."))
+        update_process(_ccd.header, "P")
     update_tlm(_ccd.header)
 
     return _ccd
 
 
-# FIXME: Remove this after fixpix is completed
-def fixpix_griddata(ccd, mask, extension=None, method='nearest', fill_value=0, update_header=True):
-    ''' Interpolate the masked location (cf. IRAF's PROTO.FIXPIX)
-    Parameters
-    ----------
-    ccd : CCDData-like (e.g., PrimaryHDU, ImageHDU, HDUList), ndarray, path-like, or number-like
-        The CCD data to be "fixed".
+# # FIXME: Remove this after fixpix is completed
+# def fixpix_griddata(ccd, mask, extension=None, method='nearest', fill_value=0, update_header=True):
+#     ''' Interpolate the masked location (cf. IRAF's PROTO.FIXPIX)
+#     Parameters
+#     ----------
+#     ccd : CCDData-like (e.g., PrimaryHDU, ImageHDU, HDUList), ndarray, path-like, or number-like
+#         The CCD data to be "fixed".
 
-    mask : ndarray (bool)
-        The mask to be used for fixing pixels (pixels to be fixed are where `mask` is `True`).
+#     mask : ndarray (bool)
+#         The mask to be used for fixing pixels (pixels to be fixed are where `mask` is `True`).
 
-    extension: int, str, (str, int)
-        The extension of FITS to be used. It can be given as integer (0-indexing) of the extension,
-        ``EXTNAME`` (single str), or a tuple of str and int: ``(EXTNAME, EXTVER)``. If `None`
-        (default), the *first extension with data* will be used.
+#     extension: int, str, (str, int)
+#         The extension of FITS to be used. It can be given as integer (0-indexing) of the extension,
+#         ``EXTNAME`` (single str), or a tuple of str and int: ``(EXTNAME, EXTVER)``. If `None`
+#         (default), the *first extension with data* will be used.
 
-    method: str
-        The interpolation method. Even the ``'linear'`` method takes too long time in many cases, so
-        the default is ``'nearest'``.
-    '''
-    _t_start = Time.now()
+#     method: str
+#         The interpolation method. Even the ``'linear'`` method takes too long time in many cases, so
+#         the default is ``'nearest'``.
+#     '''
+#     _t_start = Time.now()
 
-    _ccd, _, _ = _parse_image(ccd, extension=extension, force_ccddata=True)
-    data = _ccd.data
+#     _ccd, _, _ = _parse_image(ccd, extension=extension, force_ccddata=True)
+#     data = _ccd.data
 
-    x_idx, y_idx = np.meshgrid(np.arange(0, data.shape[1] - 0.1), np.arange(0, data.shape[0] - 0.1))
-    mask = mask.astype(bool)
-    x_valid = x_idx[~mask]
-    y_valid = y_idx[~mask]
-    z_valid = data[~mask]
-    _ccd.data = griddata((x_valid, y_valid), z_valid, (x_idx, y_idx), method=method, fill_value=fill_value)
+#     x_idx, y_idx = np.meshgrid(np.arange(0, data.shape[1] - 0.1), np.arange(0, data.shape[0] - 0.1))
+#     mask = mask.astype(bool)
+#     x_valid = x_idx[~mask]
+#     y_valid = y_idx[~mask]
+#     z_valid = data[~mask]
+#     _ccd.data = griddata((x_valid, y_valid), z_valid, (x_idx, y_idx), method=method, fill_value=fill_value)
 
-    if update_header:
-        _ccd.header["MASKMETH"] = (method, "The interpolation method for fixpix")
-        _ccd.header["MASKFILL"] = (fill_value, "The fill value if interpol. fails in fixpix")
-        _ccd.header["MASKNPIX"] = (np.count_nonzero(mask), "Total num of pixesl fixed by fixpix.")
-        # add as history
-        add2hdr(_ccd.header, 'h', t_ref=_t_start, s="Pixel values fixed by fixpix")
-    update_tlm(_ccd.header)
+#     if update_header:
+#         _ccd.header["MASKMETH"] = (method, "The interpolation method for fixpix")
+#         _ccd.header["MASKFILL"] = (fill_value, "The fill value if interpol. fails in fixpix")
+#         _ccd.header["MASKNPIX"] = (np.count_nonzero(mask), "Total num of pixesl fixed by fixpix.")
+#         # add as history
+#         add2hdr(_ccd.header, 'h', t_ref=_t_start, s="Pixel values fixed by fixpix")
+#     update_tlm(_ccd.header)
 
-    return _ccd
+#     return _ccd
 
 
 def make_errormap(
@@ -1878,7 +1899,8 @@ def update_process(
         # add comment.
         add2hdr(
             header, 'c',
-            f"Standard items for {key} includes B=bias, D=dark, F=flat, T=trim, W=WCS, C=CRrej, Fr=fringe."
+            f"Standard items for {key} includes B=bias, D=dark, F=flat, T=trim, W=WCS, C=CRrej, "
+            + "Fr=fringe, P=fixpix, X=crosstalk."
         )
 
     header[key] = (delimiter.join(process), "Process (order: 1-2-3-...): see comment.")
