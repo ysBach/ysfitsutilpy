@@ -510,6 +510,14 @@ def medfilt_bpm(
                    + f"{sigclip_kw}; used for std_ratio map calculation.")
             )
 
+    elif isinstance(std_model, np.ndarray):
+        if std_model.shape != ccd.data.shape:
+            raise ValueError(f"std_model.shape (= {std_model.shape}) differs from "
+                             + f"ccd.shape ({ccd.data.shape}")
+        std = std_model
+        if update_header:
+            hdr['MB_MODEL'] = ("User input array", "Method used for getting stdev map")
+
     elif std_model is None:
         hdr['MB_MODEL'] = ('None', "Method used for getting stdev map")
         std = 1  # so that med_ratio is nothing but med_sub itself below.
