@@ -19,7 +19,7 @@ from astropy.stats import mad_std
 from astropy.visualization import ImageNormalize, ZScaleInterval
 from astropy.wcs import WCS, Wcsprm
 from ccdproc import trim_image
-from scipy.interpolate import griddata
+# from scipy.interpolate import griddata
 from scipy.ndimage import label as ndlabel
 
 from .misc import _image_shape, binning, change_to_quantity, fitsxy2py, str_now
@@ -61,7 +61,8 @@ __all__ = [
     # ! header accessor:
     "get_from_header", "get_if_none",
     # ! WCS related:
-    "wcs_crota", "center_radec", "calc_offset_wcs", "calc_offset_physical", "wcsremove", "fov_radius",
+    "wcs_crota", "center_radec", "calc_offset_wcs", "calc_offset_physical",
+    "wcsremove", "fov_radius",
     # ! math:
     "give_stats"
 ]
@@ -81,7 +82,8 @@ def get_size(obj, seen=None):
     obj_id = id(obj)
     if obj_id in seen:
         return 0
-    # Important mark as seen *before* entering recursion to gracefully handle self-referential objects
+    # Important mark as seen *before* entering recursion to gracefully handle
+    # self-referential objects
     seen.add(obj_id)
     if isinstance(obj, dict):
         objv = obj.values()
@@ -134,8 +136,9 @@ def write2fits(data, header, output, return_ccd=False, **kwargs):
         Whether to return the generated CCDData.
 
     **kwargs :
-        The keyword arguements to write FITS file by `~astropy.nddata.fits_data_writer`, such as
-        ``output_verify=True``, ``overwrite=True``.
+        The keyword arguements to write FITS file by
+        `~astropy.nddata.fits_data_writer`, such as ``output_verify=True``,
+        ``overwrite=True``.
     """
     try:
         unit = header['BUNIT']
@@ -151,7 +154,13 @@ def write2fits(data, header, output, return_ccd=False, **kwargs):
         return ccd
 
 
-def _parse_data_header(ccdlike, extension=None, parse_data=True, parse_header=True, copy=True):
+def _parse_data_header(
+        ccdlike,
+        extension=None,
+        parse_data=True,
+        parse_header=True,
+        copy=True
+):
     '''Parses data and header and return them separately after copy.
 
     Paramters
@@ -160,27 +169,31 @@ def _parse_data_header(ccdlike, extension=None, parse_data=True, parse_header=Tr
         The object to be parsed into data and header.
 
     extension: int, str, (str, int)
-        The extension of FITS to be used. It can be given as integer (0-indexing) of the extension,
-        ``EXTNAME`` (single str), or a tuple of str and int: ``(EXTNAME, EXTVER)``. If `None`
-        (default), the *first extension with data* will be used.
+        The extension of FITS to be used. It can be given as integer
+        (0-indexing) of the extension, ``EXTNAME`` (single str), or a tuple of
+        str and int: ``(EXTNAME, EXTVER)``. If `None` (default), the *first
+        extension with data* will be used.
 
     parse_data, parse_header : bool, optional.
-        Because this function uses ``.copy()`` for safety, it may take a bit of time if this function
-        is used iteratively. One then can turn off one of these to ignore either data or header part.
+        Because this function uses ``.copy()`` for safety, it may take a bit of
+        time if this function is used iteratively. One then can turn off one of
+        these to ignore either data or header part.
 
     Returns
     -------
     data : ndarray, None
-        The data part of the input `ccdlike`. If `ccdlike` is ``''`` or `None`, `None` is returned.
+        The data part of the input `ccdlike`. If `ccdlike` is ``''`` or `None`,
+        `None` is returned.
 
     hdr : Header, None
         The header if header exists; otherwise, `None` is returned.
 
     Notes
     -----
-    _parse_data_header and _parse_image have different purposes: _parse_data_header is to get a quick
-    copy of the data and/or header, especially to CHECK if it has header, while _parse_image is to deal
-    mainly with the data (and has options to return as CCDData).
+    _parse_data_header and _parse_image have different purposes:
+    _parse_data_header is to get a quick copy of the data and/or header,
+    especially to CHECK if it has header, while _parse_image is to deal mainly
+    with the data (and has options to return as CCDData).
     '''
     if ccdlike is None or (isinstance(ccdlike, str) and ccdlike == ''):
         data = None
@@ -229,20 +242,23 @@ def _parse_data_header(ccdlike, extension=None, parse_data=True, parse_header=Tr
             data = float(ccdlike) if (parse_data or parse_header) else None
             hdr = None
         except (ValueError, TypeError):  # Path-like
-            # NOTE: This try-except cannot be swapped cuz ``Path("2321.3")`` can be PosixPath without error...
+            # NOTE: This try-except cannot be swapped cuz ``Path("2321.3")``
+            # can be PosixPath without error...
             extension = _parse_extension(extension) if parse_data or parse_header else 0
             # fits.getheader is ~ 10-20 times faster than load_ccd.
             # 2020-11-09 16:06:41 (KST: GMT+09:00) ysBach
             try:
                 if parse_header:
                     hdu = fits.open(Path(ccdlike), memmap=False)[extension]
-                    # No need to copy because they've been read (loaded) for the first time here.
+                    # No need to copy because they've been read (loaded) for
+                    # the first time here.
                     data = hdu.data if parse_data else None
                     hdr = hdu.header if parse_header else None
                 else:
                     if isinstance(extension, tuple):
                         if HAS_FITSIO:
-                            data = fitsio.read(Path(ccdlike), ext=extension[0], extver=extension[1])
+                            data = fitsio.read(Path(ccdlike), ext=extension[0],
+                                               extver=extension[1])
                         else:
                             data = fits.getdata(Path(ccdlike), *extension)
                     else:
@@ -252,37 +268,48 @@ def _parse_data_header(ccdlike, extension=None, parse_data=True, parse_header=Tr
                             data = fits.getdata(Path(ccdlike), extension)
                     hdr = None
             except TypeError:
-                raise TypeError(f"ccdlike type ({type(ccdlike)}) is not acceptable to find header and data.")
+                raise TypeError(f"ccdlike type ({type(ccdlike)}) is not acceptable "
+                                + "to find header and data.")
 
     return data, hdr
 
 
 def _parse_image(
-        ccdlike, extension=None, name=None, force_ccddata=False, prefer_ccddata=False, use_ccddata_if_path=True):
+        ccdlike,
+        extension=None,
+        name=None,
+        force_ccddata=False,
+        prefer_ccddata=False,
+        use_ccddata_if_path=True
+):
     '''Parse and return input image as desired format (ndarray or CCDData)
     Parameters
     ----------
     ccdlike : CCDData-like (e.g., PrimaryHDU, ImageHDU, HDUList), ndarray, path-like, or number-like
-        The "image" that will be parsed. A string that can be converted to float (``float(im)``)
-        will be interpreted as numbers; if not, it will be interpreted as a path to the FITS file.
+        The "image" that will be parsed. A string that can be converted to
+        float (``float(im)``) will be interpreted as numbers; if not, it will
+        be interpreted as a path to the FITS file.
 
     extension: int, str, (str, int)
-        The extension of FITS to be used. It can be given as integer (0-indexing) of the extension,
-        ``EXTNAME`` (single str), or a tuple of str and int: ``(EXTNAME, EXTVER)``. If `None`
-        (default), the *first extension with data* will be used.
+        The extension of FITS to be used. It can be given as integer
+        (0-indexing) of the extension, ``EXTNAME`` (single str), or a tuple of
+        str and int: ``(EXTNAME, EXTVER)``. If `None` (default), the *first
+        extension with data* will be used.
 
     force_ccddata: bool, optional.
-        To force the retun im as `~astropy.nddata.CCDData` object. This is useful when error
-        calculation is turned on.
+        To force the retun im as `~astropy.nddata.CCDData` object. This is
+        useful when error calculation is turned on.
 
     prefer_ccddata: bool, optional.
-        Mildly use `~astropy.nddata.CCDData`, i.e., return `~astropy.nddata.CCDData` only if `im` was
-        `~astropy.nddata.CCDData`, HDU object, or Path-like to a FITS file, but **not** if it was
-        ndarray or numbers. If `False` (default), it prefers ndarray.
+        Mildly use `~astropy.nddata.CCDData`, i.e., return
+        `~astropy.nddata.CCDData` only if `im` was `~astropy.nddata.CCDData`,
+        HDU object, or Path-like to a FITS file, but **not** if it was ndarray
+        or numbers. If `False` (default), it prefers ndarray.
 
     use_ccddata_if_path : bool, optional.
-        Whether to load the full CCD information (using `~astropy.nddata.CCDData`). If `False`,
-        `fitsio.read` will be used without parsing header, significantly increasing the IO speed.
+        Whether to load the full CCD information (using
+        `~astropy.nddata.CCDData`). If `False`, `fitsio.read` will be used
+        without parsing header, significantly increasing the IO speed.
         Default is `True`.
 
     Returns
@@ -298,9 +325,10 @@ def _parse_image(
 
     Notes
     -----
-    _parse_data_header and _parse_image have different purposes: _parse_data_header is to get a quick
-    copy of the data and/or header, especially to CHECK if it has header, while _parse_image is to deal
-    mainly with the data (and has options to return as CCDData).
+    _parse_data_header and _parse_image have different purposes:
+    _parse_data_header is to get a quick copy of the data and/or header,
+    especially to CHECK if it has header, while _parse_image is to deal mainly
+    with the data (and has options to return as CCDData).
     '''
     def __extract_extension(ext):
         extension = _parse_extension(ext)
@@ -319,9 +347,10 @@ def _parse_image(
             if isinstance(unit, str):
                 unit = unit.lower()
             return CCDData(data=hdu.data, header=hdu.header, unit=unit)
-            # The two lines above took ~ 5 us and 10-30 us for the simplest header and 1x1 pixel data
-            # case (regardless of BUNIT exists), on MBP 15" [2018, macOS 10.14.6, i7-8850H (2.6 GHz;
-            # 6-core), RAM 16 GB (2400MHz DDR4), Radeon Pro 560X (4GB)]
+            # The two lines above took ~ 5 us and 10-30 us for the simplest
+            # header and 1x1 pixel data case (regardless of BUNIT exists), on
+            # MBP 15" [2018, macOS 10.14.6, i7-8850H (2.6 GHz; 6-core), RAM 16
+            # GB (2400MHz DDR4), Radeon Pro 560X (4GB)]
         else:
             return hdu.data
 
@@ -332,7 +361,10 @@ def _parse_image(
 
     if isinstance(ccdlike, CCDData):
         # force_ccddata: CCDData // prefer_ccddata: CCDData // else: ndarray
-        new_im = ccdlike.copy() if (force_ccddata or prefer_ccddata) else ccdlike.data.copy()
+        if (force_ccddata or prefer_ccddata):
+            new_im = ccdlike.copy()
+        else:
+            new_im = ccdlike.data.copy()
         imtype = "CCDdata"
     elif isinstance(ccdlike, (fits.PrimaryHDU, fits.ImageHDU)):
         # force_ccddata: CCDData // prefer_ccddata: CCDData // else: ndarray
@@ -352,18 +384,22 @@ def _parse_image(
             imname = f"{imname} {ccdlike}" if has_no_name else name
             _im = float(ccdlike)
             new_im = CCDData(data=_im, unit='adu') if force_ccddata else np.asarray(_im)
-            imtype = "num"  # imname can be "int", "float", "str", etc, so imtype might be useful.
+            imtype = "num"
+            # imname can be "int", "float", "str", etc, so imtype might be useful.
         except (ValueError, TypeError):
             try:  # IF path-like
                 # force_ccddata: CCDData // prefer_ccddata: CCDData // else: ndarray
                 fpath = Path(ccdlike)
                 imname = f"{str(fpath)}{extstr}" if has_no_name else name
-                # set redundant extensions to None so that only the part specified by `extension` be loaded:
+                # set redundant extensions to None so that only the part
+                # specified by `extension` be loaded:
                 new_im = load_ccd(fpath, extension, ccddata=use_ccddata_if_path,
                                   extension_uncertainty=None, extension_mask=None)
                 imtype = "path"
             except TypeError:
-                raise TypeError("input must be CCDData-like, ndarray, path-like (to FITS), or a number.")
+                raise TypeError(
+                    "input must be CCDData-like, ndarray, path-like (to FITS), or a number."
+                )
 
     return new_im, imname, imtype
 
@@ -377,23 +413,26 @@ def _has_header(ccdlike, extension=None, open_if_file=True):
         The object to be parsed into data and header.
 
     extension: int, str, (str, int)
-        The extension of FITS to be used. It can be given as integer (0-indexing) of the extension,
-        ``EXTNAME`` (single str), or a tuple of str and int: ``(EXTNAME, EXTVER)``. If `None`
-        (default), the *first extension with data* will be used. Used only if `ccdlike` is
-        HDUList or path-like.
+        The extension of FITS to be used. It can be given as integer
+        (0-indexing) of the extension, ``EXTNAME`` (single str), or a tuple of
+        str and int: ``(EXTNAME, EXTVER)``. If `None` (default), the *first
+        extension with data* will be used. Used only if `ccdlike` is HDUList or
+        path-like.
 
     open_if_file : bool, optional.
-        Whether to open the file to check if it has a header when `ccdlike` is path-like. Any
-        FITS file has a header, so this means it will check the existence and validity of the file. If
-        set to `False`, all path-like input will return `False` because the path itself has no header.
+        Whether to open the file to check if it has a header when `ccdlike` is
+        path-like. Any FITS file has a header, so this means it will check the
+        existence and validity of the file. If set to `False`, all path-like
+        input will return `False` because the path itself has no header.
 
     Notes
     -----
-    It first checks if the input is one of ``(CCDData, fits.PrimaryHDU, fits.ImageHDU)``, then if
-    `fits.HDUList`, then if `np.ndarray`, then if number-like, and then finally if path-like.
-    Although this has a bit of disadvantage considering we may use file-path for most of the time, the
-    overhead is only ~ 1 us, tested on MBP 15" [2018, macOS 10.14.6, i7-8850H (2.6 GHz; 6-core), RAM 16
-    GB (2400MHz DDR4), Radeon Pro 560X (4GB)].
+    It first checks if the input is one of ``(CCDData, fits.PrimaryHDU,
+    fits.ImageHDU)``, then if `fits.HDUList`, then if `np.ndarray`, then if
+    number-like, and then finally if path-like. Although this has a bit of
+    disadvantage considering we may use file-path for most of the time, the
+    overhead is only ~ 1 us, tested on MBP 15" [2018, macOS 10.14.6, i7-8850H
+    (2.6 GHz; 6-core), RAM 16 GB (2400MHz DDR4), Radeon Pro 560X (4GB)].
     '''
     hashdr = True
     if isinstance(ccdlike, ASTROPY_CCD_TYPES):  # extension not used
@@ -414,7 +453,8 @@ def _has_header(ccdlike, extension=None, open_if_file=True):
             _ = float(ccdlike)
             hashdr = False
         except (ValueError, TypeError):  # if path-like
-            # NOTE: This try-except cannot be swapped cuz ``Path("2321.3")`` can be PosixPath without error...
+            # NOTE: This try-except cannot be swapped cuz ``Path("2321.3")``
+            # can be PosixPath without error...
             if open_if_file:
                 try:
                     # fits.getheader is ~ 10-20 times faster than load_ccd.
@@ -432,14 +472,14 @@ def _parse_extension(*args, ext=None, extname=None, extver=None):
     """
     Open the input file, return the `HDUList` and the extension.
 
-    This supports several different styles of extension selection.  See the :func:`getdata()`
-    documentation for the different possibilities.
+    This supports several different styles of extension selection.  See the
+    :func:`getdata()` documentation for the different possibilities.
 
     Direct copy from astropy, but removing "opening HDUList" part
     https://github.com/astropy/astropy/blob/master/astropy/io/fits/convenience.py#L988
 
-    This is essential for fits_ccddata_reader, because it only has `hdu`, not all three of ext,
-    extname, and extver.
+    This is essential for fits_ccddata_reader, because it only has `hdu`, not
+    all three of ext, extname, and extver.
 
     Note
     ----
@@ -451,16 +491,20 @@ def _parse_extension(*args, ext=None, extname=None, extver=None):
         {'args': args, 'ext': ext, 'extname': extname, 'extver': extver})
     )
 
-    # This code would be much simpler if just one way of specifying an extension were picked.  But now
-    # we need to support all possible ways for the time being.
+    # This code would be much simpler if just one way of specifying an
+    # extension were picked.  But now we need to support all possible ways for
+    # the time being.
     if len(args) == 1:
-        # Must be either an extension number, an extension name, or an (extname, extver) tuple
-        if isinstance(args[0], (int, np.integer)) or (isinstance(ext, tuple) and len(ext) == 2):
+        # Must be either an extension number, an extension name, or an
+        # (extname, extver) tuple
+        if (isinstance(args[0], (int, np.integer))
+                or (isinstance(ext, tuple) and len(ext) == 2)):
             if ext is not None or extname is not None or extver is not None:
                 raise TypeError(err_msg)
             ext = args[0]
         elif isinstance(args[0], str):
-            # The first arg is an extension name; it could still be valid to provide an extver kwarg
+            # The first arg is an extension name; it could still be valid to
+            # provide an extver kwarg
             if ext is not None or extname is not None:
                 raise TypeError(err_msg)
             extname = args[0]
@@ -481,7 +525,8 @@ def _parse_extension(*args, ext=None, extname=None, extver=None):
                  (isinstance(ext, tuple) and len(ext) == 2 and
                   isinstance(ext[0], str) and isinstance(ext[1], (int, np.integer))))):
         raise ValueError(
-            'The ext keyword must be either an extension number (zero-indexed) or a (extname, extver) tuple.'
+            'The ext keyword must be either an extension number (zero-indexed) '
+            + 'or a (extname, extver) tuple.'
         )
     if extname is not None and not isinstance(extname, str):
         raise ValueError('The extname argument must be a string.')
@@ -504,10 +549,22 @@ def _parse_extension(*args, ext=None, extname=None, extver=None):
 
 
 def load_ccd(
-        path, extension=None, fits_section=None, ccddata=True, as_ccd=True, use_wcs=True, unit=None,
-        extension_uncertainty="UNCERT", extension_mask='MASK', extension_flags=None,
-        load_primary_only_fitsio=True, return_full_fitsio=False, key_uncertainty_type='UTYPE', memmap=False,
-        **kwd):
+        path,
+        extension=None,
+        fits_section=None,
+        ccddata=True,
+        as_ccd=True,
+        use_wcs=True,
+        unit=None,
+        extension_uncertainty="UNCERT",
+        extension_mask='MASK',
+        extension_flags=None,
+        load_primary_only_fitsio=True,
+        return_full_fitsio=False,
+        key_uncertainty_type='UTYPE',
+        memmap=False,
+        **kwd
+):
     ''' Loads FITS file of CCD image data (not table, etc).
     Paramters
     ---------
@@ -515,111 +572,125 @@ def load_ccd(
         The path to the FITS file to load.
 
     fits_section : str, optional.
-        Region of `~astropy.nddata.CCDData` from which the data is extracted. Default is `None`.
+        Region of `~astropy.nddata.CCDData` from which the data is extracted.
+        Default: `None`.
 
     extension: int, str, (str, int)
-        The extension of FITS to be used. It can be given as integer (0-indexing) of the extension,
-        ``EXTNAME`` (single str), or a tuple of str and int: ``(EXTNAME, EXTVER)``. If `None`
-        (default), the *first extension with data* will be used.
+        The extension of FITS to be used. It can be given as integer
+        (0-indexing) of the extension, ``EXTNAME`` (single str), or a tuple of
+        str and int: ``(EXTNAME, EXTVER)``. If `None` (default), the *first
+        extension with data* will be used.
 
     ccddata : bool, optional.
-        Whether to return `~astropy.nddata.CCDData`. Default is `True`. If it is `False`, **all the
-        arguments below are ignored**, except for the keyword arguments that will be passed to
-        `fitsio.read`, and an ndarray will be returned without astropy unit.
+        Whether to return `~astropy.nddata.CCDData`. Default is `True`. If it
+        is `False`, **all the arguments below are ignored**, except for the
+        keyword arguments that will be passed to `fitsio.read`, and an ndarray
+        will be returned without astropy unit.
 
     as_ccd : bool, optional.
         Deprecated. (identical to `ccddata`)
 
     use_wcs : bool, optional.
-        Whether to load WCS by `fits.getheader`, **not** by `~astropy.nddata.fits_ccdddata_reader`.
-        This is necessary as of now because TPV WCS is not properly understood by the latter.
-        Default is `True`.
+        Whether to load WCS by `fits.getheader`, **not** by
+        `~astropy.nddata.fits_ccdddata_reader`. This is necessary as of now
+        because TPV WCS is not properly understood by the latter.
+        Default : `True`.
         Used only if ``ccddata=True``.
 
     unit : `~astropy.units.Unit`, optional
-        Units of the image data. If this argument is provided and there is a unit for the image in the
-        FITS header (the keyword ``BUNIT`` is used as the unit, if present), this argument is used for
-        the unit.
-        Default is `None`.
+        Units of the image data. If this argument is provided and there is a
+        unit for the image in the FITS header (the keyword ``BUNIT`` is used as
+        the unit, if present), this argument is used for the unit.
+        Default: `None`.
         Used only if ``ccddata=True``.
 
         .. note::
-            The behavior differs from astropy's original fits_ccddata_reader: If no ``BUNIT`` is found
-            and `unit` is `None`, ADU is assumed.
+            The behavior differs from astropy's original fits_ccddata_reader:
+            If no ``BUNIT`` is found and `unit` is `None`, ADU is assumed.
 
     load_primary_only_fitsio : bool, optional.
-        Whether to ignore uncertainty, mask, and flags extensions when using fitsio (i.e., when
-        ``use_ccd=False``). This is `True` by default, because that's the most common usage for fitsio.
+        Whether to ignore uncertainty, mask, and flags extensions when using
+        fitsio (i.e., when ``use_ccd=False``). This is `True` by default,
+        because that's the most common usage for fitsio.
 
     return_full_fitsio : bool, optional.
-        Whether to return full (`data`, `unc`, `mask`, `flag`) even when `load_primary_only_fitsio` is
-        `True` and `extension_uncertainty` is `None` and `extension_mask` is `None`, which can be
-        convenient for API design.
-        Default is `False`.
+        Whether to return full (`data`, `unc`, `mask`, `flag`) even when
+        `load_primary_only_fitsio` is `True` and `extension_uncertainty` is
+        `None` and `extension_mask` is `None`, which can be convenient for API
+        design.
+        Default: `False`.
 
     extension_uncertainty : str or None, optional
-        FITS extension from which the uncertainty should be initialized. If the extension does not
-        exist the uncertainty is `None`. Name is changed from `hdu_uncertainty` in ccdproc to
-        `extension_uncertainty` here. See explanation of `extension`.
-        Default is ``'UNCERT'``.
+        FITS extension from which the uncertainty should be initialized. If the
+        extension does not exist the uncertainty is `None`. Name is changed
+        from `hdu_uncertainty` in ccdproc to `extension_uncertainty` here. See
+        explanation of `extension`.
+        Default: ``'UNCERT'``.
 
     extension_mask : str or None, optional
-        FITS extension from which the mask should be initialized. If the extension does not exist the
-        mask is `None`. Name is changed from `hdu_mask` in ccdproc to `extension_mask` here.  See
-        explanation of `extension`.
-        Default is ``'MASK'``.
+        FITS extension from which the mask should be initialized. If the
+        extension does not exist the mask is `None`. Name is changed from
+        `hdu_mask` in ccdproc to `extension_mask` here.  See explanation of
+        `extension`.
+        Default: ``'MASK'``.
 
     hdu_flags : str or None, optional
-        Currently not implemented.N ame is changed from `hdu_flags` in ccdproc to `extension_flags`
-        here.
-        Default is `None`.
+        Currently not implemented.N ame is changed from `hdu_flags` in ccdproc
+        to `extension_flags` here.
+        Default: `None`.
 
     key_uncertainty_type : str, optional
-        The header key name where the class name of the uncertainty is stored in the hdu of the
-        uncertainty (if any).
-        Default is ``UTYPE``.
+        The header key name where the class name of the uncertainty is stored
+        in the hdu of the uncertainty (if any).
+        Default: ``UTYPE``.
         Used only if ``ccddata=True``.
 
         ..warning::
-            If ``ccddata=False`` and ``load_primary_only_fitsio=False``, the uncertainty type by
-            `key_uncertainty_type` will be completely ignored.
+            If ``ccddata=False`` and ``load_primary_only_fitsio=False``, the
+            uncertainty type by `key_uncertainty_type` will be completely
+            ignored.
 
     memmap : bool, optional
-        Is memory mapping to be used? This value is obtained from the configuration item
-        `astropy.io.fits.Conf.use_memmap`.
-        Default is `False` (opposite of astropy).
+        Is memory mapping to be used? This value is obtained from the
+        configuration item `astropy.io.fits.Conf.use_memmap`.
+        Default: `False` (**opposite of astropy**).
         Used only if ``ccddata=True``.
 
     kwd :
-        Any additional keyword parameters that will be used in `~astropy.nddata.fits_ccddata_reader`
-        (if ``ccddata=True``) or `fitsio.read()` (if ``ccddata=False``).
+        Any additional keyword parameters that will be used in
+        `~astropy.nddata.fits_ccddata_reader` (if ``ccddata=True``) or
+        `fitsio.read()` (if ``ccddata=False``).
 
     Returns
     -------
-    CCDData (``ccddata=True``) or ndarray (``ccddata=False``). For the latter case, if
-    ``load_primary_only_fitsio=False``, the uncertainty and mask extensions, as well as flags (not
-    supported, so just `None`) will be returned as well as the one specified by `extension`.
+    CCDData (``ccddata=True``) or ndarray (``ccddata=False``). For the latter
+    case, if ``load_primary_only_fitsio=False``, the uncertainty and mask
+    extensions, as well as flags (not supported, so just `None`) will be
+    returned as well as the one specified by `extension`.
 
     Notes
     -----
     Many of the parameter explanations adopted from astropy
-    (https://github.com/astropy/astropy/blob/master/astropy/nddata/ccddata.py#L527 and
+    (https://github.com/astropy/astropy/blob/master/astropy/nddata/ccddata.py#L527
+    and
     https://github.com/astropy/astropy/blob/master/astropy/io/fits/convenience.py#L120).
 
     CCDData.read cannot read TPV WCS:
     https://github.com/astropy/astropy/issues/7650
     Also memory map must be set False to avoid memory problem
     https://github.com/astropy/astropy/issues/9096
-    Plus, WCS info from astrometry.net solve-field sometimes not understood by CCDData.read....
-    2020-05-31 16:39:51 (KST: GMT+09:00) ysBach
-    Why the name of the argument is different (`hdu`) in fits_ccddata_reader...;;
+    Plus, WCS info from astrometry.net solve-field sometimes not understood by
+    CCDData.read.... 2020-05-31 16:39:51 (KST: GMT+09:00) ysBach
+    Why the name of the argument is different (`hdu`) in
+    fits_ccddata_reader...;;
 
-    Using fitsio, we get ~ 6-100 times faster loading time for FITS files on MBP 15" [2018, macOS
-    10.14.6, i7-8850H (2.6 GHz; 6-core), RAM 16 GB (2400MHz DDR4), Radeon Pro 560X (4GB)].
-    Thus, when you just need data without header information (combine or stacking images, simple image
-    arithmetics without header updates, etc) for MANY images, the gain is enormous by using FITSIO.
-    This also boosts the speed of some processes which have to open the same FITS file repeatedly due
-    to the memory limit.
+    Using fitsio, we get ~ 6-100 times faster loading time for FITS files on
+    MBP 15" [2018, macOS 10.14.6, i7-8850H (2.6 GHz; 6-core), RAM 16 GB
+    (2400MHz DDR4), Radeon Pro 560X (4GB)]. Thus, when you just need data
+    without header information (combine or stacking images, simple image
+    arithmetics without header updates, etc) for MANY images, the gain is
+    enormous by using FITSIO. This also boosts the speed of some processes
+    which have to open the same FITS file repeatedly due to the memory limit.
 
     ```
         !fitsinfo test.fits
@@ -643,7 +714,9 @@ def load_ccd(
     For a 1k by 1k image, it's ~ 6 times faster
     ```
         np.random.seed(123)
-        ccd = CCDData(data=np.random.normal(size=(1000, 1000)).astype('float32'), unit='adu')
+        ccd = CCDData(data=np.random.normal(
+            size=(1000, 1000)).astype('float32'), unit='adu'
+        )
         ccd.write("test1k_32bit.fits")
         %timeit fitsio.FITS("test10k_32bit.fits")[0].read()
         1.49 ms +/- 91.1 µs per loop (mean +/- std. dev. of 7 runs, 1000 loops each)
@@ -652,7 +725,9 @@ def load_ccd(
     ```
     For a 10k by 10k image, it's still ~ 6 times faster
     ```
-        ccd = CCDData(data=np.random.normal(size=(10000, 10000)).astype('float32'), unit='adu')
+        ccd = CCDData(data=np.random.normal(
+            size=(10000, 10000)).astype('float32'), unit='adu'
+        )
         %timeit fitsio.FITS("test10k_32bit.fits")[0].read()
         1.4 ms +/- 123 µs per loop (mean +/- std. dev. of 7 runs, 1000 loops each)
         %timeit CCDData.read("test10k_32bit.fits")
@@ -676,11 +751,18 @@ def load_ccd(
             extension_uncertainty = ext_umf(extension_uncertainty)
             extension_mask = ext_umf(extension_mask)
             extension_flag = ext_umf(extension_flags)
-            # If not None, this happens: NotImplementedError: loading flags is currently not supported.
+            # If not None, this happens: NotImplementedError: loading flags is
+            # currently not supported.
 
-            reader_kw = dict(hdu=extension, hdu_uncertainty=extension_uncertainty, hdu_mask=extension_mask,
-                             hdu_flags=extension_flag, key_uncertainty_type=key_uncertainty_type,
-                             memmap=memmap, **kwd)
+            reader_kw = dict(
+                hdu=extension,
+                hdu_uncertainty=extension_uncertainty,
+                hdu_mask=extension_mask,
+                hdu_flags=extension_flag,
+                key_uncertainty_type=key_uncertainty_type,
+                memmap=memmap,
+                **kwd
+            )
 
             # FIXME: Remove this if block in the future if WCS issue is resolved.
             if use_wcs:  # Because of the TPV WCS issue
@@ -724,7 +806,9 @@ def load_ccd(
                         else:
                             arr = _hdul[_extension].read()
                 except OSError:
-                    raise ValueError(f"Extension `{_extension}` is not found (file: {_path})")
+                    raise ValueError(
+                        f"Extension `{_extension}` is not found (file: {_path})"
+                    )
                 except ValueError:
                     raise ValueError()
 
@@ -732,7 +816,9 @@ def load_ccd(
 
             hdul = fitsio.FITS(path)
             data = _read_by_fitsio(hdul, path, extension, _fits_section=fits_section)
-            if load_primary_only_fitsio and extension_uncertainty is None and extension_mask is None:
+            if (load_primary_only_fitsio
+                    and extension_uncertainty is None
+                    and extension_mask is None):
                 hdul.close()
                 if return_full_fitsio:
                     return data, None, None, None
@@ -761,12 +847,20 @@ def load_ccd(
 
         extension_uncertainty = _parse_extension(extension_uncertainty)
         extension_mask = _parse_extension(extension_mask)
-        extension_flag = None if extension_flags is None else _parse_extension(extension_flags)
-        # If not None, this happens: NotImplementedError: loading flags is currently not supported.
+        if extension_flag is not None:
+            extension_flag = _parse_extension(extension_flag)
+        # If not None, this happens:
+        #   NotImplementedError: loading flags is currently not supported.
 
-        reader_kw = dict(hdu=extension, hdu_uncertainty=extension_uncertainty, hdu_mask=extension_mask,
-                         hdu_flags=extension_flag, key_uncertainty_type=key_uncertainty_type,
-                         memmap=memmap, **kwd)
+        reader_kw = dict(
+            hdu=extension,
+            hdu_uncertainty=extension_uncertainty,
+            hdu_mask=extension_mask,
+            hdu_flags=extension_flag,
+            key_uncertainty_type=key_uncertainty_type,
+            memmap=memmap,
+            **kwd
+        )
 
         # FIXME: Remove this if block in the future if WCS issue is resolved.
         if use_wcs:  # Because of the TPV WCS issue
@@ -790,7 +884,9 @@ def load_ccd(
         if ccddata and as_ccd:  # if at least one of these is False, it uses fitsio.
             return ccd
         else:
-            if load_primary_only_fitsio and extension_uncertainty is None and extension_mask is None:
+            if (load_primary_only_fitsio
+                    and extension_uncertainty is None
+                    and extension_mask is None):
                 if return_full_fitsio:
                     return ccd.data, None, None, None
                 else:
@@ -805,27 +901,36 @@ def load_ccd(
                 return ccd.data, unc, mask, flag
 
 
-def inputs2list(inputs, sort=True, accept_ccdlike=True, path_to_text=False, check_coherency=False):
+def inputs2list(
+        inputs,
+        sort=True,
+        accept_ccdlike=True,
+        path_to_text=False,
+        check_coherency=False
+):
     ''' Convert glob pattern or list-like of path-like to list of Path
 
     Parameters
     ----------
     inputs : str, path-like, CCDData, fits.PrimaryHDU, fits.ImageHDU, DataFrame-convertable.
-        If DataFrame-convertable, e.g., pd.DataFrame or astropy.table.Table, it must have column named
-        ``"file"``. Otherwise, please use, e.g., ``inputs = list(that_table["filenamecolumn"])``.
+        If DataFrame-convertable, e.g., pd.DataFrame or astropy.table.Table, it
+        must have column named ``"file"``. Otherwise, please use, e.g.,
+        ``inputs = list(that_table["filenamecolumn"])``.
 
     sort : bool, optional.
         Whether to sort the output list. Default: `True`.
 
     accept_ccdlike: bool, optional.
-        Whether to accept `~astropy.nddata.CCDData`-like objects and simpley return ``[inputs]``.
+        Whether to accept `~astropy.nddata.CCDData`-like objects and simpley
+        return ``[inputs]``.
         Default: `True`.
 
     path_to_text: bool, optional.
         Whether to convert the `pathlib.Path` object to `str`. Default: `True`.
 
     check_coherence: bool, optional.
-        Whether to check if all elements of the `inputs` have the identical type. Default: `False`.
+        Whether to check if all elements of the `inputs` have the identical
+        type. Default: `False`.
     '''
     contains_ccdlike = False
     # TODO: if str and startswith("@"), read that file to get fpaths as glob pattern.
@@ -841,28 +946,33 @@ def inputs2list(inputs, sort=True, accept_ccdlike=True, path_to_text=False, chec
             outlist = [inputs]
         else:
             kind = type(inputs)
-            raise TypeError(f"{kind} is given as `inputs`. Turn off accept_ccdlike or use path-like.")
+            raise TypeError(f"{kind} is given as `inputs`. "
+                            + "Turn off accept_ccdlike or use path-like.")
     elif isinstance(inputs, (Table, pd.DataFrame)):
-        # Do this before is_list_like because DataFrame returns True in is_list_like as it is iterable.
+        # Do this before is_list_like because DataFrame returns True in
+        # is_list_like as it is iterable.
         try:
             outlist = list(inputs["file"])
         except KeyError:
-            raise KeyError("If inputs is DataFrame convertible, it must have column named 'file'.")
+            raise KeyError(
+                "If inputs is DataFrame convertible, it must have column named 'file'."
+            )
     elif is_list_like(inputs):
         type_ref = type(inputs[0])
         outlist = []
         for i, item in enumerate(inputs):
             if check_coherency and (type(item) != type_ref):
-                raise TypeError(f"The 0-th item has {type_ref} while {i}-th has {type(item)}.")
+                raise TypeError(
+                    f"The 0-th item has {type_ref} while {i}-th has {type(item)}."
+                )
             if isinstance(item, ASTROPY_CCD_TYPES):
                 contains_ccdlike = True
                 if accept_ccdlike:
                     outlist.append(item)
                 else:
                     kind = type(item)
-                    raise TypeError(
-                        f"{kind} is given in the {i}-th element. Turn off accept_ccdlike or use path-like."
-                    )
+                    raise TypeError(f"{kind} is given in the {i}-th element. "
+                                    + "Turn off accept_ccdlike or use path-like.")
             else:  # assume it is path-like
                 if path_to_text:
                     outlist.append(str(item))
@@ -889,8 +999,8 @@ def CCDData_astype(ccd, dtype='float32', uncertainty_dtype=None, copy=True):
         The dtype to be applied to the data
 
     uncertainty_dtype : dtype-like
-        The dtype to be applied to the uncertainty. Be default, use the same dtype as data
-        (``uncertainty_dtype=dtype``).
+        The dtype to be applied to the uncertainty. Be default, use the same
+        dtype as data (``uncertainty_dtype=dtype``).
 
     Example
     -------
@@ -919,8 +1029,18 @@ def CCDData_astype(ccd, dtype='float32', uncertainty_dtype=None, copy=True):
 
 
 def set_ccd_attribute(
-        ccd, name, value=None, key=None, default=None, unit=None, header_comment=None, update_header=True,
-        verbose=True, wrapper=None, wrapper_kw={}):
+        ccd,
+        name,
+        value=None,
+        key=None,
+        default=None,
+        unit=None,
+        header_comment=None,
+        update_header=True,
+        verbose=True,
+        wrapper=None,
+        wrapper_kw={}
+):
     ''' Set attributes from given paramters.
 
     Parameters
@@ -929,7 +1049,8 @@ def set_ccd_attribute(
         The ccd to add attribute.
 
     value : Any, optional.
-        The value to be set as the attribute. If `None`, the ``ccd.header[key]`` will be searched.
+        The value to be set as the attribute. If `None`, the
+        ``ccd.header[key]`` will be searched.
 
     name : str, optional.
         The name of the attribute.
@@ -941,14 +1062,15 @@ def set_ccd_attribute(
         The unit that will be applied to the found value.
 
     header_comment : str, optional.
-        The comment string to the header if ``update_header=True``. If `None` (default), search for
-        existing comment in the original header by ``ccd.comments[key]`` and only overwrite the value
-        by ``ccd.header[key]=found_value``. If it's not `None`, the comments will also be overwritten
-        if ``update_header=True``.
+        The comment string to the header if ``update_header=True``. If `None`
+        (default), search for existing comment in the original header by
+        ``ccd.comments[key]`` and only overwrite the value by
+        ``ccd.header[key]=found_value``. If it's not `None`, the comments will
+        also be overwritten if ``update_header=True``.
 
     wrapper : function object, None, optional.
-        The wrapper function that will be applied to the found value. Other keyword arguments should be
-        given as a dict to `wrapper_kw`.
+        The wrapper function that will be applied to the found value. Other
+        keyword arguments should be given as a dict to `wrapper_kw`.
 
     wrapper_kw : dict, optional.
         The keyword argument to `wrapper`.
@@ -1007,16 +1129,25 @@ def set_ccd_attribute(
 
 # TODO: This is quite much overlapping with get_gain_rdnoise...
 def set_ccd_gain_rdnoise(
-        ccd, verbose=True, update_header=True, gain=None, rdnoise=None,
-        gain_key="GAIN", rdnoise_key="RDNOISE", gain_unit=u.electron/u.adu, rdnoise_unit=u.electron):
+        ccd,
+        verbose=True,
+        update_header=True,
+        gain=None,
+        rdnoise=None,
+        gain_key="GAIN",
+        rdnoise_key="RDNOISE",
+        gain_unit=u.electron/u.adu,
+        rdnoise_unit=u.electron
+):
     """ A convenience set_ccd_attribute for gain and readnoise.
 
     Parameters
     ----------
     gain, rdnoise : None, float, astropy.Quantity, optional.
-        The gain and readnoise value. If `gain` or `readnoise` is specified, they are interpreted with
-        `gain_unit` and `rdnoise_unit`, respectively. If they are not specified, this function will
-        seek for the header with keywords of `gain_key` and `rdnoise_key`, and interprete the header
+        The gain and readnoise value. If `gain` or `readnoise` is specified,
+        they are interpreted with `gain_unit` and `rdnoise_unit`, respectively.
+        If they are not specified, this function will seek for the header with
+        keywords of `gain_key` and `rdnoise_key`, and interprete the header
         value in the unit of `gain_unit` and `rdnoise_unit`, respectively.
 
     gain_key, rdnoise_key : str, optional.
@@ -1033,10 +1164,28 @@ def set_ccd_gain_rdnoise(
     """
     gain_str = f"[{gain_unit:s}] Gain of the detector"
     rdn_str = f"[{rdnoise_unit:s}] Readout noise of the detector"
-    set_ccd_attribute(ccd=ccd, name='gain', value=gain, key=gain_key, unit=gain_unit, default=1.0,
-                      header_comment=gain_str, update_header=update_header, verbose=verbose)
-    set_ccd_attribute(ccd=ccd, name='rdnoise', value=rdnoise, key=rdnoise_key, unit=rdnoise_unit, default=0.0,
-                      header_comment=rdn_str, update_header=update_header, verbose=verbose)
+    set_ccd_attribute(
+        ccd=ccd,
+        name='gain',
+        value=gain,
+        key=gain_key,
+        unit=gain_unit,
+        default=1.0,
+        header_comment=gain_str,
+        update_header=update_header,
+        verbose=verbose
+    )
+    set_ccd_attribute(
+        ccd=ccd,
+        name='rdnoise',
+        value=rdnoise,
+        key=rdnoise_key,
+        unit=rdnoise_unit,
+        default=0.0,
+        header_comment=rdn_str,
+        update_header=update_header,
+        verbose=verbose
+    )
 
 
 def propagate_ccdmask(ccd, additional_mask=None):
@@ -1045,7 +1194,8 @@ def propagate_ccdmask(ccd, additional_mask=None):
     Parameters
     ----------
     ccd : CCDData, ndarray
-        The ccd to extract mask. If ndarray, it will only return a copy of `additional_mask`.
+        The ccd to extract mask. If ndarray, it will only return a copy of
+        `additional_mask`.
 
     additional_mask : mask-like, None
         The mask to be propagated.
@@ -1121,7 +1271,14 @@ def trim_ccd(ccd, fits_section=None, update_header=True, verbose=False):
 
 
 # TODO: Make it work for ND-CCD
-def bezel_ccd(ccd, bezel_x=None, bezel_y=None, replace=np.nan, update_header=True, verbose=False):
+def bezel_ccd(
+        ccd,
+        bezel_x=None,
+        bezel_y=None,
+        replace=np.nan,
+        update_header=True,
+        verbose=False
+):
     """ Replace pixel values at the edges of the image.
 
     Parameters
@@ -1130,19 +1287,19 @@ def bezel_ccd(ccd, bezel_x=None, bezel_y=None, replace=np.nan, update_header=Tru
         The data to be used.
 
     bezel_x, bezel_y : None, int, float, size-2 of these, optional.
-        The bezel width along x and y directions. If `float`, it will be rounded to integer. If given
-        as size-2 array-like, it must be ``(bezel_lower, bezel_upper)``.
+        The bezel width along x and y directions. If `float`, it will be
+        rounded to integer. If given as size-2 array-like, it must be
+        ``(bezel_lower, bezel_upper)``.
 
     replace : None, float-like, optinoal.
-        If `None`, it is identical to trimming the CCD with given bezels. If given as float-like, the
-        bezel pixels will be replaced with this value. Defaults to ``np.nan`` to keep the size of the
-        input `ccd`.
+        If `None`, it is identical to trimming the CCD with given bezels. If
+        given as float-like, the bezel pixels will be replaced with this value.
+        Defaults to ``np.nan`` to keep the size of the input `ccd`.
 
     Returns
     -------
     nccd : `~astropy.nddata.CCDData`
-        The trimmed (``replace=None``) or bezel-replaced (otherwise)
-        ccd.
+        The trimmed (``replace=None``) or bezel-replaced (otherwise) ccd.
 
     Example
     -------
@@ -1200,7 +1357,8 @@ def bezel_ccd(ccd, bezel_x=None, bezel_y=None, replace=np.nan, update_header=Tru
         if update_header:
             add2hdr(
                 nccd.header, 'h', t_ref=_t, verbose=verbose,
-                s=f"Replaced pixels with bezel width {bezel_x} along x and {bezel_y} along y with {replace}."
+                s=(f"Replaced pixels with bezel width {bezel_x} along x and "
+                   + f"{bezel_y} along y with {replace}.")
             )
 
     if update_header:
@@ -1215,14 +1373,16 @@ def trim_overlap(inputs, extension=None, coordinate='image'):
     Parameters
     ----------
     coordinate : str, optional.
-        Ways to find the overlapping region. If ``'image'`` (default), output size will be
-        ``np.min([ccd.shape for ccd in ccds], axis=0)``. If ``'physical'``, overlapping region will be
-        found based on the physical coordinates.
+        Ways to find the overlapping region. If ``'image'`` (default), output
+        size will be ``np.min([ccd.shape for ccd in ccds], axis=0)``. If
+        ``'physical'``, overlapping region will be found based on the physical
+        coordinates.
 
     extension: int, str, (str, int)
-        The extension of FITS to be used. It can be given as integer (0-indexing) of the extension,
-        ``EXTNAME`` (single str), or a tuple of str and int: ``(EXTNAME, EXTVER)``. If `None`
-        (default), the *first extension with data* will be used.
+        The extension of FITS to be used. It can be given as integer
+        (0-indexing) of the extension, ``EXTNAME`` (single str), or a tuple of
+        str and int: ``(EXTNAME, EXTVER)``. If `None` (default), the *first
+        extension with data* will be used.
 
     Note
     ----
@@ -1238,9 +1398,13 @@ def trim_overlap(inputs, extension=None, coordinate='image'):
     for item in items:
         ccd, _, _ = _parse_image(item, extension=extension, name=None, force_ccddata=True)
         shapes.append(ccd.data.shape)
-        offsets.append(calc_offset_physical(ccd, reference, order_xyz=False, ignore_ltm=True))
+        offsets.append(
+            calc_offset_physical(ccd, reference, order_xyz=False, ignore_ltm=True)
+        )
 
-    offsets, new_shape = _image_shape(shapes, offsets, method='overlap', intify_offsets=False)
+    offsets, new_shape = _image_shape(
+        shapes, offsets, method='overlap', intify_offsets=False
+    )
 
 
 def cutccd(ccd, position, size, mode='trim', fill_value=np.nan):
@@ -1258,47 +1422,62 @@ def cut_ccd(ccd, position, size, mode='trim', fill_value=np.nan):
         The ccd to be trimmed.
 
     position : tuple or `~astropy.coordinates.SkyCoord`
-        The position of the cutout array's center with respect to the ``data`` array. The position can
-        be specified either as a ``(x, y)`` tuple of pixel coordinates or a
-        `~astropy.coordinates.SkyCoord`, in which case wcs is a required input.
+        The position of the cutout array's center with respect to the ``data``
+        array. The position can be specified either as a ``(x, y)`` tuple of
+        pixel coordinates or a `~astropy.coordinates.SkyCoord`, in which case
+        wcs is a required input.
 
     size : int, array-like, `~astropy.units.Quantity`
-        The size of the cutout array along each axis. If `size` is a scalar number or a scalar
-        `~astropy.units.Quantity`, then a square cutout of `size` will be created. If `size` has two
-        elements, they should be in ``(ny, nx)`` order. Scalar numbers in `size` are assumed to be in
-        units of pixels. `size` can also be a `~astropy.units.Quantity` object or contain
-        `~astropy.units.Quantity` objects. Such `~astropy.units.Quantity` objects must be in pixel or
-        angular units. For all cases, `size` will be converted to an integer number of pixels, rounding
-        the the nearest integer. See the `mode` keyword for additional details on the final cutout
-        size.
+        The size of the cutout array along each axis. If `size` is a scalar
+        number or a scalar `~astropy.units.Quantity`, then a square cutout of
+        `size` will be created. If `size` has two elements, they should be in
+        ``(ny, nx)`` order. Scalar numbers in `size` are assumed to be in units
+        of pixels. `size` can also be a `~astropy.units.Quantity` object or
+        contain `~astropy.units.Quantity` objects. Such
+        `~astropy.units.Quantity` objects must be in pixel or angular units.
+        For all cases, `size` will be converted to an integer number of pixels,
+        rounding the the nearest integer. See the `mode` keyword for additional
+        details on the final cutout size.
 
         .. note::
-            If `size` is in angular units, the cutout size is converted to pixels using the pixel
-            scales along each axis of the image at the ``CRPIX`` location.  Projection and other
-            non-linear distortions are not taken into account.
+            If `size` is in angular units, the cutout size is converted to
+            pixels using the pixel scales along each axis of the image at the
+            ``CRPIX`` location.  Projection and other non-linear distortions
+            are not taken into account.
 
     wcs : `~astropy.wcs.WCS`, optional
-        A WCS object associated with the input `data` array.  If `wcs` is not `None`, then the
-        returned cutout object will contain a copy of the updated WCS for the cutout data array.
+        A WCS object associated with the input `data` array.  If `wcs` is not
+        `None`, then the returned cutout object will contain a copy of the
+        updated WCS for the cutout data array.
 
     mode : {'trim', 'partial', 'strict'}, optional
-        The mode used for creating the cutout data array.  For the ``'partial'`` and ``'trim'`` modes,
-        a partial overlap of the cutout array and the input `data` array is sufficient. For the
-        ``'strict'`` mode, the cutout array has to be fully contained within the `data` array,
-        otherwise an `~astropy.nddata.utils.PartialOverlapError` is raised.   In all modes,
-        non-overlapping arrays will raise a `~astropy.nddata.utils.NoOverlapError`.  In ``'partial'``
-        mode, positions in the cutout array that do not overlap with the `data` array will be filled
-        with `fill_value`.  In ``'trim'`` mode only the overlapping elements are returned, thus the
-        resulting cutout array may be smaller than the requested `shape`.
+        The mode used for creating the cutout data array.  For the
+        ``'partial'`` and ``'trim'`` modes, a partial overlap of the cutout
+        array and the input `data` array is sufficient. For the ``'strict'``
+        mode, the cutout array has to be fully contained within the `data`
+        array, otherwise an `~astropy.nddata.utils.PartialOverlapError` is
+        raised.   In all modes, non-overlapping arrays will raise a
+        `~astropy.nddata.utils.NoOverlapError`.  In ``'partial'`` mode,
+        positions in the cutout array that do not overlap with the `data` array
+        will be filled with `fill_value`.  In ``'trim'`` mode only the
+        overlapping elements are returned, thus the resulting cutout array may
+        be smaller than the requested `shape`.
 
     fill_value : number, optional
-        If ``mode='partial'``, the value to fill pixels in the cutout array that do not overlap with
-        the input `data`. `fill_value` must have the same `dtype` as the input `data` array.
+        If ``mode='partial'``, the value to fill pixels in the cutout array
+        that do not overlap with the input `data`. `fill_value` must have the
+        same `dtype` as the input `data` array.
     '''
     hdr_orig = ccd.header
     w = WCS(hdr_orig)
     cutout = Cutout2D(
-        data=ccd.data, position=position, size=size, wcs=w, mode=mode, fill_value=fill_value, copy=True
+        data=ccd.data,
+        position=position,
+        size=size,
+        wcs=w,
+        mode=mode,
+        fill_value=fill_value,
+        copy=True
     )
     # Copy True just to avoid any contamination to the original ccd.
 
@@ -1318,8 +1497,8 @@ def cut_ccd(ccd, position, size, mode='trim', fill_value=np.nan):
 
     if nonlin:
         warn(
-            "Since Cutout2D is for small image crop, astropy do not currently support distortion in WCS."
-            + "This may result in slightly inaccurate WCS calculation in the future."
+            "Since Cutout2D is for small image crop, astropy do not currently support "
+            + "distortion in WCS. This may result in slightly inaccurate WCS calculation."
         )
 
     update_tlm(nccd.header)
@@ -1327,7 +1506,15 @@ def cut_ccd(ccd, position, size, mode='trim', fill_value=np.nan):
     return nccd
 
 
-def bin_ccd(ccd, factor_x=1, factor_y=1, binfunc=np.mean, trim_end=False, update_header=True, copy=True):
+def bin_ccd(
+        ccd,
+        factor_x=1,
+        factor_y=1,
+        binfunc=np.mean,
+        trim_end=False,
+        update_header=True,
+        copy=True
+):
     ''' Bins the given ccd.
 
     Paramters
@@ -1339,17 +1526,20 @@ def bin_ccd(ccd, factor_x=1, factor_y=1, binfunc=np.mean, trim_end=False, update
         The binning factors in x, y direction.
 
     binfunc : funciton object, optional.
-        The function to be applied for binning, such as ``np.sum``, ``np.mean``, and ``np.median``.
+        The function to be applied for binning, such as ``np.sum``,
+        ``np.mean``, and ``np.median``.
 
     trim_end : bool, optional.
-        Whether to trim the end of x, y axes such that binning is done without error.
+        Whether to trim the end of x, y axes such that binning is done without
+        error.
 
     update_header : bool, optional.
         Whether to update header. Defaults to True.
 
     Note
     ----
-    This is ~ 20-30 to upto 10^5 times faster than astropy.nddata's block_reduce:
+    This is ~ 20-30 to upto 10^5 times faster than astropy.nddata's
+    block_reduce:
     >>> from astropy.nddata.blocks import block_reduce
     >>> import ysfitsutilpy as yfu
     >>> from astropy.nddata import CCDData
@@ -1364,8 +1554,8 @@ def bin_ccd(ccd, factor_x=1, factor_y=1, binfunc=np.mean, trim_end=False, update
     >>> # 518 ms, 2.13 ms, 250 us, 252 us, 257 us, 267 us
     >>> # 5.e+5   ...      ...     ...     ...     27  -- times slower
     >>> # some strange chaching happens?
-    Tested on  MBP 15" [2018, macOS 10.14.6, i7-8850H (2.6 GHz; 6-core), RAM 16 GB (2400MHz DDR4),
-    Radeon Pro 560X (4GB)]
+    Tested on  MBP 15" [2018, macOS 10.14.6, i7-8850H (2.6 GHz; 6-core), RAM 16
+    GB (2400MHz DDR4), Radeon Pro 560X (4GB)]
     '''
     _t_start = Time.now()
 
@@ -1386,13 +1576,15 @@ def bin_ccd(ccd, factor_x=1, factor_y=1, binfunc=np.mean, trim_end=False, update
                         binfunc=binfunc,
                         trim_end=trim_end)
     if update_header:
-        _ccd.header["BINFUNC"] = (binfunc.__name__, "The function used for binning.")
-        _ccd.header["XBINNING"] = (factor_x, "Binning done after the observation in X direction")
-        _ccd.header["YBINNING"] = (factor_y, "Binning done after the observation in Y direction")
+        _ccd.header["BINFUNC"] = (binfunc.__name__,
+                                  "The function used for binning.")
+        _ccd.header["XBINNING"] = (factor_x,
+                                   "Binning done after the observation in X direction")
+        _ccd.header["YBINNING"] = (factor_y,
+                                   "Binning done after the observation in Y direction")
         # add as history
-        add2hdr(
-            _ccd.header, 'h', t_ref=_t_start, s=f"Binned by (xbin, ybin) = ({factor_x}, {factor_y}) "
-        )
+        add2hdr(_ccd.header, 'h', t_ref=_t_start,
+                s=f"Binned by (xbin, ybin) = ({factor_x}, {factor_y}) ")
     update_tlm(_ccd.header)
     return _ccd
 
@@ -1581,7 +1773,8 @@ def fixpix(
 
 
 # # FIXME: Remove this after fixpix is completed
-# def fixpix_griddata(ccd, mask, extension=None, method='nearest', fill_value=0, update_header=True):
+# def fixpix_griddata(ccd, mask, extension=None, method='nearest',
+#     fill_value=0, update_header=True):
 #     ''' Interpolate the masked location (cf. IRAF's PROTO.FIXPIX)
 #     Parameters
 #     ----------
@@ -1589,33 +1782,40 @@ def fixpix(
 #         The CCD data to be "fixed".
 
 #     mask : ndarray (bool)
-#         The mask to be used for fixing pixels (pixels to be fixed are where `mask` is `True`).
+#         The mask to be used for fixing pixels (pixels to be fixed are where
+#         `mask` is `True`).
 
 #     extension: int, str, (str, int)
-#         The extension of FITS to be used. It can be given as integer (0-indexing) of the extension,
-#         ``EXTNAME`` (single str), or a tuple of str and int: ``(EXTNAME, EXTVER)``. If `None`
-#         (default), the *first extension with data* will be used.
+#         The extension of FITS to be used. It can be given as integer
+#         (0-indexing) of the extension, ``EXTNAME`` (single str), or a tuple
+#         of str and int: ``(EXTNAME, EXTVER)``. If `None` (default), the
+#         *first extension with data* will be used.
 
 #     method: str
-#         The interpolation method. Even the ``'linear'`` method takes too long time in many cases, so
-#         the default is ``'nearest'``.
+#         The interpolation method. Even the ``'linear'`` method takes too long
+#         time in many cases, so the default is ``'nearest'``.
 #     '''
 #     _t_start = Time.now()
 
 #     _ccd, _, _ = _parse_image(ccd, extension=extension, force_ccddata=True)
 #     data = _ccd.data
 
-#     x_idx, y_idx = np.meshgrid(np.arange(0, data.shape[1] - 0.1), np.arange(0, data.shape[0] - 0.1))
+#     x_idx, y_idx = np.meshgrid(np.arange(0, data.shape[1] - 0.1),
+#                                np.arange(0, data.shape[0] - 0.1))
 #     mask = mask.astype(bool)
 #     x_valid = x_idx[~mask]
 #     y_valid = y_idx[~mask]
 #     z_valid = data[~mask]
-#     _ccd.data = griddata((x_valid, y_valid), z_valid, (x_idx, y_idx), method=method, fill_value=fill_value)
+#     _ccd.data = griddata((x_valid, y_valid),
+#                          z_valid, (x_idx, y_idx), method=method, fill_value=fill_value)
 
 #     if update_header:
-#         _ccd.header["MASKMETH"] = (method, "The interpolation method for fixpix")
-#         _ccd.header["MASKFILL"] = (fill_value, "The fill value if interpol. fails in fixpix")
-#         _ccd.header["MASKNPIX"] = (np.count_nonzero(mask), "Total num of pixesl fixed by fixpix.")
+#         _ccd.header["MASKMETH"] = (method,
+#                                    "The interpolation method for fixpix")
+#         _ccd.header["MASKFILL"] = (fill_value,
+#                                    "The fill value if interpol. fails in fixpix")
+#         _ccd.header["MASKNPIX"] = (np.count_nonzero(mask),
+#                                    "Total num of pixesl fixed by fixpix.")
 #         # add as history
 #         add2hdr(_ccd.header, 'h', t_ref=_t_start, s="Pixel values fixed by fixpix")
 #     update_tlm(_ccd.header)
