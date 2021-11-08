@@ -9,6 +9,17 @@ from .util_comb import (_get_dtype_limits, _set_cenfunc, _set_gain_rdns,
 __all__ = ["sigclip_mask"]
 
 
+try:
+    import numexpr as ne
+    HAS_NE = True
+    NEVAL = ne.evaluate  # "n"umerical "eval"uator
+    NPSTR = ""
+except ImportError:
+    HAS_NE = False
+    NEVAL = eval  # "n"umerical "eval"uator
+    NPSTR = "np."
+
+
 def _iter_rej(
         arr,
         mask=None,
@@ -46,8 +57,10 @@ def _iter_rej(
         # most are defined in upper _iter_rej function
         cen = cenfunc(_arr, axis=0)
         if ccdclip:  # use abs(pix value) to avoid NaN from negative pixels.
-            std = np.sqrt(((1 + snoise_ref)*np.abs(cen + zero_ref)*scale_ref) + rdnoise_ref**2)
+            _evalstr = f"{NPSTR}abs(cen + zero_ref)*scale_ref"
             # restore zeroing & scaling ; then add rdnoise
+            _evalstr = f"(1 + snoise_ref)*{_evalstr} + rdnoise_ref**2"
+            std = NEVAL(f"{NPSTR}sqrt({_evalstr})")
         else:
             std = bn.nanstd(_arr, axis=0, ddof=ddof)
 
@@ -181,10 +194,9 @@ def _iter_rej(
 
 
 # TODO: let `cenfunc` be function object...?
-
-# ********************************************************************************************************** #
-# *                                             SIGMA-CLIPPING                                             * #
-# ********************************************************************************************************** #
+# **************************************************************************************** #
+# *                                    SIGMA-CLIPPING                                    * #
+# **************************************************************************************** #
 def sigclip_mask(
         arr,
         mask=None,
@@ -247,9 +259,9 @@ sigclip_mask.__doc__ = ''' Finds masks of `arr` by sigma-clipping.
                docstrings.REJECT_RETURNS_COMMON(indent=4))
 
 
-# ********************************************************************************************************** #
-# *                                              MINMAX CLIPPING                                           * #
-# ********************************************************************************************************** #
+# **************************************************************************************** #
+# *                                    MINMAX CLIPPING                                   * #
+# **************************************************************************************** #
 def _minmax(arr, mask=None, q_low=0, q_upp=0, cenfunc='median'):
     # General setup (nkeep and maxrej as dummy)
     _arr, _masks, _, cenfunc, _nvals = _setup_reject(
@@ -283,13 +295,14 @@ def _minmax(arr, mask=None, q_low=0, q_upp=0, cenfunc='median'):
     return (mask, low, upp, 1, code)
 
 
-# ********************************************************************************************************** #
-# *                                      PERCENTILE CLIPPING (PCLIP)                                       * #
-# ********************************************************************************************************** #
+# **************************************************************************************** #
+# *                              PERCENTILE CLIPPING (PCLIP)                             * #
+# **************************************************************************************** #
 
-# ********************************************************************************************************** #
-# *                                   CCD NOISE MODEL CLIPPING (CCDCLIP)                                   * #
-# ********************************************************************************************************** #
+
+# **************************************************************************************** #
+# *                          CCD NOISE MODEL CLIPPING (CCDCLIP)                          * #
+# **************************************************************************************** #
 def ccdclip_mask(
         arr,
         mask=None,
