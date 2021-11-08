@@ -1444,8 +1444,14 @@ def bin_ccd(ccd, factor_x=1, factor_y=1, binfunc=np.mean, trim_end=False, update
 
 # TODO: Need something (e.g., cython with pythran) to boost the speed of this function.
 def fixpix(
-        ccd, mask=None, maskpath=None, extension=None, mask_extension=None, priority=None,
-        update_header=True, use_ccddata_if_path=True):
+        ccd, mask=None,
+        maskpath=None,
+        extension=None,
+        mask_extension=None,
+        priority=None,
+        update_header=True,
+        use_ccddata_if_path=True
+):
     ''' Interpolate the masked location (N-D generalization of IRAF PROTO.FIXPIX)
     Parameters
     ----------
@@ -1453,26 +1459,31 @@ def fixpix(
         The CCD data to be "fixed".
 
     mask : CCDData-like (e.g., PrimaryHDU, ImageHDU, HDUList), ndarray, path-like
-        The mask to be used for fixing pixels (pixels to be fixed are where `mask` is `True`). If
-        `None`, nothing will happen and `ccd` is returned.
+        The mask to be used for fixing pixels (pixels to be fixed are where
+        `mask` is `True`). If `None`, nothing will happen and `ccd` is
+        returned.
 
     extension, mask_extension: int, str, (str, int), None
-        The extension of FITS to be used. It can be given as integer (0-indexing) of the extension,
-        ``EXTNAME`` (single str), or a tuple of str and int: ``(EXTNAME, EXTVER)``. If `None`
-        (default), the *first extension with data* will be used.
+        The extension of FITS to be used. It can be given as integer
+        (0-indexing) of the extension, ``EXTNAME`` (single str), or a tuple of
+        str and int: ``(EXTNAME, EXTVER)``. If `None` (default), the *first
+        extension with data* will be used.
 
     priority: tuple of int, None, optional.
-        The priority of axis as a tuple of non-repeating `int` from ``0`` to `ccd.ndim`. It will be
-        used if the mask has the same size along two or more of the directions. To specify, use the
-        integers for axis directions, descending priority. For example,  ``(2, 1, 0)`` will be
+        The priority of axis as a tuple of non-repeating `int` from ``0`` to
+        `ccd.ndim`. It will be used if the mask has the same size along two or
+        more of the directions. To specify, use the integers for axis
+        directions, descending priority. For example,  ``(2, 1, 0)`` will be
         identical to `priority=None` (default) for 3-D images.
-        Default is `None` to follow IRAF's PROTO.FIXPIX: Priority is higher for larger axis number
-        (e.g., in 2-D, x-axis (axis=1) has higher priority than y-axis (axis=0)).
+        Default is `None` to follow IRAF's PROTO.FIXPIX: Priority is higher for
+        larger axis number (e.g., in 2-D, x-axis (axis=1) has higher priority
+        than y-axis (axis=0)).
 
     Examples
     --------
-    Timing test: MBP 15" [2018, macOS 11.4, i7-8850H (2.6 GHz; 6-core), RAM 16 GB (2400MHz DDR4),
-    Radeon Pro 560X (4GB)], 2021-11-05 11:14:04 (KST: GMT+09:00)
+    Timing test: MBP 15" [2018, macOS 11.4, i7-8850H (2.6 GHz; 6-core), RAM 16
+    GB (2400MHz DDR4), Radeon Pro 560X (4GB)], 2021-11-05 11:14:04 (KST:
+    GMT+09:00)
     >>> np.random.RandomState(123)  # RandomState(MT19937) at 0x7FAECA768D40
     >>> data = np.random.normal(size=(1000, 1000))
     >>> mask = np.zeros_like(data).astype(bool)
@@ -1501,17 +1512,19 @@ def fixpix(
     naxis = _ccd.shape
 
     if _ccd.shape != mask.shape:
-        raise ValueError(f"ccd and mask must have the identical shape; now {_ccd.shape} VS {mask.shape}.")
+        raise ValueError("ccd and mask must have the identical shape; "
+                         + f"now {_ccd.shape} VS {mask.shape}.")
 
     ndim = data.ndim
 
     if priority is None:
         priority = tuple([i for i in range(ndim)][::-1])
     elif len(priority) != ndim:
-        raise ValueError(f"len(priority) and ccd.ndim must be the same; now {len(priority)} VS {ccd.ndim}.")
+        raise ValueError("len(priority) and ccd.ndim must be the same; "
+                         + f"now {len(priority)} VS {ccd.ndim}.")
     elif not isinstance(priority, tuple):
         priority = tuple(priority)
-    elif np.min(priority) != 0 or np.max(priority) != ndim:
+    elif (np.min(priority) != 0) or (np.max(priority) != ndim):
         raise ValueError("priority must be a tuple of non-repeating int from 0 to ccd.ndim")
 
     structures = [np.zeros([3]*ndim) for i in range(ndim)]
@@ -1545,7 +1558,8 @@ def fixpix(
         n_ax = [_n_ax[lab] for _n_ax, lab in zip(n_axs, label_pos)]
 
         # The shortest axis along which the interpolation will happen,
-        # OR, if 1+ directions having same minimum length, select this axis according to `priority`
+        # OR, if 1+ directions having same minimum length, select this axis
+        #   according to `priority`
         interp_ax = np.where(n_ax == np.min(n_ax))[0]
         if len(interp_ax) > 1:
             for i_ax in priority:  # check in the identical order to `priority`
@@ -1554,8 +1568,8 @@ def fixpix(
                     break
         else:
             interp_ax = interp_ax[0]
-        # The coordinates of the pixels having the identical label to this pixel position, along the
-        # shortest axis
+        # The coordinates of the pixels having the identical label to this
+        # pixel position, along the shortest axis
         coord_samelabel = pixels[interp_ax][label_pos[interp_ax]]
         isinvalid = []
         coord_slice = []
@@ -1566,13 +1580,14 @@ def fixpix(
             if i == interp_ax:
                 init = np.min(coord_samelabel[i]) - 1
                 last = np.max(coord_samelabel[i]) + 1
-                # distance between the initial/last points to be used for the interpolation, along the
-                # interpolation axis:
+                # distance between the initial/last points to be used for the
+                # interpolation, along the interpolation axis:
                 delta = last - init
                 # grid for interpolation:
                 grid = np.arange(1, delta - 0.1, 1)
                 # Slice to be used for interpolation:
-                sl = slice(init + 1, last, None)  # Should be done here, BEFORE the if clause below.
+                sl = slice(init + 1, last, None)
+                # Should be done here, BEFORE the if clause below.
 
                 # Check if lower/upper are all outside the image
                 if init < 0 and last >= naxis[i]:
@@ -1582,8 +1597,9 @@ def fixpix(
                 elif last >= naxis[i]:
                     last = init
             else:
-                init = coord_samelabel[i][0]  # coord_samelabel[i] is nothing but an array of same numbers
-                last = coord_samelabel[i][0]  # coord_samelabel[i] is nothing but an array of same numbers
+                init = coord_samelabel[i][0]
+                last = coord_samelabel[i][0]
+                # coord_samelabel[i] is nothing but an array of same numbers
                 sl = slice(init, last + 1, None)
 
             coord_init.append(init)
@@ -1596,7 +1612,8 @@ def fixpix(
         data[coord_slice].flat = (val_last - val_init)/delta*grid + val_init
 
     if update_header:
-        _ccd.header["MASKNPIX"] = (np.count_nonzero(mask), "Total num of pixels fixed by fixpix.")
+        _ccd.header["MASKNPIX"] = (np.count_nonzero(mask),
+                                   "Total num of pixels fixed by fixpix.")
         _ccd.header["MASKFILE"] = (maskpath, "Applied mask data for fixpix.")
         _ccd.header["MASKORD"] = (priority, "Axis priority for fixpix (python order)")
         # MASKFILE: name identical to IRAF
@@ -1652,27 +1669,44 @@ def fixpix(
 
 
 def make_errormap(
-        ccd, gain_epadu=1, rdnoise_electron=0, flat_err=0.0, subtracted_dark=None, return_variance=False):
+        ccd,
+        gain_epadu=1,
+        rdnoise_electron=0,
+        flat_err=0.0,
+        subtracted_dark=None,
+        return_variance=False
+):
     print("Use `errormap` instead.")
     return errormap(ccd, gain_epadu=gain_epadu, rdnoise_electron=rdnoise_electron,
-                    subtracted_dark=subtracted_dark, flat_err=flat_err, return_variance=return_variance)
+                    subtracted_dark=subtracted_dark, flat_err=flat_err,
+                    return_variance=return_variance)
 
 
 def errormap(
-        ccd_biassub, gain_epadu=1, rdnoise_electron=0, subtracted_dark=0., flat=1., dark_std=0.,
-        flat_err=0., dark_std_min='rdnoise', return_variance=False):
+        ccd_biassub,
+        gain_epadu=1,
+        rdnoise_electron=0,
+        subtracted_dark=0.,
+        flat=1.,
+        dark_std=0.,
+        flat_err=0.,
+        dark_std_min='rdnoise',
+        return_variance=False
+):
     ''' Calculate the detailed pixel-wise error map in ADU unit.
 
     Parameters
     ----------
     ccd : CCDData, PrimaryHDU, ImageHDU, ndarray.
-        The ccd data which will be used to generate error map. It must be **bias subtracted**. If dark
-        is subtracted, give `subtracted_dark`. This array will be added to ``ccd.data`` and used to
-        calculate the Poisson noise term. If the amount of this subtracted dark is negligible, you may
-        just set ``subtracted_dark = None`` (default).
+        The ccd data which will be used to generate error map. It must be
+        **bias subtracted**. If dark is subtracted, give `subtracted_dark`.
+        This array will be added to ``ccd.data`` and used to calculate the
+        Poisson noise term. If the amount of this subtracted dark is
+        negligible, you may just set ``subtracted_dark = None`` (default).
 
     gain_epadu, rdnoise_electron : float, array-like, or Quantity, optional.
-        The effective gain factor in ``electron/ADU`` unit and the readout noise in ``electron`` unit.
+        The effective gain factor in ``electron/ADU`` unit and the readout
+        noise in ``electron`` unit.
 
     subtracted_dark : array-like
         The subtracted dark map.
@@ -1683,27 +1717,32 @@ def errormap(
         Default: 1.
 
     flat_err : float, array-like optional.
-        The uncertainty of the flat, which is obtained by the central limit theorem (sample standard
-        deviation of the pixel divided by the square root of the number of flat frames). An example in
-        IRAF and DAOPHOT: the uncertainty from the flat fielding ``flat_err/flat`` is set as a constant
-        (see, e.g., eq 10 of StetsonPB 1987, PASP, 99, 191) set as Stetson used 0.0075 (0.75%
-        fractional uncertainty), and the same is implemented to IRAF DAOPHOT:
+        The uncertainty of the flat, which is obtained by the central limit
+        theorem (sample standard deviation of the pixel divided by the square
+        root of the number of flat frames). An example in IRAF and DAOPHOT: the
+        uncertainty from the flat fielding ``flat_err/flat`` is set as a
+        constant (see, e.g., eq 10 of StetsonPB 1987, PASP, 99, 191) set as
+        Stetson used 0.0075 (0.75% fractional uncertainty), and the same is
+        implemented to IRAF DAOPHOT:
         http://stsdas.stsci.edu/cgi-bin/gethelp.cgi?daopars
         Default: 0.
 
     dark_std : float, array-like, optional.
-        The sample standard deviation of dark pixels. It **should not be divided by the number of dark
-        frames**, because we are interested in the uncertainty in the dark (prediction), not the
-        confidence interval of the *mean* of the dark.
+        The sample standard deviation of dark pixels. It **should not be
+        divided by the number of dark frames**, because we are interested in
+        the uncertainty in the dark (prediction), not the confidence interval
+        of the *mean* of the dark.
         Default: 0.
 
     dark_std_min : 'rdnoise', float, optional.
-        The minimum value for `dark_std`. Any `dark_std` value below this will be replaced by this
-        value. If ``'rdnoise'`` (default), the ``rdnoise_electron/gain_epadu`` will be used.
+        The minimum value for `dark_std`. Any `dark_std` value below this will
+        be replaced by this value. If ``'rdnoise'`` (default), the
+        ``rdnoise_electron/gain_epadu`` will be used.
 
     return_variance: bool, optional
-        Whether to return as variance map. Default is `False`, i.e., return the square-rooted standard
-        deviation map. It's better to use variance for large image size (computation speed issue).
+        Whether to return as variance map. Default is `False`, i.e., return the
+        square-rooted standard deviation map. It's better to use variance for
+        large image size (computation speed issue).
 
     Example
     -------
@@ -1711,7 +1750,8 @@ def errormap(
     >>> ccd = CCDData.read("obj001.fits", 0)
     >>> hdr = ccd.header
     >>> dark = CCDData.read("master_dark.fits", 0)
-    >>> params = dict(gain_epadu=hdr["GAIN"], rdnoise_electron=hdr["RDNOISE"], subtracted_dark=dark.data)
+    >>> params = dict(gain_epadu=hdr["GAIN"], rdnoise_electron=hdr["RDNOISE"],
+    >>>               subtracted_dark=dark.data)
     >>> ccd.uncertainty = StdDevUncertainty(errormap(ccd, **params))
 
     '''
@@ -1753,8 +1793,16 @@ def errormap(
 
 
 def add2hdr(
-        header, histcomm, s, precision=3, time_fmt="{:.>72s}", t_ref=None, dt_fmt="(dt = {:.3f} s)",
-        verbose=False, set_kw={'after': -1}):
+        header,
+        histcomm,
+        s,
+        precision=3,
+        time_fmt="{:.>72s}",
+        t_ref=None,
+        dt_fmt="(dt = {:.3f} s)",
+        verbose=False,
+        set_kw={'after': -1}
+):
     ''' Automatically add timestamp as well as HISTORY or COMMENT string
 
     Parameters
@@ -1772,12 +1820,12 @@ def add2hdr(
         The precision of the isot format time.
 
     time_fmt : str, None, optional.
-        The Python 3 format string to format the time in the header. If `None`, the timestamp string
-        will not be added.
+        The Python 3 format string to format the time in the header. If `None`,
+        the timestamp string will not be added.
 
         Examples::
           * ``"{:s}"``: plain time ``2020-01-01T01:01:01.23``
-          * ``"({:s})"``: plain time in parentheses ``(2020-01-01T01:01:01.23)``
+          * ``"({:s})"``: plain time in ``()``. ``(2020-01-01T01:01:01.23)``
           * ``"{:_^72s}"``: center align, filling with gain_key="GAIN", ``_``.
 
     t_ref : Time
@@ -1793,8 +1841,9 @@ def add2hdr(
         The Python 3 format string to format the time in the terminal.
 
     set_kw : dict, optional.
-        The keyword arguments added to `Header.set()`. Default is ``{'after':-1}``, i.e., the history
-        or comment will be appended to the very last part of the header.
+        The keyword arguments added to `Header.set()`. Default is
+        ``{'after':-1}``, i.e., the history or comment will be appended to the
+        very last part of the header.
 
     Note
     ----
@@ -1822,7 +1871,8 @@ def add2hdr(
     def _add_content(header, content):
         try:
             header.set(histcomm, content, **set_kw)
-        except AttributeError:  # For a CCDData that has just initialized, header is in OrderdDict, not Header
+        except AttributeError:
+            # For a CCDData that has just initialized, header is in OrderdDict, not Header
             header[histcomm] = content
 
     if isinstance(s, str):
@@ -1858,12 +1908,20 @@ def update_tlm(header):
 
 
 def update_process(
-        header, process=None, key="PROCESS", delimiter='-', add_comment=True, additional_comment=dict()):
+        header,
+        process=None,
+        key="PROCESS",
+        delimiter='-',
+        add_comment=True,
+        additional_comment=dict()
+):
     """ update the process history keyword in the header.
+
     Parameters
     ----------
     header : header
-        The header to update the ``PROCESS`` (tunable by `key` parameter) keyword.
+        The header to update the ``PROCESS`` (tunable by `key` parameter)
+        keyword.
 
     process : str or list-like of str
         The additional process keys to add to the header.
@@ -1872,17 +1930,19 @@ def update_process(
         The key for the process-related header keyword.
 
     delimiter : str, optional.
-        The delimiter for each process. It can be null string (``''``). The best is to match it with
-        the pre-existing delimiter of the ``header[key]``.
+        The delimiter for each process. It can be null string (``''``). The
+        best is to match it with the pre-existing delimiter of the
+        ``header[key]``.
 
     add_comment : bool, optional.
-        Whether to add a comment to the header if there was no `key` (``"PROCESS"`` by default) in the
-        header.
+        Whether to add a comment to the header if there was no `key`
+        (``"PROCESS"`` by default) in the header.
 
     additional_comment : dict, optional.
-        The additional comment to add. For instance, ``dict(v="vertical pattern", f="fourier
-        pattern")`` will add a new line of comment which reads "User added items for `key`:
-        v=vertical pattern, f=fourier pattern."
+        The additional comment to add. For instance, ``dict(v="vertical
+        pattern", f="fourier pattern")`` will add a new line of comment which
+        reads "User added items for `key`: v=vertical pattern, f=fourier
+        pattern."
     """
     if isinstance(process, str):
         process = [process]
@@ -1899,8 +1959,8 @@ def update_process(
         # add comment.
         add2hdr(
             header, 'c',
-            f"Standard items for {key} includes B=bias, D=dark, F=flat, T=trim, W=WCS, C=CRrej, "
-            + "Fr=fringe, P=fixpix, X=crosstalk."
+            f"Standard items for {key} includes B=bias, D=dark, F=flat, T=trim, W=WCS, "
+            + "C=CRrej, Fr=fringe, P=fixpix, X=crosstalk."
         )
 
     header[key] = (delimiter.join(process), "Process (order: 1-2-3-...): see comment.")
@@ -1923,10 +1983,12 @@ def key_remover(header, remove_keys, deepremove=True):
         The header keywords to be removed.
 
     deepremove : True, optional
-        FITS standard does not have any specification of duplication of keywords as discussed in the
-        following issue: https://github.com/astropy/ccdproc/issues/464 If it is set to `True`, ALL
-        the keywords having the name specified in `remove_keys` will be removed. If not, only the
-        first occurence of each key in `remove_keys` will be removed. It is more sensical to set it
+        FITS standard does not have any specification of duplication of
+        keywords as discussed in the following issue:
+        https://github.com/astropy/ccdproc/issues/464
+        If it is set to `True`, ALL the keywords having the name specified in
+        `remove_keys` will be removed. If not, only the first occurence of each
+        key in `remove_keys` will be removed. It is more sensical to set it
         `True` in most of the cases.
     '''
     nhdr = header.copy()
@@ -1956,17 +2018,20 @@ def key_mapper(header, keymap=None, deprecation=False, remove=False):
         The header to be modified
 
     keymap : dict
-        The dictionary contains ``{<standard_key>:<original_key>}`` information. If it is `None`
-        (default), the copied version of the header is returned without any change.
+        The dictionary contains ``{<standard_key>:<original_key>}``
+        information. If it is `None` (default), the copied version of the
+        header is returned without any change.
 
     deprecation : bool, optional
-        Whether to change the original keywords' comments to contain deprecation warning. If `True`,
-        the original keywords' comments will become ``DEPRECATED. See <standard_key>.``. It has no
-        effect if ``remove=True``.
+        Whether to change the original keywords' comments to contain
+        deprecation warning. If `True`, the original keywords' comments will
+        become ``DEPRECATED. See <standard_key>.``. It has no effect if
+        ``remove=True``.
         Default is `False`.
 
     remove : bool, optional.
-        Whether to remove the original keyword. `deprecation` is ignored if ``remove=True``.
+        Whether to remove the original keyword. `deprecation` is ignored if
+        ``remove=True``.
         Default is `False`.
 
     Returns
@@ -1976,9 +2041,10 @@ def key_mapper(header, keymap=None, deprecation=False, remove=False):
 
     Notes
     -----
-    If the new keyword already exist in the given header, virtually nothing will happen. If
-    ``deprecation=True``, the old one's comment will be changed, and if ``remove=True``, the old one
-    will be removed; the new keyword will never be changed or overwritten.
+    If the new keyword already exist in the given header, virtually nothing
+    will happen. If ``deprecation=True``, the old one's comment will be
+    changed, and if ``remove=True``, the old one will be removed; the new
+    keyword will never be changed or overwritten.
     '''
     def _rm_or_dep(hdr, old, new):
         if remove:
@@ -2020,9 +2086,10 @@ def chk_keyval(type_key, type_val, group_key):
 
 
     group_key : None, str, list of str, optional
-        The header keyword which will be used to make groups for the CCDs that have selected from
-        `type_key` and `type_val`. If `None` (default), no grouping will occur, but it will return
-        the `~pandas.DataFrameGroupBy` object will be returned for the sake of consistency.
+        The header keyword which will be used to make groups for the CCDs that
+        have selected from `type_key` and `type_val`. If `None` (default), no
+        grouping will occur, but it will return the `~pandas.DataFrameGroupBy`
+        object will be returned for the sake of consistency.
 
     Return
     ------
@@ -2069,7 +2136,9 @@ def chk_keyval(type_key, type_val, group_key):
     elif isinstance(group_key, str):
         group_key = [group_key]
     else:
-        raise TypeError(f"`group_key` not understood (type = {type(group_key)}): {group_key}")
+        raise TypeError(
+            f"`group_key` not understood (type = {type(group_key)}): {group_key}"
+        )
 
     if len(type_key) != len(type_val):
         raise ValueError("`type_key` and `type_val` must have the same length!")
@@ -2103,10 +2172,11 @@ def get_from_header(header, key, unit=None, verbose=True, default=0):
     Returns
     -------
     q: Quantity or any object
-        The extracted quantity from the header. It's a Quantity if the unit is given. Otherwise,
-        appropriate type will be assigned.
+        The extracted quantity from the header. It's a Quantity if the unit is
+        given. Otherwise, appropriate type will be assigned.
     '''
-    # If using q = header.get(key, default=default), we cannot give any meaningful verboses infostr.
+    # If using q = header.get(key, default=default),
+    # we cannot give any meaningful verboses infostr.
     # Anyway the `header.get` sourcecode contains only 4-line:
     # ``try: return header[key] // except (KeyError, IndexError): return default.
     key = key.upper()
@@ -2149,7 +2219,8 @@ def wcs_crota(wcs, degree=True):
     elif isinstance(wcs, Wcsprm):
         wcsprm = wcs
     else:
-        raise TypeError("wcs type not understood. It must be either astropy.wcs.WCS or astropy.wcs.Wcsprm")
+        raise TypeError("wcs type not understood. "
+                        + "It must be either astropy.wcs.WCS or astropy.wcs.Wcsprm")
 
     # numpy arctan2 gets y-coord (numerator) and then x-coord(denominator)
     crota = np.arctan2(wcsprm.cd[0, 0], wcsprm.cd[1, 0])
@@ -2160,14 +2231,26 @@ def wcs_crota(wcs, degree=True):
 
 
 def center_radec(
-        header, center_of_image=True, ra_key="RA", dec_key="DEC", equinox=None, frame=None,
-        equinox_key="EPOCH", frame_key="RADECSYS", ra_unit=u.hourangle, dec_unit=u.deg,
-        mode='all', verbose=True, plain=False):
+        header,
+        center_of_image=True,
+        ra_key="RA",
+        dec_key="DEC",
+        equinox=None,
+        frame=None,
+        equinox_key="EPOCH",
+        frame_key="RADECSYS",
+        ra_unit=u.hourangle,
+        dec_unit=u.deg,
+        mode='all',
+        verbose=True,
+        plain=False
+):
     ''' Returns the central ra/dec from header or WCS.
+
     Note
     ----
-    Even though RA or DEC is in sexagesimal, e.g., "20 53 20", astropy correctly reads it in such a
-    form, so no worries.
+    Even though RA or DEC is in sexagesimal, e.g., "20 53 20", astropy
+    correctly reads it in such a form, so no worries.
 
     Parameters
     ----------
@@ -2175,23 +2258,26 @@ def center_radec(
         The header to extract the central RA/DEC from keywords or WCS.
 
     center_of_image : bool, optional
-        If `True`, WCS information will be extracted from the header, rather than relying on the
-        `ra_key` and `dec_key` keywords directly. If `False`, `ra_key` and `dec_key` from the
-        header will be understood as the "center" and the RA, DEC of that location will be returned.
+        If `True`, WCS information will be extracted from the header, rather
+        than relying on the `ra_key` and `dec_key` keywords directly. If
+        `False`, `ra_key` and `dec_key` from the header will be understood as
+        the "center" and the RA, DEC of that location will be returned.
 
     equinox, frame : str, optional
-        The `equinox` and `frame` for SkyCoord. Default (`None`) will use the default of
-        SkyCoord. Important only if ``usewcs=False``.
+        The `equinox` and `frame` for SkyCoord. Default (`None`) will use the
+        default of SkyCoord. Important only if ``usewcs=False``.
 
     XX_key : str, optional
-        The header key to find XX if ``XX`` is `None`. Important only if ``usewcs=False``.
+        The header key to find XX if ``XX`` is `None`. Important only if
+        ``usewcs=False``.
 
     XX_unit : Quantity, optional
         The unit of ``XX``. Important only if ``usewcs=False``.
 
     mode : 'all' or 'wcs', optional
-        Whether to do the transformation including distortions (``'all'``) or only including only the
-        core WCS transformation (``'wcs'``). Important only if ``usewcs=True``.
+        Whether to do the transformation including distortions (``'all'``) or
+        only including only the core WCS transformation (``'wcs'``). Important
+        only if ``usewcs=True``.
 
     plain : bool
         If `True`, only the values of RA/DEC in degrees will be returned.
@@ -2208,16 +2294,26 @@ def center_radec(
         if equinox is None:
             equinox = get_from_header(header, equinox_key, verbose=verbose, default=None)
         if frame is None:
-            frame = get_from_header(header, frame_key, verbose=verbose, default=None).lower()
-        coo = SkyCoord(ra=ra, dec=dec, unit=(ra_unit, dec_unit), frame=frame, equinox=equinox)
+            frame = get_from_header(
+                header, frame_key, verbose=verbose, default=None
+            ).lower()
+        coo = SkyCoord(
+            ra=ra, dec=dec, unit=(ra_unit, dec_unit), frame=frame, equinox=equinox
+        )
 
     if plain:
         return coo.ra.value, coo.dec.value
     return coo
 
 
-def calc_offset_wcs(target, reference, loc_target='center', loc_reference='center', order_xyz=True,
-                    intify_offset=False):
+def calc_offset_wcs(
+        target,
+        reference,
+        loc_target='center',
+        loc_reference='center',
+        order_xyz=True,
+        intify_offset=False
+):
     ''' The pixel offset of target's location when using WCS in referene.
 
     Parameters
@@ -2227,22 +2323,24 @@ def calc_offset_wcs(target, reference, loc_target='center', loc_reference='cente
         The object to extract header to calculate the position
 
     reference : CCDData, PrimaryHDU, ImageHDU, HDUList, Header, ndarray, number-like, path-like, WCS
-        The object to extract reference WCS (or header to extract WCS) to calculate the position
-        *from*.
+        The object to extract reference WCS (or header to extract WCS) to
+        calculate the position *from*.
 
     loc_target : str (center, origin) or ndarray optional.
-        The location to calculate the position (in pixels and in xyz order). Default is ``'center'``
-        (half of ``NAXISi`` keys in `target`). The `location`'s world coordinate is calculated from
-        the WCS information in `target`. Then it will be transformed to the image coordinate of
+        The location to calculate the position (in pixels and in xyz order).
+        Default is ``'center'`` (half of ``NAXISi`` keys in `target`). The
+        `location`'s world coordinate is calculated from the WCS information in
+        `target`. Then it will be transformed to the image coordinate of
         `reference`.
 
     loc_reference : str (center, origin) or ndarray optional.
-        The location of the reference point (in pixels and in xyz order) in `reference`'s coordinate
+        The location of the reference point (in pixels and in xyz order) in
+        `reference`'s coordinate
         to calculate the offset.
 
     order_xyz : bool, optional.
-        Whether to return the position in xyz order or not (python order: ``[::-1]`` of the former).
-        Default is `True`.
+        Whether to return the position in xyz order or not (python order:
+        ``[::-1]`` of the former). Default is `True`.
     '''
     def _parse_loc(loc, obj):
         if isinstance(obj, WCS):
@@ -2277,7 +2375,13 @@ def calc_offset_wcs(target, reference, loc_target='center', loc_reference='cente
         return offset[::-1]
 
 
-def calc_offset_physical(target, reference=None, order_xyz=True, ignore_ltm=True, intify_offset=False):
+def calc_offset_physical(
+        target,
+        reference=None,
+        order_xyz=True,
+        ignore_ltm=True,
+        intify_offset=False
+):
     ''' The pixel offset by physical-coordinate information in referene.
 
     Parameters
@@ -2287,23 +2391,26 @@ def calc_offset_physical(target, reference=None, order_xyz=True, ignore_ltm=True
         The object to extract header to calculate the position
 
     reference : CCDData, PrimaryHDU, ImageHDU, HDUList, Header, ndarray, number-like, path-like
-        The reference to extract header to calculate the position *from*. If `None`, it is basically
-        identical to extract the LTV values from `target`.
+        The reference to extract header to calculate the position *from*. If
+        `None`, it is basically identical to extract the LTV values from
+        `target`.
         Default is `None`.
 
     order_xyz : bool, optional.
-        Whether to return the position in xyz order or not (python order: ``[::-1]`` of the former).
+        Whether to return the position in xyz order or not (python order:
+        ``[::-1]`` of the former).
         Default is `True`.
 
     ignore_ltm : bool, optional.
-        Whether to assuem the LTM matrix is identity. If it is not and ``ignore_ltm=False``, a
-        `NotImplementedError` will be raised, i.e., non-identity LTM matrices are not supported.
+        Whether to assuem the LTM matrix is identity. If it is not and
+        ``ignore_ltm=False``, a `NotImplementedError` will be raised, i.e.,
+        non-identity LTM matrices are not supported.
 
     Notes
     -----
-    Similar to `calc_offset_wcs`, but with locations fixed to origin (as non-identity LTM matrix is
-    not supported). Also, input of WCS is not accepted because astropy's wcs module does not parse
-    LTV/LTM from header.
+    Similar to `calc_offset_wcs`, but with locations fixed to origin (as
+    non-identity LTM matrix is not supported). Also, input of WCS is not
+    accepted because astropy's wcs module does not parse LTV/LTM from header.
     '''
     def _check_ltm(hdr):
         ndim = hdr["NAXIS"]
@@ -2382,8 +2489,9 @@ def fov_radius(header, unit=u.deg):
     c3 = SkyCoord.from_pixel(0, ny, wcs=w, origin=0, mode='wcs')
     c4 = SkyCoord.from_pixel(nx, ny, wcs=w, origin=0, mode='wcs')
 
-    # TODO: Can't we just do ``return max(r1, r2).to(unit)``??? Why did I do this? I can't remember...
-    # 2020-11-09 14:29:29 (KST: GMT+09:00) ysBach
+    # TODO: Can't we just do ``return max(r1, r2).to(unit)``???
+    #   Why did I do this? I can't remember...
+    #   2020-11-09 14:29:29 (KST: GMT+09:00) ysBach
     r1 = c1.separation(c3).value / 2
     r2 = c2.separation(c4).value / 2
     r = max(r1, r2) * u.deg
@@ -2392,15 +2500,22 @@ def fov_radius(header, unit=u.deg):
 
 # TODO: do not load data extension if not explicitly ordered
 def wcsremove(
-        path=None, additional_keys=[], extension=None, output=None, output_verify='fix', overwrite=False,
-        verbose=True, close=True):
+        path=None,
+        additional_keys=[],
+        extension=None,
+        output=None,
+        output_verify='fix',
+        overwrite=False,
+        verbose=True,
+        close=True
+):
     ''' Remove most WCS related keywords from the header.
 
     Paramters
     ---------
     additional_keys : list of regex str, optional
-        Additional keys given by the user to be 'reset'. It must be in regex expression. Of course
-        regex accepts just string, like 'NAXIS1'.
+        Additional keys given by the user to be 'reset'. It must be in regex
+        expression. Of course regex accepts just string, like 'NAXIS1'.
 
     output: str or Path
         The output file path.
@@ -2522,9 +2637,10 @@ def convert_bit(fname, original_bit=12, target_bit=16):
     ''' Converts a FIT(S) file's bit.
     Note
     ----
-    In ASI1600MM, for example, the output data is 12-bit but since FITS standard do not accept 12-bit
-    (but the closest integer is 16-bit), so, for example, the pixel values can have 0 and 15, but not
-    any integer between these two. So it is better to convert to 16-bit.
+    In ASI1600MM, for example, the output data is 12-bit but since FITS
+    standard do not accept 12-bit (but the closest integer is 16-bit), so, for
+    example, the pixel values can have 0 and 15, but not any integer between
+    these two. So it is better to convert to 16-bit.
     '''
     hdul = fits.open(fname)
     dscale = 2**(target_bit - original_bit)
@@ -2540,8 +2656,14 @@ def convert_bit(fname, original_bit=12, target_bit=16):
 
 # TODO: add sigma-clipped statistics option (hdr key can be using "SIGC", e.g., SIGCAVG.)
 def give_stats(
-        item, extension=None, statsecs=None, percentiles=[1, 99], N_extrema=None,
-        return_header=False, nanfunc=False):
+        item,
+        extension=None,
+        statsecs=None,
+        percentiles=[1, 99],
+        N_extrema=None,
+        return_header=False,
+        nanfunc=False
+):
     ''' Calculates simple statistics.
 
     Parameters
@@ -2550,9 +2672,10 @@ def give_stats(
         The data or path to a FITS file to be analyzed.
 
     extension: int, str, (str, int)
-        The extension of FITS to be used. It can be given as integer (0-indexing) of the extension,
-        ``EXTNAME`` (single str), or a tuple of str and int: ``(EXTNAME, EXTVER)``. If `None`
-        (default), the *first extension with data* will be used.
+        The extension of FITS to be used. It can be given as integer
+        (0-indexing) of the extension, ``EXTNAME`` (single str), or a tuple of
+        str and int: ``(EXTNAME, EXTVER)``. If `None` (default), the *first
+        extension with data* will be used.
 
     statsecs : str, list of str, optional.
         The FITS-convention section to calculate the statistics.
@@ -2561,17 +2684,20 @@ def give_stats(
         The percentiles to be calculated.
 
     N_extrema: int, optinoal
-        The number of low and high elements to be returned when the whole data are sorted. If `None`,
-        it will not be calculated. If ``1``, it is identical to min/max values.
+        The number of low and high elements to be returned when the whole data
+        are sorted. If `None`, it will not be calculated. If ``1``, it is
+        identical to min/max values.
 
     return_header : bool, optional.
-        Works only if you gave `item` as FITS file path or `~astropy.nddata.CCDData`. The statistics
-        information will be added to the header and the updated header will be returned.
+        Works only if you gave `item` as FITS file path or
+        `~astropy.nddata.CCDData`. The statistics information will be added to
+        the header and the updated header will be returned.
 
     nanfunc : bool, optional.
-        Whether to use nan-related functions (e.g., ``np.nanmedian``). If any pixel has non-finite
-        value (such as ``np.nan`` or ``np.inf``), `nanfunc` must be `True` to get proper statistics
-        at a cost of computational speed.
+        Whether to use nan-related functions (e.g., ``np.nanmedian``). If any
+        pixel has non-finite value (such as ``np.nan`` or ``np.inf``),
+        `nanfunc` must be `True` to get proper statistics at a cost of
+        computational speed.
 
     Return
     ------
@@ -2579,13 +2705,14 @@ def give_stats(
         The dict which contains all the statistics.
 
     hdr : Header
-        The updated header. Returned only if `update_header` is `True` and `item` is FITS file path
-        or has `header` attribute (e.g., `~astropy.nddata.CCDData` or `hdu`)
+        The updated header. Returned only if `update_header` is `True` and
+        `item` is FITS file path or has `header` attribute (e.g.,
+        `~astropy.nddata.CCDData` or `hdu`)
 
     Note
     ----
-    If you have bottleneck package, the functions from bottleneck will be used. Otherwise, numpy is
-    used.
+    If you have bottleneck package, the functions from bottleneck will be used.
+    Otherwise, numpy is used.
 
     Example
     -------
@@ -2650,7 +2777,9 @@ def give_stats(
 
     if N_extrema is not None:
         if 2*N_extrema > result['num']:
-            warn(f"Extrema overlaps (2*N_extrema ({2*N_extrema}) > N_pix ({result['num']}))")
+            warn(
+                f"Extrema overlaps (2*N_extrema ({2*N_extrema}) > N_pix ({result['num']}))"
+            )
         data_flatten = np.sort(data, axis=None)  # axis=None will do flatten.
         d_los = data_flatten[:N_extrema]
         d_his = data_flatten[-1*N_extrema:]
