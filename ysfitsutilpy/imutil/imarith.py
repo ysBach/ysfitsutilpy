@@ -15,7 +15,17 @@ __all__ = ["imarith"]
 # TODO: add sections
 
 
-def _update_hdr(header, params, name1, op, name2, output, error_calc=False, t_ref=None, verbose=False):
+def _update_hdr(
+        header,
+        params,
+        name1,
+        op,
+        name2,
+        output,
+        error_calc=False,
+        t_ref=None,
+        verbose=False
+):
     if isinstance(params, str):
         header["OBJECT"] = params
     elif isinstance(params, dict):
@@ -56,7 +66,16 @@ def _replace_nan(res, header, replace=None):
 
 
 def _load_im_name_hdr(
-        im1, im2, name1, name2, extension1, extension2, offsets=None, force_ccddata=False, verbose=False):
+        im1,
+        im2,
+        name1,
+        name2,
+        extension1,
+        extension2,
+        offsets=None,
+        force_ccddata=False,
+        verbose=False
+):
     ''' Prepare images as ndarray unless FORCING to become CCDData.
     It, however, *tries* to find at least one image with header for logging.
     '''
@@ -126,66 +145,93 @@ def _load_im_name_hdr(
 
 
 def imarith(
-        im1, op, im2, output=None, extension1=None, extension2=None, name1=None, name2=None,
-        offsets=None, replace=0, header_params=None, dtype='float32', error_calc=False, ignore_header=False,
-        overwrite=False, verbose=True):
+        im1,
+        op,
+        im2,
+        output=None,
+        extension1=None,
+        extension2=None,
+        name1=None,
+        name2=None,
+        offsets=None,
+        replace=0,
+        header_params=None,
+        dtype='float32',
+        error_calc=False,
+        ignore_header=False,
+        overwrite=False,
+        verbose=True
+):
     ''' Similar to IRAF IMARITH
     Parameters
     ----------
     im1, im2 : `~astropy.nddata.CCDData`, ndarray, number-like, path-like
-        The images to be operated. A string that can be converted to float (``float(im)``) will be
-        interpreted as numbers; if not, it will be interpreted as a path to the FITS file.
+        The images to be operated. A string that can be converted to float
+        (``float(im)``) will be interpreted as numbers; if not, it will be
+        interpreted as a path to the FITS file.
 
     op : str in ['**', '%', '//', '+', '-', '*', '/']
-        The operation to be done. Unlike IRAF, 'min' and 'max' are not implemented (easy to implement
-        in the future but I don't know the necessity). ``['**', '%', '//']`` are not supported when
+        The operation to be done. Unlike IRAF, 'min' and 'max' are not
+        implemented (easy to implement in the future but I don't know the
+        necessity). ``['**', '%', '//']`` are not supported when
         ``error_calc=True``.
 
     output : path-like, optional.
         The path for the resulting file to be saved.
 
     extension1, extension2 : int, str, (str, int)
-        The extension of FITS to be used. It can be given as integer (0-indexing) of the extension,
-        ``EXTNAME`` (single str), or a tuple of str and int: ``(EXTNAME, EXTVER)``. If `None`
-        (default), the *first extension with data* will be used.
+        The extension of FITS to be used. It can be given as integer
+        (0-indexing) of the extension, ``EXTNAME`` (single str), or a tuple of
+        str and int: ``(EXTNAME, EXTVER)``. If `None` (default), the *first
+        extension with data* will be used.
 
     name1, name2: str, optional.
-        The names of the images that will be logged into the header (``HISTORY``). If `None`, function
-        automatically chooses appropriate name for it: the number (if `im` is number-like), the path
-        (if `im` is path-like), or explanatory strings (if `im` is either ndarray or
+        The names of the images that will be logged into the header
+        (``HISTORY``). If `None`, function automatically chooses appropriate
+        name for it: the number (if `im` is number-like), the path (if `im` is
+        path-like), or explanatory strings (if `im` is either ndarray or
         `~astropy.nddata.CCDData`)
 
     replace : np.nan, float-like, optional.
-        The value to replace pixels where the value is NaN or Inf (i.e., `~np.isfinite(ccd.data)`). Use
-        `None` to keep the ``nan`` and ``inf`` as is. Default is ``0``, following IRAF. Note that both
-        nan and inf are **not** representable in integer data types.
+        The value to replace pixels where the value is NaN or Inf (i.e.,
+        `~np.isfinite(ccd.data)`). Use `None` to keep the ``nan`` and ``inf``
+        as is. Default is ``0``, following IRAF. Note that both nan and inf are
+        **not** representable in integer data types.
 
     header_params : str or dict, optional.
-        If a string, the output file's ``OBJECT`` keyword will be replaced by `headdr_params`. If a
-        dict, it must be a dict of header keyword and value pairs, so that the output file's header
-        will have those key-value pairs (care is needed since it overwrites the pre-existing keys). If
+        If a string, the output file's ``OBJECT`` keyword will be replaced by
+        `headdr_params`. If a dict, it must be a dict of header keyword and
+        value pairs, so that the output file's header will have those key-value
+        pairs (care is needed since it overwrites the pre-existing keys). If
         dict, it can be ``{key:value}`` or ``{key:(value, comment)}``.
-        The behavior is different from IRAF. In IRAF, ``hparams`` is used to propagate the header
-        keyword. This is used mainly for ``"EXPTIME"`` to sum the exposure time if two images are
-        combined.
+
+        ..note::
+            The behavior is different from IRAF. In IRAF, ``hparams`` is used
+            to propagate the header keyword. This is used mainly for
+            ``"EXPTIME"`` to sum the exposure time if two images are combined.
 
     dtype : str, dtype, optional.
         The data type of the output CCDData and/or file.
 
     error_calc : bool, optional.
-        If `True`, the uncertainties are propagated by `~astropy.nddata` arithmetics. If `False`
-        (default), there is no need to load data as `~astropy.nddata.CCDData` (because header parsing
-        time gets enromous if iterated through hundreds of files), and hence the cfitsio-like `fitsio`
-        is used. Error calculation is done only if ``ignore_header=False`` at the moment.
+        If `True`, the uncertainties are propagated by `~astropy.nddata`
+        arithmetics. If `False` (default), there is no need to load data as
+        `~astropy.nddata.CCDData` (because header parsing time gets enromous if
+        iterated through hundreds of files), and hence the cfitsio-like
+        `fitsio` is used. Error calculation is done only if
+        ``ignore_header=False`` at the moment.
 
     ignore_header : bool, optional.
-        Whether to ignore all the header informations of `im1` and `im2`. This will boost the speed
-        of the code because none of the effort will be put to find/parse header of any file. A cost is
-        that virtually no information (including unit such as ``BUNIT``) is preserved in the output.
-        The returned HDU will only have meaningful ``HISTORY``. `offsets` will be also be ignored,
-        and it will raise critical error if FITS images have different shape.
-        Error propagation is of course impossible at this moment, because there is no way to infer the
-        extension for the uncertainty and its type (wheter variance or standard deviation, etc.)
+        Whether to ignore all the header informations of `im1` and `im2`. This
+        will boost the speed of the code because none of the effort will be put
+        to find/parse header of any file. A cost is that virtually no
+        information (including unit such as ``BUNIT``) is preserved in the
+        output. The returned HDU will only have meaningful ``HISTORY``.
+        `offsets` will be also be ignored, and it will raise critical error if
+        FITS images have different shape. Error propagation is of course
+        impossible at this moment, because there is no way to infer the
+        extension for the uncertainty and its type (wheter variance or standard
+        deviation, etc.)
 
     Returns
     -------
@@ -193,21 +239,24 @@ def imarith(
         If `ignore_header` is `False` (default).
 
     hdu : `~astropy.io.fits.PrimaryHDU`
-        If `ignore_header` is `True`. This is not in `~astropy.nddata.CCDData` format since there is
-        no way to infer the unit (e.g., ``BUNIT``).
+        If `ignore_header` is `True`. This is not in `~astropy.nddata.CCDData`
+        format since there is no way to infer the unit (e.g., ``BUNIT``).
 
     Notes
     -----
-    Performance tip: if you iterate over many images but one is fixed (e.g., ``imarith(images[i], '/',
-    mflat_path) for i in range(100)``), **load the multiply used file** and give that HDU or
-    `~astropy.nddata.CCDData` to `imarith`.
+    Performance tip: if you iterate over many images but one is fixed (e.g.,
+    ``imarith(images[i], '/', mflat_path) for i in range(100)``), **load the
+    multiply used file** and give that HDU or `~astropy.nddata.CCDData` to
+    `imarith`. This will reduce the time spent for file I/O.
 
-    Converting an array to CCDData takes only ~ 10 us regardless on the array size on MBP 15"*; this
-    is because most time is spent on metadata generation. Note, however, that *reading* a FITS file
-    takes ~ 10 ms, i.e., 1000 times slower.
-    * MBP 15" [2018, macOS 10.14.6, i7-8850H (2.6 GHz; 6-core), RAM 16 GB (2400MHz DDR4), Radeon Pro
-      560X (4GB)]
-    2020-11-02 21:50:07 (KST: GMT+09:00) -  ysBach
+    Converting an array to CCDData takes only ~ 10 us regardless on the array
+    size on MBP 15"*; this is because most time is spent on metadata
+    generation. Note, however, that *reading* a FITS file takes ~ 10 ms, i.e.,
+    1000 times slower.
+
+    Tested on MBP 15" [2018, macOS 10.14.6, i7-8850H (2.6 GHz; 6-core), RAM 16
+    GB (2400MHz DDR4), Radeon Pro 560X (4GB)] 2020-11-02 21:50:07 (KST:
+    GMT+09:00) - ysBach
 
     The type checking ``isinstance(im, CCDData)`` takes only ~ 0.1 us.
     '''

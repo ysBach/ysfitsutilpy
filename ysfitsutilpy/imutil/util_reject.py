@@ -10,22 +10,37 @@ __all__ = ["sigclip_mask"]
 
 
 def _iter_rej(
-        arr, mask=None, sigma_lower=3., sigma_upper=3., maxiters=5, ddof=0, nkeep=3, maxrej=None,
-        cenfunc='median', ccdclip=False, irafmode=True, rdnoise_ref=0., snoise_ref=0., scale_ref=1,
-        zero_ref=0):
+        arr,
+        mask=None,
+        sigma_lower=3.,
+        sigma_upper=3.,
+        maxiters=5,
+        ddof=0,
+        nkeep=3,
+        maxrej=None,
+        cenfunc='median',
+        ccdclip=False,
+        irafmode=True,
+        rdnoise_ref=0.,
+        snoise_ref=0.,
+        scale_ref=1,
+        zero_ref=0
+):
     """ The common function for iterative rejection algorithms.
 
     Parameters
     ----------
     arr : ndarray
-        The array to find the mask. It must be gain-corrected if ``ccdclip=True``.
-
-    rdnoise_ref, snoise_ref : float
-        The representative readnoise and sensitivity noise to estimate the error-bar for
+        The array to find the mask. It must be gain-corrected if
         ``ccdclip=True``.
 
+    rdnoise_ref, snoise_ref : float
+        The representative readnoise and sensitivity noise to estimate the
+        error-bar for ``ccdclip=True``.
+
     scale_ref, zero_ref : float
-        The representative scaling and zeroing value to estimate the error-bar for ``ccdclip=True``.
+        The representative scaling and zeroing value to estimate the error-bar
+        for ``ccdclip=True``.
     """
     def __calc_censtd(_arr):
         # most are defined in upper _iter_rej function
@@ -171,8 +186,20 @@ def _iter_rej(
 # *                                             SIGMA-CLIPPING                                             * #
 # ********************************************************************************************************** #
 def sigclip_mask(
-        arr, mask=None, sigma=3., sigma_lower=None, sigma_upper=None, maxiters=5, ddof=0, nkeep=3,
-        maxrej=None, cenfunc='median', irafmode=False, axis=0, full=True):
+        arr,
+        mask=None,
+        sigma=3.,
+        sigma_lower=None,
+        sigma_upper=None,
+        maxiters=5,
+        ddof=0,
+        nkeep=3,
+        maxrej=None,
+        cenfunc='median',
+        irafmode=False,
+        axis=0,
+        full=True
+):
     if axis != 0:
         raise ValueError("Currently only axis=0 is supported")
 
@@ -264,9 +291,26 @@ def _minmax(arr, mask=None, q_low=0, q_upp=0, cenfunc='median'):
 # *                                   CCD NOISE MODEL CLIPPING (CCDCLIP)                                   * #
 # ********************************************************************************************************** #
 def ccdclip_mask(
-        arr, mask=None, sigma=3., sigma_lower=None, sigma_upper=None, maxiters=5, ddof=0, nkeep=3,
-        maxrej=None, cenfunc='median', irafmode=False, axis=0, gain=1., rdnoise=0., snoise=0.,
-        scale_ref=1, zero_ref=0, dtype='float32', full=True):
+        arr,
+        mask=None,
+        sigma=3.,
+        sigma_lower=None,
+        sigma_upper=None,
+        maxiters=5,
+        ddof=0,
+        nkeep=3,
+        maxrej=None,
+        cenfunc='median',
+        irafmode=False,
+        axis=0,
+        gain=1.,
+        rdnoise=0.,
+        snoise=0.,
+        scale_ref=1,
+        zero_ref=0,
+        dtype='float32',
+        full=True
+):
     if axis != 0:
         raise ValueError("Currently only axis=0 is supported")
 
@@ -316,8 +360,8 @@ ccdclip_mask.__doc__ = ''' Finds masks of `arr` by CCD noise model.
     Parameters
     ----------
     arr : ndarray
-        The array to be subjected for masking. `arr` and `mask` must have the identical shape. It
-        must be in DN, i.e., **not** gain corrected.
+        The array to be subjected for masking. `arr` and `mask` must have the
+        identical shape. It must be in DN, i.e., **not** gain corrected.
 
     {}
 

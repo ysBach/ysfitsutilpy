@@ -40,10 +40,21 @@ def do_zs(arr, zeros, scales, copy=False):
 
 
 def get_zsw(
-        arr, zero, scale, weight, zero_kw, scale_kw, zero_to_0th, scale_to_0th, zero_section, scale_section):
+        arr,
+        zero,
+        scale,
+        weight,
+        zero_kw,
+        scale_kw,
+        zero_to_0th,
+        scale_to_0th,
+        zero_section,
+        scale_section
+):
     '''
-    Originally this was designed to get zero/scale values for (N+1)-D stacked array for N-D images.
-    However, imcombine uses it only for one image at a time.
+    Originally this was designed to get zero/scale values for (N+1)-D stacked
+    array for N-D images. However, imcombine uses it only for one image at a
+    time.
     '''
     # TODO: add sigma-clipped mean, med, std as scale, zero, or weight.
     def _nanfun2nonnan(fun):

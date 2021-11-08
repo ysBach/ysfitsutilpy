@@ -7,30 +7,41 @@ __all__ = ['imcopy']
 
 
 # TODO: use fitsio if (outputs is None) and not return_ccd
-def imcopy(inputs, extension=None, fits_sections=None, outputs=None, return_ccd=True, dtype='float32',
-           **kwargs):
+def imcopy(
+        inputs,
+        extension=None,
+        fits_sections=None,
+        outputs=None,
+        return_ccd=True,
+        dtype='float32',
+        **kwargs
+):
     ''' Similar to IRAF IMCOPY
     Parameters
     ----------
     inputs : glob pattern, list-like of path-like, list-like of CCDData
-        The `~glob` pattern for files (e.g., ``"2020*[012].fits"``) or list of files (each element must
-        be path-like or CCDData). Although it is not a good idea, a mixed list of CCDData and paths to
-        the files is also acceptable. For the purpose of imcombine function, the best use is to use the
-        `~glob` pattern or list of paths.
+        The `~glob` pattern for files (e.g., ``"2020*[012].fits"``) or list of
+        files (each element must be path-like or CCDData). Although it is not a
+        good idea, a mixed list of CCDData and paths to the files is also
+        acceptable. For the purpose of imcombine function, the best use is to
+        use the `~glob` pattern or list of paths.
 
     extension : int, str, (str, int)
-        The extension of FITS to be used. It can be given as integer (0-indexing) of the extension,
-        ``EXTNAME`` (single str), or a tuple of str and int: ``(EXTNAME, EXTVER)``. If `None`
-        (default), the *first extension with data* will be used.
+        The extension of FITS to be used. It can be given as integer
+        (0-indexing) of the extension, ``EXTNAME`` (single str), or a tuple of
+        str and int: ``(EXTNAME, EXTVER)``. If `None` (default), the *first
+        extension with data* will be used.
 
     fits_sections : str or array-like of such, optional.
-        The section specified by FITS convention, i.e., bracket embraced, comma separated, XY order,
-        1-indexing, and including the end index. If given as array-like format of length ``N``, all
-        such sections in all FITS files will be extracted.
+        The section specified by FITS convention, i.e., bracket embraced, comma
+        separated, XY order, 1-indexing, and including the end index. If given
+        as array-like format of length ``N``, all such sections in all FITS
+        files will be extracted.
 
     outputs : path-like or array-like of such, optional.
-        The output paths of each FITS file to be copied. If array-like, it must have the shape of ``(M,
-        N)`` where ``M`` and ``N`` are the sizes of `fpaths` and `fits_sections`, respectively.
+        The output paths of each FITS file to be copied. If array-like, it must
+        have the shape of ``(M, N)`` where ``M`` and ``N`` are the sizes of
+        `fpaths` and `fits_sections`, respectively.
 
     return_ccd : bool, optional.
         Whether to load the FITS files as `~astropy.nddata.CCDData` and return it.
@@ -44,17 +55,18 @@ def imcopy(inputs, extension=None, fits_sections=None, outputs=None, return_ccd=
     Return
     ------
     results: CCDData or list of CCDData
-        Only if `return_ccd` is set `True`. A sinlge `~astropy.nddata.CCDData will be returned if
-        only one was input. Otherwise, the same number of `~astropy.nddata.CCDData will be gathered as
-        a list and returned.
+        Only if `return_ccd` is set `True`. A sinlge `~astropy.nddata.CCDData
+        will be returned if only one was input. Otherwise, the same number of
+        `~astropy.nddata.CCDData will be gathered as a list and returned.
     Note
     ----
-    Due to the memory issue, it is generally better NOT to load all the FITS files and pass them to
-    this function. Therefore, as it is in IRAF, I made this function to accept only the file paths, not
-    the pre-loaded CCDData objects. I here will load the
+    Due to the memory issue, it is generally better NOT to load all the FITS
+    files and pass them to this function. Therefore, as it is in IRAF, I made
+    this function to accept only the file paths, not the pre-loaded CCDData
+    objects. I here will load the
 
-    All the sections will be flattened if they are higher than 1-d. I think it will only increase the
-    complexity of the code if I accept that...?
+    All the sections will be flattened if they are higher than 1-d. I think it
+    will only increase the complexity of the code if I accept that...?
 
     Example
     -------

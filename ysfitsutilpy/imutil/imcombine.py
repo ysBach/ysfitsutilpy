@@ -52,41 +52,56 @@ lsigma    , hsigma     : sigma uple
 
 
 def group_combine(
-        inputs, type_key=None, type_val=None, group_key=None, verbose=1, fmt='', outdir=None, **kwargs):
+        inputs,
+        type_key=None,
+        ype_val=None,
+        group_key=None,
+        fmt='',
+        outdir=None,
+        verbose=1,
+        **kwargs
+):
     ''' Combine sub-groups of FITS files from the given input.
     Parameters
     ----------
     inputs : glob pattern, list-like of path-like, list-like of CCDData-like
-        The `~glob` pattern for files (e.g., ``"2020*[012].fits"``) or list of files (each element must
-        be path-like or CCDData). Although it is not a good idea, a mixed list of CCDData and paths to
-        the files is also acceptable. For the purpose of imcombine function, the best use is to use the
-        `~glob` pattern or list of paths.
+        The `~glob` pattern for files (e.g., ``"2020*[012].fits"``) or list of
+        files (each element must be path-like or CCDData). Although it is not a
+        good idea, a mixed list of CCDData and paths to the files is also
+        acceptable. For the purpose of imcombine function, the best use is to
+        use the `~glob` pattern or list of paths.
 
     type_key, type_val : str, list of str
         The header keyword for the ccd type, and the value you want to match.
 
     group_key : None, str, list of str, optional
-        The header keyword which will be used to make groups for the CCDs that have selected from
-        `type_key` and `type_val`. If `None` (default), no grouping will occur, but it will return
-        the `~pandas.DataFrameGroupBy` object will be returned for the sake of consistency.
+        The header keyword which will be used to make groups for the CCDs that
+        have selected from `type_key` and `type_val`. If `None` (default), no
+        grouping will occur, but it will return the `~pandas.DataFrameGroupBy`
+        object will be returned for the sake of consistency.
 
     verbose : int
         Larger number means it becomes more verbose::
-            * 0: print nothing
-            * 1: Only very essential things from this function
-            * 2: + verbose from each imcombine
+
+          * 0: print nothing
+          * 1: Only very essential things from this function
+          * 2: + verbose from each imcombine
 
     fmt : str, optinal.
         The f-string for the output file names.
 
-        ..example:: If `group_key="EXPTIME"` and we had two groups of ``EXPTIME`` is 1.0 and 2.0,
+        ..example:: If `group_key="EXPTIME"` and we had two groups of
+          ``EXPTIME`` is 1.0 and 2.0,
 
-          * ``"dark_{:.1f}s"`` -> ``dark_1.0s.fits`` and ``dark_2.0s.fits``
-          * For float, non-specification such as ``"d{}"`` is not recommended (filename can be ``0.3000...``).
+          * ``"dark_{:.1f}s"`` --> ``dark_1.0s.fits`` and ``dark_2.0s.fits``
+          * For float, non-specification such as ``"d{}"`` is not recommended
+            (filename can be ``0.3000...``).
 
-        ..example:: If two `group_key`'s are used, resulting in ``("B", 2.0)``, ``("V", 12.0)``, ...:
+        ..example:: If two `group_key`'s are used, resulting in ``("B", 2.0)``,
+          ``("V", 12.0)``, ...:
 
-          * ``"flat_{2:04.1f}_{1:s}"`` -> ``"flat_02.0_B.fits"`` and ``"flat_12.0_V.fits"``
+          * ``"flat_{2:04.1f}_{1:s}"`` --> ``"flat_02.0_B.fits"`` and
+            ``"flat_12.0_V.fits"``
 
     outdir : path-like, optinal.
         The directory where the output fits files will be saved.
@@ -97,9 +112,9 @@ def group_combine(
     Return
     ------
     combined : dict of CCDData
-        The dict object where keys are the header value of the `group_key` and the values are the
-        combined images in CCDData object. If multiple keys for `group_key` is given, the key of this
-        dict is a tuple.
+        The dict object where keys are the header value of the `group_key` and
+        the values are the combined images in CCDData object. If multiple keys
+        for `group_key` is given, the key of this dict is a tuple.
     '''
     def _group_save(ccd, groupname, fmt='', verbose=1, outdir=None):
         ''' Saves the results.
@@ -213,24 +228,44 @@ def _update_hdr(header, ncombine, imcmb_key, imcmb_val, offset_mode=None, offset
 
 
 def imcombine(
-        inputs, mask=None, extension=None, extension_uncertainty=None, extension_mask=None,
-        uncertainty_type='stddev', fits_section=None,
+        inputs,
+        mask=None,
+        extension=None,
+        extension_uncertainty=None,
+        extension_mask=None,
+        uncertainty_type='stddev',
+        fits_section=None,
         blank=np.nan,
         offsets=None,
         thresholds=[-np.inf, np.inf],
-        zero=None, zero_to_0th=True, zero_section=None,
-        scale=None, scale_to_0th=True, scale_section=None,
+        zero=None,
+        zero_to_0th=True,
+        zero_section=None,
+        scale=None,
+        scale_to_0th=True,
+        scale_section=None,
         zero_kw={'cenfunc': 'median', 'stdfunc': 'std', 'std_ddof': 1},
         scale_kw={'cenfunc': 'median', 'stdfunc': 'std', 'std_ddof': 1},
-        weight=None, statsec=None,
+        weight=None,
+        statsec=None,
         reject=None,
-        sigma=[3., 3.], cenfunc='median', maxiters=50, ddof=1, nkeep=1, maxrej=None,
+        sigma=[3., 3.],
+        cenfunc='median',
+        maxiters=50,
+        ddof=1,
+        nkeep=1,
+        maxrej=None,
         n_minmax=[1, 1],
-        rdnoise=0., gain=1., snoise=0.,
+        rdnoise=0.,
+        gain=1.,
+        snoise=0.,
         pclip=-0.5,
         logfile=None,
         combine='average',
-        dtype='float32', dtype_err='float32', dtype_low=None, dtype_upp=None,
+        dtype='float32',
+        dtype_err='float32',
+        dtype_low=None,
+        dtype_upp=None,
         irafmode=True,
         memlimit=2.5e+9,
         verbose=False,
@@ -238,10 +273,16 @@ def imcombine(
         return_variance=False,
         imcmb_key='$I',
         exposure_key="EXPTIME",
-        output=None, output_mask=None, output_nrej=None,
-        output_err=None, output_low=None, output_upp=None,
-        output_rejcode=None, return_dict=False,
-        **kwargs):
+        output=None,
+        output_mask=None,
+        output_nrej=None,
+        output_err=None,
+        output_low=None,
+        output_upp=None,
+        output_rejcode=None,
+        return_dict=False,
+        **kwargs
+):
     if verbose:
         _t1 = Time.now()
         print(_t1.iso)
@@ -262,7 +303,6 @@ def imcombine(
     zeros = np.zeros(shape=ncombine)
     scales = np.ones(shape=ncombine)
     weights = np.ones(shape=ncombine)
-
 
     if logfile is not None:
         logfile = Path(logfile)
@@ -307,7 +347,6 @@ def imcombine(
         extract_gain, gns = False, 1
         extract_rdnoise, rds = False, 0
         extract_snoise, sns = False, 0
-
 
     # == Extract header info =============================================================================== #
     # TODO: if offsets is None and `fsize_tot` << memlimit, why not
@@ -690,25 +729,29 @@ imcombine.__doc__ = '''A helper function for ndcombine to cope with FITS files.
     ----------
 
     inputs : glob pattern, list-like of path-like, list-like of CCDData-like
-        The `~glob` pattern for files (e.g., ``"2020*[012].fits"``) or list of files (each element must
-        be path-like or CCDData). Although it is not a good idea, a mixed list of CCDData and paths to
-        the files is also acceptable. For the purpose of imcombine function, the best use is to use the
-        `~glob` pattern or list of paths.
+        The `~glob` pattern for files (e.g., ``"2020*[012].fits"``) or list of
+        files (each element must be path-like or CCDData). Although it is not a
+        good idea, a mixed list of CCDData and paths to the files is also
+        acceptable. For the purpose of imcombine function, the best use is to
+        use the `~glob` pattern or list of paths.
 
     mask : ndarray, optional.
         The mask of bad pixels. If given, it must satisfy
         ``mask.shape[0]`` identical to the number of images.
 
         .. note::
-            If the user ever want to use masking, it's more convenient to use ``'MASK'`` extension to
-            the FITS files or replace bad pixel to very large or small numbers and use `thresholds`.
+            If the user ever want to use masking, it's more convenient to use
+            ``'MASK'`` extension to the FITS files or replace bad pixel to very
+            large or small numbers and use `thresholds`.
 
     extension, extension_uncertainty, extension_mask : int, str, (str, int)
-        The extension of FITS, uncertainty, and mask to be used. It can be given as integer
-        (0-indexing) of the extension, ``EXTNAME`` (single str), or a tuple of str and int: ``(EXTNAME,
-        EXTVER)``. If `None` (default), the *first extension with data* will be used. If
-        `extension_uncertainty` or `extension_mask` is `None` (default), uncertainty and mask are all
-        ignored (turned off). Currently error-propagation or weighted combine is not supported, so only
+        The extension of FITS, uncertainty, and mask to be used. It can be
+        given as integer (0-indexing) of the extension, ``EXTNAME`` (single
+        str), or a tuple of str and int: ``(EXTNAME, EXTVER)``. If `None`
+        (default), the *first extension with data* will be used. If
+        `extension_uncertainty` or `extension_mask` is `None` (default),
+        uncertainty and mask are all ignored (turned off). Currently
+        error-propagation or weighted combine is not supported, so only
         `extension_mask` can give difference to the output.
 
     {}
@@ -716,33 +759,38 @@ imcombine.__doc__ = '''A helper function for ndcombine to cope with FITS files.
     {}
 
     imcmb_key : str
-        The thing to add as ``IMCMBnnn`` in the output FITS file header. If ``"$I"``, following the
-        default of IRAF, the file's name will be added. Otherwise, it should be a header keyword. If
-        the key does not exist in ``nnn``-th file, a null string will be added. If a null string
-        (``imcmb_key=""``), it does not set the ``IMCMBnnn`` keywords nor deletes any existing keyword.
+        The thing to add as ``IMCMBnnn`` in the output FITS file header. If
+        ``"$I"``, following the default of IRAF, the file's name will be added.
+        Otherwise, it should be a header keyword. If the key does not exist in
+        ``nnn``-th file, a null string will be added. If a null string
+        (``imcmb_key=""``), it does not set the ``IMCMBnnn`` keywords nor
+        deletes any existing keyword.
 
         .. warning::
-            If more than 999 files are combined, only the first 999 files will be recorded in the
-            header.
+            If more than 999 files are combined, only the first 999 files will
+            be recorded in the header.
 
     exposure_key : str, optional.
-        The header keyword which contains the information about the exposure time of each FITS file.
-        This is used only if scaling is done for exposure time (see `scale`).
+        The header keyword which contains the information about the exposure
+        time of each FITS file. This is used only if scaling is done for
+        exposure time (see `scale`).
 
     irafmode : bool, optional.
         Whether to use IRAF-like pixel restoration scheme.
 
     output : path-like, optional
-        The path to the final combined FITS file. It has dtype of `dtype` and dimension identical to
-        each input image. Optional keyword arguments for ``fits.writeto()`` can be provided as
-        ``**kwargs``.
+        The path to the final combined FITS file. It has dtype of `dtype` and
+        dimension identical to each input image. Optional keyword arguments for
+        ``fits.writeto()`` can be provided as ``**kwargs``.
 
     output_xxx : path-like, optional
-        The output path to the mask, number of rejected pixels at each position, final
-        ``nanstd(combined, ddof=ddof, axis=0)`` (if `return_variance` is `False`) or ``nanvar(combined,
-        ddof=ddof, axis=0)`` (if `return_variance` is `True`) result, lower and upper bounds for
-        rejection, and the integer codes for the rejection algorithm (see `mask_total`, `mask_rej`,
-        `err`, `low`, `upp`, and `rejcode` in Returns.)
+        The output path to the mask, number of rejected pixels at each
+        position, final ``nanstd(combined, ddof=ddof, axis=0)`` (if
+        `return_variance` is `False`) or ``nanvar(combined, ddof=ddof,
+        axis=0)`` (if `return_variance` is `True`) result, lower and upper
+        bounds for rejection, and the integer codes for the rejection algorithm
+        (see `mask_total`, `mask_rej`, `err`, `low`, `upp`, and `rejcode` in
+        Returns.)
 
     return_dict : bool, optional.
         Whether to return the results as dict (works only if ``full=True``).
@@ -766,20 +814,32 @@ imcombine.__doc__ = '''A helper function for ndcombine to cope with FITS files.
 
 # ---------------------------------------------------------------------------------------------------------- #
 def ndcombine(
-        arr, mask=None, copy=True,
+        arr,
+        mask=None,
+        copy=True,
         blank=np.nan,
         offsets=None,
         thresholds=[-np.inf, np.inf],
-        zero=None, scale=None, weight=None,
+        zero=None,
+        scale=None,
+        weight=None,
         zero_kw={'cenfunc': 'median', 'stdfunc': 'std', 'std_ddof': 1},
         scale_kw={'cenfunc': 'median', 'stdfunc': 'std', 'std_ddof': 1},
-        zero_to_0th=True, scale_to_0th=True,
-        zero_section=None, scale_section=None,
+        zero_to_0th=True,
+        scale_to_0th=True,
+        zero_section=None,
+        scale_section=None,
         reject=None,
         cenfunc='median',
-        sigma=[3., 3.], maxiters=3, ddof=1, nkeep=1, maxrej=None,
+        sigma=[3., 3.],
+        maxiters=3,
+        ddof=1,
+        nkeep=1,
+        maxrej=None,
         n_minmax=[1, 1],
-        rdnoise=0., gain=1., snoise=0.,
+        rdnoise=0.,
+        gain=1.,
+        snoise=0.,
         pclip=-0.5,
         combine='average',
         dtype='float32',
@@ -787,7 +847,8 @@ def ndcombine(
         irafmode=True,
         verbose=False,
         full=False,
-        return_variance=False):
+        return_variance=False
+):
     if copy:
         arr = arr.copy()
 
@@ -962,12 +1023,13 @@ ndcombine.__doc__ = ''' Combines the given arr assuming no additional offsets.
         The array to be combined along axis 0.
 
     mask : ndarray, optional.
-        The mask of bad pixels. If given, it must satisfy ``mask.shape[0]`` identical to the number of
-        images.
+        The mask of bad pixels. If given, it must satisfy ``mask.shape[0]``
+        identical to the number of images.
 
     copy : bool, optional.
-        Whether to copy the input array. Set to `True` if you want to keep the original array
-        unchanged. Otherwise, the original array may be destroyed.
+        Whether to copy the input array. Set to `True` if you want to keep the
+        original array unchanged. Otherwise, the original array may be
+        destroyed.
 
     {}
 
