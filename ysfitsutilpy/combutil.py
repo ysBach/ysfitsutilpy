@@ -14,7 +14,10 @@ from .filemgmt import load_if_exists, make_summary
 from .hduutil import (CCDData_astype, _parse_extension, add2hdr,
                       inputs2list, load_ccd, trim_ccd, chk_keyval)
 
-__all__ = ["sstd", "weighted_mean", "group_fits", "select_fits", "stack_FITS", "combine_ccd"]
+__all__ = [
+    "sstd", "weighted_mean", "group_fits", "select_fits", "stack_FITS",
+    "combine_ccd"
+]
 
 
 def sstd(a, **kwargs):
@@ -39,21 +42,29 @@ def weighted_mean(ccds, unit='adu'):
 
 
 def group_fits(
-        summary_table, type_key=None, type_val=None, group_key=None, table_filecol="file", verbose=False):
+        summary_table,
+        type_key=None,
+        type_val=None,
+        group_key=None,
+        table_filecol="file",
+        verbose=False
+):
     ''' Organize the group_by and type_key for stack_FITS
     Parameters
     ----------
     summary_table: pandas.DataFrame or astropy.table.Table
-        The table which contains the metadata (header) of files. If it is in the astropy table format,
-        it will be converted to `~pandas.DataFrame` object.
+        The table which contains the metadata (header) of files. If it is in
+        the astropy table format, it will be converted to `~pandas.DataFrame`
+        object.
 
     type_key, type_val: None, str, list of str, optional
         The header keyword for the ccd type, and the value you want to match.
 
     group_key : None, str, list of str, optional
-        The header keyword which will be used to make groups for the CCDs that have selected from
-        `type_key` and `type_val`. If `None` (default), no grouping will occur, but it will return the
-        `~pandas.DataFrameGroupBy` object will be returned for the sake of consistency.
+        The header keyword which will be used to make groups for the CCDs that
+        have selected from `type_key` and `type_val`. If `None` (default), no
+        grouping will occur, but it will return the `~pandas.DataFrameGroupBy`
+        object will be returned for the sake of consistency.
 
     Return
     ------
@@ -61,8 +72,9 @@ def group_fits(
         The table after the grouping process.
 
     group_type_key : list of str
-        The `type_key` that can directly be used for `stack_FITS` for each element of `grouped.groups`.
-        Basically this is ``type_key + group_key``.
+        The `type_key` that can directly be used for `stack_FITS` for each
+        element of `grouped.groups`. Basically this is ``type_key +
+        group_key``.
 
     Example
     -------
@@ -86,18 +98,27 @@ def group_fits(
         st = summary_table.copy()
     else:
         raise TypeError(
-            f"summary_table must be an astropy Table or Pandas DataFrame. It's now {type(summary_table)}."
+            "summary_table must be an astropy Table or Pandas DataFrame. "
+            + f"It's now {type(summary_table)}."
         )
 
-    type_key, type_val, group_key = chk_keyval(type_key=type_key, type_val=type_val, group_key=group_key)
+    type_key, type_val, group_key = chk_keyval(type_key=type_key, type_val=type_val,
+                                               group_key=group_key)
 
     if len(group_key + type_key) == 0:
         raise ValueError("At least one of type_key and group_key should not be empty!")
 
     # For simplicity, crop the original data by type_key and type_val first.
     if type_key and type_val:  # if not empty list
-        fpaths = select_fits(st, table_filecol=table_filecol, prefer_ccddata=False,
-                             type_key=type_key, type_val=type_val, verbose=verbose, path_to_text=True)
+        fpaths = select_fits(
+            st,
+            table_filecol=table_filecol,
+            prefer_ccddata=False,
+            type_key=type_key,
+            type_val=type_val,
+            verbose=verbose,
+            path_to_text=True
+        )
         st = st[st[table_filecol].isin(fpaths)]
     group_type_key = type_key + group_key
     grouped = st.groupby(group_key)
@@ -106,42 +127,56 @@ def group_fits(
 
 
 def select_fits(
-        inputs, extension=None, unit=None, trim_fits_section=None, table_filecol="file", prefer_ccddata=False,
-        type_key=None, type_val=None, path_to_text=False, verbose=True):
+        inputs,
+        extension=None,
+        unit=None,
+        trim_fits_section=None,
+        table_filecol="file",
+        prefer_ccddata=False,
+        type_key=None,
+        type_val=None,
+        path_to_text=False,
+        verbose=True
+):
     ''' Stacks the FITS files specified in fitslist
 
     Parameters
     ----------
     inputs : path-like, CCDData, fits.PrimaryHDU, fits.ImageHDU,pandas.DataFrame or astropy.table.Table
-        If it is path-like, it must contain FITS files to extract header. If CCD-like, the header
-        information will be used for selecting elements to select.
+        If it is path-like, it must contain FITS files to extract header. If
+        CCD-like, the header information will be used for selecting elements to
+        select.
 
     extension: int, str, (str, int)
-        The extension of FITS to be used. It can be given as integer (0-indexing) of the extension,
-        ``EXTNAME`` (single str), or a tuple of str and int: ``(EXTNAME, EXTVER)``. If `None`
-        (default), the *first extension with data* will be used.
+        The extension of FITS to be used. It can be given as integer
+        (0-indexing) of the extension, ``EXTNAME`` (single str), or a tuple of
+        str and int: ``(EXTNAME, EXTVER)``. If `None` (default), the *first
+        extension with data* will be used.
         Ignored if `inputs` is table-like.
 
     unit: Unit or str, optional
         The unit of the CCDs to be loaded.
-        Used only when `fitslist` is not a list of `~astropy.nddata.CCDData` and `prefer_ccddata` is
-        `True`. Ignored if `inputs` is table-like.
+        Used only when `fitslist` is not a list of `~astropy.nddata.CCDData`
+        and `prefer_ccddata` is `True`.
+        Ignored if `inputs` is table-like.
 
     trim_fits_section : str or None, optional
-        The `fits_section` of `ccdproc.trim_image`. Region of `~astropy.nddata.CCDData` from which the
-        overscan is extracted; see `~ccdproc.subtract_overscan` for details.
+        The `fits_section` of `ccdproc.trim_image`. Region of
+        `~astropy.nddata.CCDData` from which the overscan is extracted; see
+        `~ccdproc.subtract_overscan` for details.
         Default is `None`.
         Ignored if `inputs` is table-like.
 
     table_filecol: str
-        The column name of the `summary_table` which contains the path to the FITS files.
-        Ignored if `inputs` is CCD-like.
+        The column name of the `summary_table` which contains the path to the
+        FITS files. Ignored if `inputs` is CCD-like.
 
     prefer_ccddata: bool, optional
-        Whether to prefer to return CCDData objects if possible. If `True`, path-like, ndarray, or
-        table-like input will return a list of CCDData. If `False` (default), only the paths will be
-        returned unless the `inputs` is consist of CCDData.
-        Ignored if `inputs` is already CCD-like.
+        Whether to prefer to return CCDData objects if possible. If `True`,
+        path-like, ndarray, or table-like input will return a list of CCDData.
+        If `False` (default), only the paths will be returned unless the
+        `inputs` is consist of CCDData. Ignored if `inputs` is already
+        CCD-like.
 
     type_key, type_val: str, list of str
         The header keyword for the ccd type, and the value you want to match.
@@ -149,9 +184,10 @@ def select_fits(
     Return
     ------
     matched: list of Path or list of CCDData
-        list containing Path to files if `prefer_ccddata` is `False`. Otherwise it is a list containing
-        loaded CCDData after loading the files. If `ccdlist` is given a priori, list of CCDData will be
-        returned regardless of `prefer_ccddata`.
+        list containing Path to files if `prefer_ccddata` is `False`. Otherwise
+        it is a list containing loaded CCDData after loading the files. If
+        `ccdlist` is given a priori, list of CCDData will be returned
+        regardless of `prefer_ccddata`.
     '''
     def _parse_val(value):
         val = str(value)
@@ -176,16 +212,18 @@ def select_fits(
 
     # Check for type_key and type_val
     type_key, type_val, _ = chk_keyval(type_key=type_key, type_val=type_val, group_key=None)
-    # I made this but think it is unnecessary as all string type_val must be subject to regex...
-    # I am leaving it here just in case in the future I find it necessary.
+    # I made this but think it is unnecessary as all string type_val must be subject to
+    # regex.. I am leaving it here just in case in the future I find it necessary.
     #   YPBach 2021-01-08 17:36:53 (KST: GMT+09:00)
     # regex : bool or list of bool optional.
-    #     Whether to use regex for `type_val` matching. Default is `False`. If it is a list, it must
-    #     have the identical length to `type_key` and `type_val`. An example is that you want to
-    #     select ``OBJECT`` with regex of ``'NGC.*'``, but ``EXPTIME`` of ``120``, which is a numeric.
-    #     Sometimes the header will have ``'120.0'``, which may not be easily selected by regex. In that
-    #     case, an internal parser is easier to use to catch any numeric values that must be regarded as
-    #     the same thing. A possible usage is: ``type_key=["OBJECT", "EXPTIME"], type_val=["NGC*", 120],
+    #     Whether to use regex for `type_val` matching. Default is `False`. If it
+    #     is a list, it must have the identical length to `type_key` and
+    #     `type_val`. An example is that you want to select ``OBJECT`` with regex
+    #     of ``'NGC.*'``, but ``EXPTIME`` of ``120``, which is a numeric. Sometimes
+    #     the header will have ``'120.0'``, which may not be easily selected by
+    #     regex. In that case, an internal parser is easier to use to catch any
+    #     numeric values that must be regarded as the same thing. A possible usage
+    #     is: ``type_key=["OBJECT", "EXPTIME"], type_val=["NGC*", 120],
     #     regex=[True, False]``.
     # if isinstance(regex, bool):
     #     regex = [regex]*len(type_key)
@@ -212,12 +250,13 @@ def select_fits(
         fitslist = summary_table[table_filecol].to_list()
     else:
         # No need to sort here because the real "sort" will be done later in make_summary
-        fitslist = inputs2list(inputs, sort=False, accept_ccdlike=True, check_coherency=False,
-                               path_to_text=path_to_text)
+        fitslist = inputs2list(inputs, sort=False, accept_ccdlike=True,
+                               check_coherency=False, path_to_text=path_to_text)
         if selecting:
             summary_table = make_summary(
                 fitslist,
-                extension=extension,  # extension will be parsed within make_summary (no need to care here)
+                extension=extension,
+                # extension will be parsed within make_summary (no need to care here)
                 verbose=verbose,
                 fname_option='relative',
                 keywords=type_key,
@@ -236,10 +275,10 @@ def select_fits(
     if verbose:
         print("Done.")
 
-    # ****************************************************************************************************** #
-    # *                                       SELECT AND LOAD TO MATCHED                                   * #
-    # ****************************************************************************************************** #
-    # == Do regex matching if type_val[i] is string ======================================================== #
+    # ************************************************************************************ #
+    # *                             SELECT AND LOAD TO MATCHED                           * #
+    # ************************************************************************************ #
+    # == Do regex matching if type_val[i] is string ====================================== #
     _type_key = []
     _type_val = []
     if selecting:
@@ -247,7 +286,8 @@ def select_fits(
             if isinstance(v, str):
                 match_mask = summary_table[k].str.match(v)
                 summary_table = summary_table[match_mask]
-                fitslist = np.array(fitslist)[match_mask].tolist()  # NOTE: Is there a better way to do this?
+                fitslist = np.array(fitslist)[match_mask].tolist()
+                # NOTE: Is there a better way to do this?
                 try:
                     summary_table.reset_index(inplace=True, drop=True)
                 except ValueError:
@@ -259,15 +299,17 @@ def select_fits(
 
     matched = []
     if selecting:
-        # == Select FITS based on type_key and type_val ==================================================== #
+        # == Select FITS based on type_key and type_val ================================== #
         for i, row in summary_table.iterrows():
-            # I intentionally used iterrows instead of making mask, because for some cases the keyword
-            # (e.g., an angle) can contain both str and float among CCDs.
-            #    For example, if we want to select ``angle == 0.0``, masking cannot work because the
-            # column has dtype of object (``summary_table[column].dtype`` is `object``).
-            #    Instead, _check_mismatch tries to convert the value found in the header to int, and
-            # if it fails, tries float, and finally uses str. This is the most natural way I could
-            # think of.
+            # I intentionally used iterrows instead of making mask, because for
+            # some cases the keyword (e.g., an angle) can contain both str and
+            # float among CCDs.
+            #   For example, if we want to select ``angle == 0.0``, masking
+            # cannot work because the column has dtype of object
+            # (``summary_table[column].dtype`` is `object``).
+            #   Instead, _check_mismatch tries to convert the value found in
+            # the header to int, and if it fails, tries float, and finally uses
+            # str. This is the most natural way I could think of.
             # ysBach, 2020-05-15 09:44:13 (KST: GMT+09:00)
             mismatch = _check_mismatch(row, _type_key, _type_val)
             if mismatch:  # skip this row (file)
@@ -294,7 +336,7 @@ def select_fits(
                     else:
                         matched.append(fpath)
     else:
-        # == Use all item in fitslist ====================================================================== #
+        # == Use all item in fitslist ==================================================== #
         # summary_table is not used.
         for item in fitslist:
             if isinstance(item, CCDData):
@@ -315,13 +357,13 @@ def select_fits(
                     else:
                         matched.append(Path(item))
 
-    # ****************************************************************************************************** #
-    # *                                     PRINT INFO MESSAGE OR WARNING                                  * #
-    # ****************************************************************************************************** #
-
+    # ************************************************************************************ #
+    # *                           PRINT INFO MESSAGE OR WARNING                          * #
+    # ************************************************************************************ #
     if len(matched) == 0:
         if selecting:
-            warn(f'No FITS file had "{str(type_key)} = {str(type_val)}" Maybe int/float/str confusing?')
+            warn(f'No FITS file had "{str(type_key)} = {str(type_val)}". '
+                 + 'Maybe int/float/str confusing?')
         else:
             warn('No FITS file found')
     else:
@@ -341,62 +383,83 @@ def select_fits(
     return matched
 
 
+# !FIXME: Remove in the future
 def stack_FITS(
-        fitslist=None, summary_table=None, extension=None, unit=None, table_filecol="file",
-        trim_fits_section=None, ccddata=True, asccd=True, type_key=None, type_val=None, verbose=True):
+        fitslist=None,
+        summary_table=None,
+        extension=None,
+        unit=None,
+        table_filecol="file",
+        trim_fits_section=None,
+        ccddata=True,
+        asccd=True,
+        type_key=None,
+        type_val=None,
+        verbose=True
+):
     ''' Stacks the FITS files specified in fitslist
 
     Parameters
     ----------
     fitslist: None, list of path-like, or list of CCDData
-        The list of path to FITS files or the list of CCDData to be stacked. It is useful to give list
-        of CCDData if you have already stacked/loaded FITS file into a list by your own criteria. If
-        `None` (default), you must give `fitslist` or `summary_table`. If it is not `None`, this
-        function will do very similar job to that of `ccdproc.combine`. Although it is not a good idea,
-        a mixed list of CCDData and paths to the files is also acceptable.
+        The list of path to FITS files or the list of CCDData to be stacked. It
+        is useful to give list of CCDData if you have already stacked/loaded
+        FITS file into a list by your own criteria. If `None` (default), you
+        must give `fitslist` or `summary_table`. If it is not `None`, this
+        function will do very similar job to that of `ccdproc.combine`.
+        Although it is not a good idea, a mixed list of CCDData and paths to
+        the files is also acceptable.
 
     summary_table: None, pandas.DataFrame or astropy.table.Table
-        The table which contains the metadata of files. If there are many FITS files and you want to
-        use stacking many times, it is better to make a summary table by `filemgmt.make_summary` and
-        use that instead of opening FITS files' headers every time you call this function. If you want
-        to use `summary_table` instead of `fitslist` and have set ``ccddata=True``, you must not have
-        `None` or ``NaN`` value in the ``summary_table[table_filecol]``.
+        The table which contains the metadata of files. If there are many FITS
+        files and you want to use stacking many times, it is better to make a
+        summary table by `filemgmt.make_summary` and use that instead of
+        opening FITS files' headers every time you call this function. If you
+        want to use `summary_table` instead of `fitslist` and have set
+        ``ccddata=True``, you must not have `None` or ``NaN`` value in the
+        ``summary_table[table_filecol]``.
 
     extension: int, str, (str, int)
-        The extension of FITS to be used. It can be given as integer (0-indexing) of the extension,
-        ``EXTNAME`` (single str), or a tuple of str and int: ``(EXTNAME, EXTVER)``. If `None`
-        (default), the *first extension with data* will be used.
+        The extension of FITS to be used. It can be given as integer
+        (0-indexing) of the extension, ``EXTNAME`` (single str), or a tuple of
+        str and int: ``(EXTNAME, EXTVER)``. If `None` (default), the *first
+        extension with data* will be used.
 
     unit: Unit or str, optional
         The unit of the CCDs to be loaded.
-        Used only when `fitslist` is not a list of `~astropy.nddata.CCDData` and `ccddata` is `True`.
+        Used only when `fitslist` is not a list of `~astropy.nddata.CCDData`
+        and `ccddata` is `True`.
 
     table_filecol: str
         The column name of the `summary_table` which contains the path to the FITS files.
 
     trim_fits_section : str or None, optional
-        The `fits_section` of `ccdproc.trim_image`. Region of `~astropy.nddata.CCDData` from which the
-        overscan is extracted; see `~ccdproc.subtract_overscan` for details.
+        The `fits_section` of `ccdproc.trim_image`. Region of
+        `~astropy.nddata.CCDData` from which the overscan is extracted; see
+        `~ccdproc.subtract_overscan` for details.
         Default is `None`.
 
     ccddata: bool, optional
-        Whether to return file paths or loaded CCDData. If `False`, it is a function to select FITS
-        files using `type_key` and `type_val` without using much memory.
-        This is ignored if `fitslist` is given and composed of `~astropy.nddata.CCDData` objects.
+        Whether to return file paths or loaded CCDData. If `False`, it is a
+        function to select FITS files using `type_key` and `type_val` without
+        using much memory.
+        This is ignored if `fitslist` is given and composed of
+        `~astropy.nddata.CCDData` objects.
 
     type_key, type_val: str, list of str
         The header keyword for the ccd type, and the value you want to match.
 
     asccd : bool, optional.
-        Whether to load as `~astropy.nddata.CCDData`. If `False`, numpy ndarray will be used. Works
-        only if ``ccddata = True``.
+        Whether to load as `~astropy.nddata.CCDData`. If `False`, numpy ndarray
+        will be used. Works only if ``ccddata = True``.
 
     Return
     ------
     matched: list of Path or list of CCDData
-        list containing Path to files if `ccddata` is `False`. Otherwise it is a list containing loaded
-        CCDData after loading the files. If `ccdlist` is given a priori, list of CCDData will be
-        returned regardless of `ccddata`.
+        list containing Path to files if `ccddata` is `False`. Otherwise it is
+        a list containing loaded CCDData after loading the files. If `ccdlist`
+        is given a priori, list of CCDData will be returned regardless of
+        `ccddata`.
     '''
     warn("stack_FITS is deprecated; use select_fits.", DeprecationWarning)
 
@@ -433,20 +496,23 @@ def stack_FITS(
     if verbose:
         print("Analyzing FITS... ", end='')
 
-    # ****************************************************************************************************** #
-    # *                                   MAKE FITSLIST AND SUMMARY_TABLE                                  * #
-    # ****************************************************************************************************** #
-    # == If fitslist ======================================================================================= #
+    # ************************************************************************************ #
+    # *                            MAKE FITSLIST AND SUMMARY_TABLE                       * #
+    # ************************************************************************************ #
+    # == If fitslist ===================================================================== #
     if fitslist is not None:
         try:
             fitslist = list(fitslist)
         except TypeError:
-            raise TypeError(f"fitslist must be convertable to list. It's now {type(fitslist)}.")
+            raise TypeError(
+                f"fitslist must be convertable to list. It's now {type(fitslist)}."
+            )
 
         if selecting:
             summary_table = make_summary(
                 fitslist,
-                extension=extension,  # extension will be parsed within make_summary (no need to care here)
+                extension=extension,
+                # extension will be parsed within make_summary (no need to care here)
                 verbose=verbose,
                 fname_option='relative',
                 keywords=type_key,
@@ -455,7 +521,7 @@ def stack_FITS(
             )
         # else:
         #   no need to make summary_table.
-    # == If summary_table ================================================================================== #
+    # == If summary_table ================================================================ #
     elif summary_table is not None:
         if isinstance(summary_table, Table):
             summary_table = summary_table.to_pandas()
@@ -476,20 +542,21 @@ def stack_FITS(
         else:
             print(".")
 
-    # ****************************************************************************************************** #
-    # *                                       SELECT AND LOAD TO MATCHED                                   * #
-    # ****************************************************************************************************** #
+    # ************************************************************************************ #
+    # *                             SELECT AND LOAD TO MATCHED                           * #
+    # ************************************************************************************ #
     matched = []
     if selecting:
-        # == Select FITS based on type_key and type_val ==================================================== #
+        # == Select FITS based on type_key and type_val ================================== #
         for i, row in summary_table.iterrows():
-            # I intentionally used iterrows instead of making mask, because for some cases the keyword
-            # (e.g., an angle) can contain both str and float among CCDs.
-            #    For example, if we want to select ``angle == 0.0``, masking cannot work because the
-            # column has dtype of object (``summary_table[column].dtype`` is ``object```).
-            #    Instead, _check_mismatch tries to convert the value found in the header to int, and
-            # if it fails, tries float, and finally uses str. This is the most natural way I could
-            # think of.
+            # I intentionally used iterrows instead of making mask, because for some cases
+            # the keyword (e.g., an angle) can contain both str and float among CCDs.
+            #    For example, if we want to select ``angle == 0.0``, masking cannot work
+            # because the column has dtype of object (``summary_table[column].dtype`` is
+            # ``object```).
+            #    Instead, _check_mismatch tries to convert the value found in the header to
+            # int, and if it fails, tries float, and finally uses str. This is the most
+            # natural way I could think of.
             # ysBach, 2020-05-15 09:44:13 (KST: GMT+09:00)
             mismatch = _check_mismatch(row)
             if mismatch:  # skip this row (file)
@@ -516,7 +583,7 @@ def stack_FITS(
                 else:
                     matched.append(fpath)
     else:
-        # == Use all item in fitslist ====================================================================== #
+        # == Use all item in fitslist ==================================================== #
         # summary_table is not used.
         for item in fitslist:
             if isinstance(item, CCDData):
@@ -537,13 +604,13 @@ def stack_FITS(
                 else:  # TODO: Is is better to remove Path here?
                     matched.append(Path(item))
 
-    # ****************************************************************************************************** #
-    # *                                     PRINT INFO MESSAGE OR WARNING                                  * #
-    # ****************************************************************************************************** #
-
+    # ************************************************************************************ #
+    # *                           PRINT INFO MESSAGE OR WARNING                          * #
+    # ************************************************************************************ #
     if len(matched) == 0:
         if selecting:
-            warn(f'No FITS file had "{str(type_key)} = {str(type_val)}" Maybe int/float/str confusing?')
+            warn(f'No FITS file had "{str(type_key)} = {str(type_val)}"'
+                 + 'Maybe int/float/str confusing?')
         else:
             warn('No FITS file found')
     else:
@@ -563,42 +630,68 @@ def stack_FITS(
     return matched
 
 
+# TODO: accept the input like ``sigma_clip_func='median'``, etc.
 def combine_ccd(
-        fitslist=None, summary_table=None, table_filecol="file", trim_fits_section=None, output=None,
-        unit=None, subtract_frame=None, combine_method='median', reject_method=None,
-        normalize_exposure=False, normalize_average=False, normalize_median=False,
-        exposure_key='EXPTIME', mem_limit=2e9, combine_uncertainty_function=None,
-        extension=None, type_key=None, type_val=None, dtype="float32", uncertainty_dtype="float32",
-        output_verify='fix', overwrite=False, verbose=True, **kwargs):
-    ''' Combining images
-    Slight variant from ccdproc.
-    # TODO: accept the input like ``sigma_clip_func='median'``, etc.
+        fitslist=None,
+        summary_table=None,
+        table_filecol="file",
+        trim_fits_section=None,
+        output=None,
+        unit=None,
+        subtract_frame=None,
+        combine_method='median',
+        reject_method=None,
+        normalize_exposure=False,
+        normalize_average=False,
+        normalize_median=False,
+        exposure_key='EXPTIME',
+        mem_limit=2e9,
+        combine_uncertainty_function=None,
+        extension=None,
+        type_key=None,
+        type_val=None,
+        dtype="float32",
+        uncertainty_dtype="float32",
+        output_verify='fix',
+        overwrite=False,
+        verbose=True,
+        **kwargs
+):
+    ''' Combining images -- slight variant from ccdproc.
+
     Parameters
     ----------
     fitslist: path-like, list of path-like, or list of CCDData
-        The list of path to FITS files or the list of CCDData to be stacked. It is useful to give list
-        of CCDData if you have already stacked/loaded FITS file into a list by your own criteria. If
-        `None` (default), you must give `fitslist` or `summary_table`. If it is not `None`, this
-        function will do very similar job to that of `ccdproc.combine`. Although it is not a good idea,
-        a mixed list of CCDData and paths to the files is also acceptable.
+        The list of path to FITS files or the list of CCDData to be stacked. It
+        is useful to give list of CCDData if you have already stacked/loaded
+        FITS file into a list by your own criteria. If `None` (default), you
+        must give `fitslist` or `summary_table`. If it is not `None`, this
+        function will do very similar job to that of `ccdproc.combine`.
+        Although it is not a good idea, a mixed list of CCDData and paths to
+        the files is also acceptable.
 
     summary_table: pandas.DataFrame or astropy.table.Table
-        The table which contains the metadata of files. If there are many FITS files and you want to
-        use stacking many times, it is better to make a summary table by `filemgmt.make_summary` and
-        use that instead of opening FITS files' headers every time you call this function. If you want
-        to use `summary_table` instead of `fitslist` and have set ``ccddata=True``, you must not have
-        `None` or ``NaN`` value in the ``summary_table[table_filecol]``.
+        The table which contains the metadata of files. If there are many FITS
+        files and you want to use stacking many times, it is better to make a
+        summary table by `filemgmt.make_summary` and use that instead of
+        opening FITS files' headers every time you call this function. If you
+        want to use `summary_table` instead of `fitslist` and have set
+        ``ccddata=True``, you must not have `None` or ``NaN`` value in the
+        ``summary_table[table_filecol]``.
 
     table_filecol: str
-        The column name of the `summary_table` which contains the path to the FITS files.
+        The column name of the `summary_table` which contains the path to the
+        FITS files.
 
     trim_fits_section : str or None, optional
-        The `fits_section` of `ccdproc.trim_image`. Region of `~astropy.nddata.CCDData` from which the
-        overscan is extracted; see `~ccdproc.subtract_overscan` for details.
+        The `fits_section` of `ccdproc.trim_image`. Region of
+        `~astropy.nddata.CCDData` from which the overscan is extracted; see
+        `~ccdproc.subtract_overscan` for details.
         Default is `None`.
 
     output : path-like or None, optional.
-        The path if you want to save the resulting `~astropy.nddata.CCDData` object.
+        The path if you want to save the resulting `~astropy.nddata.CCDData`
+        object.
         Default is `None`.
 
     unit : `~astropy.units.Unit` or str, optional.
@@ -606,9 +699,9 @@ def combine_ccd(
         Default is `None`.
 
     subtract_frame : array-like, optional.
-        The frame you want to subtract from the image after the combination. It can be, e.g., dark
-        frame, because it is easier to calculate Poisson error before the dark subtraction and subtract
-        the dark later.
+        The frame you want to subtract from the image after the combination. It
+        can be, e.g., dark frame, because it is easier to calculate Poisson
+        error before the dark subtraction and subtract the dark later.
         TODO: This maybe unnecessary.
         Default is `None`.
 
@@ -617,18 +710,20 @@ def combine_ccd(
         Default is `None`.
 
     reject_method : str
-        Made for simple use of `ccdproc.combine`, [None, 'minmax', 'sigclip' == 'sigma_clip', 'extrema'
-        == 'ext']. Automatically turns on the option, e.g., ``clip_extrema = True`` or ``sigma_clip =
-        True``. Leave it blank for no rejection.
+        Made for simple use of `ccdproc.combine`, [None, 'minmax', 'sigclip' ==
+        'sigma_clip', 'extrema' == 'ext']. Automatically turns on the option,
+        e.g., ``clip_extrema = True`` or ``sigma_clip = True``. Leave it blank
+        for no rejection.
         Default is `None`.
 
     normalize_exposure : bool, optional.
-        Whether to normalize the values by the exposure time of each frame before combining.
+        Whether to normalize the values by the exposure time of each frame
+        before combining.
         Default is `False`.
 
     normalize_average, normalize_median : bool, optional.
-        Whether to normalize the values by the average or median value of each frame before combining.
-        Only up to one of these must be `True`.
+        Whether to normalize the values by the average or median value of each
+        frame before combining. Only up to one of these must be `True`.
         Default is `False`.
 
     exposure_key : str, optional
@@ -636,30 +731,33 @@ def combine_ccd(
         Default is ``"EXPTIME"``.
 
     combine_uncertainty_function : callable, None, optional
-        The uncertainty calculation function of `~ccdproc.combine`. If `None` use the default
-        uncertainty func when using average, median or sum combine, otherwise use the function
-        provided.
+        The uncertainty calculation function of `~ccdproc.combine`. If `None`
+        use the default uncertainty func when using average, median or sum
+        combine, otherwise use the function provided.
         Default is `None`.
 
     extension: int, str, (str, int)
-        The extension of FITS to be used. It can be given as integer (0-indexing) of the extension,
-        ``EXTNAME`` (single str), or a tuple of str and int: ``(EXTNAME, EXTVER)``. If `None`
-        (default), the *first extension with data* will be used.
+        The extension of FITS to be used. It can be given as integer
+        (0-indexing) of the extension, ``EXTNAME`` (single str), or a tuple of
+        str and int: ``(EXTNAME, EXTVER)``. If `None` (default), the *first
+        extension with data* will be used.
 
     dtype : str or `numpy.dtype` or None, optional
-        Allows user to set dtype. See `numpy.array` ``dtype`` parameter description. If `None` it
-        uses ``np.float64``.
+        Allows user to set dtype. See `numpy.array` ``dtype`` parameter
+        description. If `None` it uses ``np.float64``.
         Default is `None`.
 
     type_key, type_val: str, list of str
-        The header keyword for the ccd type, and the value you want to match. For an open HDU named
-        `hdu`, e.g., only the files which satisfies ``hdu[extension].header[type_key] == type_val``
-        among all the `fitslist` will be used.
+        The header keyword for the ccd type, and the value you want to match.
+        For an open HDU named `hdu`, e.g., only the files which satisfies
+        ``hdu[extension].header[type_key] == type_val`` among all the
+        `fitslist` will be used.
 
     output_verify : str
-        Output verification option.  Must be one of ``"fix"``, ``"silentfix"``, ``"ignore"``,
-        ``"warn"``, or ``"exception"``. May also be any combination of ``"fix"`` or ``"silentfix"``
-        with ``"+ignore"``, ``+warn``, or ``+exception" (e.g. ``"fix+warn"``).  See the astropy
+        Output verification option.  Must be one of ``"fix"``, ``"silentfix"``,
+        ``"ignore"``, ``"warn"``, or ``"exception"``. May also be any
+        combination of ``"fix"`` or ``"silentfix"`` with ``"+ignore"``,
+        ``+warn``, or ``+exception" (e.g. ``"fix+warn"``).  See the astropy
         documentation below:
         http://docs.astropy.org/en/stable/io/fits/api/verification.html#verify
 
@@ -668,8 +766,8 @@ def combine_ccd(
         Default is ``2.e9``.
 
     **kwarg:
-        kwargs for the `ccdproc.combine`. See its documentation. This includes (RHS are the default
-        values)
+        kwargs for the `ccdproc.combine`. See its documentation. This includes
+        (RHS are the default values)
         ```
         weights=None,
         scale=None,
@@ -721,7 +819,10 @@ def combine_ccd(
             sigma_clip = True
         else:
             if reject_method not in [None, 'no']:
-                raise KeyError("reject not in [None, 'minmax', sigclip'=='sigma_clip', 'extrema'=='ext']")
+                raise KeyError(
+                    "reject must be one of "
+                    + "[None, 'minmax', sigclip'=='sigma_clip', 'extrema'=='ext']"
+                )
 
         return clip_extrema, minmax_clip, sigma_clip
 
@@ -746,25 +847,29 @@ def combine_ccd(
 
     # If fitslist
     if fitslist is not None:
-        # == a single CCDData ============================================================================== #
+        # == a single CCDData ============================================================ #
         if isinstance(fitslist, CCDData):
             fitslist = [fitslist]
         else:
-            # == a single path-like ======================================================================== #
+            # == a single path-like ====================================================== #
             try:
                 fitslist = [Path(fitslist)]
             except TypeError:
-                # == a list of path-like or CCDData ======================================================== #
+                # == a list of path-like or CCDData ====================================== #
                 try:
                     fitslist = list(fitslist)
                 except TypeError:
-                    raise TypeError(f"fitslist must be convertable to list. It's now {type(fitslist)}.")
+                    raise TypeError(
+                        f"fitslist must be convertable to list. It's now {type(fitslist)}."
+                    )
 
     # If summary_table
     if summary_table is not None:
-        if (not isinstance(summary_table, Table)) and (not isinstance(summary_table, pd.DataFrame)):
+        if ((not isinstance(summary_table, Table))
+                and (not isinstance(summary_table, pd.DataFrame))):
             raise TypeError(
-                f"summary_table must be an astropy Table or Pandas DataFrame. It's now {type(summary_table)}."
+                "summary_table must be an astropy Table or Pandas DataFrame. "
+                + f"It's now {type(summary_table)}."
             )
 
     # Check for type_key and type_val
@@ -785,7 +890,9 @@ def combine_ccd(
     #     scale = np.ones(len(ccdlist))
     if (((normalize_average) + (normalize_exposure) + (normalize_median)) > 1):
         raise ValueError(
-            "Only up to one of [normalize_average, normalize_exposure, normalize_median] is acceptable.")
+            "Only up to one of [normalize_average, normalize_exposure, normalize_median] "
+            + "is acceptable."
+        )
 
     # Set history messages
     str_history = ('{:d} images with {:s} = {:s} are "{:s}" combined '
@@ -805,7 +912,8 @@ def combine_ccd(
         fitslist=fitslist,
         summary_table=summary_table,
         table_filecol=table_filecol,
-        extension=extension,  # extension will be parsed within make_summary/load_ccd (no need to care here)
+        extension=extension,
+        # extension will be parsed within make_summary/load_ccd (no need to care here)
         unit=unit,
         type_key=type_key,
         type_val=type_val,
