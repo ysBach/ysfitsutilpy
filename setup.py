@@ -15,7 +15,8 @@ install_requires = [
 classifiers = [
     "Intended Audience :: Science/Research",
     "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3"
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
 ]
 
 setup(
@@ -34,5 +35,5 @@ setup(
                 'pimarith = ysfitsutilpy.imutil.scripts.pimarith:main'
             ]
     },
-    python_requires='>=3.6',
+    python_requires='>=3.8',
     install_requires=install_requires)
