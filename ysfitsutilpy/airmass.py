@@ -47,6 +47,19 @@ def calc_airmass(zd_deg=None, cos_zd=None, scale=750.):
     if not ((zd_deg is None) ^ (cos_zd is None)):
         raise ValueError("One and only one of `zd_deg` or `cos_zd` should be given.")
 
+    # NOTE: for this part, using numexpr is slower than using numpy. It is
+    # because this airmass calculation is usually done for a single zd value
+    # from a single exposure. If one needs a large amount of such calculations,
+    # numexpr may boost the speed, but that will be like few ms to us order.
+    # Using numexpr will introduce a large overhead for the calculation if this
+    # is repeated for thousands of images:
+    # numexpr version:
+    # %timeit yfu.calc_airmass(10)
+    # 21.3 µs +/- 2.44 µs per loop (mean +/- std. dev. of 7 runs, 10000 loops each)
+    # numpy version:
+    # %timeit yfu.calc_airmass(10)
+    # 3.65 µs +/- 93.5 ns per loop (mean +/- std. dev. of 7 runs, 100000 loops each)
+
     if cos_zd is None:
         cos_zd = np.cos(np.deg2rad(zd_deg))
 
