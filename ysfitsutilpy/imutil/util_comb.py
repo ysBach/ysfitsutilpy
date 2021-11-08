@@ -7,8 +7,8 @@ from .util_lmedian import lmedian, nanlmedian
 __all__ = [
     'do_zs', 'get_zsw', '_set_int_dtype', '_get_dtype_limits',
     '_setup_reject', '_set_reject_name',
-    '_set_mask', '_set_sigma', '_set_keeprej', '_set_minmax', '_set_thresh_mask', '_set_gain_rdns',
-    '_set_cenfunc', '_set_combfunc'
+    '_set_mask', '_set_sigma', '_set_keeprej', '_set_minmax', '_set_thresh_mask',
+    '_set_gain_rdns', '_set_cenfunc', '_set_combfunc'
 ]
 
 
