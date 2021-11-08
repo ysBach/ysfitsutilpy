@@ -1069,51 +1069,6 @@ def propagate_ccdmask(ccd, additional_mask=None):
 
 
 # FIXME: Remove when https://github.com/astropy/ccdproc/issues/718 is solved
-# def trim_ccd(ccd, fits_section=None, add_keyword=True, verbose=False):
-#     _t = Time.now()
-#     trim_str = f"Trimmed using {fits_section}"
-#     trimmed_ccd = trim_image(ccd, fits_section=fits_section, add_keyword=add_keyword)
-#     ny, nx = ccd.data.shape
-
-#     if fits_section:
-#         trim_slice = fitsxy2py(fits_section)
-#         ltv1 = -1*trim_slice[1].indices(nx)[0]
-#         ltv2 = -1*trim_slice[0].indices(ny)[0]
-#     else:
-#         ltv1 = 0.
-#         ltv2 = 0.
-
-#     hdr = trimmed_ccd.header
-#     for k, v in zip(["LTV1", "LTV2"], [ltv1, ltv2]):
-#         try:  # if LTV exists already
-#             hdr[k] += v
-#         except KeyError:
-#             hdr[k] = v
-
-#     add_11 = not ("LTM1_1" in hdr)
-#     add_12 = not ("LTM1_2" in hdr)
-#     add_21 = not ("LTM2_1" in hdr)
-#     add_22 = not ("LTM2_2" in hdr)
-#     if add_11:
-#         if "LTM1" in hdr:
-#             hdr["LTM1_1"] = hdr["LTM1"]
-#         else:
-#             hdr["LTM1_1"] = 1.
-#     if add_12:
-#         hdr["LTM1_2"] = 0.
-#     if add_21:
-#         hdr["LTM2_1"] = 0.
-#     if add_22:
-#         if "LTM2" in hdr:
-#             hdr["LTM2_2"] = hdr["LTM2"]
-#         else:
-#             hdr["LTM2_2"] = 1.
-
-#     add2hdr(trimmed_ccd.header, 'h', trim_str, t_ref=_t, verbose=verbose)
-#     update_tlm(trimmed_ccd.header)
-
-#     return trimmed_ccd
-
 def trim_ccd(ccd, fits_section=None, update_header=True, verbose=False):
     _t = Time.now()
     trimmed_ccd = trim_image(ccd, fits_section=fits_section, add_keyword=update_header)
