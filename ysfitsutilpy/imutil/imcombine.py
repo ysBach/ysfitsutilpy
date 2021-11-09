@@ -308,7 +308,7 @@ def imcombine(
         logfile = Path(logfile)
         table_dict = dict(file=[], filesize=[])
 
-    # == check if we should care about memory ============================================================== #
+    # == check if we should care about memory ============================================ #
     # It usually takes < 1ms for hundreds of files
     # What we get here is the lower bound of the total memory used.
     # Even if chop_load is False, we later may have to use chopping when combine. See below.
@@ -327,7 +327,7 @@ def imcombine(
             table_dict['filesize'].append(_item_size)
     # if fsize_tot > memlimit:
     #     chop_load = True
-    # ------------------------------------------------------------------------------------------------------ #
+    # ---------------------------------------------------------------------------------------- #
 
     _, hdr0 = _parse_data_header(items[0], extension=extension, parse_data=False)
     ndim = hdr0['NAXIS']
@@ -348,7 +348,7 @@ def imcombine(
         extract_rdnoise, rds = False, 0
         extract_snoise, sns = False, 0
 
-    # == Extract header info =============================================================================== #
+    # == Extract header info ============================================================= #
     # TODO: if offsets is None and `fsize_tot` << memlimit, why not
     # just load all data here?
     # initialize
@@ -424,7 +424,7 @@ def imcombine(
                                                     order_xyz=False, ignore_ltm=True)
 
             # NOTE: the indexing in python is [z, y, x] order!!
-            shapes[i, ] = [np.around(hdr[f'NAXIS{i}']).astype(int) for i in range(ndim, 0, -1)]
+            shapes[i, ] = [(hdr[f'NAXIS{i}']).astype(int) for i in range(ndim, 0, -1)]
 
             del hdr
 
@@ -439,9 +439,9 @@ def imcombine(
                 shapes[i, ] = data[slice_load].shape
             else:
                 shapes[i, ] = data.shape
-    # ------------------------------------------------------------------------------------------------------ #
+    # ------------------------------------------------------------------------------------ #
 
-    # == Check the size of the temporary array for combination ============================================= #
+    # == Check the size of the temporary array for combination =========================== #
     offsets, sh_comb = _image_shape(shapes, offsets, method='outer', offset_order_xyz=False, intify_offsets=True)
 
     # Size of (N+1)-D array before combining along axis=0
@@ -463,14 +463,15 @@ def imcombine(
     if num_chunk > 1:
         raise ValueError(
             "Currently chunked combine is not supporte T__T. "
-            + f"Please try increasing memlimit to > {mem_req:.1e}, or use combine='avg' than 'median'."
+            + f"Please try increasing memlimit to > {mem_req:.1e}, "
+            + "or use combine='avg' than 'median'."
         )
     if verbose:
         print("Done.")
         if num_chunk > 1:
             print(f"memlimit reached: Split combine by {num_chunk} chunks.")
 
-    # == Setup offset-ed array ============================================================================= #
+    # == Setup offset-ed array =========================================================== #
     # NOTE: Using NaN does not set array with dtype of int... Any solution?
     if verbose:
         print("- Loading, calculating offsets with zero/scale", end="... ")
@@ -491,14 +492,14 @@ def imcombine(
         # process = psutil.Process(os.getpid())
         # print("0: ", process.memory_info().rss/1.e+9)  # in bytes
 
-        # -- Set slice ------------------------------------------------------------------------------------- #
+        # -- Set slice ------------------------------------------------------------------- #
         # yfu.misc._offsets2slice is introduced much later than the code below was written, so not used here..
         slices = [i]
         # offset & size at each j-th dimension axis
         for offset_j, shape_j in zip(_offset, _shape):
             slices.append(slice(offset_j, offset_j + shape_j, None))
 
-        # -- Load data ------------------------------------------------------------------------------------- #
+        # -- Load data ------------------------------------------------------------------- #
         # process = psutil.Process(os.getpid())
         # print("1: ", process.memory_info().rss/1.e+9)  # in bytes
         try:
@@ -514,7 +515,10 @@ def imcombine(
         except TypeError:
             if isinstance(_item, CCDData):
                 _data = _item.data.copy()
-                _mask = np.zeros(_data.shape, dtype=bool) if _item.mask is None else _item.mask.copy()
+                if _item.mask is None:
+                    _mask = np.zeros(_data.shape, dtype=bool)
+                else:
+                    _mask = _item.mask.copy()
                 _var = None if _item.uncertainty is None else _item.uncertainty.copy()
             else:
                 raise ValueError("Each item is not path-like or CCDData.")
@@ -528,7 +532,7 @@ def imcombine(
         # for var, obj in local_vars:
         #     print(var, sys.getsizeof(obj))
 
-        # -- zero and scale ---------------------------------------------------------------------------- #
+        # -- zero and scale -------------------------------------------------------------- #
         # better to calculate here than from full array, as the
         # latter may contain too many NaNs due to offest shifting.
         # TODO: let get_zsw to get functionals for zsw, so _set_calc_zsw
@@ -553,7 +557,7 @@ def imcombine(
         scales[i] = _s[0]
         weights[i] = _w[0]
 
-        # -- Insertion --------------------------------------------------------------------------------- #
+        # -- Insertion ------------------------------------------------------------------- #
         arr_full[tuple(slices)] = _data
         mask_full[tuple(slices)] = _mask
         if _var is not None:
@@ -574,12 +578,12 @@ def imcombine(
             print()
         else:
             pass
-    # ------------------------------------------------------------------------------------------------------ #
+    # ------------------------------------------------------------------------------------ #
 
     add2hdr(hdr0, 'h', t_ref=_t, verbose=verbose,
                   s=f"Loaded {ncombine} FITS, calculated zero, scale, weights")
 
-    # == Combine with rejection! =========================================================================== #
+    # == Combine with rejection! ========================================================= #
     _t = Time.now()
 
     comb, err, mask_rej, mask_thresh, low, upp, nit, rejcode = ndcombine(
@@ -615,9 +619,9 @@ def imcombine(
 
     mask_total = mask_full | mask_thresh | mask_rej
 
-    # == Update header properly ============================================================================ #
-    # Update WCS or PHYSICAL keywords so that "lock frame wcs", etc, on SAO ds9, for example, to give
-    # proper visualization:
+    # == Update header properly ========================================================== #
+    # Update WCS or PHYSICAL keywords so that "lock frame wcs", etc, on SAO
+    # ds9, for example, to give proper visualization:
     if use_wcs:  # NOTE: the indexing in python is [z, y, x] order!!
         for i in range(ndim, 0, -1):
             hdr0[f"CRPIX{i}"] += offsets[0][ndim - i]
@@ -641,7 +645,7 @@ def imcombine(
     if verbose:
         print("\n- Writing output FITS", end="... ")
 
-    # == Save FITS files =================================================================================== #
+    # == Save FITS files ================================================================= #
     if output is not None:
         try:
             comb.write(output, **kwargs)
@@ -674,10 +678,10 @@ def imcombine(
     if verbose:
         print("Done.")
 
-    # == Return memroy... ================================================================================== #
+    # == Return memroy... ================================================================ #
     del hdr0, arr_full, mask_full
 
-    # == Write logfile ===================================================================================== #
+    # == Write logfile =================================================================== #
     if logfile is not None:
         if verbose:
             print("\n- Writing summary table", end='...')
@@ -701,7 +705,7 @@ def imcombine(
         print()
         print(_t2.iso, f"(TOTAL dt = {(_t2 - _t1).sec:5.3} sec)")
 
-    # == Return ============================================================================================ #
+    # == Return ========================================================================== #
     if full:
         if return_dict:
             return dict(comb=comb,
@@ -812,7 +816,7 @@ imcombine.__doc__ = '''A helper function for ndcombine to cope with FITS files.
                docstrings.IMCOMBINE_LINK(indent=4))
 
 
-# ---------------------------------------------------------------------------------------------------------- #
+# ---------------------------------------------------------------------------------------- #
 def ndcombine(
         arr,
         mask=None,
@@ -869,18 +873,18 @@ def ndcombine(
         print("- Rejection")
         if thresholds != [-np.inf, np.inf]:
             print(f"-- thresholds (low, upp) = {thresholds}")
-        print(f"-- reject={reject} (irafmode={irafmode})")
-        print(f"--       params: nkeep={nkeep}, maxrej={maxrej}, maxiters={maxiters}, cenfunc={cenfunc}")
+        print(f"-- {reject=} ({irafmode=})")
+        print(f"--       params: {nkeep=}, {maxrej=}, {maxiters=}, {cenfunc=}")
         if reject_fullname == "sigclip":
-            print(f"  (for sigclip): sigma={sigma}, ddof={ddof}")
+            print(f"  (for sigclip): {sigma=}, {ddof=}")
         elif reject_fullname == "ccdclip":
-            print(f"  (for ccdclip): gain={gain}, rdnoise={rdnoise}, snoise={snoise}")
-        # elif reject_fullname == "pclip":
+            print(f"  (for ccdclip): {gain=}, {rdnoise=}, {snoise=}")
+        # elif reject_fullnme == "pclip":
         #   print(f"    (for pclip)  : spclip={pclip}")
         # elif reject_fullname == "minmax":
         # print(f" (for minmaxclip): n_minmax={n_minmax}")
 
-    # == 01 - Thresholding + Initial masking =============================================================== #
+    # == 01 - Thresholding + Initial masking ============================================= #
     # Updating mask: _mask = _mask | mask_thresh
     mask_thresh = _set_thresh_mask(
         arr=arr,
@@ -890,72 +894,75 @@ def ndcombine(
     )
 
     # if safemode:
-    #     # Backup the pixels which are rejected by thresholding and # initial mask for future
-    #     restoration (see below) for debugging # purpose.
+    #     # Backup the pixels which are rejected by thresholding and # initial
+    #     mask for future restoration (see below) for debugging # purpose.
     #     backup_thresh = arr[mask_thresh]
     #     backup_thresh_inmask = arr[_mask]
 
     arr[_mask] = np.nan
-    # ------------------------------------------------------------------------------------------------------ #
+    # ------------------------------------------------------------------------------------ #
 
-    # == 02 - Calculate zero, scale, weights =============================================================== #
+    # == 02 - Calculate zero, scale, weights ============================================= #
     # This should be done before rejection but after threshold masking..
-    zeros, scales, weights = get_zsw(arr=arr,
-                                     zero=zero,
-                                     scale=scale,
-                                     weight=weight,
-                                     zero_kw=zero_kw,
-                                     scale_kw=scale_kw,
-                                     zero_to_0th=zero_to_0th,
-                                     scale_to_0th=scale_to_0th,
-                                     zero_section=zero_section,
-                                     scale_section=scale_section
-                                     )
+    zeros, scales, weights = get_zsw(
+        arr=arr,
+        zero=zero,
+        scale=scale,
+        weight=weight,
+        zero_kw=zero_kw,
+        scale_kw=scale_kw,
+        zero_to_0th=zero_to_0th,
+        scale_to_0th=scale_to_0th,
+        zero_section=zero_section,
+        scale_section=scale_section
+    )
     arr = do_zs(arr, zeros=zeros, scales=scales)
-    # ------------------------------------------------------------------------------------------------------ #
+    # ------------------------------------------------------------------------------------ #
 
-    # == 02 - Rejection ==================================================================================== #
+    # == 02 - Rejection ================================================================== #
     if isinstance(reject_fullname, str):
         if reject_fullname == 'sigclip':
-            _mask_rej, low, upp, nit, rejcode = sigclip_mask(arr,
-                                                             mask=_mask,
-                                                             sigma_lower=sigma_lower,
-                                                             sigma_upper=sigma_upper,
-                                                             maxiters=maxiters,
-                                                             ddof=ddof,
-                                                             nkeep=nkeep,
-                                                             maxrej=maxrej,
-                                                             cenfunc=cenfunc,
-                                                             axis=0,
-                                                             irafmode=irafmode,
-                                                             full=True
-                                                             )
-            # _mask is a subset of _mask_rej, so to extract pixels which are masked PURELY due to the
-            # rejection is:
+            _mask_rej, low, upp, nit, rejcode = sigclip_mask(
+                arr,
+                mask=_mask,
+                sigma_lower=sigma_lower,
+                sigma_upper=sigma_upper,
+                maxiters=maxiters,
+                ddof=ddof,
+                nkeep=nkeep,
+                maxrej=maxrej,
+                cenfunc=cenfunc,
+                axis=0,
+                irafmode=irafmode,
+                full=True
+            )
+            # _mask is a subset of _mask_rej, so to extract pixels which are
+            # masked PURELY due to the rejection is:
             mask_rej = _mask_rej ^ _mask
         elif reject_fullname == 'minmax':
             pass
         elif reject_fullname == 'ccdclip':
-            _mask_rej, low, upp, nit, rejcode = ccdclip_mask(arr,
-                                                             mask=_mask,
-                                                             sigma_lower=sigma_lower,
-                                                             sigma_upper=sigma_upper,
-                                                             scale_ref=np.mean(scales),
-                                                             zero_ref=np.mean(zeros),
-                                                             maxiters=maxiters,
-                                                             ddof=ddof,
-                                                             nkeep=nkeep,
-                                                             maxrej=maxrej,
-                                                             cenfunc=cenfunc,
-                                                             axis=0,
-                                                             gain=gain,
-                                                             rdnoise=rdnoise,
-                                                             snoise=snoise,
-                                                             irafmode=irafmode,
-                                                             full=True
-                                                             )
-            # _mask is a subset of _mask_rej, so to extract pixels which are masked PURELY due to the
-            # rejection is:
+            _mask_rej, low, upp, nit, rejcode = ccdclip_mask(
+                arr,
+                mask=_mask,
+                sigma_lower=sigma_lower,
+                sigma_upper=sigma_upper,
+                scale_ref=np.mean(scales),
+                zero_ref=np.mean(zeros),
+                maxiters=maxiters,
+                ddof=ddof,
+                nkeep=nkeep,
+                maxrej=maxrej,
+                cenfunc=cenfunc,
+                axis=0,
+                gain=gain,
+                rdnoise=rdnoise,
+                snoise=snoise,
+                irafmode=irafmode,
+                full=True
+            )
+            # _mask is a subset of _mask_rej, so to extract pixels which are
+            # masked PURELY due to the rejection is:
             mask_rej = _mask_rej ^ _mask
         elif reject_fullname == 'pclip':
             pass
@@ -975,11 +982,11 @@ def ndcombine(
 
     _mask |= mask_rej
 
-    # ------------------------------------------------------------------------------------------------------ #
+    # ------------------------------------------------------------------------------------ #
 
     # TODO: add "grow" rejection here?
 
-    # == 03 - combine ====================================================================================== #
+    # == 03 - combine ==================================================================== #
     # Replace rejected / masked pixel to NaN and backup for debugging purpose. This is done to reduce
     # memory (instead of doing _arr = arr.copy())
     # backup_nan = arr[_mask]
