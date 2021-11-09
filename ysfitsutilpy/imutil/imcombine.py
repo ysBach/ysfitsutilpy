@@ -54,7 +54,7 @@ lsigma    , hsigma     : sigma uple
 def group_combine(
         inputs,
         type_key=None,
-        ype_val=None,
+        type_val=None,
         group_key=None,
         fmt='',
         outdir=None,
@@ -147,7 +147,9 @@ def group_combine(
     _t = Time.now()
 
     summary = make_summary(inputs)
-    gs, gt_key = group_fits(summary, type_key=type_key, type_val=type_val, group_key=group_key)
+    gs, gt_key = group_fits(
+        summary, type_key=type_key, type_val=type_val, group_key=group_key
+    )
     if verbose >= 1:
         print(f"Group and combine by {group_key} (total {len(gs)} groups)")
 
