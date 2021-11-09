@@ -72,7 +72,7 @@ A quick dark combine:
 import ysfitsutilpy as yfu
 
 # Say dark frames have header OBJECT = "calib" && "IMAGE-TYP" = "DARK"
-comb = yfu.imcombine(
+comb = yfu.group_combine(
     "observation_2018-01-01/*DARK*.fits",
     type_key=["OBJECT", "IMAGE-TYP"],
     type_val=["calib", "DARK"],
