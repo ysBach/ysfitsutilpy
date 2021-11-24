@@ -101,11 +101,9 @@ def crrej(
         niter=4,
         sepmed=False,
         cleantype='medmask',
-        fsmode='median',
-        psfmodel='gauss',
+        fs="median",
         psffwhm=2.5,
         psfsize=7,
-        psfk=None,
         psfbeta=4.765,
         verbose=True
 ):
@@ -171,44 +169,46 @@ def crrej(
         * ``'meanmask'``: A masked 5x5 mean filter
         * ``'idw'``: A masked 5x5 inverse distance weighted interpolation
 
-        Default: ``"meanmask"``.
+        Default: ``"medmask"``.
 
-    fsmode : {'median', 'convolve'}, optional
-        Method to build the fine structure image:
+    fs : {'median', 'gauss', 'gaussx', 'gaussy', 'moffat'}, ndarray, optional.
+        Method to generate the fine structure.
 
         * ``'median'``: Use the median filter in the standard LA Cosmic
-          algorithm
-        * ``'convolve'``: Convolve the image with the psf kernel
+          algorithm. None of `psffwhm`, `psfsize`, and `psfbeta` are used.
+        * other str: Use a Gaussian/Moffat model to generate the psf kernel.
+          ``'gauss'|'moffat'`` produce circular PSF kernels. The
+          ``'gaussx'|'gaussy'`` produce Gaussian kernels in the x and y
+          directions respectively. `psffwhm`, `psfsize` (plus `psfbeta` if
+          "moffat") are used.
+        * ndarray: PSF kernel array to use for the fine structure image. None
+          of `psffwhm`, `psfsize`, and `psfbeta` are used.
 
-        to calculate the fine structure image.
+        Combined parameter for fine structure, i.e., `fsmode`, `psfmodel`, and
+        `psfk` of the original `astroscrappy`. If `"median"`, same as
+        ``fsmode="median"``. If other strings, same as ``fsmode="convolve"``
+        and `psfmodel` with the same string. If ndarray, same as
+        ``fsmode="convolve"`` and `pdfk` of the same ndarray. Summary of
+        `astroscrappy` VS `ysfitsutilpy`:
+
+        * ``fsmode="median"`` == ``fsmode="median"``
+        * ``fsmode="convolve", psfmodel=*`` == ``fsmode=*``, where ``*`` can be
+          any of ``{'gauss', 'gaussx', 'gaussy', 'moffat'}``.
+        * ``fsmode="convolve", psfk=ndarray`` == ``fsmode=ndarray``
+
         Default: ``'median'``.
-
-    psfmodel : {'gauss', 'gaussx', 'gaussy', 'moffat'}, optional
-        Model to use to generate the psf kernel if ``fsmode='convolve'`` and
-        ``psfk`` is `None`. The current choices are Gaussian and Moffat
-        profiles. ``'gauss'`` and ``'moffat'`` produce circular PSF kernels.
-        The ``'gaussx'`` and ``'gaussy'`` produce Gaussian kernels in the x and
-        y directions respectively.
-        Default: ``"gauss"``.
 
     psffwhm : float, optional
         Full Width Half Maximum of the PSF to use to generate the kernel.
         Default: 2.5.
 
     psfsize : int, optional
-        Size of the kernel to calculate. Returned kernel will have size psfsize
-        x psfsize. psfsize should be odd.
+        Size of the kernel to calculate. Returned kernel will have size `psfsize`
+        x `psfsize`. It should be an odd integer.
         Default: 7.
 
-    psfk : float numpy array, optional
-        PSF kernel array to use for the fine structure image if
-        ``fsmode='convolve'``. If `None` and ``fsmode == 'convolve'``, we
-        calculate the psf kernel using ``'psfmodel'``.
-        Default: `None`.
-
     psfbeta : float, optional
-        Moffat beta parameter. Only used if ``fsmode='convolve'`` and
-        ``psfmodel='moffat'``.
+        Moffat beta parameter. Only used if ``fs='moffat'``.
         Default: 4.765.
 
     verbose : boolean, optional
@@ -234,6 +234,20 @@ def crrej(
 
     Notes
     -----
+    Detection related (important ones): `sigclip`, `sigfrac`, `objlim`
+    Kernel (fine structure) related: `fsmode`
+      * If "median": median filter of `psfsize` x `psfsize`
+      * If "convolve":
+        * If `psfk` is given, use it as the kernel.
+        * If `psfk` is `None`, use `psfmodel` to generate the kernel.
+          * `psffwhm`: The FWHM for `psfmodel` of "gauss" or "moffat".
+
+      * `psfk` is  `psfsize`, `psfk`, `psfbeta`
+    Detector specific parameters: `gain`, `rdnoise`
+    Rarely tuned parameters: `pssl`, `satlevel`, `niter`
+
+
+
     All defaults are based on IRAF version of L.A. Cosmic (Note the default
     parameters of L.A. Cosmic differ from version to version, so I took the
     IRAF version written by van Dokkum.)
@@ -269,11 +283,28 @@ def crrej(
 
     _ccd = ccd.copy()
     data, hdr = _parse_data_header(_ccd)
-    inmask = propagate_ccdmask(_ccd, additional_mask=mask)
+    inmask = _parse_image(mask)[0]
+    inmask = propagate_ccdmask(_ccd, additional_mask=inmask)
 
     # The L.A. Cosmic accepts only the gain in e/adu and rdnoise in e.
     gain = change_to_quantity(gain, u.electron/u.adu, to_value=True)
     rdnoise = change_to_quantity(rdnoise, u.electron, to_value=True)
+
+    fsmode = "median"
+    psfmodel = "gauss"  # IRAF L.A.-Cosmic default
+    psfk = None  # IRAF L.A.-Cosmic default
+
+    if isinstance(fs, str):  # don't tune psfk
+        if fs in ["gauss", "gaussx", "gaussy", "moffat"]:
+            fsmode = "convolve"
+            psfmodel = fs
+        elif fs != "median":
+            raise ValueError(
+                'fs must be one of {"median", "gauss", "gaussx", "gaussy", "moffat"} if str'
+            )
+    elif isinstance(fs, np.ndarray):  # don't tune psfmodel
+        fsmode = "convolve"
+        psfk = np.array(fs)
 
     # remove the fucxing cosmic rays
     crrej_kwargs = dict(
@@ -1050,15 +1081,17 @@ def bdf_process(
     # Do CRREJ
     if do_crrej:
         if crrej_kwargs is None:
-            crrej_kwargs = LACOSMIC_KEYS.copy()
+            crrej_kwargs = {}
             warn("You are not specifying CR-rejection parameters! It can be"
                  + " dangerous to use defaults blindly.")
 
-        if (("B" in proc.header["PROCESS"])
-            + ("D" in proc.header["PROCESS"])
-                + ("F" in proc.header["PROCESS"])) < 2:
-            warn("L.A. Cosmic should be run AFTER bias, dark, flat process. You have only done"
-                 + f" {proc.header['PROCESS']}. See http://www.astro.yale.edu/dokkum/lacosmic/notes.html")
+        _proc = proc.header["PROCESS"]
+        if (("B" in _proc) + ("D" in _proc) + ("F" in _proc)) < 2:
+            warn(
+                "L.A. Cosmic should be run AFTER bias, dark, flat process. "
+                + f"You have only done {proc.header['PROCESS']}. "
+                + "See http://www.astro.yale.edu/dokkum/lacosmic/notes.html"
+            )
 
         proc, _ = crrej(
             proc,
