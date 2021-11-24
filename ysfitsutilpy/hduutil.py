@@ -566,6 +566,7 @@ def load_ccd(
         **kwd
 ):
     ''' Loads FITS file of CCD image data (not table, etc).
+
     Paramters
     ---------
     path : path-like
@@ -1223,17 +1224,15 @@ def trim_ccd(ccd, fits_section=None, update_header=True, verbose=False):
     _t = Time.now()
     trimmed_ccd = trim_image(ccd, fits_section=fits_section, add_keyword=update_header)
 
-    trim_str = ''
-
     if update_header:
         trim_str = f"Trimmed using {fits_section}"
         ndim = ccd.data.ndim  # ndim == NAXIS keyword
         shape = ccd.data.shape
-        if fits_section:
+        if fits_section is not None:
             trim_slice = fitsxy2py(fits_section)
             ltvs = []
             for i_python, npix in enumerate(shape):
-                # If section is [10:X], the LTV must be -9, not -10.
+                # example: "[10:110]", we must have LTV = -9, not -10.
                 ltvs.append(-1*trim_slice[i_python].indices(npix)[0])
         else:
             ltvs = [0.]*ndim
@@ -1262,10 +1261,8 @@ def trim_ccd(ccd, fits_section=None, update_header=True, verbose=False):
                     if f"LTM{i}_{j}" not in hdr:
                         hdr[f"LTM{i}_{j}"] = 0.
 
-    if verbose and trim_str:
-        add2hdr(trimmed_ccd.header, 'h', trim_str, t_ref=_t, verbose=verbose)
+        add2hdr(hdr, 'h', trim_str, t_ref=_t, verbose=verbose)
 
-    update_tlm(trimmed_ccd.header)
 
     return trimmed_ccd
 
@@ -1360,9 +1357,6 @@ def bezel_ccd(
                 s=(f"Replaced pixels with bezel width {bezel_x} along x and "
                    + f"{bezel_y} along y with {replace}.")
             )
-
-    if update_header:
-        update_tlm(nccd.header)
 
     return nccd
 
@@ -1585,7 +1579,6 @@ def bin_ccd(
         # add as history
         add2hdr(_ccd.header, 'h', t_ref=_t_start,
                 s=f"Binned by (xbin, ybin) = ({factor_x}, {factor_y}) ")
-    update_tlm(_ccd.header)
     return _ccd
 
 
@@ -1597,7 +1590,8 @@ def fixpix(
         mask_extension=None,
         priority=None,
         update_header=True,
-        use_ccddata_if_path=True
+        use_ccddata_if_path=True,
+        verbose=True
 ):
     ''' Interpolate the masked location (N-D generalization of IRAF PROTO.FIXPIX)
     Parameters
@@ -1671,12 +1665,13 @@ def fixpix(
                          + f"now {len(priority)} VS {ccd.ndim}.")
     elif not isinstance(priority, tuple):
         priority = tuple(priority)
-    elif (np.min(priority) != 0) or (np.max(priority) != ndim):
-        raise ValueError("priority must be a tuple of non-repeating int from 0 to ccd.ndim")
+    elif (np.min(priority) != 0) or (np.max(priority) != ndim - 1):
+        raise ValueError(f"`priority` must be a tuple of int (0 <= int <= {ccd.ndim-1=}). "
+                         + f"now it's {priority=}")
 
-    structures = [np.zeros([3]*ndim) for i in range(ndim)]
+    structures = [np.zeros([3]*ndim) for _ in range(ndim)]
     for i in range(ndim):
-        sls = [[slice(1, 2, None)]*ndim for i in range(ndim)][0]
+        sls = [[slice(1, 2, None)]*ndim for _ in range(ndim)][0]
         sls[i] = slice(None, None, None)
         structures[i][sls] = 1
     # structures[i] is the structure to obtain the num. of connected pix. along axis=i
@@ -1759,15 +1754,15 @@ def fixpix(
         data[coord_slice].flat = (val_last - val_init)/delta*grid + val_init
 
     if update_header:
-        _ccd.header["MASKNPIX"] = (np.count_nonzero(mask),
-                                   "Total num of pixels fixed by fixpix.")
-        _ccd.header["MASKFILE"] = (maskpath, "Applied mask data for fixpix.")
-        _ccd.header["MASKORD"] = (priority, "Axis priority for fixpix (python order)")
+        nfix = np.count_nonzero(mask)
+        _ccd.header["MASKNPIX"] = (nfix, "No. of pixels masked (fixed) by fixpix.")
+        _ccd.header["MASKFILE"] = (maskpath, "Applied mask for fixpix.")
+        _ccd.header["MASKORD"] = (str(priority), "Axis priority for fixpix (python order)")
         # MASKFILE: name identical to IRAF
         # add as history
-        add2hdr(_ccd.header, 'h', t_ref=_t_start, s="Pixel values fixed by fixpix.")
+        add2hdr(_ccd.header, 'h', t_ref=_t_start, verbose=verbose,
+                s="Pixel values fixed by fixpix.")
         update_process(_ccd.header, "P")
-    update_tlm(_ccd.header)
 
     return _ccd
 
@@ -1930,11 +1925,11 @@ def errormap(
 
     # Calculate the full variance map
     # restore dark for Poisson term calculation
-    eval_str = '''(data + subtracted_dark)/(gain_epadu*flat**2)
-        + (dark_std/flat)**2
-        + data**2*(flat_err/flat)**2
-        + (rdnoise_electron/(gain_epadu*flat))**2
-    '''
+    eval_str = ("(data + subtracted_dark)/(gain_epadu*flat**2)"
+                + "+ (dark_std/flat)**2"
+                + "+ data**2*(flat_err/flat)**2"
+                + "+ (rdnoise_electron/(gain_epadu*flat))**2"
+    )
 
     if return_variance:
         return NEVAL(eval_str)
@@ -2043,6 +2038,7 @@ def add2hdr(
         _add_content(header, timestr)
         if verbose:
             print(f"{histcomm.upper():<8s} {timestr}")
+    update_tlm(header)
 
 
 def update_tlm(header):
@@ -2124,6 +2120,7 @@ def update_process(
         addstr = [f"{k}={v}" for k, v in additional_comment.items()]
         addstr = ', '.join(addstr)
         add2hdr(header, 'c', f"User added items to {key}: {addstr}.")
+    update_tlm(header)
 
 
 def key_remover(header, remove_keys, deepremove=True):
