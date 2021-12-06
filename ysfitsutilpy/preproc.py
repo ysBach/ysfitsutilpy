@@ -11,13 +11,14 @@ from astroscrappy import detect_cosmics
 from ccdproc import flat_correct, subtract_bias, subtract_dark
 
 from .hduutil import (CCDData_astype, _parse_data_header, _parse_image,
-                      add2hdr, errormap, load_ccd, propagate_ccdmask,
-                      set_ccd_gain_rdnoise, trim_ccd, update_process,
-                      update_tlm)
-from .misc import LACOSMIC_KEYS, change_to_quantity, fitsxy2py
+                      add2hdr, errormap, load_ccd,
+                      propagate_ccdmask, set_ccd_gain_rdnoise, trim_ccd,
+                      update_process, update_tlm)
+from .misc import change_to_quantity, fitsxy2py
 
 __all__ = [
-    "crrej", "medfilt_bpm", "bdf_process"
+    "crrej", "medfilt_bpm", "bdf_process",
+    "mkpreptab", "combine_preptab"
 ]
 
 
@@ -802,11 +803,13 @@ def bdf_process(
         specified by the region `fringe_scale_section`. This scaling is not
         done if `fringe_scale_section` is `None`.
 
-    fringe_scale_section : str, optional.
+    fringe_scale_section : str, {"exp", "exposure", "exptime"}, optional.
         The FITS-convention section of the fringe and object (science) frames
         to match the fringe pattern before the subtraction. If `None`, this
         scaling is turned off. To use all region, use such as ``'[:, :]`` for
-        2-D.
+        2-D. If one of ``{"exp", "exposure", "exptime"}``, the exposure time
+        from `exposure_key` is used for scaling.
+        default: `None`.
 
     fringe_flat_fielded : bool, optional.
         Whether the fringe frame is flat-fielded. If `True`, fringe is
@@ -956,8 +959,12 @@ def bdf_process(
     def _sub_frin(proc, mfringe, fringe_scale_fun=np.mean, fringe_scale_section=None):
         _t = Time.now()
         if fringe_scale_section is not None:
-            sl = fitsxy2py(fringe_scale_section)
-            scale = fringe_scale_fun(proc.data[sl]) / fringe_scale_fun(mfringe.data[sl])
+            if (isinstance(fringe_scale_section, str)
+                    and fringe_scale_section.lower() in ["exp", "exposure", "exptime"]):
+                scale = proc.header[exposure_key]/mfringe.header[exposure_key]
+            else:
+                sl = fitsxy2py(fringe_scale_section)
+                scale = fringe_scale_fun(proc.data[sl]) / fringe_scale_fun(mfringe.data[sl])
             proc.header["FRINSCAL"] = (scale, "Scale factor multiplied to fringe")
             s = str_fringe_scale
         else:
