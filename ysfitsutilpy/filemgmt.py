@@ -83,7 +83,7 @@ def make_summary(
         verify_fix=False,
         fname_option='relative',
         output=None,
-\        keywords=None,
+        keywords=None,
         example_header=None,
         sort_by='file',
         fullmatch={},
@@ -168,7 +168,8 @@ def make_summary(
     >>> # fullmatch = {"OBJECT": "DA.*"}
     >>> # fullmatch = {"OBJECT": "Ves.*", "FILTER": "J"}, query_str="EXPTIME in [2, 3]"
     """
-    # No need to sort here because the real "sort" will be done later based on ``sort_by`` column.
+    # No need to sort here because the real "sort" will be done later based on
+    # ``sort_by`` column.
     fitslist = inputs2list(inputs, sort=False, accept_ccdlike=True, check_coherency=False)
 
     if len(fitslist) == 0:
@@ -178,7 +179,8 @@ def make_summary(
 
     def _get_fname_fsize_hdr(item, idx, extension):
         if isinstance(item, CCDData):
-            # NB: CCDData does not support extension (only available when it is being read)!
+            # NOTE: CCDData does not support extension (only available when it
+            #   is being read)!
             fname = f"CCDData in fitslist[{idx:d}]"
             fsize = None
             hdr = item.header
@@ -191,7 +193,8 @@ def make_summary(
                 fname = item.name
             else:
                 raise ValueError(f"fname_option `{fname_option}`not understood.")
-            fsize = Path(item).stat().st_size  # Don't change to MB/GB, which will make it float...
+            fsize = Path(item).stat().st_size
+            # Don't change to MB/GB, which will make it float...
             hdul = fits.open(item)
             if verify_fix:
                 hdul.verify('fix')
@@ -454,8 +457,10 @@ def fitsrenamer(
 
     # add keyword
     if add_header is not None:
-        if (not isinstance(add_header, fits.Header) and not isinstance(add_header, fits.header.Card)):
-            warn("add_header is not either Header or Card. Be careful about possible error.")
+        if (not isinstance(add_header, fits.Header)
+                and not isinstance(add_header, fits.header.Card)):
+            warn("add_header is not either Header or Card. "
+                 + "Be careful about possible error.")
         hdr += add_header
 
     # Copy keys based on KEYMAP
@@ -466,12 +471,15 @@ def fitsrenamer(
         hdr = key_remover(hdr, remove_keys, deepremove=True)
 
     # TODO: It is necessary to do this bothersome calculations to
-    #   preserve the WCS information that may reside in the FITS (if use ``trim_image`` of ccdproc, it
-    #   will not be preserved).
+    #   preserve the WCS information that may reside in the FITS (if use
+    #   ``trim_image`` of ccdproc, it will not be preserved).
     # TODO: Maybe I can put some LTV-like keys to the header, rather
     #   than this crazy code...? (ysBach 2019-05-09)
     if trim_fits_section is not None:
-        slices = ccdproc.utils.slices.slice_from_string(trim_fits_section, fits_convention=True)
+        slices = ccdproc.utils.slices.slice_from_string(
+            trim_fits_section,
+            fits_convention=True
+        )
         # initially guess start and stop indices as 0's and from shape in (ny, nx) order
         ny, nx = data[slices].shape
         starts = np.array([0, 0])   # yx order
