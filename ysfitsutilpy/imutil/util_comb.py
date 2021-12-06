@@ -83,9 +83,9 @@ def get_zsw(
                 calcfun = bn.nanmean
             elif zswstr in ['med', 'medi', 'median']:
                 calcfun = bn.nanmedian
-            # sigclip calcfun's below have dummy `axis` parameter because if not, the ``zsw =
-            # fun_simple(data, axis=None)`` code below raises unwanted TypeError, so that `redo` is
-            # always `True`.
+            # sigclip calcfun's below have dummy `axis` parameter because if
+            # not, the ``zsw = fun_simple(data, axis=None)`` code below raises
+            # unwanted TypeError, so that `redo` is always `True`.
             elif zswstr in ['avg_sc', 'average_sc', 'mean_sc']:
                 _ = zsw_kw.pop('axis', None)  # if exist `axis`, remove it.
                 calcfun = lambda x, axis: sigma_clipped_stats(x, axis=None, **zsw_kw)[0]
@@ -121,9 +121,11 @@ def get_zsw(
         try:
             # If converted to numpy, this must work without error:
             if isinstance(sl, int):
-                zsw = [fun_simple(arr[i].ravel()[::sl], axis=None) for i in range(arr.shape[0])]
+                zsw = [fun_simple(arr[i].ravel()[::sl], axis=None)
+                       for i in range(arr.shape[0])]
             else:
-                zsw = fun_simple(arr[(slice(None), *sl)], axis=tuple(np.arange(arr.ndim)[1:]))
+                zsw = fun_simple(arr[(slice(None), *sl)],
+                                 axis=tuple(np.arange(arr.ndim)[1:]))
             redo = ~np.all(np.isfinite(zsw))
         except TypeError:  # does not accept tuple axis
             redo = True
@@ -132,9 +134,11 @@ def get_zsw(
             zsw = []
             if isinstance(sl, int):
                 try:
-                    zsw = [(fun(arr[i].ravel()[::sl], axis=None)) for i in range(arr.shape[0])]
+                    zsw = [(fun(arr[i].ravel()[::sl], axis=None))
+                           for i in range(arr.shape[0])]
                 except TypeError:  # original fun has no `axis` parameter
-                    zsw = [(fun(arr[i].ravel()[::sl])) for i in range(arr.shape[0])]
+                    zsw = [(fun(arr[i].ravel()[::sl]))
+                           for i in range(arr.shape[0])]
             else:
                 try:
                     zsw = [(fun(arr[(i, *sl)], axis=None)) for i in range(arr.shape[0])]

@@ -100,9 +100,10 @@ def _iter_rej(
             if total_change == 0:
                 break
 
-            # I put the test below because I thought it will be quicker to halt clipping if all pixels
-            # are masked. But now I feel testing this in every iteration is an unnecessary overhead for
-            # "nearly impossible" situation.
+            # I put the test below because I thought it will be quicker to halt
+            # clipping if all pixels are masked. But now I feel testing this in
+            # every iteration is an unnecessary overhead for "nearly
+            # impossible" situation.
             # - ysBach (2020-10-14 21:15:44 (KST: GMT+09:00))
             # if np.all(mask_pix):
             #     break
@@ -132,15 +133,18 @@ def _iter_rej(
             mask_nkeep = ((ncombine - nrej) < nkeep)
             mask_maxrej = (nrej > maxrej)
 
-            # mask pixel position if any of these happened. Including mask_nochange here will not
-            # change results but only spend more time.
+            # mask pixel position if any of these happened. Including
+            # mask_nochange here will not change results but only spend more
+            # time.
             mask_pix = mask_nkeep | mask_maxrej
 
             # revert to the previous ones if masked.
-            # By doing this, pixels which was mask_nkeep now, e.g., will again be True in mask_nkeep in
-            # the next iter but unchanged. This should be done at every iteration (unfortunately)
-            # because, e.g., if nkeep is very large, excessive rejection may happen for many times, and
-            # the restoration CANNOT be done after all the iterations.
+            # By doing this, pixels which was mask_nkeep now, e.g., will again
+            # be True in mask_nkeep in the next iter but unchanged. This should
+            # be done at every iteration (unfortunately) because, e.g., if
+            # nkeep is very large, excessive rejection may happen for many
+            # times, and the restoration CANNOT be done after all the
+            # iterations.
             low_new[mask_pix] = low[mask_pix].copy()
             upp_new[mask_pix] = upp[mask_pix].copy()
             low = low_new
@@ -149,8 +153,9 @@ def _iter_rej(
             if total_change == 0:
                 break
 
-            # I put the test below because I thought it will be quicker to halt clipping if all pixels
-            # are masked. But now I feel testing this in every iteration is an unnecessary overhead for
+            # I put the test below because I thought it will be quicker to halt
+            # clipping if all pixels are masked. But now I feel testing this in
+            # every iteration is an unnecessary overhead for
             # "nearly impossible" situation.
             # - ysBach (2020-10-14 21:15:44 (KST: GMT+09:00))
             # if np.all(mask_pix):
@@ -186,9 +191,10 @@ def _iter_rej(
             resid_cut = np.max(bn.partition(resid, n_minimum, axis=0)[:n_minimum, ], axis=0)
             mask[resid <= resid_cut] = False
 
-    # Note the mask returned here is mask from rejection PROPAGATED with the input mask. So to extract
-    # the pixels masked PURELY from rejection, you need ``mask_output^mask_input`` because the input
-    # mask is a subset of the output one.
+    # Note the mask returned here is mask from rejection PROPAGATED with the
+    # input mask. So to extract the pixels masked PURELY from rejection, you
+    # need ``mask_output^mask_input`` because the input mask is a subset of the
+    # output one.
 
     return (mask, low, upp, nit, code)
 
