@@ -44,7 +44,7 @@ except ImportError:
 __all__ = [
     "ASTROPY_CCD_TYPES",
     # ! file io related:
-    "get_size", "is_list_like", "write2fits",
+    "get_size", "is_list_like", "listify", "write2fits",
     # ! parsers:
     "_parse_data_header", "_parse_image", "_has_header", "_parse_extension",
     # ! loaders:
@@ -117,6 +117,23 @@ def is_list_like(obj):
         # exclude sets if allow_sets is False
         # and not (allow_sets is False and isinstance(obj, abc.Set))
     )
+
+
+def listify(obj):
+    """Make an object into a list.
+
+    Parameters
+    ----------
+    obj : None, str, list-like
+        Object to be made into a list. If `str`, it will be converted to
+        ``[obj]``. If `None`, an empty list (`[]`) is returned.
+    """
+    if obj is None:
+        return []
+    elif is_list_like(obj):
+        return list(obj)
+    else:
+        return [obj]
 
 
 def write2fits(data, header, output, return_ccd=False, **kwargs):
@@ -848,8 +865,8 @@ def load_ccd(
 
         extension_uncertainty = _parse_extension(extension_uncertainty)
         extension_mask = _parse_extension(extension_mask)
-        if extension_flag is not None:
-            extension_flag = _parse_extension(extension_flag)
+        if extension_flags is not None:
+            extension_flags = _parse_extension(extension_flags)
         # If not None, this happens:
         #   NotImplementedError: loading flags is currently not supported.
 
@@ -2657,7 +2674,7 @@ def fov_radius(header, unit=u.deg):
 # TODO: do not load data extension if not explicitly ordered
 def wcsremove(
         path=None,
-        additional_keys=[],
+        additional_keys=None,
         extension=None,
         output=None,
         output_verify='fix',
@@ -2725,7 +2742,8 @@ def wcsremove(
     # by WCS updating tools like astrometry.net or WCSlib/WCSTools. I
     # intentionally ignored IMWCS just for future reference.
 
-    re2remove = re2remove + list(additional_keys)
+    if additional_keys is not None:
+        re2remove = re2remove + listify(additional_keys)
 
     # If following str is in comment, suggest it if verbose
     candidate_re = ['wcs', 'axis', 'axes', 'coord', 'distortion', 'reference']
