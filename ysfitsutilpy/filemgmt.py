@@ -83,10 +83,9 @@ def make_summary(
         fname_option='relative',
         output=None,
         format='ascii.csv',
-        keywords=[],
+        keywords=None,
         example_header=None,
         sort_by='file',
-        pandas=False,
         verbose=True
 ):
     """ Extracts summary from the headers of FITS files.
@@ -128,10 +127,6 @@ def make_summary(
         (if glob-pattern is given, the 0-th element is random, so be careful)
         and saved to `example_header`. Use `None` (default) to skip this.
 
-    pandas : bool, optional
-        Whether to return pandas. If `False`, astropy table object is returned.
-        It will save csv format regardless of `format`.
-
     sort_by : str, optional
         The column name to sort the results. It can be any element of
         `keywords` or `'file'`, which sorts the table by the file name.
@@ -139,6 +134,11 @@ def make_summary(
     Return
     ------
     summarytab: astropy.Table
+
+    Notes
+    -----
+    I want to use ccdproc.ImageFileCollection instead of this, but it is about
+    4 times slower than my make_summary, so I cannot use it yet.
 
     Example
     -------
@@ -195,8 +195,11 @@ def make_summary(
 
     skip_keys = ['COMMENT', 'HISTORY']
 
-    if verbose and (keywords != []) and (keywords != '*'):
-        print("Extracting keys: ", keywords)
+    if verbose and keywords is not None:
+        if keywords == '*':
+            print("Extracting all keywords...")
+        else:
+            print("Extracting keys: ", keywords)
 
     extension = _parse_extension(extension)
 
@@ -208,7 +211,7 @@ def make_summary(
         hdr0.totextfile(example_header, overwrite=True)
 
     # load ALL keywords for special cases
-    if (keywords == []) or (keywords == '*'):
+    if (keywords is None) or (keywords is not None and keywords == '*'):
         fname0, _, hdr0 = _get_fname_fsize_hdr(fitslist[0], 0, extension=extension)
         N_hkeys = len(hdr0.cards)
         keywords = []

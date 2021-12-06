@@ -261,7 +261,6 @@ def select_fits(
                 fname_option='relative',
                 keywords=type_key,
                 sort_by=None,
-                pandas=True,
             )
         else:
             summary_table = None
@@ -517,7 +516,6 @@ def stack_FITS(
                 fname_option='relative',
                 keywords=type_key,
                 sort_by=None,
-                pandas=True,
             )
         # else:
         #   no need to make summary_table.
