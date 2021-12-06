@@ -919,7 +919,8 @@ def inputs2list(
         ``inputs = list(that_table["filenamecolumn"])``.
 
     sort : bool, optional.
-        Whether to sort the output list. Default: `True`.
+        Whether to sort the output list.
+        Default: `True`.
 
     accept_ccdlike: bool, optional.
         Whether to accept `~astropy.nddata.CCDData`-like objects and simpley
@@ -927,11 +928,13 @@ def inputs2list(
         Default: `True`.
 
     path_to_text: bool, optional.
-        Whether to convert the `pathlib.Path` object to `str`. Default: `True`.
+        Whether to convert the `pathlib.Path` object to `str`.
+        Default: `True`.
 
     check_coherence: bool, optional.
         Whether to check if all elements of the `inputs` have the identical
-        type. Default: `False`.
+        type.
+        Default: `False`.
     '''
     contains_ccdlike = False
     # TODO: if str and startswith("@"), read that file to get fpaths as glob pattern.
@@ -1584,7 +1587,8 @@ def bin_ccd(
 
 # TODO: Need something (e.g., cython with pythran) to boost the speed of this function.
 def fixpix(
-        ccd, mask=None,
+        ccd,
+        mask=None,
         maskpath=None,
         extension=None,
         mask_extension=None,
