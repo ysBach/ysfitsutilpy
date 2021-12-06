@@ -37,7 +37,6 @@ summary = yfu.make_summary(
     fname_option='name',  # 'file' column will contain only the name of the file (not full path)
     sort_by="DATE-OBS",  # 'file's will be sorted based on "DATE-OBS" value in the header
     output="summary_2018-01-01.csv",
-    pandas=True  # default: False, so that astropy table is returned.
 )
 
 summary
