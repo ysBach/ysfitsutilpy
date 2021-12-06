@@ -18,7 +18,6 @@ from .misc import change_to_quantity, fitsxy2py
 
 __all__ = [
     "crrej", "medfilt_bpm", "bdf_process",
-    "mkpreptab", "combine_preptab"
 ]
 
 
