@@ -9,6 +9,7 @@ from warnings import warn
 
 import ccdproc
 import numpy as np
+import pandas as pd
 from astropy.io import fits
 from astropy.io.fits.verify import VerifyError
 from astropy.nddata import CCDData
@@ -82,10 +83,11 @@ def make_summary(
         verify_fix=False,
         fname_option='relative',
         output=None,
-        format='ascii.csv',
-        keywords=None,
+\        keywords=None,
         example_header=None,
         sort_by='file',
+        fullmatch={},
+        query_str=None,
         verbose=True
 ):
     """ Extracts summary from the headers of FITS files.
@@ -114,10 +116,6 @@ def make_summary(
     output : str or path-like, optional
         The directory and file name of the output summary file.
 
-    format : str, optional
-        The astropy.table.Table output format. Only works if `pandas` is
-        `False`.
-
     keywords : list or str(``"*"``), optional
         The list of the keywords to extract (keywords should be in str).
 
@@ -130,6 +128,12 @@ def make_summary(
     sort_by : str, optional
         The column name to sort the results. It can be any element of
         `keywords` or `'file'`, which sorts the table by the file name.
+
+    fullmatch : dict, optional.
+        The ``{column: regex}`` dictionary for `~pandas.Series.str.fullmatch`.
+
+    query_str : str, optional.
+        The str used for `~pandas.DataFrame.query`.
 
     Return
     ------
@@ -160,6 +164,9 @@ def make_summary(
     >>>     sort_by="DATE-OBS",
     >>>     output=savepath
     >>> )
+
+    >>> # fullmatch = {"OBJECT": "DA.*"}
+    >>> # fullmatch = {"OBJECT": "Ves.*", "FILTER": "J"}, query_str="EXPTIME in [2, 3]"
     """
     # No need to sort here because the real "sort" will be done later based on ``sort_by`` column.
     fitslist = inputs2list(inputs, sort=False, accept_ccdlike=True, check_coherency=False)
@@ -253,29 +260,31 @@ def make_summary(
                         warn(str_keyerror_fill.format(k, str(item)))
                 summarytab[k].append(None)
 
-    if pandas:
-        import pandas as pd
-        summarytab = pd.DataFrame.from_dict(summarytab)
-        if sort_by is not None:
-            summarytab.sort_values(sort_by, inplace=True)
-        summarytab.reset_index(drop=True, inplace=True)
+    summarytab = pd.DataFrame.from_dict(summarytab)
+    if sort_by is not None:
+        summarytab.sort_values(sort_by, inplace=True)
+    summarytab.reset_index(drop=True, inplace=True)
 
-        if output is not None:
-            output = Path(output)
-            if verbose:
-                print(f'Saving the summary to "{str(output)}"')
-            summarytab.to_csv(output, index=False)
+    if fullmatch:
+        select_mask = np.ones(len(summarytab), dtype=bool)
+        for k, v in fullmatch.items():
+            try:
+                select_mask &= summarytab[k].str.fullmatch(v, case=True)
+            except AttributeError:
+                raise AttributeError(
+                    f"{k} is not a string column in the dataframe! "
+                    + "You may use `query_str` instead."
+                )
+        summarytab = summarytab[select_mask]
 
-    else:
-        summarytab = Table(summarytab)
-        if sort_by is not None:
-            summarytab.sort(sort_by)
+    if query_str is not None:
+        summarytab = summarytab.query(query_str)
 
-        if output is not None:
-            output = Path(output)
-            if verbose:
-                print(f'Saving the summary to "{str(output)}"')
-            summarytab.write(output, format=format)
+    if output is not None:
+        output = Path(output)
+        if verbose:
+            print(f'Saving the summary to "{str(output)}"')
+        summarytab.to_csv(output, index=False)
 
     return summarytab
 
