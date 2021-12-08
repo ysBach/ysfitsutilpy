@@ -13,13 +13,13 @@ import pandas as pd
 from astropy.io import fits
 from astropy.io.fits.verify import VerifyError
 from astropy.nddata import CCDData
-from astropy.table import Table
 
 from .hduutil import (_parse_extension, cut_ccd, inputs2list, key_mapper,
                       key_remover)
 
 __all__ = [
-    "mkdir", "load_if_exists", "make_summary", "fits_newpath", "fitsrenamer"
+    "mkdir", "load_if_exists", "make_summary", "df_selector",
+    "fits_newpath", "fitsrenamer"
 ]
 
 
@@ -165,9 +165,12 @@ def make_summary(
     >>>     output=savepath
     >>> )
 
+    Select all rows with ``OBJECT`` starts with "DA":
     >>> # fullmatch = {"OBJECT": "DA.*"}
-    >>> # fullmatch = {"OBJECT": "Ves.*", "FILTER": "J"}, query_str="EXPTIME in [2, 3]"
-    """
+    Select all rows with ``OBJECT`` starts with "Ves", ``FILTER`` is "J", and
+    ``EXPTIME`` is 2 or 3:
+    >>> # fullmatch = {"OBJECT": "Ves.*", "FILTER": "J"},
+    >>> # query_str="EXPTIME in [2, 3]""""
     # No need to sort here because the real "sort" will be done later based on
     # ``sort_by`` column.
     fitslist = inputs2list(inputs, sort=False, accept_ccdlike=True, check_coherency=False)
@@ -268,7 +271,56 @@ def make_summary(
         summarytab.sort_values(sort_by, inplace=True)
     summarytab.reset_index(drop=True, inplace=True)
 
-    if fullmatch:
+    summarytab = df_selector(summarytab, fullmatch=fullmatch, query_str=query_str)
+    if output is not None:
+        output = Path(output)
+        if verbose:
+            print(f'Saving the summary to "{str(output)}"')
+        summarytab.to_csv(output, index=False)
+
+    return summarytab
+
+
+def df_selector(
+        summarytab,
+        fullmatch=None,
+        query_str=None,
+):
+    """Select rows from a summary table.
+
+    Parameters
+    ----------
+    summarytab : `~pandas.DataFrame`
+        The summary table to select from. Normally the table made from header
+        information.
+    fullmatch : dict, optional
+        The ``{column: regex}`` style dict to be used for selecting rows by
+        ``summarytab[column].str.fullmatch(regex, case=True)``.
+        Default: `None`
+    query_str : [type], optional
+        The query string used for ``summarytab.query(query_str)``.
+
+    Returns
+    -------
+    [type]
+        [description]
+
+    Raises
+    ------
+    AttributeError
+        [description]
+
+    Examples
+    --------
+    Select all rows with ``OBJECT`` starts with "DA":
+    >>> # fullmatch = {"OBJECT": "DA.*"}
+    Select all rows with ``OBJECT`` starts with "Ves", ``FILTER`` is "J", and
+    ``EXPTIME`` is 2 or 3:
+    >>> # fullmatch = {"OBJECT": "Ves.*", "FILTER": "J"},
+    >>> # query_str="EXPTIME in [2, 3]"
+
+    """
+    if fullmatch is not None:
         select_mask = np.ones(len(summarytab), dtype=bool)
         for k, v in fullmatch.items():
             try:
@@ -282,13 +334,6 @@ def make_summary(
 
     if query_str is not None:
         summarytab = summarytab.query(query_str)
-
-    if output is not None:
-        output = Path(output)
-        if verbose:
-            print(f'Saving the summary to "{str(output)}"')
-        summarytab.to_csv(output, index=False)
-
     return summarytab
 
 
