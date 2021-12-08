@@ -94,11 +94,14 @@ def make_summary(
 
     Parameters
     ----------
-    inputs : glob pattern, list-like of path-like, list-like of CCDData
+    inputs : glob pattern, list-like of path-like, list-like of CCDData, `~pandas.DataFrame` convertible
         The `~glob` pattern for files (e.g., ``"2020*[012].fits"``) or list of
         files (each element must be path-like or CCDData). Although it is not a
         good idea, a mixed list of CCDData and paths to the files is also
-        acceptable.
+        acceptable. If a `~pandas.DataFrame` or convertible (especially
+        `~astropy.table.Table`) is given, it finds the ``"file"`` column and
+        use it as the input files, make a summary table from the headers of
+        those files.
 
     extension: int, str, (str, int)
         The extension of FITS to be used. It can be given as integer
@@ -129,11 +132,13 @@ def make_summary(
         The column name to sort the results. It can be any element of
         `keywords` or `'file'`, which sorts the table by the file name.
 
-    fullmatch : dict, optional.
-        The ``{column: regex}`` dictionary for `~pandas.Series.str.fullmatch`.
+    ffullmatch : dict, optional
+        The ``{column: regex}`` style dict to be used for selecting rows by
+        ``summarytab[column].str.fullmatch(regex, case=True)``.
+        Default: `None`
 
-    query_str : str, optional.
-        The str used for `~pandas.DataFrame.query`.
+    query_str : str, optional
+        The query string used for ``summarytab.query(query_str)``.
 
     Return
     ------
@@ -284,7 +289,7 @@ def make_summary(
 def df_selector(
         summarytab,
         fullmatch=None,
-        query_str=None,
+        querystr=None,
 ):
     """Select rows from a summary table.
 
@@ -297,18 +302,20 @@ def df_selector(
         The ``{column: regex}`` style dict to be used for selecting rows by
         ``summarytab[column].str.fullmatch(regex, case=True)``.
         Default: `None`
-    query_str : [type], optional
-        The query string used for ``summarytab.query(query_str)``.
+    querystr : str, optional
+        The query string used for ``summarytab.query(querystr)``.
 
     Returns
     -------
-    [type]
-        [description]
+    summarytab
+        The final summary table after selection. If ``fullmatch=None,
+        querystr=None`` (the default), the original summary table is returned
+        **without copying**.
 
     Raises
     ------
     AttributeError
-        [description]
+        The column name is not `str`
 
     Examples
     --------
@@ -317,7 +324,7 @@ def df_selector(
     Select all rows with ``OBJECT`` starts with "Ves", ``FILTER`` is "J", and
     ``EXPTIME`` is 2 or 3:
     >>> # fullmatch = {"OBJECT": "Ves.*", "FILTER": "J"},
-    >>> # query_str="EXPTIME in [2, 3]"
+    >>> # querystr="EXPTIME in [2, 3]"
 
     """
     if fullmatch is not None:
@@ -328,12 +335,12 @@ def df_selector(
             except AttributeError:
                 raise AttributeError(
                     f"{k} is not a string column in the dataframe! "
-                    + "You may use `query_str` instead."
+                    + "You may use `querystr` instead."
                 )
         summarytab = summarytab[select_mask]
 
-    if query_str is not None:
-        summarytab = summarytab.query(query_str)
+    if querystr is not None:
+        summarytab = summarytab.query(querystr)
     return summarytab
 
 
