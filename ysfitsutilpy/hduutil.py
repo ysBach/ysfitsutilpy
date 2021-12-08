@@ -931,9 +931,10 @@ def inputs2list(
     Parameters
     ----------
     inputs : str, path-like, CCDData, fits.PrimaryHDU, fits.ImageHDU, DataFrame-convertable.
-        If DataFrame-convertable, e.g., pd.DataFrame or astropy.table.Table, it
-        must have column named ``"file"``. Otherwise, please use, e.g.,
-        ``inputs = list(that_table["filenamecolumn"])``.
+        If DataFrame-convertable, e.g., dict, `~pandas.DataFrame` or
+        `~astropy.table.Table`, it must have column named ``"file"``, such that
+        ``outlist = list(inputs["file"])`` is possible. Otherwise, please use,
+        e.g., ``inputs = list(that_table["filenamecolumn"])``.
 
     sort : bool, optional.
         Whether to sort the output list.
@@ -969,7 +970,7 @@ def inputs2list(
             kind = type(inputs)
             raise TypeError(f"{kind} is given as `inputs`. "
                             + "Turn off accept_ccdlike or use path-like.")
-    elif isinstance(inputs, (Table, pd.DataFrame)):
+    elif isinstance(inputs, (Table, dict, pd.DataFrame)):
         # Do this before is_list_like because DataFrame returns True in
         # is_list_like as it is iterable.
         try:
@@ -1282,7 +1283,6 @@ def trim_ccd(ccd, fits_section=None, update_header=True, verbose=False):
                         hdr[f"LTM{i}_{j}"] = 0.
 
         add2hdr(hdr, 'h', trim_str, t_ref=_t, verbose=verbose)
-
 
     return trimmed_ccd
 
@@ -1950,7 +1950,7 @@ def errormap(
                 + "+ (dark_std/flat)**2"
                 + "+ data**2*(flat_err/flat)**2"
                 + "+ (rdnoise_electron/(gain_epadu*flat))**2"
-    )
+                )
 
     if return_variance:
         return NEVAL(eval_str)
