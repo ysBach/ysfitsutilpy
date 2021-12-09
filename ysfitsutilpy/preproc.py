@@ -303,7 +303,8 @@ def crrej(
             gain = ccd.gain
         except AttributeError:
             raise ValueError(
-                "Gain must be given or accessible as ``ccd.gain``. Use, e.g., yfu.set_ccd_gain_rdnoise(ccd)."
+                "Gain must be given or accessible as ``ccd.gain``. "
+                + "Use, e.g., yfu.set_ccd_gain_rdnoise(ccd)."
             )
 
     if rdnoise is None:
@@ -419,8 +420,8 @@ def crrej(
 
 # TODO: put niter
 # TODO: put medfilt_min
-#   to get std at each pixel by medfilt[<medfilt_min] = 0, and std = sqrt((1+snoise)*medfilt/gain +
-#   rdn**2)
+#   to get std at each pixel by medfilt[<medfilt_min] = 0, and std =
+#   sqrt((1+snoise)*medfilt/gain + rdn**2)
 def medfilt_bpm(
         ccd,
         cadd=1.e-10,
@@ -549,8 +550,8 @@ def medfilt_bpm(
     if ((med_sub_clip is None) and (med_rat_clip is None) and (std_rat_clip is None)):
         warn("No BPM is found because all clips are None.", end=' ')
         if full:
-            return ccd, dict(posmask=None, negmask=None, med_filt=None, med_sub=None, med_rat=None,
-                             std_rat=None, std=None)
+            return ccd, dict(posmask=None, negmask=None, med_filt=None,
+                             med_sub=None, med_rat=None, std_rat=None, std=None)
         else:
             return ccd
 
@@ -634,13 +635,16 @@ def medfilt_bpm(
         if update_header:
             if std_section is None:
                 std_section = '[' + ','.join([':'] * arr.ndim) + ']'
-            hdr['MB_MODEL'] = (std_model, "Method used for getting stdev map")
-            hdr["MB_SSKY"] = (std, "Sky stdev for median filter BPM (MBPM) algorithm")
-            hdr["MB_SSECT"] = (f"{std_section}", "Sky stdev calculation section in MBPM algorithm")
+            hdr['MB_MODEL'] = (std_model,
+                               "Method used for getting stdev map")
+            hdr["MB_SSKY"] = (std,
+                              "Sky stdev for median filter BPM (MBPM) algorithm")
+            hdr["MB_SSECT"] = (f"{std_section}",
+                               "Sky stdev calculation section in MBPM algorithm")
             add2hdr(
                 hdr, 'h', verbose=verbose, t_ref=_t,
-                s=("Sky standard deviation (MB_SSKY) calculated by sigma clipping at MB_SSECT with "
-                   + f"{sigclip_kw}; used for std_ratio map calculation.")
+                s=("Sky standard deviation (MB_SSKY) calculated by sigma clipping at "
+                   + f"MB_SSECT with {sigclip_kw}; used for std_ratio map calculation.")
             )
 
     elif isinstance(std_model, np.ndarray):
@@ -695,14 +699,22 @@ def medfilt_bpm(
     arr[replace_mask] = med_filt[replace_mask]
 
     if update_header:
-        hdr["MB_NLOGI"] = (_LOGICAL_STR[0], "The logic used for negative MBPM masks (and/or)")
-        hdr["MB_PLOGI"] = (_LOGICAL_STR[1], "The logic used for positive MBPM masks (and/or)")
-        hdr["MB_RAT_U"] = (med_rat_clip[1], "Upper clip of (data/|medfilt|) map (MBPM)")
-        hdr["MB_RAT_L"] = (med_rat_clip[0], "Lower clip of (data/|medfilt|) map (MBPM)")
-        hdr["MB_SUB_U"] = (med_sub_clip[1], "Upper clip of (data-medfilt) map (MBPM)")
-        hdr["MB_SUB_L"] = (med_sub_clip[0], "Lower clip of (data-medfilt) map (MBPM)")
-        hdr["MB_STD_U"] = (std_rat_clip[1], "Upper clip of (data-medfilt)/std map (MBPM)")
-        hdr["MB_STD_L"] = (std_rat_clip[0], "Lower clip of (data-medfilt)/std map (MBPM)")
+        hdr["MB_NLOGI"] = (_LOGICAL_STR[0],
+                           "The logic used for negative MBPM masks (and/or)")
+        hdr["MB_PLOGI"] = (_LOGICAL_STR[1],
+                           "The logic used for positive MBPM masks (and/or)")
+        hdr["MB_RAT_U"] = (med_rat_clip[1],
+                           "Upper clip of (data/|medfilt|) map (MBPM)")
+        hdr["MB_RAT_L"] = (med_rat_clip[0],
+                           "Lower clip of (data/|medfilt|) map (MBPM)")
+        hdr["MB_SUB_U"] = (med_sub_clip[1],
+                           "Upper clip of (data-medfilt) map (MBPM)")
+        hdr["MB_SUB_L"] = (med_sub_clip[0],
+                           "Lower clip of (data-medfilt) map (MBPM)")
+        hdr["MB_STD_U"] = (std_rat_clip[1],
+                           "Upper clip of (data-medfilt)/std map (MBPM)")
+        hdr["MB_STD_L"] = (std_rat_clip[0],
+                           "Lower clip of (data-medfilt)/std map (MBPM)")
 
         add2hdr(
             hdr, 'h', verbose=verbose, t_ref=_t,
@@ -743,7 +755,7 @@ def bdf_process(
         mdark=None,
         mflat=None,
         mfringe=None,
-        fringe_flat_fielded=False,
+        fringe_flat_fielded=True,
         fringe_scale_fun=np.mean,
         fringe_scale_section=None,
         trim_fits_section=None,
@@ -757,6 +769,7 @@ def bdf_process(
         rdnoise_unit=u.electron,
         exposure_key="EXPTIME",
         exposure_unit=u.s,
+        fringe_exposure=None,
         dark_exposure=None,
         data_exposure=None,
         dark_scale=False,
@@ -797,17 +810,18 @@ def bdf_process(
         header (``BIASFRM``, ``DARKFRM``, ``FLATFRM`` and/or ``FRINFRM``). If
         the paths are not given, the header values will be ``<User>``.
 
-    fringe_scale_fun : function object, optional.
+    fringe_scale_fun : function object, {"exp", "exposure", "exptime"}, optional.
         The function to be used to scale the fringe before subtraction,
-        specified by the region `fringe_scale_section`. This scaling is not
-        done if `fringe_scale_section` is `None`.
+        specified by the region `fringe_scale_section`. If one of ``{"exp",
+        "exposure", "exptime"}``, the exposure time from `exposure_key` is used
+        for scaling. Scaling is turned of if `fringe_scale_section` is `None`.
+        Default: `np.mean`.
 
-    fringe_scale_section : str, {"exp", "exposure", "exptime"}, optional.
+    fringe_scale_section : str, optional.
         The FITS-convention section of the fringe and object (science) frames
         to match the fringe pattern before the subtraction. If `None`, this
         scaling is turned off. To use all region, use such as ``'[:, :]`` for
-        2-D. If one of ``{"exp", "exposure", "exptime"}``, the exposure time
-        from `exposure_key` is used for scaling.
+        2-D.
         default: `None`.
 
     fringe_flat_fielded : bool, optional.
@@ -958,9 +972,15 @@ def bdf_process(
     def _sub_frin(proc, mfringe, fringe_scale_fun=np.mean, fringe_scale_section=None):
         _t = Time.now()
         if fringe_scale_section is not None:
-            if (isinstance(fringe_scale_section, str)
-                    and fringe_scale_section.lower() in ["exp", "exposure", "exptime"]):
-                scale = proc.header[exposure_key]/mfringe.header[exposure_key]
+            if isinstance(fringe_scale_fun, str):
+                if fringe_scale_fun.lower() in ["exp", "exposure", "exptime"]:
+                    scale = (float(proc.header.get(exposure_key, data_exposure))
+                             / float(mfringe.header.get(exposure_key, fringe_exposure)))
+                else:
+                    raise ValueError(
+                        "If `fringe_scale_fun` is str, it must be one of "
+                        + f"{'exp', 'exposure', 'exptime'}. Now it's {fringe_scale_fun}"
+                    )
             else:
                 sl = fitsxy2py(fringe_scale_section)
                 scale = fringe_scale_fun(proc.data[sl]) / fringe_scale_fun(mfringe.data[sl])
@@ -974,31 +994,35 @@ def bdf_process(
         add2hdr(proc.header, 'h', s, verbose=verbose_bdf, t_ref=_t)
         return proc
 
-    # Initial setting
+    # ************************************************************************************ #
+    # *                                  INITIAL SETTING                                 * #
+    # ************************************************************************************ #
     # if not isinstance(ccd, CCDData):
     #     raise TypeError(f"ccd must be CCDData (now it is {type(ccd)})")
     ccd, _, _ = _parse_image(ccd, extension=extension, force_ccddata=True)
     PROCESS = []
     proc = ccd.copy()
 
-    # Log the CCDPROC version
+    # == Log the CCDPROC version ========================================================== #
     if "CCDPROCV" in proc.header:
         if str(proc.header["CCDPROCV"]) != str(ccdproc.__version__):
-            add2hdr(
-                proc.header, "h",
-                f"The ccdproc version prior to this modification was {proc.header['CCDPROCV']}.")
-            proc.header["CCDPROCV"] = (ccdproc.__version__, "ccdproc version used for processing.")
+            add2hdr(proc.header, "h",
+                    ("The ccdproc version prior to this modification was "
+                    + f"{proc.header['CCDPROCV']}."))
+            proc.header["CCDPROCV"] = (ccdproc.__version__,
+                                       "ccdproc version used for processing.")
         # else (no version change): do nothing.
     else:
-        proc.header["CCDPROCV"] = (ccdproc.__version__, "ccdproc version used for processing.")
+        proc.header["CCDPROCV"] = (ccdproc.__version__,
+                                   "ccdproc version used for processing.")
 
-    # Set for BIAS
+    # == Set for BIAS ==================================================================== #
     do_bias, mbias, mbiaspath = _load_master(mbiaspath, mbias)
     if do_bias:
         PROCESS.append("B")
         proc.header["BIASFRM"] = (str(mbiaspath), "Applied bias frame")
 
-    # Set for DARK
+    # == Set for DARK ==================================================================== #
     do_dark, mdark, mdarkpath = _load_master(mdarkpath, mdark)
 
     if do_dark:
@@ -1009,23 +1033,27 @@ def bdf_process(
             # TODO: what if dark_exposure, data_exposure are given explicitly?
             add2hdr(proc.header, 'h', str_dscale.format(exposure_key), verbose=verbose_bdf)
 
-    # Set for FLAT
+    # == Set for FLAT ==================================================================== #
     do_flat, mflat, mflatpath = _load_master(mflatpath, mflat)
     if do_flat:
         PROCESS.append("F")
-        proc.header["FLATFRM"] = (str(mflatpath), "Applied flat frame")
-        proc.header["FLATNORM"] = (flat_norm_value, "flat_norm_value (none = mean of input flat)")
+        proc.header["FLATFRM"] = (str(mflatpath),
+                                  "Applied flat frame")
+        proc.header["FLATNORM"] = (flat_norm_value,
+                                   "flat_norm_value (none = mean of input flat)")
 
-    # set for FRINGE
+    # == Set for FRINGE ================================================================== #
     do_fringe, mfringe, mfringepath = _load_master(mfringepath, mfringe)
     if do_fringe:
         PROCESS.append("Fr")
         proc.header["FRINFRM"] = (str(mfringepath), "Applied fringe frame")
         if fringe_scale_section is not None:
-            proc.header["FRINSECT"] = (fringe_scale_section, "FITS section used for scaling fringe")
-            proc.header["FRINFUNC"] = (fringe_scale_fun.__name__, "Function used for fringe scaling")
+            proc.header["FRINSECT"] = (fringe_scale_section,
+                                       "FITS section used for scaling fringe")
+            proc.header["FRINFUNC"] = (fringe_scale_fun.__name__,
+                                       "Function used for fringe scaling")
 
-    # Set gain and rdnoise if at least one of calc_err and do_crrej is True.
+    # == Set gain and rdnoise if at least one of calc_err and do_crrej is True. ========== #
     if calc_err or do_crrej:
         set_ccd_gain_rdnoise(proc,
                              gain=gain,
@@ -1040,7 +1068,10 @@ def bdf_process(
         gain_Q = proc.gain
         rdnoise_Q = proc.rdnoise
 
-    # Do TRIM
+    # ************************************************************************************ #
+    # *                                 RUN PREPROCESSING                                * #
+    # ************************************************************************************ #
+    # == Do TRIM ========================================================================= #
     if trim_fits_section is not None:
         _t = Time.now()
         sect = dict(fits_section=trim_fits_section, update_header=False)
@@ -1053,25 +1084,27 @@ def bdf_process(
 
         add2hdr(proc.header, 'h', str_trim.format(trim_fits_section), verbose=verbose_bdf, t_ref=_t)
 
-    # Do BIAS
+    # == Do BIAS ========================================================================= #
     if do_bias:
         _t = Time.now()
         proc = subtract_bias(proc, mbias)
         add2hdr(proc.header, 'h', str_bias.format(mbiaspath), verbose=verbose_bdf, t_ref=_t)
 
-    # Do DARK
+    # == Do DARK ========================================================================= #
     if do_dark:
         _t = Time.now()
         if dark_scale and data_exposure is None:
             try:
                 data_exposure = proc.header[exposure_key]
             except (KeyError, AttributeError) as e:
-                raise e(f"Dark must be scaled but data's exposure time ({exposure_key}) is not found from.")
+                raise e("Dark must be scaled but data's exposure time "
+                        + f"({exposure_key}) is not found from.")
         if dark_scale and dark_exposure is None:
             try:
                 dark_exposure = mdark.header[exposure_key]
             except (KeyError, AttributeError) as e:
-                raise e(f"Dark must be scaled but dark's exposure time ({exposure_key}) is not found from.")
+                raise e("Dark must be scaled but dark's exposure time "
+                        + f"({exposure_key}) is not found from.")
 
         proc = subtract_dark(proc,
                              mdark,
@@ -1082,6 +1115,7 @@ def bdf_process(
                              scale=dark_scale)
         add2hdr(proc.header, 'h', str_dark.format(mdarkpath), verbose=verbose_bdf, t_ref=_t)
 
+    # == Set for uncertainty ============================================================= #
     # Make UNCERT extension before doing FLAT and FRINGE
     #   It is better to make_errmap a priori because of mathematical and
     #   computational convenience. See ``if do_flat:`` clause below.
@@ -1095,12 +1129,12 @@ def bdf_process(
             s.append(str_ed)
         add2hdr(proc.header, 'h', s, verbose=verbose_bdf, t_ref=_t)
 
-    # Do FRINGE **before** flat if not `fringe_flat_fielded`
+    # == Do FRINGE **before** flat if not `fringe_flat_fielded` ========================== #
     if do_fringe and not fringe_flat_fielded:
         proc = _sub_frin(proc, mfringe, fringe_scale_fun=fringe_scale_fun,
                          fringe_scale_section=fringe_scale_section)
 
-    # Do FLAT
+    # == Do FLAT ========================================================================= #
     if do_flat:
         # Flat error propagation is done automatically by
         # ``ccdproc.flat_correct``if it has the uncertainty attribute.
@@ -1115,12 +1149,12 @@ def bdf_process(
 
         add2hdr(proc.header, 'h', s, verbose=verbose_bdf, t_ref=_t)
 
-    # Do FRINGE **after** flat if `fringe_flat_fielded`
+    # == Do FRINGE **after** flat if `fringe_flat_fielded` =============================== #
     if do_fringe and fringe_flat_fielded:
         proc = _sub_frin(proc, mfringe, fringe_scale_fun=fringe_scale_fun,
                          fringe_scale_section=fringe_scale_section)
 
-    # Normalize by the exposure time (e.g., ADU per sec)
+    # == Normalization =================================================================== #
     if normalize_exposure:
         _t = Time.now()
         if data_exposure is None:
@@ -1128,21 +1162,19 @@ def bdf_process(
         proc.data = proc.data/data_exposure  # uncertainty will also be..
         add2hdr(proc.header, 'h', str_nexp, verbose=verbose_bdf, t_ref=_t)
 
-    # Normalize by the mean value
     if normalize_average:
         _t = Time.now()
         avg = np.mean(proc.data)
         proc.data = proc.data/avg
         add2hdr(proc.header, 'h', str_navg, verbose=verbose_bdf, t_ref=_t)
 
-    # Normalize by the median value
     if normalize_median:
         _t = Time.now()
         med = np.median(proc.data)
         proc.data = proc.data/med
         add2hdr(proc.header, 'h', str_nmed, verbose=verbose_bdf, t_ref=_t)
 
-    # Do CRREJ
+    # == Do CRREJ ======================================================================== #
     if do_crrej:
         if crrej_kwargs is None:
             crrej_kwargs = {}
@@ -1166,8 +1198,10 @@ def bdf_process(
             verbose=verbose_crrej,
             **crrej_kwargs)
 
+    # ************************************************************************************ #
+    # *                                  PREPARE OUTPUT                                  * #
+    # ************************************************************************************ #
     # To avoid ``pssl`` in cr rejection, subtract fringe AFTER the CRREJ.
-
     proc = CCDData_astype(proc, dtype=dtype, uncertainty_dtype=uncertainty_dtype)
     update_process(proc.header, PROCESS, key="PROCESS", delimiter='-')
     update_tlm(proc.header)
@@ -1179,3 +1213,4 @@ def bdf_process(
         if verbose_bdf:
             print("Saved.")
     return proc
+
