@@ -934,7 +934,9 @@ def inputs2list(
         If DataFrame-convertable, e.g., dict, `~pandas.DataFrame` or
         `~astropy.table.Table`, it must have column named ``"file"``, such that
         ``outlist = list(inputs["file"])`` is possible. Otherwise, please use,
-        e.g., ``inputs = list(that_table["filenamecolumn"])``.
+        e.g., ``inputs = list(that_table["filenamecolumn"])``. If a str starts
+        with ``"@"`` (e.g., ``"@darks.list"``), it assumes the file contains a
+        list of paths separated by ``"\n"``, as in IRAF.
 
     sort : bool, optional.
         Whether to sort the output list.
@@ -955,11 +957,14 @@ def inputs2list(
         Default: `False`.
     '''
     contains_ccdlike = False
-    # TODO: if str and startswith("@"), read that file to get fpaths as glob pattern.
     if isinstance(inputs, str):
-        # If str, "dir/file.fits" --> [Path("dir/file.fits")]
-        #         "dir/*.fits"    --> [Path("dir/file.fits"), ...]
-        outlist = glob.glob(inputs)
+        if inputs.startswith("@"):
+            with open(inputs[1:]) as ff:
+                outlist = ff.read().splitlines()
+        else:
+            # If str, "dir/file.fits" --> [Path("dir/file.fits")]
+            #         "dir/*.fits"    --> [Path("dir/file.fits"), ...]
+            outlist = glob.glob(inputs)
     elif isinstance(inputs, (PosixPath, WindowsPath)):
         # If Path, ``TOP/"file*.fits"`` --> [Path("top/file1.fits"), ...]
         outlist = glob.glob(str(inputs))
