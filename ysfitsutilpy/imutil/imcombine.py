@@ -12,9 +12,9 @@ from ..combutil import group_fits
 from ..filemgmt import make_summary
 from ..hduutil import (_parse_data_header, _parse_extension, add2hdr,
                        calc_offset_physical, calc_offset_wcs, get_size,
-                       inputs2list, is_list_like, load_ccd, str_now,
+                       inputs2list, load_ccd, str_now,
                        update_tlm, write2fits, fitsxy2py)
-from ..misc import _image_shape
+from ..misc import _image_shape, is_list_like
 from . import docstrings
 from .util_comb import (_set_cenfunc, _set_combfunc, _set_gain_rdns,
                         _set_int_dtype, _set_keeprej, _set_mask,
