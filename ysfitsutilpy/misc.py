@@ -8,6 +8,7 @@ from astropy.time import Time
 
 
 __all__ = ["MEDCOMB_KEYS_INT", "SUMCOMB_KEYS_INT", "MEDCOMB_KEYS_FLT32", "LACOSMIC_KEYS",
+           "parse_crrej_psf",
            "weighted_avg", "sigclip_dataerr", "circular_mask",
            "_image_shape", "_offsets2slice",
            "str_now", "change_to_quantity", "binning", "fitsxy2py",
@@ -48,6 +49,29 @@ LACOSMIC_KEYS = {'sigclip': 4.5,
                  'psfsize': 7,
                  'psfk': None,
                  'psfbeta': 4.765}
+
+
+def parse_crrej_psf(
+        fs="median",
+        psffwhm=2.5,
+        psfsize=7,
+        psfbeta=4.765,
+):
+    """Return a dict of minimal keyword arguments for
+        `~astroscrappy.detect_cosmics`.
+    """
+    if fs == "median":
+        return dict(fsmode="median")
+    elif fs == "moffat":
+        return dict(fsmode="convolve", psfmodel="moffat",
+                    psffwhm=psffwhm, psfsize=psfsize, psfbeta=psfbeta)
+    elif fs in ["gauss", "gaussx", "gaussy"]:
+        return dict(fsmode="convolve", psfmodel=fs,
+                    psffwhm=psffwhm, psfsize=psfsize)
+    elif isinstance(fs, np.ndarray):
+        return dict(fsmode="convolve", psfk=fs)
+    else:
+        raise ValueError(f"fs ({fs}) not understood")
 
 
 def weighted_avg(val, err):
