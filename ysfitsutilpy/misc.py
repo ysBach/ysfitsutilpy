@@ -1,14 +1,16 @@
 '''
 (Basic) Functions that are completely INDEPENDENT of all other modules of this package.
 '''
+from collections import Iterable, abc
+
 import ccdproc
 import numpy as np
 from astropy import units as u
 from astropy.time import Time
 
-
-__all__ = ["MEDCOMB_KEYS_INT", "SUMCOMB_KEYS_INT", "MEDCOMB_KEYS_FLT32", "LACOSMIC_KEYS",
-           "parse_crrej_psf",
+__all__ = ["MEDCOMB_KEYS_INT", "SUMCOMB_KEYS_INT", "MEDCOMB_KEYS_FLT32",
+           "LACOSMIC_KEYS", "LACOSMIC_CRREJ", "parse_crrej_psf",
+           "is_list_like", "listify",
            "weighted_avg", "sigclip_dataerr", "circular_mask",
            "_image_shape", "_offsets2slice",
            "str_now", "change_to_quantity", "binning", "fitsxy2py",
@@ -50,18 +52,128 @@ LACOSMIC_KEYS = {'sigclip': 4.5,
                  'psfk': None,
                  'psfbeta': 4.765}
 
+# same as above, but simplify `fsmode`, `psfmodel`, and `psfk` into `fs`
+LACOSMIC_CRREJ = {'sigclip': 4.5,
+                  'sigfrac': 0.5,
+                  'objlim': 1.0,
+                  'satlevel': np.inf,
+                  'invar': None,
+                  'inbkg': None,
+                  'niter': 4,
+                  'sepmed': False,
+                  'cleantype': 'medmask',
+                  'fs': 'median',
+                  'psffwhm': 2.5,
+                  'psfsize': 7,
+                  'psfbeta': 4.765}
+
+
+def is_list_like(*objs, allow_sets=True, func=all):
+    ''' Check if inputs are list-like
+
+    Parameters
+    ----------
+    *objs : object
+        Objects to check.
+    allow_sets : bool, optional.
+        If this parameter is `False`, sets will not be considered list-like.
+        Default: `True`
+    func : funtional object, optional.
+        The function to be applied to each element. Useful ones are `all` and
+        `any`.
+        Default: `all`
+
+    Notes
+    -----
+    Direct copy from pandas, with slight modification to accept *args and
+    all/any, etc, functionality by `func`.
+    https://github.com/pandas-dev/pandas/blob/bdb00f2d5a12f813e93bc55cdcd56dcb1aae776e/pandas/_libs/lib.pyx#L1026
+
+    Note that pd.DataFrame also returns True.
+    '''
+    return func(
+        isinstance(obj, Iterable)
+        # we do not count strings/unicode/bytes as list-like
+        and not isinstance(obj, (str, bytes))
+        # exclude zero-dimensional numpy arrays, effectively scalars
+        and not (isinstance(obj, np.ndarray) and obj.ndim == 0)
+        # exclude sets if allow_sets is False
+        and not (allow_sets is False and isinstance(obj, abc.Set))
+        for obj in objs
+    )
+
+
+def listify(obj):
+    """Make an object into a list.
+
+    Parameters
+    ----------
+    obj : None, str, list-like
+        Object to be made into a list. If `str`, it will be converted to
+        ``[obj]``. If `None`, an empty list (`[]`) is returned.
+    """
+    if obj is None:
+        return []
+    elif is_list_like(obj):
+        return list(obj)
+    else:
+        return [obj]
+
 
 def parse_crrej_psf(
         fs="median",
         psffwhm=2.5,
         psfsize=7,
         psfbeta=4.765,
+        check_if_list=False
 ):
     """Return a dict of minimal keyword arguments for
         `~astroscrappy.detect_cosmics`.
     """
+    def _allocate(_fs, _psffwhm, _psfsize, _psfbeta):
+        if _fs == "median":
+            fsmode = "median"
+            psfmodel = None
+            psfk = None
+            psffwhm = None
+            psfsize = None
+            psfbeta = None
+        elif _fs == "moffat":
+            fsmode = "convolve"
+            psfmodel = "moffat"
+            psfk = None
+            psffwhm = _psffwhm
+            psfsize = _psfsize
+            psfbeta = _psfbeta
+        elif _fs in ("gauss", "gaussx", "gaussy"):
+            fsmode = "convolve"
+            psfmodel = _fs
+            psfk = None
+            psffwhm = _psffwhm
+            psfsize = _psfsize
+            psfbeta = None
+        elif isinstance(_fs, np.ndarray):
+            fsmode = "convolve"
+            psfmodel = None
+            psfk = _fs
+            psffwhm = None
+            psfsize = None
+            psfbeta = None
+        elif is_list_like(_fs):
+            fsmode = "convolve"
+            raise ValueError(f"fs ({fs}) not understood")
+        return fsmode, psfmodel, psfk, psffwhm, psfsize, psfbeta
+
+    if check_if_list:
+        if is_list_like(fs, psffwhm, psfsize, psfbeta, forall=False):
+            if len(fs) != len(psffwhm) != len(psfsize) != len(psfbeta):
+                raise ValueError(
+                    "Length of fs, psffwhm, psfsize, and psfbeta must be the same."
+                )
+
+
     if fs == "median":
-        return dict(fsmode="median")
+        return dict(fsmode=fs)
     elif fs == "moffat":
         return dict(fsmode="convolve", psfmodel="moffat",
                     psffwhm=psffwhm, psfsize=psfsize, psfbeta=psfbeta)
