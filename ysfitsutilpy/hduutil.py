@@ -2152,8 +2152,8 @@ def hedit(
         should be located in the header.
 
     """
-    def _add_key(header, key, value, infostr, comment=None, before=None, after=None):
-        header.set(key, value=value, comment=comment, before=before, after=after)
+    def _add_key(header, key, val, infostr, cmt=None, before=None, after=None):
+        header.set(key, value=val, comment=cmt, before=before, after=after)
         # infostr += " (comment: {})".format(comment) if comment is not None else ""
         if before is not None:
             infostr += f" (moved: {before=})"
@@ -2163,12 +2163,17 @@ def hedit(
         update_tlm(header)
 
     if key in header:
-        infostr = f"{key}={header[key]} -> {value}"
-        _add_key(header, key, value, infostr, comment=comment, before=before, after=after)
+        oldv = header[key]
+        infostr = ("[HEDIT] "
+                   + f"{key}={oldv} ({type(oldv)}) --> {value} ({type(value)})")
+        _add_key(header, key, value, infostr, cmt=comment, before=before, after=after)
 
-    elif add:  # add key only if `add` is True.
-        infostr = f"Added a new key: {key}={value}"
-        _add_key(header, key, value, infostr, comment=comment, before=before, after=after)
+    else:
+        if add:  # add key only if `add` is True.
+            infostr = f"[HEDIT add] {key}={value} ({type(value)})"
+            _add_key(header, key, value, infostr, cmt=comment, before=before, after=after)
+        elif verbose:
+            print(f"{key = } does not exist in the header. Skipped. (add=True to proceed)")
 
     return header
 
