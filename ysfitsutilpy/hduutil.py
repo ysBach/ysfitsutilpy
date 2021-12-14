@@ -2114,43 +2114,56 @@ def update_process(
 
 
 def hedit(
-        header,
-        key,
-        value,
-        comment=None,
-        before=None,
-        after=None,
+        item,
+        keys,
+        values,
+        comments=None,
+        befores=None,
+        afters=None,
         add=False,
+        output=None,
+        overwrite=False,
+        output_verify="fix",
         verbose=True
 ):
     """ Edit the header key (usu. to update value of a keyword).
 
     Parameters
     ----------
-    header : header
-        The header to edit.
+    item : `astropy` header, path-like, CCDData-like
+        The FITS file or header to edit. If `Header`, it is updated
+        **inplace**.
 
-    key : str
+    keys : str, list-like of str
         The key to edit.
 
-    value : str
-        The new value.
+    values : str, numeric, or list-like of such
+        The new value. To pass one single iterable (e.g., `[1, 2, 3]`) for one
+        single `key`, use a list of it (e.g., `[[1, 2, 3]]`) to circumvent
+        problem.
 
-    comment : str, optional.
+    comment : str, list-like of str optional.
         The comment to add.
 
     add : bool, optional.
         Whether to add the key if it is not in the header.
 
-    before : str, int, optional
+    befores : str, int, list-like of such, optional
         Name of the keyword, or index of the `Card` before which this card
         should be located in the header. The argument `before` takes
         precedence over `after` if both specified.
 
-    after : str, int, optional
+    after : str, int, list-like of such, optional
         Name of the keyword, or index of the `Card` after which this card
         should be located in the header.
 
+    output: path-like, optional
+        The output file.
+
+    Returns
+    -------
+    ccd : CCDData
+        The header-updated CCDData. `None` if `item` was pure Header.
     """
     def _add_key(header, key, val, infostr, cmt=None, before=None, after=None):
         header.set(key, value=val, comment=cmt, before=before, after=after)
@@ -2162,20 +2175,37 @@ def hedit(
         cmt2hdr(header, 'h', infostr, verbose=verbose)
         update_tlm(header)
 
-    if key in header:
-        oldv = header[key]
-        infostr = ("[HEDIT] "
-                   + f"{key}={oldv} ({type(oldv)}) --> {value} ({type(value)})")
-        _add_key(header, key, value, infostr, cmt=comment, before=before, after=after)
-
+    if isinstance(item, fits.header.Header):
+        header = item
+        if verbose:
+            print("item is astropy Header. (any `output` is igrnoed).")
+        output = None
+        ccd = None
     else:
-        if add:  # add key only if `add` is True.
-            infostr = f"[HEDIT add] {key}={value} ({type(value)})"
-            _add_key(header, key, value, infostr, cmt=comment, before=before, after=after)
-        elif verbose:
-            print(f"{key = } does not exist in the header. Skipped. (add=True to proceed)")
+        ccd, imname, imtype = _parse_image(item, force_ccddata=True)
+        header = ccd.header
 
-    return header
+    keys, values, comments, befores, afters = listify(keys, values, comments,
+                                                      befores, afters)
+
+    for key, val, cmt, bef, aft in zip(keys, values, comments, befores, afters):
+        if key in header:
+            oldv = header[key]
+            infostr = (f"[HEDIT] {key}={oldv} ({type(oldv)}) --> {val} ({type(val)})")
+            _add_key(header, key, val, infostr, cmt=cmt, before=bef, after=aft)
+        else:
+            if add:  # add key only if `add` is True.
+                infostr = f"[HEDIT add] {key}={val} ({type(val)})"
+                _add_key(header, key, val, infostr, cmt=cmt, before=bef, after=aft)
+            elif verbose:
+                print(f"{key = } does not exist in the header. Skipped. (add=True to proceed)")
+
+    if output is not None:
+        ccd.write(output, overwrite=overwrite, output_verify=output_verify)
+        if verbose:
+            print(f"{imname} --> {output}")
+
+    return ccd
 
 
 def key_remover(header, remove_keys, deepremove=True):
