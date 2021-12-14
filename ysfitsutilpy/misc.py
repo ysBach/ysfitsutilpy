@@ -103,25 +103,67 @@ def is_list_like(*objs, allow_sets=True, func=all):
     )
 
 
-def listify(obj, totuple=False):
-    """Make an object into a list.
+# def listify(obj):
+#     """Make an object into a list.
+
+#     Parameters
+#     ----------
+#     obj : None, str, list-like
+#         Object to be made into a list. If `str`, it will be converted to
+#         ``[obj]``. If `None`, an empty list (`[]`) is returned.
+#     """
+#     if obj is None:
+#         return []
+#     elif is_list_like(obj):
+#         return list(obj)
+#     else:
+#         return [obj]
+
+
+def listify(*objs):
+    """Make multiple object into list of same length.
 
     Parameters
     ----------
-    obj : None, str, list-like
-        Object to be made into a list. If `str`, it will be converted to
-        ``[obj]``. If `None`, an empty list (`[]`) is returned.
-    totuple : bool, optional
-        Whether to use `tuple` as the return type.
-        Default: `False`
-    """
-    if obj is None:
-        return () if totuple else []
-    elif is_list_like(obj):
-        return tuple(obj) if totuple else list(obj)
-    else:
-        return tuple([obj]) if totuple else [obj]
+    objs : None, str, list-like
+        If single object, it will be converted to a list ``[obj]``. If `None`,
+        an empty list (`[]`) is returned. If multiple objects are given,
+        maximum length of them is used as the target length. Any scalar valued
+        object will be converted to a list of that target length. If any obj of
+        `None` need to be converted to a length>1 list, it will be made as
+        [None, None, ...], rather than an empty list.
 
+    Tests
+    assert listify("ab") == ["ab"]
+    assert listify(12) == [12]
+    assert listify([1]) == [1]
+    assert listify(None) == []
+    assert listify([1, 2]) == [1, 2]
+    assert listify([1, "a"]) == [1, "a"]
+    assert listify([1, 2], "a") == [[1, 2], ['a', 'a']]
+    assert listify([1, 2], "a", None) == [[1, 2], ['a', 'a'], [None, None]]
+    with pytest.raises(ValueError):
+        listify([1, 2], "a", [3, 4, 5])
+    """
+    def _listify_single(obj, none_to_list=True):
+        if obj is None:
+            return [obj] if none_to_list else []
+        elif is_list_like(obj):
+            return list(obj)
+        else:
+            return [obj]
+
+    if len(objs) == 1:
+        return _listify_single(objs[0], none_to_list=False)
+
+    objlists = [_listify_single(obj, none_to_list=True) for obj in objs]
+    lengths = [len(obj) for obj in objlists]
+    length = max(lengths)
+    for objl in objlists:
+        if len(objl) not in [1, length]:
+            raise ValueError(f"Each input must be 1 or max(lengths)={length}.")
+
+    return [obj*length if len(obj) == 1 else obj for obj in objlists]
 
 def parse_crrej_psf(
         fs="median",
