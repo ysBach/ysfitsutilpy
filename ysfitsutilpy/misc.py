@@ -103,7 +103,7 @@ def is_list_like(*objs, allow_sets=True, func=all):
     )
 
 
-def listify(obj):
+def listify(obj, totuple=False):
     """Make an object into a list.
 
     Parameters
@@ -111,13 +111,16 @@ def listify(obj):
     obj : None, str, list-like
         Object to be made into a list. If `str`, it will be converted to
         ``[obj]``. If `None`, an empty list (`[]`) is returned.
+    totuple : bool, optional
+        Whether to use `tuple` as the return type.
+        Default: `False`
     """
     if obj is None:
-        return []
+        return () if totuple else []
     elif is_list_like(obj):
-        return list(obj)
+        return tuple(obj) if totuple else list(obj)
     else:
-        return [obj]
+        return tuple([obj]) if totuple else [obj]
 
 
 def parse_crrej_psf(
@@ -125,63 +128,147 @@ def parse_crrej_psf(
         psffwhm=2.5,
         psfsize=7,
         psfbeta=4.765,
-        check_if_list=False
+        fill_with_none=True
 ):
     """Return a dict of minimal keyword arguments for
         `~astroscrappy.detect_cosmics`.
+    fs : str, ndarray, list of such, optional.
+        If it is a list-like of kernels, it must **NOT** be an ndarray of
+        ``N-by-2`` or ``2-by-N``, etc. You may use `list`, `tuple`, or even
+        `~pandas.Series` of ndarrays.
+    fill_with_none : bool, optional.
+        If `True`, the unnecessary keywords will be filled with `None`, rather
+        than default parameter values (IRAF version of LACosmics). Works only
+        if any of the input parmeters is list-like. If all input parameters are
+        scalar (or `fs` is a single ndarray), only minimal dict is returned
+        without filling with `None`.
+    Notes
+    -----
+    assert parse_crrej_psf() == {'fsmode': 'median'}
+
+    assert (parse_crrej_psf("gauss", psffwhm=2, psfsize=3, psfbeta=1)
+            == {'fsmode': 'convolve', 'psfmodel': 'gauss', 'psffwhm': 2, 'psfsize': 3})
+
+    assert (parse_crrej_psf("moffat", psffwhm=2, psfsize=3, psfbeta=1)
+            == {'fsmode': 'convolve', 'psfmodel': 'moffat', 'psffwhm': 2, 'psfsize': 3, 'psfbeta': 1})
+
+    assert (parse_crrej_psf("moffat", psffwhm=2, psfsize=3, psfbeta=[1, 2])
+        == {'fsmode': ['convolve', 'convolve'],
+ 'psfmodel': ['moffat', 'moffat'],
+ 'psfk': [None, None],
+ 'psffwhm': [2, 2],
+ 'psfsize': [3, 3],
+ 'psfbeta': [1, 2]}
+    )
+
+    assert (parse_crrej_psf([np.eye(3), np.eye(5)])
+    == {'fsmode': ['convolve', 'convolve'],
+ 'psfmodel': [None, None],
+ 'psfk': [np.array([[1., 0., 0.],
+         [0., 1., 0.],
+         [0., 0., 1.]]),
+  np.array([[1., 0., 0., 0., 0.],
+         [0., 1., 0., 0., 0.],
+         [0., 0., 1., 0., 0.],
+         [0., 0., 0., 1., 0.],
+         [0., 0., 0., 0., 1.]])],
+ 'psffwhm': [None, None],
+ 'psfsize': [None, None],
+ 'psfbeta': [None, None]}
+)
+
+    with pytest.raises(ValueError):
+        parse_crrej_psf("moffat", psffwhm=2, psfsize=[3, 3, 3], psfbeta=[1, 2])
+
+    assert (parse_crrej_psf("gaussx", fill_with_none=False)
+    == {'fsmode': 'convolve', 'psfmodel': 'gaussx', 'psffwhm': 2.5, 'psfsize': 7})
+
+    assert (parse_crrej_psf("moffat", psffwhm=[2, 3, 4], fill_with_none=False)
+    == {'fsmode': ['convolve', 'convolve', 'convolve'],
+ 'psfmodel': ['moffat', 'moffat', 'moffat'],
+ 'psfk': [None, None, None],
+ 'psffwhm': [2, 3, 4],
+ 'psfsize': [7, 7, 7],
+ 'psfbeta': [4.765, 4.765, 4.765]}
+ )
     """
-    def _allocate(_fs, _psffwhm, _psfsize, _psfbeta):
-        if _fs == "median":
-            fsmode = "median"
-            psfmodel = None
-            psfk = None
-            psffwhm = None
-            psfsize = None
-            psfbeta = None
-        elif _fs == "moffat":
-            fsmode = "convolve"
-            psfmodel = "moffat"
-            psfk = None
-            psffwhm = _psffwhm
-            psfsize = _psfsize
-            psfbeta = _psfbeta
-        elif _fs in ("gauss", "gaussx", "gaussy"):
-            fsmode = "convolve"
-            psfmodel = _fs
-            psfk = None
-            psffwhm = _psffwhm
-            psfsize = _psfsize
-            psfbeta = None
-        elif isinstance(_fs, np.ndarray):
-            fsmode = "convolve"
-            psfmodel = None
-            psfk = _fs
-            psffwhm = None
-            psfsize = None
-            psfbeta = None
-        elif is_list_like(_fs):
-            fsmode = "convolve"
-            raise ValueError(f"fs ({fs}) not understood")
-        return fsmode, psfmodel, psfk, psffwhm, psfsize, psfbeta
+    if (is_list_like(psffwhm, psfsize, psfbeta, func=any)
+            or (is_list_like(fs) and not isinstance(fs, np.ndarray))):
+        fs = listify(fs)
+        psffwhm = listify(psffwhm)
+        psfsize = listify(psfsize)
+        psfbeta = listify(psfbeta)
+        lengths = (len(fs), len(psffwhm), len(psfsize), len(psfbeta))
+        length = max(lengths)
+        if not all(_len in [1, length] for _len in lengths):
+            raise ValueError(
+                "`fs`, `psffwhm`, `psfsize`, and `psfbeta` must all be "
+                f"length 1 or the same length (current maxlength = {length})."
+            )
 
-    if check_if_list:
-        if is_list_like(fs, psffwhm, psfsize, psfbeta, forall=False):
-            if len(fs) != len(psffwhm) != len(psfsize) != len(psfbeta):
-                raise ValueError(
-                    "Length of fs, psffwhm, psfsize, and psfbeta must be the same."
-                )
+        fs = fs*length if len(fs) == 1 else fs
+        psffwhm = psffwhm*length if len(psffwhm) == 1 else psffwhm
+        psfsize = psfsize*length if len(psfsize) == 1 else psfsize
+        psfbeta = psfbeta*length if len(psfbeta) == 1 else psfbeta
 
+        def _allocate(_fs, _psffwhm, _psfsize, _psfbeta):
+            if isinstance(_fs, str):
+                if _fs == "median":
+                    fsmode = "median"
+                    psfmodel = None if fill_with_none else LACOSMIC_KEYS["psfmodel"]
+                    psfk = None  # anyway, default in LACOSMIC_KEYS is `None`
+                    psffwhm = None if fill_with_none else LACOSMIC_KEYS["psffwhm"]
+                    psfsize = None if fill_with_none else LACOSMIC_KEYS["psfsize"]
+                    psfbeta = None if fill_with_none else LACOSMIC_KEYS["psfbeta"]
+                elif _fs == "moffat":
+                    fsmode = "convolve"
+                    psfmodel = "moffat"
+                    psfk = None
+                    psffwhm = _psffwhm
+                    psfsize = _psfsize
+                    psfbeta = _psfbeta
+                elif _fs in ("gauss", "gaussx", "gaussy"):
+                    fsmode = "convolve"
+                    psfmodel = _fs
+                    psfk = None
+                    psffwhm = _psffwhm
+                    psfsize = _psfsize
+                    psfbeta = None if fill_with_none else LACOSMIC_KEYS["psfbeta"]
+            elif isinstance(_fs, np.ndarray):
+                fsmode = "convolve"
+                psfmodel = None if fill_with_none else LACOSMIC_KEYS["psfmodel"]
+                psfk = _fs
+                psffwhm = None if fill_with_none else LACOSMIC_KEYS["psffwhm"]
+                psfsize = None if fill_with_none else LACOSMIC_KEYS["psfsize"]
+                psfbeta = None if fill_with_none else LACOSMIC_KEYS["psfbeta"]
+            else:
+                raise ValueError(f"fs ({fs}) not understood")
+            return fsmode, psfmodel, psfk, psffwhm, psfsize, psfbeta
 
-    if fs == "median":
-        return dict(fsmode=fs)
-    elif fs == "moffat":
-        return dict(fsmode="convolve", psfmodel="moffat",
-                    psffwhm=psffwhm, psfsize=psfsize, psfbeta=psfbeta)
-    elif fs in ["gauss", "gaussx", "gaussy"]:
-        return dict(fsmode="convolve", psfmodel=fs,
-                    psffwhm=psffwhm, psfsize=psfsize)
+        res = dict(fsmode=[], psfmodel=[], psfk=[], psffwhm=[], psfsize=[], psfbeta=[])
+        for _fs, _psffwhm, _psfsize, _psfbeta in zip(fs, psffwhm, psfsize, psfbeta):
+            fsmode, psfmodel, psfk, psffwhm, psfsize, psfbeta = _allocate(
+                _fs, _psffwhm, _psfsize, _psfbeta
+            )
+            res["fsmode"].append(fsmode)
+            res["psfmodel"].append(psfmodel)
+            res["psfk"].append(psfk)
+            res["psffwhm"].append(psffwhm)
+            res["psfsize"].append(psfsize)
+            res["psfbeta"].append(psfbeta)
+        return res
+
     elif isinstance(fs, np.ndarray):
         return dict(fsmode="convolve", psfk=fs)
+    elif isinstance(fs, str):
+        if fs == "median":
+            return dict(fsmode=fs)
+        elif fs == "moffat":
+            return dict(fsmode="convolve", psfmodel="moffat",
+                        psffwhm=psffwhm, psfsize=psfsize, psfbeta=psfbeta)
+        elif fs in ["gauss", "gaussx", "gaussy"]:
+            return dict(fsmode="convolve", psfmodel=fs,
+                        psffwhm=psffwhm, psfsize=psfsize)
     else:
         raise ValueError(f"fs ({fs}) not understood")
 

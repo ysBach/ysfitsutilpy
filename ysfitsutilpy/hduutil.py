@@ -1,7 +1,6 @@
 import glob
 import re
 import sys
-from collections import Iterable
 from copy import deepcopy
 from pathlib import Path, PosixPath, WindowsPath
 from warnings import warn
@@ -13,16 +12,17 @@ from astropy import units as u
 from astropy.coordinates import SkyCoord
 from astropy.io import fits
 from astropy.nddata import CCDData, Cutout2D
+from astropy.stats import mad_std
 from astropy.table import Table
 from astropy.time import Time
-from astropy.stats import mad_std
 from astropy.visualization import ImageNormalize, ZScaleInterval
 from astropy.wcs import WCS, Wcsprm
 from ccdproc import trim_image
 # from scipy.interpolate import griddata
 from scipy.ndimage import label as ndlabel
 
-from .misc import _image_shape, binning, change_to_quantity, fitsxy2py, str_now
+from .misc import (_image_shape, binning, change_to_quantity, fitsxy2py,
+                   is_list_like, listify, str_now)
 
 try:
     import fitsio
@@ -44,7 +44,7 @@ except ImportError:
 __all__ = [
     "ASTROPY_CCD_TYPES",
     # ! file io related:
-    "get_size", "is_list_like", "listify", "write2fits",
+    "get_size", "write2fits",
     # ! parsers:
     "_parse_data_header", "_parse_image", "_has_header", "_parse_extension",
     # ! loaders:
@@ -100,40 +100,6 @@ def get_size(obj, seen=None):
           and not isinstance(obj, (str, bytes, bytearray))):
         size += sum([get_size(i, seen) for i in obj])
     return size
-
-
-def is_list_like(obj):
-    ''' Direct copy from pandas, with slight modification
-    https://github.com/pandas-dev/pandas/blob/bdb00f2d5a12f813e93bc55cdcd56dcb1aae776e/pandas/_libs/lib.pyx#L1026
-
-    Note that pd.DataFrame also returns True.
-    '''
-    return(
-        isinstance(obj, Iterable)
-        # we do not count strings/unicode/bytes as list-like
-        and not isinstance(obj, (str, bytes))
-        # exclude zero-dimensional numpy arrays, effectively scalars
-        and not (isinstance(obj, np.ndarray) and obj.ndim == 0)
-        # exclude sets if allow_sets is False
-        # and not (allow_sets is False and isinstance(obj, abc.Set))
-    )
-
-
-def listify(obj):
-    """Make an object into a list.
-
-    Parameters
-    ----------
-    obj : None, str, list-like
-        Object to be made into a list. If `str`, it will be converted to
-        ``[obj]``. If `None`, an empty list (`[]`) is returned.
-    """
-    if obj is None:
-        return []
-    elif is_list_like(obj):
-        return list(obj)
-    else:
-        return [obj]
 
 
 def write2fits(data, header, output, return_ccd=False, **kwargs):
@@ -972,8 +938,7 @@ def inputs2list(
         if accept_ccdlike:
             outlist = [inputs]
         else:
-            kind = type(inputs)
-            raise TypeError(f"{kind} is given as `inputs`. "
+            raise TypeError(f"{type(inputs)} is given as `inputs`. "
                             + "Turn off accept_ccdlike or use path-like.")
     elif isinstance(inputs, (Table, dict, pd.DataFrame)):
         # Do this before is_list_like because DataFrame returns True in
@@ -997,8 +962,7 @@ def inputs2list(
                 if accept_ccdlike:
                     outlist.append(item)
                 else:
-                    kind = type(item)
-                    raise TypeError(f"{kind} is given in the {i}-th element. "
+                    raise TypeError(f"{type(item)} is given in the {i}-th element. "
                                     + "Turn off accept_ccdlike or use path-like.")
             else:  # assume it is path-like
                 if path_to_text:
