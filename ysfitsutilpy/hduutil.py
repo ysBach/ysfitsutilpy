@@ -57,7 +57,7 @@ __all__ = [
     "fixpix",
     "make_errormap", "errormap",
     # ! header update:
-    "add2hdr", "update_tlm", "update_process", "key_remover", "key_mapper", "chk_keyval",
+    "cmt2hdr", "update_tlm", "update_process", "hedit", "key_remover", "key_mapper", "chk_keyval",
     # ! header accessor:
     "get_from_header", "get_if_none",
     # ! WCS related:
@@ -1112,7 +1112,7 @@ def set_ccd_attribute(
 
             ccd.header[key] = (value_Q.value, header_comment)
         # add as history
-        add2hdr(ccd.header, 'h', s, t_ref=_t_start)
+        cmt2hdr(ccd.header, 'h', s, t_ref=_t_start)
 
     setattr(ccd, name, value_Q)
     update_tlm(ccd.header)
@@ -1251,7 +1251,7 @@ def trim_ccd(ccd, fits_section=None, update_header=True, verbose=False):
                     if f"LTM{i}_{j}" not in hdr:
                         hdr[f"LTM{i}_{j}"] = 0.
 
-        add2hdr(hdr, 'h', trim_str, t_ref=_t, verbose=verbose)
+        cmt2hdr(hdr, 'h', trim_str, t_ref=_t, verbose=verbose)
 
     return trimmed_ccd
 
@@ -1341,7 +1341,7 @@ def bezel_ccd(
         nccd.data[:, :bezel_x[0]] = replace
         nccd.data[:, nx - bezel_x[0]:] = replace
         if update_header:
-            add2hdr(
+            cmt2hdr(
                 nccd.header, 'h', t_ref=_t, verbose=verbose,
                 s=(f"Replaced pixels with bezel width {bezel_x} along x and "
                    + f"{bezel_y} along y with {replace}.")
@@ -1566,7 +1566,7 @@ def bin_ccd(
         _ccd.header["YBINNING"] = (factor_y,
                                    "Binning done after the observation in Y direction")
         # add as history
-        add2hdr(_ccd.header, 'h', t_ref=_t_start,
+        cmt2hdr(_ccd.header, 'h', t_ref=_t_start,
                 s=f"Binned by (xbin, ybin) = ({factor_x}, {factor_y}) ")
     return _ccd
 
@@ -1750,7 +1750,7 @@ def fixpix(
         _ccd.header["MASKORD"] = (str(priority), "Axis priority for fixpix (python order)")
         # MASKFILE: name identical to IRAF
         # add as history
-        add2hdr(_ccd.header, 'h', t_ref=_t_start, verbose=verbose,
+        cmt2hdr(_ccd.header, 'h', t_ref=_t_start, verbose=verbose,
                 s="Pixel values fixed by fixpix.")
         update_process(_ccd.header, "P")
 
@@ -1802,7 +1802,7 @@ def fixpix(
 #         _ccd.header["MASKNPIX"] = (np.count_nonzero(mask),
 #                                    "Total num of pixesl fixed by fixpix.")
 #         # add as history
-#         add2hdr(_ccd.header, 'h', t_ref=_t_start, s="Pixel values fixed by fixpix")
+#         cmt2hdr(_ccd.header, 'h', t_ref=_t_start, s="Pixel values fixed by fixpix")
 #     update_tlm(_ccd.header)
 
 #     return _ccd
@@ -1932,7 +1932,7 @@ def errormap(
     # var_dark_err = (dark_err/flat)**2
 
 
-def add2hdr(
+def cmt2hdr(
         header,
         histcomm,
         s,
@@ -1988,22 +1988,22 @@ def add2hdr(
     Note
     ----
     The timming benchmark shows that,
-    %timeit add2hdr(hdu.header, 'comm', 'aadfaer sdf')
+    %timeit cmt2hdr(hdu.header, 'comm', 'aadfaer sdf')
     310 µs +/- 2.93 µs per loop (mean +/- std. dev. of 7 runs, 1000 loops each)
 
-    %timeit add2hdr(hdu.header, 'comM', 'aadfaer sdf')
+    %timeit cmt2hdr(hdu.header, 'comM', 'aadfaer sdf')
     309 µs +/- 2.48 µs per loop (mean +/- std. dev. of 7 runs, 1000 loops each)
 
-    %timeit add2hdr(hdu.header, 'comMent', 'aadfaer sdf')
+    %timeit cmt2hdr(hdu.header, 'comMent', 'aadfaer sdf')
     15.4 ms +/- 299 µs per loop (mean +/- std. dev. of 7 runs, 100 loops each)
     '''
     pall = locals()
     if histcomm.lower() in ['h', 'hist']:
         pall['histcomm'] = 'HISTORY'
-        return add2hdr(**pall)
+        return cmt2hdr(**pall)
     elif histcomm.lower() in ['c', 'com', 'comm']:
         pall['histcomm'] = 'COMMENT'
-        return add2hdr(**pall)
+        return cmt2hdr(**pall)
     # The "elif not in raise" gives large bottleneck if, e.g., ``histcomm="ComMent"``...
     # elif histcomm.lower() not in ['history', 'comment']:
     #     raise ValueError("Only HISTORY or COMMENT are supported now.")
@@ -2098,7 +2098,7 @@ def update_process(
         # do not additionally add comment.
     elif add_comment:
         # add comment.
-        add2hdr(
+        cmt2hdr(
             header, 'c',
             f"Standard items for {key} includes B=bias, D=dark, F=flat, T=trim, W=WCS, "
             + "C=CRrej, Fr=fringe, P=fixpix, X=crosstalk."
@@ -2109,8 +2109,68 @@ def update_process(
     if additional_comment:
         addstr = [f"{k}={v}" for k, v in additional_comment.items()]
         addstr = ', '.join(addstr)
-        add2hdr(header, 'c', f"User added items to {key}: {addstr}.")
+        cmt2hdr(header, 'c', f"User added items to {key}: {addstr}.")
     update_tlm(header)
+
+
+def hedit(
+        header,
+        key,
+        value,
+        comment=None,
+        before=None,
+        after=None,
+        add=False,
+        verbose=True
+):
+    """ Edit the header key (usu. to update value of a keyword).
+
+    Parameters
+    ----------
+    header : header
+        The header to edit.
+
+    key : str
+        The key to edit.
+
+    value : str
+        The new value.
+
+    comment : str, optional.
+        The comment to add.
+
+    add : bool, optional.
+        Whether to add the key if it is not in the header.
+
+    before : str, int, optional
+        Name of the keyword, or index of the `Card` before which this card
+        should be located in the header. The argument `before` takes
+        precedence over `after` if both specified.
+
+    after : str, int, optional
+        Name of the keyword, or index of the `Card` after which this card
+        should be located in the header.
+
+    """
+    def _add_key(header, key, value, infostr, comment=None, before=None, after=None):
+        header.set(key, value=value, comment=comment, before=before, after=after)
+        # infostr += " (comment: {})".format(comment) if comment is not None else ""
+        if before is not None:
+            infostr += f" (moved: {before=})"
+        elif after is not None:  # `after` is ignored if `before` is given
+            infostr += f" (moved: {after=})"
+        cmt2hdr(header, 'h', infostr, verbose=verbose)
+        update_tlm(header)
+
+    if key in header:
+        infostr = f"{key}={header[key]} -> {value}"
+        _add_key(header, key, value, infostr, comment=comment, before=before, after=after)
+
+    elif add:  # add key only if `add` is True.
+        infostr = f"Added a new key: {key}={value}"
+        _add_key(header, key, value, infostr, comment=comment, before=before, after=after)
+
+    return header
 
 
 def key_remover(header, remove_keys, deepremove=True):
