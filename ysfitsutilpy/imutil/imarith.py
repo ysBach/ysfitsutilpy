@@ -6,7 +6,7 @@ from astropy.nddata import CCDData
 from astropy.time import Time
 
 from ..hduutil import (CCDData_astype, _has_header, _parse_extension,
-                       _parse_image, add2hdr, calc_offset_physical,
+                       _parse_image, cmt2hdr, calc_offset_physical,
                        calc_offset_wcs, trim_ccd, update_tlm)
 from ..misc import _offsets2slice
 
@@ -39,7 +39,7 @@ def _update_hdr(
         infostr += f" -> {output}"
     if error_calc:
         infostr += " with error propagation"
-    add2hdr(header, 'h', s=infostr, t_ref=t_ref, verbose=verbose)
+    cmt2hdr(header, 'h', s=infostr, t_ref=t_ref, verbose=verbose)
     update_tlm(header)
 
 
@@ -62,7 +62,7 @@ def _ccddata_operator(op):
 def _replace_nan(res, header, replace=None):
     if replace is not None:
         res.data[~np.isfinite(res.data)] = replace
-        add2hdr(header, 'h', f"Non-finite pixels replaced by {replace}", time_fmt=None)
+        cmt2hdr(header, 'h', f"Non-finite pixels replaced by {replace}", time_fmt=None)
 
 
 def _load_im_name_hdr(

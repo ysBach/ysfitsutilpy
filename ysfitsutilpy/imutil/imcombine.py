@@ -10,7 +10,7 @@ from astropy.wcs import WCS
 
 from ..combutil import group_fits
 from ..filemgmt import make_summary
-from ..hduutil import (_parse_data_header, _parse_extension, add2hdr,
+from ..hduutil import (_parse_data_header, _parse_extension, cmt2hdr,
                        calc_offset_physical, calc_offset_wcs, get_size,
                        inputs2list, load_ccd, str_now,
                        update_tlm, write2fits, fitsxy2py)
@@ -582,7 +582,7 @@ def imcombine(
             pass
     # ------------------------------------------------------------------------------------ #
 
-    add2hdr(hdr0, 'h', t_ref=_t, verbose=verbose,
+    cmt2hdr(hdr0, 'h', t_ref=_t, verbose=verbose,
                   s=f"Loaded {ncombine} FITS, calculated zero, scale, weights")
 
     # == Combine with rejection! ========================================================= #
@@ -640,7 +640,7 @@ def imcombine(
     except (KeyError, IndexError):
         unit = 'adu'
 
-    add2hdr(hdr0, 'h', t_ref=_t, verbose=verbose, s="Rejection and combination done")
+    cmt2hdr(hdr0, 'h', t_ref=_t, verbose=verbose, s="Rejection and combination done")
     comb = comb.astype(dtype)
     comb = CCDData(data=comb, header=hdr0, unit=unit)
 

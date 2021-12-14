@@ -12,7 +12,7 @@ from astroscrappy import detect_cosmics
 from ccdproc import flat_correct, subtract_bias, subtract_dark
 
 from .hduutil import (CCDData_astype, _parse_data_header, _parse_image,
-                      add2hdr, errormap, fixpix, listify, load_ccd,
+                      cmt2hdr, errormap, fixpix, listify, load_ccd,
                       propagate_ccdmask, set_ccd_gain_rdnoise, trim_ccd,
                       update_process, update_tlm)
 from .misc import change_to_quantity, fitsxy2py, parse_crrej_psf
@@ -25,7 +25,7 @@ __all__ = [
 # def _add_and_print(s, header, verbose, update_header=True, t_ref=None):
 #     if update_header:
 #         # add as history
-#         add2hdr(header, 'h', s, t_ref=t_ref)
+#         cmt2hdr(header, 'h', s, t_ref=t_ref)
 #     if verbose:
 #         if isinstance(s, str):
 #             print(str_now(fmt='{}'), s)
@@ -402,7 +402,7 @@ def crrej(
     if update_header and hdr is not None:
         nrej_cr = np.sum(crmask)
         hdr["CRNFIX"] = (nrej_cr, "Number of cosmic-ray pixels fixed.")
-        add2hdr(
+        cmt2hdr(
             hdr, 'h', verbose=verbose, t_ref=_t,
             s=str_cr.format(nrej_cr, astroscrappy.__version__, crrej_kwargs)
         )
@@ -605,7 +605,7 @@ def medfilt_bpm(
     med_filt = median_filter(arr, **medfilt_kw)
 
     if update_header:
-        add2hdr(
+        cmt2hdr(
             hdr, 'h', verbose=verbose, t_ref=_t,
             s=f"Median filtered (convolved) frame calculated with {medfilt_kw}"
         )
@@ -617,7 +617,7 @@ def medfilt_bpm(
 
         std = np.sqrt((1 + snoise)*med_filt/gain + (rdnoise/gain)**2)
         if update_header:
-            add2hdr(
+            cmt2hdr(
                 hdr, 'h', verbose=verbose, t_ref=_t,
                 s=("Stdev map is generated from median filtered frame by "
                    + "sqrt{(1 + snoise)*med_filt/gain + (rdnoise/gain)**2}")
@@ -640,7 +640,7 @@ def medfilt_bpm(
                               "Sky stdev for median filter BPM (MBPM) algorithm")
             hdr["MB_SSECT"] = (f"{std_section}",
                                "Sky stdev calculation section in MBPM algorithm")
-            add2hdr(
+            cmt2hdr(
                 hdr, 'h', verbose=verbose, t_ref=_t,
                 s=("Sky standard deviation (MB_SSKY) calculated by sigma clipping at "
                    + f"MB_SSECT with {sigclip_kw}; used for std_ratio map calculation.")
@@ -715,11 +715,11 @@ def medfilt_bpm(
         hdr["MB_STD_L"] = (std_rat_clip[0],
                            "Lower clip of (data-medfilt)/std map (MBPM)")
 
-        add2hdr(
+        cmt2hdr(
             hdr, 'h', verbose=verbose, t_ref=_t,
             s="Median-filter based Bad-Pixel Masking (MBPM) applied."
         )
-        # add2hdr(
+        # cmt2hdr(
         #     hdr, 'h', verbose=verbose, t_ref=_t,
         #     s=("(1) Median additive difference (data-medfilt) generated, "
         #        + "(2) Median ratio (data/|medfilt|) generated, "
@@ -990,7 +990,7 @@ def bdf_process(
             s = str_fringe_noscale
         mfringe.data *= scale
         proc.data = proc.subtract(mfringe).data  # should I calc. error..?
-        add2hdr(proc.header, 'h', s, verbose=verbose_bdf, t_ref=_t)
+        cmt2hdr(proc.header, 'h', s, verbose=verbose_bdf, t_ref=_t)
         return proc
 
     # ************************************************************************************ #
@@ -1005,7 +1005,7 @@ def bdf_process(
     # == Log the CCDPROC version ========================================================== #
     if "CCDPROCV" in proc.header:
         if str(proc.header["CCDPROCV"]) != str(ccdproc.__version__):
-            add2hdr(proc.header, "h",
+            cmt2hdr(proc.header, "h",
                     ("The ccdproc version prior to this modification was "
                      + f"{proc.header['CCDPROCV']}."))
             proc.header["CCDPROCV"] = (ccdproc.__version__,
@@ -1030,7 +1030,7 @@ def bdf_process(
 
         if dark_scale:
             # TODO: what if dark_exposure, data_exposure are given explicitly?
-            add2hdr(proc.header, 'h', str_dscale.format(exposure_key), verbose=verbose_bdf)
+            cmt2hdr(proc.header, 'h', str_dscale.format(exposure_key), verbose=verbose_bdf)
 
     # == Set for FLAT ==================================================================== #
     do_flat, mflat, mflatpath = _load_master(mflatpath, mflat)
@@ -1081,13 +1081,13 @@ def bdf_process(
         mfringe = trim_ccd(mfringe, **sect) if do_fringe else None
         PROCESS.append("T")
 
-        add2hdr(proc.header, 'h', str_trim.format(trim_fits_section), verbose=verbose_bdf, t_ref=_t)
+        cmt2hdr(proc.header, 'h', str_trim.format(trim_fits_section), verbose=verbose_bdf, t_ref=_t)
 
     # == Do BIAS ========================================================================= #
     if do_bias:
         _t = Time.now()
         proc = subtract_bias(proc, mbias)
-        add2hdr(proc.header, 'h', str_bias.format(mbiaspath), verbose=verbose_bdf, t_ref=_t)
+        cmt2hdr(proc.header, 'h', str_bias.format(mbiaspath), verbose=verbose_bdf, t_ref=_t)
 
     # == Do DARK ========================================================================= #
     if do_dark:
@@ -1112,7 +1112,7 @@ def bdf_process(
                              exposure_time=exposure_key,
                              exposure_unit=exposure_unit,
                              scale=dark_scale)
-        add2hdr(proc.header, 'h', str_dark.format(mdarkpath), verbose=verbose_bdf, t_ref=_t)
+        cmt2hdr(proc.header, 'h', str_dark.format(mdarkpath), verbose=verbose_bdf, t_ref=_t)
 
     # == Set for uncertainty ============================================================= #
     # Make UNCERT extension before doing FLAT and FRINGE
@@ -1126,7 +1126,7 @@ def bdf_process(
         s = [str_e0]
         if do_dark:
             s.append(str_ed)
-        add2hdr(proc.header, 'h', s, verbose=verbose_bdf, t_ref=_t)
+        cmt2hdr(proc.header, 'h', s, verbose=verbose_bdf, t_ref=_t)
 
     # == Do FRINGE **before** flat if not `fringe_flat_fielded` ========================== #
     if do_fringe and not fringe_flat_fielded:
@@ -1146,7 +1146,7 @@ def bdf_process(
         if calc_err and mflat.uncertainty is not None:
             s.append(str_ef)
 
-        add2hdr(proc.header, 'h', s, verbose=verbose_bdf, t_ref=_t)
+        cmt2hdr(proc.header, 'h', s, verbose=verbose_bdf, t_ref=_t)
 
     # == Do FRINGE **after** flat if `fringe_flat_fielded` =============================== #
     if do_fringe and fringe_flat_fielded:
@@ -1159,19 +1159,19 @@ def bdf_process(
         if data_exposure is None:
             data_exposure = proc.header[exposure_key]
         proc.data = proc.data/data_exposure  # uncertainty will also be..
-        add2hdr(proc.header, 'h', str_nexp, verbose=verbose_bdf, t_ref=_t)
+        cmt2hdr(proc.header, 'h', str_nexp, verbose=verbose_bdf, t_ref=_t)
 
     if normalize_average:
         _t = Time.now()
         avg = np.mean(proc.data)
         proc.data = proc.data/avg
-        add2hdr(proc.header, 'h', str_navg, verbose=verbose_bdf, t_ref=_t)
+        cmt2hdr(proc.header, 'h', str_navg, verbose=verbose_bdf, t_ref=_t)
 
     if normalize_median:
         _t = Time.now()
         med = np.median(proc.data)
         proc.data = proc.data/med
-        add2hdr(proc.header, 'h', str_nmed, verbose=verbose_bdf, t_ref=_t)
+        cmt2hdr(proc.header, 'h', str_nmed, verbose=verbose_bdf, t_ref=_t)
 
     # == Do CRREJ ======================================================================== #
     if do_crrej:

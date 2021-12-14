@@ -11,7 +11,7 @@ from astropy.time import Time
 from ccdproc import combine, trim_image
 
 from .filemgmt import load_if_exists, make_summary
-from .hduutil import (CCDData_astype, _parse_extension, add2hdr,
+from .hduutil import (CCDData_astype, _parse_extension, cmt2hdr,
                       inputs2list, load_ccd, trim_ccd, chk_keyval)
 
 __all__ = [
@@ -502,10 +502,8 @@ def stack_FITS(
     if fitslist is not None:
         try:
             fitslist = list(fitslist)
-        except TypeError:
-            raise TypeError(
-                f"fitslist must be convertable to list. It's now {type(fitslist)}."
-            )
+        except TypeError as E:
+            raise E(f"fitslist must be convertable to list. It's now {type(fitslist)}.")
 
         if selecting:
             summary_table = make_summary(
@@ -945,21 +943,21 @@ def combine_ccd(
                            sort_by=None)
         exptimes = tmp[exposure_key].tolist()
         scale = 1 / np.array(exptimes)
-        add2hdr(header, 'h', str_nexp, verbose=verbose)
+        cmt2hdr(header, 'h', str_nexp, verbose=verbose)
 
     # Normalize by pixel average
     if normalize_average:
         def invavg(a):
             return 1 / np.mean(a)
         scale = invavg
-        add2hdr(header, 'h', str_navg, verbose=verbose)
+        cmt2hdr(header, 'h', str_navg, verbose=verbose)
 
     # Normalize by pixel median
     if normalize_median:
         def invmed(a):
             return 1 / np.median(a)
         scale = invmed
-        add2hdr(header, 'h', str_nmed, verbose=verbose)
+        cmt2hdr(header, 'h', str_nmed, verbose=verbose)
 
     # Set rejection switches
     clip_extrema, minmax_clip, sigma_clip = _set_reject_method(reject_method)
@@ -999,7 +997,7 @@ def combine_ccd(
                            str(combine_method),
                            str(reject_method),
                            kwargs)
-    add2hdr(header, 'h', s, verbose=verbose, t_ref=_t)
+    cmt2hdr(header, 'h', s, verbose=verbose, t_ref=_t)
     # header.add_history(str_history.format(ncombine,
     #                                       str(type_key),
     #                                       str(type_val),
@@ -1011,7 +1009,7 @@ def combine_ccd(
         _t = Time.now()
         subtract = CCDData(subtract_frame.copy())
         master.data = master.subtract(subtract).data
-        add2hdr(header, 'h', str_subt, header, verbose=verbose, t_ref=_t)
+        cmt2hdr(header, 'h', str_subt, header, verbose=verbose, t_ref=_t)
 
     if trim_fits_section is not None:
         master = trim_ccd(master, fits_section=trim_fits_section,
