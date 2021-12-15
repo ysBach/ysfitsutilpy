@@ -250,9 +250,9 @@ def _parse_data_header(
                         else:
                             data = fits.getdata(Path(ccdlike), extension)
                     hdr = None
-            except TypeError:
-                raise TypeError(f"ccdlike type ({type(ccdlike)}) is not acceptable "
-                                + "to find header and data.")
+            except TypeError as E:
+                raise E(f"ccdlike type ({type(ccdlike)}) is not acceptable "
+                        + "to find header and data.")
 
     return data, hdr
 
@@ -379,8 +379,8 @@ def _parse_image(
                 new_im = load_ccd(fpath, extension, ccddata=use_ccddata_if_path,
                                   extension_uncertainty=None, extension_mask=None)
                 imtype = "path"
-            except TypeError:
-                raise TypeError(
+            except TypeError as E:
+                raise E(
                     "input must be CCDData-like, ndarray, path-like (to FITS), or a number."
                 )
 
@@ -725,8 +725,8 @@ def load_ccd(
 
     try:
         path = Path(path)
-    except TypeError:
-        raise TypeError(f"You must provide Path-like, not {type(path)}.")
+    except TypeError as E:
+        raise E(f"You must provide Path-like, not {type(path)}.")
 
     extension = _parse_extension(extension)
 
@@ -793,8 +793,8 @@ def load_ccd(
                     raise ValueError(
                         f"Extension `{_extension}` is not found (file: {_path})"
                     )
-                except ValueError:
-                    raise ValueError()
+                except ValueError as E:
+                    raise E()
 
                 return arr
 
@@ -923,7 +923,9 @@ def inputs2list(
         Default: `False`.
     '''
     contains_ccdlike = False
-    if isinstance(inputs, str):
+    if inputs is None:
+        return None
+    elif isinstance(inputs, str):
         if inputs.startswith("@"):
             with open(inputs[1:]) as ff:
                 outlist = ff.read().splitlines()
@@ -945,10 +947,8 @@ def inputs2list(
         # is_list_like as it is iterable.
         try:
             outlist = list(inputs["file"])
-        except KeyError:
-            raise KeyError(
-                "If inputs is DataFrame convertible, it must have column named 'file'."
-            )
+        except KeyError as E:
+            raise E("If inputs is DataFrame convertible, it must have column named 'file'.")
     elif is_list_like(inputs):
         type_ref = type(inputs[0])
         outlist = []
@@ -2340,8 +2340,8 @@ def chk_keyval(type_key, type_val, group_key):
             type_key = list(type_key)
             if not all(isinstance(x, str) for x in type_key):
                 raise TypeError("Some of type_key are not str.")
-        except TypeError:
-            raise TypeError("type_key should be str or convertible to list.")
+        except TypeError as E:
+            raise E("type_key should be str or convertible to list.")
     elif isinstance(type_key, str):
         type_key = [type_key]
     else:
@@ -2353,8 +2353,8 @@ def chk_keyval(type_key, type_val, group_key):
     elif is_list_like(type_val):
         try:
             type_val = list(type_val)
-        except TypeError:
-            raise TypeError("type_val should be str or convertible to list.")
+        except TypeError as E:
+            raise E("type_val should be str or convertible to list.")
     elif isinstance(type_val, str):
         type_val = [type_val]
     else:
