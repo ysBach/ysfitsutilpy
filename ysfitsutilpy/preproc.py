@@ -637,9 +637,9 @@ def medfilt_bpm(
             hdr['MB_MODEL'] = (std_model,
                                "Method used for getting stdev map")
             hdr["MB_SSKY"] = (std,
-                              "Sky stdev for median filter BPM (MBPM) algorithm")
+                              "Sky stdev for median filter BPM (MBPM)")
             hdr["MB_SSECT"] = (f"{std_section}",
-                               "Sky stdev calculation section in MBPM algorithm")
+                               "Sky stdev calculation section in MBPM")
             cmt2hdr(
                 hdr, 'h', verbose=verbose, t_ref=_t,
                 s=("Sky standard deviation (MB_SSKY) calculated by sigma clipping at "
