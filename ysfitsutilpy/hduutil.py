@@ -1663,7 +1663,7 @@ def fixpix(
     for i in range(ndim):
         sls = [[slice(1, 2, None)]*ndim for _ in range(ndim)][0]
         sls[i] = slice(None, None, None)
-        structures[i][sls] = 1
+        structures[i][tuple(sls)] = 1
     # structures[i] is the structure to obtain the num. of connected pix. along axis=i
 
     pixels = []
@@ -1741,7 +1741,7 @@ def fixpix(
 
         val_init = data.item(tuple(coord_init))
         val_last = data.item(tuple(coord_last))
-        data[coord_slice].flat = (val_last - val_init)/delta*grid + val_init
+        data[tuple(coord_slice)].flat = (val_last - val_init)/delta*grid + val_init
 
     if update_header:
         nfix = np.count_nonzero(mask)
@@ -2085,12 +2085,7 @@ def update_process(
         reads "User added items for `key`: v=vertical pattern, f=fourier
         pattern."
     """
-    if isinstance(process, str):
-        process = [process]
-    elif not is_list_like(process):
-        raise TypeError("additional_process must be str or list-like.")
-    else:
-        process = list(process)
+    process = listify(process)
 
     haskey = key in header
     if haskey:
@@ -2182,7 +2177,7 @@ def hedit(
         output = None
         ccd = None
     else:
-        ccd, imname, imtype = _parse_image(item, force_ccddata=True)
+        ccd, imname, _ = _parse_image(item, force_ccddata=True)
         header = ccd.header
 
     keys, values, comments, befores, afters = listify(keys, values, comments,
