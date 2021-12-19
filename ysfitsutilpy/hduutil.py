@@ -2087,9 +2087,8 @@ def update_process(
     """
     process = listify(process)
 
-    haskey = key in header
-    if haskey:
-        process = [header[key]] + process
+    if key in header:
+        process = [header[key]].split(delimiter) + process
         # do not additionally add comment.
     elif add_comment:
         # add comment.
@@ -2102,8 +2101,7 @@ def update_process(
     header[key] = (delimiter.join(process), "Process (order: 1-2-3-...): see comment.")
 
     if additional_comment:
-        addstr = [f"{k}={v}" for k, v in additional_comment.items()]
-        addstr = ', '.join(addstr)
+        addstr = ", ".join([f"{k}={v}" for k, v in additional_comment.items()])
         cmt2hdr(header, 'c', f"User added items to {key}: {addstr}.")
     update_tlm(header)
 
