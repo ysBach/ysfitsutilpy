@@ -341,7 +341,7 @@ def crrej(
 
     # remove the fucxing cosmic rays
     crrej_kwargs = dict(
-        gain=1.0,
+        gain=gain,
         readnoise=rdnoise,
         sigclip=sigclip,
         sigfrac=sigfrac,
@@ -387,8 +387,7 @@ def crrej(
             )
 
     # create the new ccd data object
-    if ASTROSCRAPPY_DIVFACTOR != 1.:
-        _ccd.data = cleanarr / ASTROSCRAPPY_DIVFACTOR
+    _ccd.data = cleanarr / ASTROSCRAPPY_DIVFACTOR
 
     if propagate_crmask:
         _ccd.mask = propagate_ccdmask(_ccd, additional_mask=crmask)
