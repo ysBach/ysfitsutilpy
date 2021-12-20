@@ -15,12 +15,24 @@ from .hduutil import (CCDData_astype, _parse_data_header, _parse_image,
                       cmt2hdr, errormap, fixpix, listify, load_ccd,
                       propagate_ccdmask, set_ccd_gain_rdnoise, trim_ccd,
                       update_process, update_tlm)
-from .misc import change_to_quantity, fitsxy2py, parse_crrej_psf
+from .misc import change_to_quantity, fitsxy2py, parse_crrej_psf, LACOSMIC_CRREJ
 
 __all__ = [
     "crrej", "medfilt_bpm", "bdf_process", "run_reduc_plan"
 ]
 
+
+ASTROSCRAPPY_DIVFACTOR = detect_cosmics(np.ones((3, 3)), gain=1., niter=0)[1][0, 0]
+# astroscrappy used to return the data in e- unit, but suddenly changed around
+# version 1.1.0.... Jeez...
+# https://github.com/astropy/astroscrappy/issues/73
+# %timeit detect_cosmics(np.ones((3, 3)), gain=1., niter=0)[1][0, 0] == 1.
+# ^ takes ~ 40 us VS ~ 1200 us on MBP 15" [2018, macOS 11.6 i7-8850H (2.6 GHz;
+#   6-core), RAM 16 GB (2400MHz DDR4), Radeon Pro 560X (4GB)] VS MBP 16" [2021,
+#   macOS 12.0.1, M1Pro, 8P+2E core, GPU 16-core, RAM 16GB]. I dunno why they
+#   differ so much... Does not change much w.r.t. gain, shape, etc. Maybe cuz
+#   I'm using Rosetta2 (Anaconda) on the latter? 2021-12-13 13:27:35
+#   (KST: GMT+09:00) ysBach
 
 # def _add_and_print(s, header, verbose, update_header=True, t_ref=None):
 #     if update_header:
@@ -314,7 +326,6 @@ def crrej(
             )
 
     _ccd = ccd.copy()
-    data, hdr = _parse_data_header(_ccd)
     if mask is None:
         inmask = None
     else:
@@ -331,7 +342,7 @@ def crrej(
     # remove the fucxing cosmic rays
     crrej_kwargs = dict(
         gain=1.0,
-        rdnoise=rdnoise,
+        readnoise=rdnoise,
         sigclip=sigclip,
         sigfrac=sigfrac,
         objlim=objlim,
@@ -348,7 +359,7 @@ def crrej(
     )
     try:
         crmask, cleanarr = detect_cosmics(
-            data,
+            _ccd.data,
             inmask=inmask,
             inbkg=inbkg,
             invar=invar,
@@ -358,7 +369,7 @@ def crrej(
     except TypeError:  # astroscrappy < 1.1.1 (Commit on 2021-11-20) Jeez...
         try:
             crmask, cleanarr = detect_cosmics(
-                data,
+                _ccd.data,
                 inmask=inmask,
                 bkg=inbkg,
                 var=invar,
@@ -368,7 +379,7 @@ def crrej(
         except TypeError:  # astroscrappy < 1.1.0 (Commit on 2020-11-21) Jeez...
             # Error if inbkg is ndarray
             crmask, cleanarr = detect_cosmics(
-                data,
+                _ccd.data,
                 inmask=inmask,
                 pssl=inbkg,
                 verbose=verbose,
@@ -376,34 +387,20 @@ def crrej(
             )
 
     # create the new ccd data object
-    #   astroscrappy used to return the data in e- unit, but suddenly changed
-    #   in around version 1.1.0.... Jeez...
-    #   https://github.com/astropy/astroscrappy/issues/73
-    divfactor = detect_cosmics(np.ones((3, 3)), gain=1., niter=0)[1][0, 0]
-    # %timeit detect_cosmics(np.ones((3, 3)), gain=1., niter=0)[1][0, 0] == 1.
-    # ^ takes ~ 40 us VS ~ 1200 us on MBP 15" [2018, macOS 11.6 i7-8850H (2.6
-    # GHz; 6-core), RAM 16 GB (2400MHz DDR4), Radeon Pro 560X (4GB)] VS MBP 16"
-    # [2021, macOS 12.0.1, M1Pro, 8P+2E core, GPU 16-core, RAM 16GB].
-    # I dunno why they differ so much... Does not change much w.r.t. gain,
-    # shape, etc. Maybe cuz I'm using Rosetta2 (Anaconda) on the latter?
-    # 2021-12-13 13:27:35 (KST: GMT+09:00) ysBach
-    if divfactor != 1.:
-        _ccd.data = cleanarr / divfactor
+    if ASTROSCRAPPY_DIVFACTOR != 1.:
+        _ccd.data = cleanarr / ASTROSCRAPPY_DIVFACTOR
 
     if propagate_crmask:
         _ccd.mask = propagate_ccdmask(_ccd, additional_mask=crmask)
 
-    if add_process and hdr is not None:
-        try:
-            hdr["PROCESS"] += "C"
-        except KeyError:
-            hdr["PROCESS"] = "C"
+    if add_process and _ccd.header is not None:
+        update_process(_ccd.header, process="C")
 
-    if update_header and hdr is not None:
+    if update_header and _ccd.header is not None:
         nrej_cr = np.sum(crmask)
-        hdr["CRNFIX"] = (nrej_cr, "Number of cosmic-ray pixels fixed.")
+        _ccd.header["CRNFIX"] = (nrej_cr, "Number of cosmic-ray pixels fixed.")
         cmt2hdr(
-            hdr, 'h', verbose=verbose, t_ref=_t,
+            _ccd.header, 'h', verbose=verbose, t_ref=_t,
             s=str_cr.format(nrej_cr, astroscrappy.__version__, crrej_kwargs)
         )
     else:
@@ -411,8 +408,7 @@ def crrej(
             nrej_cr = np.sum(crmask)
             print(str_cr.format(nrej_cr, astroscrappy.__version__, crrej_kwargs))
 
-    update_tlm(hdr)
-    _ccd.header = hdr
+    update_tlm(_ccd.header)
 
     return _ccd, crmask
 
@@ -1092,18 +1088,19 @@ def bdf_process(
     # == Do DARK ========================================================================= #
     if do_dark:
         _t = Time.now()
-        if dark_scale and data_exposure is None:
-            try:
-                data_exposure = proc.header[exposure_key]
-            except (KeyError, AttributeError) as e:
-                raise e("Dark must be scaled but data's exposure time "
-                        + f"({exposure_key}) is not found from.")
-        if dark_scale and dark_exposure is None:
-            try:
-                dark_exposure = mdark.header[exposure_key]
-            except (KeyError, AttributeError) as e:
-                raise e("Dark must be scaled but dark's exposure time "
-                        + f"({exposure_key}) is not found from.")
+        if dark_scale and exposure_key is None:
+            if data_exposure is None:
+                try:
+                    data_exposure = proc.header[exposure_key]
+                except (KeyError, AttributeError) as e:
+                    raise e("Dark must be scaled but data's exposure time "
+                            + f"({exposure_key}) is not found from.")
+            if dark_exposure is None:
+                try:
+                    dark_exposure = mdark.header[exposure_key]
+                except (KeyError, AttributeError) as e:
+                    raise e("Dark must be scaled but dark's exposure time "
+                            + f"({exposure_key}) is not found from.")
 
         proc = subtract_dark(proc,
                              mdark,
@@ -1252,6 +1249,14 @@ def run_reduc_plan(
     verbose_bdf : bool, optional
         [description], by default True
     """
+    def _get_frms(df, col):
+        if col not in df:
+            return {}
+        ccds = {}
+        for fpath in df[col].unique():
+            ccds[fpath] = load_ccd(fpath)
+        return ccds
+
     if not isinstance(plan, pd.DataFrame):
         raise TypeError("plan must be a pandas.DataFrame.")
 
@@ -1259,57 +1264,69 @@ def run_reduc_plan(
         raise ValueError("No output file and return_ccd is False. "
                          + "Nothing will be saved and nothing will be returned.")
 
-    calframes = {}
     output = [None]*len(plan) if output is None else listify(output)
 
     if len(output) != len(plan):
         raise ValueError("output must have the same length as the plan.")
 
-    if preload_cals:
-        for key, col in zip(["mbias", "mdark", "mflat", "mfringe", "mask"],
-                            [col_bias, col_dark, col_flat, col_fringe, col_mask]):
-            if col in plan.columns:
-                calframes[key] = {fpath: load_ccd(fpath) for fpath in plan[col].unique()}
-            else:
-                calframes[key] = {}  # to be able to use `.get` later
+    mbiass = _get_frms(plan, col_bias) if preload_cals else {}
+    mdarks = _get_frms(plan, col_dark) if preload_cals else {}
+    mflats = _get_frms(plan, col_flat) if preload_cals else {}
+    mfrins = _get_frms(plan, col_fringe) if preload_cals else {}
+    mmasks = _get_frms(plan, col_mask) if preload_cals else {}
 
     if return_ccd:
         ccds = []
 
     for (_, row), outpath in zip(plan.iterrows(), output):
-        ccd = load_ccd(row[col_file])
-        # ^ Better to load as CCDData here rather than pass filepath to
-        # `bdf_process`, to avoid parsing overhead in `_parse_image`.
-
-        mbiaspath = row.get(col_bias)
-        mdarkpath = row.get(col_dark)
-        mflatpath = row.get(col_flat)
-        mfringepath = row.get(col_fringe)
-        nccd = bdf_process(
-            ccd,
+        mbiaspath = row.get(col_bias)  # either path or None
+        mdarkpath = row.get(col_dark)  # either path or None
+        mflatpath = row.get(col_flat)  # either path or None
+        mfringepath = row.get(col_fringe)  # either path or None
+        maskpath = row.get(col_mask)
+        ccd = bdf_process(
+            load_ccd(row[col_file]),
             extension=extension,
-            mbias=calframes["mbias"].get(mbiaspath),  # = None if not preload_cals
-            mdark=calframes["mdark"].get(mdarkpath),  # = None if not preload_cals
-            mflat=calframes["mflat"].get(mflatpath),  # = None if not preload_cals
-            mfringe=calframes["mfringe"].get(mfringepath),  # = None if not preload_cals
+            mbias=mbiass.get(mbiaspath),  # = None if not preload_cals or mbiaspath=None
+            mdark=mdarks.get(mdarkpath),  # (same as above)
+            mflat=mflats.get(mflatpath),  # (same as above)
+            mfringe=mfrins.get(mfringepath),  # (same as above)
             mbiaspath=mbiaspath,
             mdarkpath=mdarkpath,
             mflatpath=mflatpath,
             mfringepath=mfringepath,
         )
-        maskpath = row.get(col_mask)
-        mask = None if maskpath is None else load_ccd(maskpath)
+        # ^ Better to load as CCDData here rather than pass filepath to
+        #   `bdf_process`, to avoid parsing overhead in `_parse_image`.
+
+        ccd = fixpix(
+            ccd,
+            mmasks.get(maskpath),  # = None if not preload_cals or mmaskpath=None
+            maskpath=maskpath,
+            **fixpix_kw
+        )
 
         if do_crrej:
-            nccd = crrej(
-                nccd,
-                mask=mask,
-
+            ccd, _ = crrej(
+                ccd,
+                mask=mmasks.get(maskpath),
+                gain=row.get("gain", LACOSMIC_CRREJ.get("gain")),
+                rdnoise=row.get("rdnoise", LACOSMIC_CRREJ.get("rdnoise")),
+                sigclip=row.get("sigclip", LACOSMIC_CRREJ.get("sigclip")),
+                sigfrac=row.get("sigfrac", LACOSMIC_CRREJ.get("sigfrac")),
+                objlim=row.get("objlim", LACOSMIC_CRREJ.get("objlim")),
+                satlevel=row.get("satlevel", LACOSMIC_CRREJ.get("satlevel")),
+                niter=row.get("niter", LACOSMIC_CRREJ.get("niter")),
+                sepmed=row.get("sepmed", LACOSMIC_CRREJ.get("sepmed")),
+                cleantype=row.get("cleantype", LACOSMIC_CRREJ.get("cleantype")),
+                fs=row.get("fs", LACOSMIC_CRREJ.get("fs")),
+                psffwhm=row.get("psffwhm", LACOSMIC_CRREJ.get("psffwhm")),
+                psfsize=row.get("psfsize", LACOSMIC_CRREJ.get("psfsize")),
+                psfbeta=row.get("psfbeta", LACOSMIC_CRREJ.get("psfbeta")),
+                verbose=verbose
             )
 
-        nccd = fixpix(nccd, mask, maskpath=maskpath, **fixpix_kw)
-
         if outpath is not None:
-            nccd.write(outpath, overwrite=True, output_verify="fix")
+            ccd.write(outpath, overwrite=True, output_verify="fix")
         if return_ccd:
-            ccds.append(nccd)
+            ccds.append(ccd)
