@@ -50,6 +50,7 @@ def group_fits(
         verbose=False
 ):
     ''' Organize the group_by and type_key for stack_FITS
+
     Parameters
     ----------
     summary_table: pandas.DataFrame or astropy.table.Table
@@ -66,8 +67,8 @@ def group_fits(
         grouping will occur, but it will return the `~pandas.DataFrameGroupBy`
         object will be returned for the sake of consistency.
 
-    Return
-    ------
+    Returns
+    -------
     grouped : ~pandas.DataFrameGroupBy
         The table after the grouping process.
 
@@ -76,8 +77,8 @@ def group_fits(
         element of `grouped.groups`. Basically this is ``type_key +
         group_key``.
 
-    Example
-    -------
+    Examples
+    --------
     >>> allfits = list(Path('.').glob("*.fits"))
     >>> summary_table = make_summary(allfits)
     >>> type_key = ["OBJECT"]
@@ -181,8 +182,8 @@ def select_fits(
     type_key, type_val: str, list of str
         The header keyword for the ccd type, and the value you want to match.
 
-    Return
-    ------
+    Returns
+    -------
     matched: list of Path or list of CCDData
         list containing Path to files if `prefer_ccddata` is `False`. Otherwise
         it is a list containing loaded CCDData after loading the files. If
@@ -452,8 +453,8 @@ def stack_FITS(
         Whether to load as `~astropy.nddata.CCDData`. If `False`, numpy ndarray
         will be used. Works only if ``ccddata = True``.
 
-    Return
-    ------
+    Returns
+    -------
     matched: list of Path or list of CCDData
         list containing Path to files if `ccddata` is `False`. Otherwise it is
         a list containing loaded CCDData after loading the files. If `ccdlist`
@@ -854,10 +855,8 @@ def combine_ccd(
                 # == a list of path-like or CCDData ====================================== #
                 try:
                     fitslist = list(fitslist)
-                except TypeError:
-                    raise TypeError(
-                        f"fitslist must be convertable to list. It's now {type(fitslist)}."
-                    )
+                except TypeError as E:
+                    raise E(f"fitslist must be list-like. It's now {type(fitslist)}.")
 
     # If summary_table
     if summary_table is not None:

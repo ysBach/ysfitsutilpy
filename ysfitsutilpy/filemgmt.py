@@ -16,9 +16,12 @@ from astropy.nddata import CCDData
 
 from .hduutil import (_parse_extension, cut_ccd, inputs2list, key_mapper,
                       key_remover)
+from .misc import listify, parse_crrej_psf, LACOSMIC_CRREJ
 
 __all__ = [
     "mkdir", "load_if_exists", "make_summary", "df_selector",
+    "make_reduc_planner",
+    # "planner_add_crrej",
     "fits_newpath", "fitsrenamer"
 ]
 
@@ -87,7 +90,7 @@ def make_summary(
         example_header=None,
         sort_by='file',
         fullmatch={},
-        query_str=None,
+        querystr=None,
         verbose=True
 ):
     """ Extracts summary from the headers of FITS files.
@@ -102,6 +105,7 @@ def make_summary(
         `~astropy.table.Table`) is given, it finds the ``"file"`` column and
         use it as the input files, make a summary table from the headers of
         those files.
+        If `inputs` is `None`, any `output` is ignored and `None` is returned.
 
     extension: int, str, (str, int)
         The extension of FITS to be used. It can be given as integer
@@ -137,11 +141,12 @@ def make_summary(
         ``summarytab[column].str.fullmatch(regex, case=True)``.
         Default: `None`
 
-    query_str : str, optional
-        The query string used for ``summarytab.query(query_str)``.
+    querystr : str, optional
+        The query string used for ``summarytab.query(querystr)``. See
+        `~pandas.DataFrame.query`.
 
-    Return
-    ------
+    Returns
+    -------
     summarytab: astropy.Table
 
     Notes
@@ -175,9 +180,13 @@ def make_summary(
     Select all rows with ``OBJECT`` starts with "Ves", ``FILTER`` is "J", and
     ``EXPTIME`` is 2 or 3:
     >>> # fullmatch = {"OBJECT": "Ves.*", "FILTER": "J"},
-    >>> # query_str="EXPTIME in [2, 3]""""
+    >>> # querystr="EXPTIME in [2, 3]
+    """
     # No need to sort here because the real "sort" will be done later based on
     # ``sort_by`` column.
+    if inputs is None:
+        return None
+
     fitslist = inputs2list(inputs, sort=False, accept_ccdlike=True, check_coherency=False)
 
     if len(fitslist) == 0:
@@ -276,7 +285,7 @@ def make_summary(
         summarytab.sort_values(sort_by, inplace=True)
     summarytab.reset_index(drop=True, inplace=True)
 
-    summarytab = df_selector(summarytab, fullmatch=fullmatch, query_str=query_str)
+    summarytab = df_selector(summarytab, fullmatch=fullmatch, querystr=querystr)
     if output is not None:
         output = Path(output)
         if verbose:
@@ -289,7 +298,12 @@ def make_summary(
 def df_selector(
         summarytab,
         fullmatch=None,
+        flags=0,
+        negate_fullmatch=False,
         querystr=None,
+        columns=None,
+        columns_drop=None,
+        reset_index=True,
 ):
     """Select rows from a summary table.
 
@@ -300,22 +314,34 @@ def df_selector(
         information.
     fullmatch : dict, optional
         The ``{column: regex}`` style dict to be used for selecting rows by
-        ``summarytab[column].str.fullmatch(regex, case=True)``.
+        ``summarytab[column].str.fullmatch(regex, case=True)``. An example:
+        ``{"OBJECT": "Ves.*"}``. All corresponding columns must have dtype of
+        `str` to apply regex.
         Default: `None`
+    negate_fullmatch: bool, optional.
+        Whether to negate the mask by `fullmatch`, in case the user does not
+        want to think much about regex to negate it.
+    flags: int, optional.
+        Regex module flags, e.g. re.IGNORECASE. Default: 0
     querystr : str, optional
-        The query string used for ``summarytab.query(querystr)``.
+        The query string used for ``summarytab.query(querystr)``. See
+        `~pandas.DataFrame.query`.
+    columns, columns_drop: str, list, optional.
+        The list of columns to be returned/dropped after selection. No need to
+        setup both, but no Error will be raised even the user does so.
 
     Returns
     -------
     summarytab
-        The final summary table after selection. If ``fullmatch=None,
-        querystr=None`` (the default), the original summary table is returned
-        **without copying**.
+        The final summary table after selection. If everything is `None` (the
+        default), the original summary table is returned.
 
     Raises
     ------
     AttributeError
-        The column name is not `str`
+        The column dtype is not `str`
+    TypeError
+        fullmatch must be in `dict`.
 
     Examples
     --------
@@ -327,21 +353,324 @@ def df_selector(
     >>> # querystr="EXPTIME in [2, 3]"
 
     """
+    df = summarytab.copy()
+
     if fullmatch is not None:
-        select_mask = np.ones(len(summarytab), dtype=bool)
+        if not isinstance(fullmatch, dict):
+            raise TypeError("fullmatch must be a dict.")
+
+        select_mask = np.ones(len(df), dtype=bool)
         for k, v in fullmatch.items():
             try:
-                select_mask &= summarytab[k].str.fullmatch(v, case=True)
+                select_mask &= df[k].str.fullmatch(v, flags=flags, case=True)
             except AttributeError:
-                raise AttributeError(
-                    f"{k} is not a string column in the dataframe! "
-                    + "You may use `querystr` instead."
-                )
-        summarytab = summarytab[select_mask]
+                try:
+                    select_mask &= (df[k] == v)
+                except (ValueError, TypeError, AttributeError):
+                    raise TypeError(
+                        "Both ``summarytab[k].str.fullmatch(v)`` and "
+                        + f"``summarytab[{k}] == {v}`` failed.\n"
+                        + "Maybe use `querystr` instead?"
+                    )
+        df = df[~select_mask] if negate_fullmatch else df[select_mask]
 
     if querystr is not None:
-        summarytab = summarytab.query(querystr)
-    return summarytab
+        df = df.query(querystr)
+
+    if columns is not None:
+        df = df[listify(columns)]
+
+    if columns_drop is not None:
+        df.drop(listify(columns_drop), axis=1, inplace=True)
+
+    if reset_index:
+        df = df.reset_index(drop=True)
+
+    return df.copy()
+
+
+# def df_matcher(
+#     df1,
+#     df2,
+#     match_by=None
+# ):
+#     """
+
+#     Parameters
+#     ----------
+#     df1 : `~pandas.DataFrame`
+#         The first table for the rows to be picked out.
+#     df2 : `~pandas.DataFrame`
+#         The table for the rows to be matched based on `match_by`.
+#     match_by : [type], optional
+#         [description], by default None
+#     """
+#     if match_by is None:
+#         if not all(df2.columns.isin(df1.columns)):
+#             raise IndexError(
+#                 f"Some column of `df2` not found in `df1`. "
+#                 + "You may specify `match_by` to specify the columns to match."
+#             )
+#         match_by = list(df2.columns)
+#     match_by = np.atleast_1d(match_by)
+
+#     for idx, row in df1.iterrows():
+#         try:
+#             df2.loc[df2[match_by].eq(row[match_by]).all(axis=1), :]
+#         for col, cal, mat, calcol in zip(cols, cals, mats, calcols):
+#             mat = np.atleast_1d(mat)
+#             # If just a str, cal[mat]==row[mat] gives `Series`, not `DataFrame`,
+#             # hence `axis=1` raises error.
+#             try:
+#                 sel = cal[(cal[mat] == row[mat]).all(axis=1)]
+#                 if len(sel) == 1:
+#                     df.loc[idx, col] = sel[calcol].values[0]
+#                 elif len(sel) > 1:
+#                     raise ValueError(
+#                         f"More than one calibration frame found for {mat} = {row[mat].values}"
+#                     )
+#                 else:
+#                     continue
+#             except (IndexError):  # no match
+#                 continue
+
+
+def make_reduc_planner(
+        summary,
+        cal_summary,
+        newcolname,
+        match_by=None,
+        output=None,
+        cal_column="file",
+        col_remove="REMOVEIT",
+):
+    """Make a general purpose reducing plan table.
+
+    keys to select calibration frames
+
+    Parameters
+    ----------
+    summary : `~pandas.DataFrame` The summary table of the files to be reduced.
+
+    cal_summary : `~pandas.DataFrame` or list of such. The summary table of the
+        calibration files. If `list`, lengths of `cal_summary` and `column`
+        must be the same.
+
+        ..note::
+            If the file path is relative, the reference of these paths must be
+            identical to that in `summary`. If not, future reduction has no way
+            to find the corresponding calibration file.
+
+    newcolname : str or list of str The column name(s) to be added to
+        `summary`, which will contain the correspondong calibration frame
+        information (file name). If `list`, lengths of `cal_summary` and
+        `newcolname` must be the same.
+
+    match_by : str or list of str, optional The column name(s) to be used for
+        matching calibration frames. If `list`, lengths of `match_by` and
+        `newcolname` must be the same. To give multiple column names, use a
+        list of lists, so that ``(len(match_by))`` is the same as
+        ``len(newcolname)``. Rows that have no matching calibration frames will
+        be filled with `None`. Default: `None` (all of the columns in
+        `cal_summary` are used to match the calibration frames)
+
+    cal_column : str, optional The column name which contains the "value" (file
+        name) in `cal_summary`. If str, it is assumed all `cal_summary` have
+        the information at that column. Default: ``"file"``
+
+    Examples
+    --------
+    `df1` contains all the files to be reduced. `df2` and `df3` contains all
+    the dark and flat frames, respectively, and the file path is in ``"FRM"``
+    column:
+    >>> df1  # OBJECTS file  EXPTIME FILTER 0    h0001.fits     20.0      H 1
+    >>>            h0002.fits     20.0      H
+    >>> ..            ...      ...    ...
+    >>> 238  k0079.fits     20.0      K 239  k0080.fits     20.0      K [240
+    >>> rows x 3 columns]
+
+    >>> df2  # DARKS
+    >>> #   FILTER  EXPTIME FRM
+    >>> # 0      J       20   a.fits
+    >>> # 1      J       30   b.fits
+    >>> # 2      H       20   c.fits
+    >>> # 3      H       30   d.fits
+    >>> # 4      K       20   e.fits
+    >>> # 5      K       30   f.fits
+
+    >>> df3  # FLATS
+    >>> #   FILTER  EXPTIME FRM
+    >>> # 0      J       30   A.fits
+    >>> # 1      H       30   B.fits
+    >>> # 2      K       30   C.fits
+
+    (1) While preparing for making master calibration frames:
+    >>> df_flat = make_reduc_planner( df3, cal_summary=df2,
+    >>>     newcolname="DARKFRM", match_by=[["FILTER", "EXPTIME"]],
+    >>>     cal_column="FRM"
+    >>> )
+    >>> #   FILTER  EXPTIME FRM  REMOVEIT DARKFRM
+    >>> # 0      J       30   A         0       b
+    >>> # 1      H       30   B         0       d
+    >>> # 2      K       30   C         0       f
+    After this, one may make the master flat frame by
+
+
+    (1) We want to add ``"FLATFRM"`` column to `df1`, fill with the
+    corresponding calibration frame's path, by using (matching by) "FILTER":
+    >>> df1_d = make_reduc_planner( df1, cal_summary=df3, newcolname="FLATFRM",
+    >>>     match_by="FILTER",  # also possible: [["FILTER"]] cal_column="FRM"
+    >>> )
+
+    (2) Then add ``"DARKFRM"`` column to `df1_d`, fill with the corresponding
+    calibration frame's path, by using (matching by) "EXPTIME", and "FILTER":
+    >>> df1_df = make_reduc_planner( df1_d, cal_summary=df2,
+    >>>     newcolname="DARKFRM", match_by=[["EXPTIME", "FILTER"]],  # Note:
+    >>>     list of list to avoid length mismatch cal_column="FRM"
+    >>> )
+
+    (3) The above two steps can be combined into one step:
+    >>> df1_df_onestep = make_reduc_planner( df1, cal_summary=[df3, df2],
+    >>>     newcolname=["FLATFRM", "DARKFRM"], match_by=["FILTER", ["EXPTIME",
+    >>>     "FILTER"]], cal_column="FRM"  # also possible: ["FRM", "FRM"]
+    >>> )
+
+    >>> df1_df_onestep
+    >>> #            file  EXPTIME FILTER REMOVEIT FLATFRM DARKFRM
+    >>> # 0    h0001.fits     20.0      H        0 B.fits  c.fits
+    >>> # 1    h0002.fits     20.0      H        0 B.fits  c.fits
+    >>> # ..          ...      ...    ...      ...    ...     ...
+    >>> # 238  k0079.fits     20.0      K        0 C.fits  e.fits
+    >>> # 239  k0080.fits     20.0      K        0 C.fits  e.fits
+    >>> # [240 rows x 5 columns]
+
+    >>> np.all(df1_df == df1_df_onestep)
+    >>> # True
+
+    Notes
+    -----
+    In the above case, ~ 0.4s on MBP 16" [2021, macOS 12.0.1, M1Pro, 8P+2E
+    core, GPU 16-core, RAM 16GB]
+    >>> %%timeit df1_df_onestep = make_reduc_planner( df1, cal_summary=[df3,
+    >>> df2], newcolname=["FLATFRM", "DARKFRM"], match_by=["FILTER",
+    >>> ["EXPTIME", "FILTER"]], cal_column="FRM"  # also possible: ["FRM",
+    >>> "FRM"]
+    >>> )
+    >>> # 403 ms +- 11.2 ms per loop (mean +- std. dev. of 7 runs, 1 loop each)
+    """
+    df = summary.copy()
+
+    cals = [cal_summary] if isinstance(cal_summary, pd.DataFrame) else list(cal_summary)
+    cols = listify(newcolname)  # make as a list
+    if match_by is None:
+        for i, _cal in enumerate(cals):
+            if not all(_cal.columns.isin(df.columns)):
+                raise IndexError(
+                    f"Some column of `cal_summary[{i}]` not found in `summary`. "
+                    + "You may specify `match_by` to specify the columns to match."
+                )
+        mats = [[col for col in cal.columns if col != cal_column] for cal in cals]
+    else:
+        mats = listify(match_by)
+
+    calcols = listify(cal_column)
+    if len(calcols) == 1:
+        calcols = calcols * len(cals)
+
+    if not len(cals) == len(cols) == len(mats) == len(calcols):
+        raise ValueError(
+            "Length mismatch!! `cal_summary`, `newcolname`, `match_by`, `cal_column`: "
+            + f"{len(cals)}, {len(cols)}, {len(mats)}, {len(calcols)}"
+        )
+
+    # Initialize new columns
+    #  - REMOVEIT: whether to remove the matched row from the summary
+    if col_remove is not None:
+        df[col_remove] = 0
+    # - <CAL>FRM: the matched calibration frame's path
+    for c in cols:
+        df[c] = None
+
+    for idx, row in df.iterrows():
+        for col, cal, mat, calcol in zip(cols, cals, mats, calcols):
+            mat = np.atleast_1d(mat)
+            # If just a str, cal[mat]==row[mat] gives `Series`, not `DataFrame`,
+            # hence `axis=1` raises error.
+            try:
+                sel = cal[(cal[mat] == row[mat]).all(axis=1)]
+                if len(sel) == 1:
+                    df.loc[idx, col] = sel[calcol].values[0]
+                elif len(sel) > 1:
+                    raise ValueError(
+                        f"More than one calibration frame found for {mat} = {row[mat].values}"
+                    )
+                else:
+                    continue
+            except (IndexError):  # no match
+                continue
+
+    if output is not None:
+        df.to_csv(Path(output), index=False)
+
+    return df
+
+
+# def planner_add_crrej(
+#         plan,
+#         gain=1.,
+#         rdnoise=0.,
+#         sigclip=4.5,
+#         sigfrac=0.5,
+#         objlim=1.0,
+#         satlevel=1.e+9,
+#         niter=4,
+#         sepmed=False,
+#         cleantype='medmask',
+#         fs="median",
+#         psffwhm=2.5,
+#         psfsize=7,
+#         psfbeta=4.765,
+# ):
+#     """ Set crrej kwargs for `~ysfitsutilpy.preproc.crrej`.
+
+#     Notes
+#     -----
+#     See `~ysfitsutilpy.preproc.crrej`.
+
+#     All parameters are optional (default to IRAF version of LACosmic, except
+#     for `satlevel`, because `np.inf` is difficult to be saved to csv in the
+#     planner). Because the planner is meant to be a "simple" way of makeing
+#     reduction plan, `psfk` (i.e., `fs` in ndarray) is not supported due to the
+#     limitation of the CSV format.
+
+#     If any is given as list-like, it must have length equal to the number of
+#     `plan` rows. Otherwise, `~pandas` will raise ValueError.
+#     """
+#     if isinstance(fs, np.ndarray):
+#         raise TypeError("ndarray of `fs` (the `psfk` parameter) is not supported yet.")
+
+#     df = plan.copy()
+
+#     df["gain"] = gain
+#     df["rdnoise"] = rdnoise
+#     df["sigclip"] = sigclip
+#     df["sigfrac"] = sigfrac
+#     df["objlim"] = objlim
+#     df["satlevel"] = satlevel
+#     df["niter"] = niter
+#     df["sepmed"] = sepmed
+#     df["cleantype"] = cleantype
+
+#     psf_keys = parse_crrej_psf(
+#         fs=fs,
+#         psffwhm=psffwhm,
+#         psfsize=psfsize,
+#         psfbeta=psfbeta
+#     )
+#     for k, v in psf_keys.items():
+#         df[k] = v  # If ndarray, pandas will raise errors.
+
+#     return df
 
 
 def fits_newpath(
@@ -492,8 +821,8 @@ def fitsrenamer(
     add_header : header or Card object
         The header keyword, value (and comment) to add after the renaming.
 
-    Note
-    ----
+    Notes
+    -----
     MEF(Multi-Extension FITS) currently is not supported.
 
     '''

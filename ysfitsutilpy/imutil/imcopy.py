@@ -17,6 +17,7 @@ def imcopy(
         **kwargs
 ):
     ''' Similar to IRAF IMCOPY
+
     Parameters
     ----------
     inputs : glob pattern, list-like of path-like, list-like of CCDData
@@ -52,14 +53,15 @@ def imcopy(
     kwargs : optionals
         The keyword arguments for ``CCDData.write``.
 
-    Return
-    ------
+    Returns
+    -------
     results: CCDData or list of CCDData
         Only if `return_ccd` is set `True`. A sinlge `~astropy.nddata.CCDData
         will be returned if only one was input. Otherwise, the same number of
         `~astropy.nddata.CCDData will be gathered as a list and returned.
-    Note
-    ----
+
+    Notes
+    -----
     Due to the memory issue, it is generally better NOT to load all the FITS
     files and pass them to this function. Therefore, as it is in IRAF, I made
     this function to accept only the file paths, not the pre-loaded CCDData
