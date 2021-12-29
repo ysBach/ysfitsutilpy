@@ -89,8 +89,11 @@ def make_summary(
         keywords=None,
         example_header=None,
         sort_by='file',
-        fullmatch={},
+        sort_map=None,
+        fullmatch=None,
+        flags=0,
         querystr=None,
+        negate_fullmatch=False,
         verbose=True
 ):
     """ Extracts summary from the headers of FITS files.
@@ -136,10 +139,22 @@ def make_summary(
         The column name to sort the results. It can be any element of
         `keywords` or `'file'`, which sorts the table by the file name.
 
-    ffullmatch : dict, optional
+    sort_map: dict, optional
+        A subset of `key` parameter in `pandas.DataFrame.sort_values()`. If a
+        dict is given, then ``key = lambda x: x.map(sort_map)`` is passed into
+        `.sort_values()`.
+
+    fullmatch : dict, optional
         The ``{column: regex}`` style dict to be used for selecting rows by
         ``summarytab[column].str.fullmatch(regex, case=True)``.
         Default: `None`
+
+    negate_fullmatch: bool, optional.
+        Whether to negate the mask by `fullmatch`, in case the user does not
+        want to think much about regex to negate it.
+
+    flags: int, optional.
+        Regex module flags, e.g. re.IGNORECASE. Default: 0
 
     querystr : str, optional
         The query string used for ``summarytab.query(querystr)``. See
@@ -182,12 +197,14 @@ def make_summary(
     >>> # fullmatch = {"OBJECT": "Ves.*", "FILTER": "J"},
     >>> # querystr="EXPTIME in [2, 3]
     """
-    # No need to sort here because the real "sort" will be done later based on
-    # ``sort_by`` column.
     if inputs is None:
         return None
 
-    fitslist = inputs2list(inputs, sort=False, accept_ccdlike=True, check_coherency=False)
+    # Although there's no need to sort here because the real "sort" will be
+    # done later based on ``sort_by`` column, I did it here because the full
+    # header keys will be inferred from the 0-th element (if `keywords` is not
+    # given)
+    fitslist = inputs2list(inputs, sort=True, accept_ccdlike=True, check_coherency=False)
 
     if len(fitslist) == 0:
         if verbose:
@@ -281,11 +298,13 @@ def make_summary(
                 summarytab[k].append(None)
 
     summarytab = pd.DataFrame.from_dict(summarytab)
+    summarytab = df_selector(summarytab, fullmatch=fullmatch, flags=flags,
+                             querystr=querystr, negate_fullmatch=negate_fullmatch)
     if sort_by is not None:
-        summarytab.sort_values(sort_by, inplace=True)
+        key = None if sort_map is None else lambda x: x.map(sort_map)
+        summarytab.sort_values(sort_by, inplace=True, key=key)
     summarytab.reset_index(drop=True, inplace=True)
 
-    summarytab = df_selector(summarytab, fullmatch=fullmatch, querystr=querystr)
     if output is not None:
         output = Path(output)
         if verbose:
