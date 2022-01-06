@@ -351,7 +351,7 @@ def _set_minmax(arr, n_minmax, axis):
     else:
         raise ValueError("n_minmax must have shape[0] of 1 or 2.")
 
-    nimages = arr.shape[0]
+    nimages = arr.shape[axis]
 
     if q_low >= 1:  # if given as number of pixels
         q_low = q_low/nimages
@@ -408,54 +408,54 @@ def _set_gain_rdns(gain_or_rdnoise, ncombine, dtype='float32'):
 
 
 def _set_cenfunc(cenfunc, shorten=False, nameonly=True, nan=True):
-    if cenfunc in ['med', 'medi', 'median']:
+    if cenfunc is None:
+        return None
+    elif cenfunc in ['med', 'medi', 'median']:
         if nameonly:
-            cen = 'med' if shorten else 'median'
+            return 'med' if shorten else 'median'
         else:
-            cen = bn.nanmedian if nan else bn.median
+            return bn.nanmedian if nan else bn.median
     elif cenfunc in ['avg', 'average', 'mean']:
         if nameonly:
-            cen = 'avg' if shorten else 'average'
+            return 'avg' if shorten else 'average'
         else:
-            cen = bn.nanmean if nan else np.mean
+            return bn.nanmean if nan else np.mean
     elif cenfunc in ['lmed', 'lmd', 'lmedian']:
         if nameonly:
-            cen = 'lmd' if shorten else 'lmedian'
+            return 'lmd' if shorten else 'lmedian'
         else:
-            cen = nanlmedian if nan else lmedian
+            return nanlmedian if nan else lmedian
     else:
         raise ValueError('cenfunc not understood')
-
-    return cen
 
 
 def _set_combfunc(combfunc, shorten=False, nameonly=True, nan=True):
     ''' Identical to _set_cenfunc, except 'sum' is allowed.
     '''
-    if combfunc in ['med', 'medi', 'median']:
+    if combfunc is None:
+        return None
+    elif combfunc in ['med', 'medi', 'median']:
         if nameonly:
-            comb = 'med' if shorten else 'median'
+            return 'med' if shorten else 'median'
         else:
-            comb = bn.nanmedian if nan else bn.median
+            return bn.nanmedian if nan else bn.median
     elif combfunc in ['avg', 'average', 'mean']:
         if nameonly:
-            comb = 'avg' if shorten else 'average'
+            return 'avg' if shorten else 'average'
         else:
-            comb = bn.nanmean if nan else np.mean
+            return bn.nanmean if nan else np.mean
     elif combfunc in ['sum']:
         if nameonly:
-            comb = 'sum'
+            return 'sum'
         else:
-            comb = bn.nansum if nan else np.sum
+            return bn.nansum if nan else np.sum
     elif combfunc in ['lmed', 'lmd', 'lmedian']:
         if nameonly:
-            comb = 'lmd' if shorten else 'lmedian'
+            return 'lmd' if shorten else 'lmedian'
         else:
-            comb = nanlmedian if nan else lmedian
+            return nanlmedian if nan else lmedian
     else:
         raise ValueError('combfunc not understood')
-
-    return comb
 
 
 def _set_reject_name(reject):
@@ -464,11 +464,10 @@ def _set_reject_name(reject):
 
     rej = reject.lower()
     if rej in ['sig', 'sc', 'sigclip', 'sigma', 'sigma clip', 'sigmaclip']:
-        rej = 'sigclip'
+        return 'sigclip'
     elif rej in ['mm', 'minmax']:
-        rej = 'minmax'
+        return 'minmax'
     elif rej in ['ccd', 'ccdclip', 'ccdc']:
-        rej = 'ccdclip'
+        return 'ccdclip'
     elif rej in ['pclip', 'pc', 'percentile']:
-        rej = 'pclip'
-    return rej
+        return 'pclip'

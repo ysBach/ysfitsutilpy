@@ -20,7 +20,7 @@ from .util_comb import (_set_cenfunc, _set_combfunc, _set_gain_rdns,
                         _set_int_dtype, _set_keeprej, _set_mask,
                         _set_reject_name, _set_sigma, _set_thresh_mask, do_zs,
                         get_zsw)
-from .util_reject import ccdclip_mask, sigclip_mask
+from .util_reject import ccdclip_mask, sigclip_mask, minmax_mask
 
 __all__ = ["group_combine", "group_save", "imcombine", "ndcombine"]
 
@@ -56,7 +56,7 @@ def group_combine(
         type_key=None,
         type_val=None,
         group_key=None,
-        fmt='',
+        fmt=None,
         outdir=None,
         verbose=1,
         **kwargs
@@ -64,7 +64,7 @@ def group_combine(
     ''' Combine sub-groups of FITS files from the given input.
     Parameters
     ----------
-    inputs : glob pattern, list-like of path-like, list-like of CCDData-like
+    inputs : glob pattern, list-like of path-like
         The `~glob` pattern for files (e.g., ``"2020*[012].fits"``) or list of
         files (each element must be path-like or CCDData). Although it is not a
         good idea, a mixed list of CCDData and paths to the files is also
@@ -109,32 +109,34 @@ def group_combine(
     **kwargs :
         The keyword arguments for `imcombine`.
 
-    Return
-    ------
+    Returns
+    -------
     combined : dict of CCDData
         The dict object where keys are the header value of the `group_key` and
         the values are the combined images in CCDData object. If multiple keys
         for `group_key` is given, the key of this dict is a tuple.
     '''
-    def _group_save(ccd, groupname, fmt='', verbose=1, outdir=None):
+    def _group_save(ccd, groupname, fmt=None, verbose=1, outdir=None):
         ''' Saves the results.
         '''
         outdir = Path('.') if outdir is None else Path(outdir)
-        if verbose and not outdir.exists():
+        if verbose >= 1 and not outdir.exists():
             print(f"\tOutput directory: '{outdir}' <- does not exist! It will be newly made.")
 
         outdir.mkdir(exist_ok=True, parents=True)
 
-        if not fmt:
+        if fmt is None:
             nk = len(group_key) if is_list_like(group_key) else 1  # 1 if str
             fmt = "_".join(['{}']*nk)
-            if verbose:
+            if verbose >= 1:
                 print("\tWarning: fmt is not specified! Output file names might be ugly.")
 
         if isinstance(groupname, tuple):
             fname = fmt.format(*groupname) + ".fits"
         else:
             fname = fmt.format(groupname) + ".fits"
+
+        fname = fname.replace(".fits.fits", ".fits")
 
         fpath = outdir/fname
         if verbose >= 1:
@@ -146,7 +148,7 @@ def group_combine(
 
     _t = Time.now()
 
-    summary = make_summary(inputs)
+    summary = make_summary(inputs, verbose=verbose >= 2)
     gs, gt_key = group_fits(
         summary, type_key=type_key, type_val=type_val, group_key=group_key
     )
@@ -169,11 +171,11 @@ def group_combine(
             if verbose >= 1:
                 print("Only 1 FITS to combine -- returning it without any modification.")
             combined[g_val] = load_ccd(files[0])
-            if outdir is not None or fmt:
+            if outdir is not None or fmt is not None:
                 _group_save(combined[g_val], g_val, fmt=fmt, outdir=outdir)
         else:
             combined[g_val] = imcombine(files, verbose=verbose >= 2, **kwargs)
-            if outdir is not None or fmt:
+            if outdir is not None or fmt is not None:
                 _group_save(combined[g_val], g_val, fmt=fmt, outdir=outdir)
 
     if verbose >= 1:
@@ -211,12 +213,33 @@ def group_save(combined, fmt='', verbose=1, outdir=None):
         ccd.write(fpath, overwrite=True)
 
 
-def _update_hdr(header, ncombine, imcmb_key, imcmb_val, offset_mode=None, offsets=None):
+def _update_hdr(header, ncombine, imcmb_key, imcmb_val, offset_mode=None, offsets=None,
+                zeros=None, scales=None, weights=None):
     """ **Inplace** update of the given header
     """
+    def __rm_and_add(hdr, keybase, values):
+        for i in range(999):
+            if f"{keybase}{i+1:03d}" in hdr:
+                del hdr[f"{keybase}{i+1:03d}"]
+            else:
+                break
+
+        for i in range(min(999, len(values))):
+            hdr[f"{keybase}{i+1:03d}"] = values[i]
+
+        return
+
     header["NCOMBINE"] = (ncombine, "Number of combined images")
     if imcmb_key != '':
         header["IMCMBKEY"] = (imcmb_key, "Key used in IMCMBiii ('$I': filepath)")
+        __rm_and_add(header, "IMCMB", imcmb_val)
+        # remove header keyword IMCMBiii if it exists:
+        for i in range(999):
+            if f"IMCMB{i+1:03d}" in header:
+                del header[f"IMCMB{i+1:03d}"]
+            else:
+                break
+
         for i in range(min(999, len(imcmb_val))):
             header[f"IMCMB{i+1:03d}"] = imcmb_val[i]
 
@@ -224,6 +247,15 @@ def _update_hdr(header, ncombine, imcmb_key, imcmb_val, offset_mode=None, offset
         header['OFFSTMOD'] = (offset_mode, "Offset method used for combine.")
         for i in range(min(999, len(imcmb_val))):
             header[f"OFFST{i:03d}"] = str(offsets[i, ][::-1].tolist())
+
+    if not np.all(zeros == 0):
+        __rm_and_add(header, "ZERO", zeros)
+
+    if not np.all(scales == 1):
+        __rm_and_add(header, "SCALE", scales)
+
+    if not np.all(weights == 1):
+        __rm_and_add(header, "WEIGH", weights)
 
     # Add "IRAF-TLM" like header key for continuity with IRAF.
     update_tlm(header)
@@ -249,7 +281,6 @@ def imcombine(
         zero_kw={'cenfunc': 'median', 'stdfunc': 'std', 'std_ddof': 1},
         scale_kw={'cenfunc': 'median', 'stdfunc': 'std', 'std_ddof': 1},
         weight=None,
-        statsec=None,
         reject=None,
         sigma=[3., 3.],
         cenfunc='median',
@@ -283,7 +314,9 @@ def imcombine(
         output_upp=None,
         output_rejcode=None,
         return_dict=False,
-        **kwargs
+        output_verify='exception',
+        overwrite=False,
+        checksum=False
 ):
     if verbose:
         _t1 = Time.now()
@@ -320,7 +353,7 @@ def imcombine(
         try:
             fpath = Path(item)
             _item_size = fpath.stat().st_size
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, FileNotFoundError):
             fpath = f"User-provided {item.__class__.__name__}"
             _item_size = get_size(item)
         item_size_tot += _item_size
@@ -567,8 +600,6 @@ def imcombine(
 
     if verbose:
         print("Done.")
-
-    if verbose:
         if isinstance(items[0], str):
             print()
             print("-"*80)
@@ -633,7 +664,8 @@ def imcombine(
             hdr0[f"LTV{i}"] += offsets[0][ndim - i]
 
     _update_hdr(hdr0, ncombine, imcmb_key=imcmb_key, imcmb_val=imcmb_val,
-                offset_mode=offset_mode, offsets=offsets)
+                offset_mode=offset_mode, offsets=offsets, zeros=zeros, scales=scales,
+                weights=weights,)
 
     try:
         unit = hdr0["BUNIT"].lower()
@@ -648,34 +680,36 @@ def imcombine(
         print("\n- Writing output FITS", end="... ")
 
     # == Save FITS files ================================================================= #
+    write_kw = dict(output_verify=output_verify, overwrite=overwrite, checksum=checksum)
     if output is not None:
         try:
-            comb.write(output, **kwargs)
+            comb.write(output, **write_kw)
         except VerifyError:
             raise VerifyError("Use output_verify='fix'")
 
     if output_err is not None:
         err = err.astype(dtype_err)
-        write2fits(err, hdr0, output_err, return_ccd=False, **kwargs)
+        write2fits(err, hdr0, output_err, return_ccd=False, **write_kw)
 
     if output_low is not None:
         low = low.astype(dtype) if dtype_low is None else low.astype(dtype_low)
-        write2fits(low, hdr0, output_low, return_ccd=False, **kwargs)
+        write2fits(low, hdr0, output_low, return_ccd=False, **write_kw)
 
     if output_upp is not None:
         upp = low.astype(dtype) if dtype_upp is None else upp.astype(dtype_upp)
-        write2fits(upp, hdr0, output_upp, return_ccd=False, **kwargs)
+        write2fits(upp, hdr0, output_upp, return_ccd=False, **write_kw)
 
     if output_nrej is not None:  # Do this BEFORE output_mask!!
         nrej = np.count_nonzero(mask_total, axis=0).astype(int_dtype)
-        write2fits(nrej, hdr0, output_nrej, return_ccd=False, **kwargs)
+        write2fits(nrej, hdr0, output_nrej, return_ccd=False, **write_kw)
 
     if output_mask is not None:  # Do this AFTER output_nrej!!
         # FITS does not accept boolean. We need uint8.
-        write2fits(mask_total.astype(np.uint8), hdr0, output_mask, return_ccd=False, **kwargs)
+        write2fits(mask_total.astype(np.uint8),
+                   hdr0, output_mask, return_ccd=False, **write_kw)
 
     if output_rejcode is not None:
-        write2fits(rejcode, hdr0, output_rejcode, return_ccd=False, **kwargs)
+        write2fits(rejcode, hdr0, output_rejcode, return_ccd=False, **write_kw)
 
     if verbose:
         print("Done.")
@@ -901,6 +935,7 @@ def ndcombine(
     #     backup_thresh = arr[mask_thresh]
     #     backup_thresh_inmask = arr[_mask]
 
+    # TODO: remove this np.nan and instead, let `get_zsw` to accept mask.
     arr[_mask] = np.nan
     # ------------------------------------------------------------------------------------ #
 
@@ -924,7 +959,7 @@ def ndcombine(
     # == 02 - Rejection ================================================================== #
     if isinstance(reject_fullname, str):
         if reject_fullname == 'sigclip':
-            _mask_rej, low, upp, nit, rejcode = sigclip_mask(
+            _mask_rej = sigclip_mask(
                 arr,
                 mask=_mask,
                 sigma_lower=sigma_lower,
@@ -936,15 +971,17 @@ def ndcombine(
                 cenfunc=cenfunc,
                 axis=0,
                 irafmode=irafmode,
-                full=True
+                full=full
             )
-            # _mask is a subset of _mask_rej, so to extract pixels which are
-            # masked PURELY due to the rejection is:
-            mask_rej = _mask_rej ^ _mask
         elif reject_fullname == 'minmax':
-            pass
+            _mask_rej = minmax_mask(
+                arr,
+                mask=_mask,
+                n_minmax=n_minmax,
+                full=full
+            )
         elif reject_fullname == 'ccdclip':
-            _mask_rej, low, upp, nit, rejcode = ccdclip_mask(
+            _mask_rej = ccdclip_mask(
                 arr,
                 mask=_mask,
                 sigma_lower=sigma_lower,
@@ -963,19 +1000,22 @@ def ndcombine(
                 irafmode=irafmode,
                 full=True
             )
-            # _mask is a subset of _mask_rej, so to extract pixels which are
-            # masked PURELY due to the rejection is:
-            mask_rej = _mask_rej ^ _mask
         elif reject_fullname == 'pclip':
             pass
         else:
             raise ValueError("reject not understood.")
+        if full:
+            _mask_rej, low, upp, nit, rejcode = _mask_rej
+        # _mask is a subset of _mask_rej, so to extract pixels which are
+        # masked PURELY due to the rejection is:
+        mask_rej = _mask_rej ^ _mask
     elif reject_fullname is None:
         mask_rej = _set_mask(arr, None)
-        low = bn.nanmin(arr, axis=0)
-        upp = bn.nanmax(arr, axis=0)
-        nit = None
-        rejcode = None
+        if full:
+            low = bn.nanmin(arr, axis=0)
+            upp = bn.nanmax(arr, axis=0)
+            nit = None
+            rejcode = None
     else:
         raise ValueError("reject not understood.")
 

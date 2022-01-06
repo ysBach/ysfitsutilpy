@@ -3,10 +3,10 @@ import numpy as np
 
 from . import docstrings
 from .util_comb import (_get_dtype_limits, _set_cenfunc, _set_gain_rdns,
-                        _set_keeprej, _set_mask, _set_sigma,
+                        _set_keeprej, _set_mask, _set_minmax, _set_sigma,
                         _setup_reject, do_zs)
 
-__all__ = ["sigclip_mask"]
+__all__ = ["sigclip_mask", "ccdclip_mask", "minmax_mask"]
 
 
 try:
@@ -262,44 +262,98 @@ sigclip_mask.__doc__ = ''' Finds masks of `arr` by sigma-clipping.
     {}
 
     '''.format(docstrings.REJECT_PARAMETERS_COMMON(indent=4),
-               docstrings.REJECT_RETURNS_COMMON(indent=4))
+               docstrings.REJECT_PARAMETERS_SIGMA(indent=4),
+               docstrings.REJECT_RETURNS_SIGMA(indent=4))
 
 
 # **************************************************************************************** #
 # *                                    MINMAX CLIPPING                                   * #
 # **************************************************************************************** #
-def _minmax(arr, mask=None, q_low=0, q_upp=0, cenfunc='median'):
+def _minmax(arr, mask=None, q_low=0, q_upp=0,
+            calc_low=True, calc_upp=True):
     # General setup (nkeep and maxrej as dummy)
-    _arr, _masks, _, cenfunc, _nvals = _setup_reject(
-        arr=arr, mask=mask, nkeep=1, maxrej=None, cenfunc=cenfunc
+    _arr, _masks, _, _, _nvals, _lowupp = _setup_reject(
+        arr=arr, mask=mask, nkeep=1, maxrej=None, cenfunc=None
     )
-    # mask == input_mask | ~isfinite
+    # mask == input_mask | ~isfinite(arr)
     mask, _, _, mask_skiprej = _masks  # nkeep and maxrej not used in MINMAX.
     _, ncombine, n_old = _nvals  # nit is not used in MINMAX.
+    low, upp, _, _ = _lowupp  # low_new, upp_new are not used in MINMAX.
 
     # adding 0.001 following IRAF
-    n_rej_low = (n_old * q_low + 0.001).astype(n_old.dtype)
-    n_rej_upp = (n_old * q_upp + 0.001).astype(n_old.dtype)
+    n_rej_low = (n_old * q_low + 0.001).astype(int)  # 2-D array
+    n_rej_upp = (n_old * q_upp + 0.001).astype(int)  # 2-D array
     n_low = np.max(n_rej_low)  # only ~ 0.1 ms for 1k x 1k array of int
     n_upp = np.max(n_rej_upp)
 
-    dmin, dmax = _get_dtype_limits(_arr.dtype)
-    # remove lower values
-    _arr[mask] = dmax  # replace with largest value
-    low = np.max(bn.partition(_arr, kth=n_low, axis=0)[:n_low, ], axis=0)
-    # remove upper values
-    _arr[mask] = dmin  # replace with lowest values
-    upp = np.max(-bn.partition(-_arr, kth=n_upp, axis=0)[:n_upp, ], axis=0)
+    # NOTE: Below, the `partition` by bottleneck is only marginally faster than
+    #   numpy at best. Sometimes I found it slower than numpy. Furthermore, it does not
+    #   support negative `kth`. Thus, I use numpy for simplicity without losing much speed.
+    # get lower value map
+    if n_low != 0:
+        _arr[mask] = np.inf  # replace with largest value
+        lowidx = np.argpartition(_arr, kth=n_low, axis=0)[:n_low, ]
+        np.put_along_axis(mask, lowidx, True, axis=0)
+        if calc_low:
+            low = np.min(_arr, axis=0)
+    # if n_low == 0: do not update mask & use `low` obtained above.
 
-    # propagate with rejection mask
-    mask |= (_arr < low) | (upp < _arr)
+    # remove upper values
+    if n_upp != 0:
+        _arr[mask] = -np.inf  # replace with lowest values
+        uppidx = np.argpartition(_arr, kth=-n_upp, axis=0)[-n_upp:, ]
+        np.put_along_axis(mask, uppidx, True, axis=0)
+        if calc_upp:
+            upp = np.max(_arr, axis=0)
+    # if n_upp == 0: use `upp` obtained above.
 
     code = np.zeros(_arr.shape[1:], dtype=np.uint8)
     no_rej = (n_rej_low == 0) | (n_rej_upp == 0)
-    # code +=
+    code += (1*no_rej).astype(np.uint8)
 
     return (mask, low, upp, 1, code)
 
+
+def minmax_mask(
+        arr,
+        mask=None,
+        n_minmax=[1, 1],
+        full=True
+):
+    mask = _set_mask(arr, mask)
+    q_low, q_upp = _set_minmax(arr, n_minmax, axis=0)
+    o_mask, o_low, o_upp, o_nit, o_code = _minmax(
+        arr,
+        mask=mask,
+        q_low=q_low,
+        q_upp=q_upp,
+        calc_low=full,
+        calc_upp=full
+    )
+    if full:
+        return o_mask, o_low, o_upp, o_nit, o_code
+    else:
+        return o_mask
+
+
+minmax_mask.__doc__ = ''' Finds masks of `arr` after rejecting `n_minmax` pixels.
+
+    Parameters
+    ----------
+    arr : ndarray
+        The array to be subjected for masking. `arr` and `mask` must have the
+        identical shape. It must be in DN, i.e., **not** gain corrected.
+
+    {}
+
+
+    Returns
+    -------
+    {}
+
+    '''.format(docstrings.REJECT_PARAMETERS_COMMON(indent=4),
+               docstrings.REJECT_PARAMETERS_SIGMA(indent=4),
+               docstrings.REJECT_RETURNS_SIGMA(indent=4))
 
 # **************************************************************************************** #
 # *                              PERCENTILE CLIPPING (PCLIP)                             * #
@@ -389,4 +443,5 @@ ccdclip_mask.__doc__ = ''' Finds masks of `arr` by CCD noise model.
     {}
 
     '''.format(docstrings.REJECT_PARAMETERS_COMMON(indent=4),
-               docstrings.REJECT_RETURNS_COMMON(indent=4))
+               docstrings.REJECT_PARAMETERS_SIGMA(indent=4),
+               docstrings.REJECT_RETURNS_SIGMA(indent=4))
