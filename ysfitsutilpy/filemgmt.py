@@ -462,6 +462,7 @@ def make_reduc_planner(
         output=None,
         cal_column="file",
         col_remove="REMOVEIT",
+        use_0th_if_many=False
 ):
     """Make a general purpose reducing plan table.
 
@@ -496,6 +497,10 @@ def make_reduc_planner(
     cal_column : str, optional The column name which contains the "value" (file
         name) in `cal_summary`. If str, it is assumed all `cal_summary` have
         the information at that column. Default: ``"file"``
+
+    use_0th_if_many : bool, optional
+        Use the 0-th element, if there are more than one calibration frames
+        found.
 
     Examples
     --------
@@ -620,9 +625,11 @@ def make_reduc_planner(
                 if len(sel) == 1:
                     df.loc[idx, col] = sel[calcol].values[0]
                 elif len(sel) > 1:
-                    raise ValueError(
-                        f"More than one calibration frame found for {mat} = {row[mat].values}"
-                    )
+                    if use_0th_if_many:
+                        df.loc[idx, col] = sel[calcol].values[0]
+                    else:
+                        raise ValueError("More than one calibration frame found for "
+                                         + f"{mat} = {row[mat].values}")
                 else:
                     continue
             except (IndexError):  # no match
