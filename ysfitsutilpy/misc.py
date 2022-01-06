@@ -10,7 +10,7 @@ from astropy.time import Time
 
 __all__ = ["MEDCOMB_KEYS_INT", "SUMCOMB_KEYS_INT", "MEDCOMB_KEYS_FLT32",
            "LACOSMIC_KEYS", "LACOSMIC_CRREJ", "parse_crrej_psf",
-           "is_list_like", "listify",
+           "bezel2slice", "is_list_like", "listify",
            "weighted_avg", "sigclip_dataerr", "circular_mask",
            "_image_shape", "_offsets2slice",
            "str_now", "change_to_quantity", "binning", "fitsxy2py",
@@ -66,6 +66,40 @@ LACOSMIC_CRREJ = {'sigclip': 4.5,
                   'psffwhm': 2.5,
                   'psfsize': 7,
                   'psfbeta': 4.765}
+
+
+def bezel2slice(bezels, order_xyz=True):
+    """ Convert bezels to slice objects
+
+    Parameters
+    ----------
+    bezels : list of list of int, optional.
+        Must be a list of list of int. Each list of int is in the
+        form of ``[lower, upper]``, i.e., the first ``lower`` and last
+        ``upper`` rows/columns are ignored.
+
+    order_xyz : bool, optional.
+        Whether `bezel` in xyz order or not (python order:
+        ``xyz_order[::-1]``). Due to its confusing behavior, it is intended to
+        be `True` most of the time.
+        Default: `True`.
+
+    Notes
+    -----
+    Consider a 100x100 image.
+    1. ``bezels = [[10, 20], [30, 40]], order_xyz=True`` will ignore the first
+       10 columns, the last 20 columns, the **BOTTOM** 30 rows, and the **TOP**
+       40 rows.
+    2. ``bezels = [[10, 20], [30, 40]], order_xyz=False`` will ignore the
+       **BOTTOM** 10 rows (python index of ``[:10]``), the **TOP** 20 columns
+       (python index of ``[-20:]``), the first 30 columns, and the last 40
+       columns.
+    This confusing behavior is due to the (stupid and/or inconsistent?) way
+    our world represents xy-coordinates.
+    """
+    bezels = np.atleast_2d(bezels)
+    bezels = bezels[::-1] if order_xyz else bezels
+    return tuple([slice(b[0], -b[1]) for b in bezels])
 
 
 def is_list_like(*objs, allow_sets=True, func=all):
@@ -164,6 +198,7 @@ def listify(*objs):
             raise ValueError(f"Each input must be 1 or max(lengths)={length}.")
 
     return [obj*length if len(obj) == 1 else obj for obj in objlists]
+
 
 def parse_crrej_psf(
         fs="median",
@@ -547,8 +582,6 @@ def _offsets2slice(
     -------
     >>>
 
-    Note
-    ----
 
     """
     _shapes = np.atleast_2d(shapes)
@@ -673,12 +706,12 @@ def change_to_quantity(x, desired='', to_value=False):
         Whether to return as scalar value. If `True`, just the value(s) of the
         `desired` unit will be returned after conversion.
 
-    Return
-    ------
+    Returns
+    -------
     ux: Quantity
 
-    Note
-    ----
+    Notes
+    -----
     If Quantity, transform to `desired`. If `desired` is `None`, return it as
     is. If not `Quantity`, multiply the `desired`. `desired` is `None`, return
     `x` with dimensionless unscaled unit.
@@ -754,8 +787,8 @@ def binning(
         Whether to trim the end of x, y axes such that binning is done without
         error.
 
-    Note
-    ----
+    Notes
+    -----
     This kind of binning is ~ 20-30 to upto 10^5 times faster than
     astropy.nddata's block_reduce:
 
@@ -837,8 +870,8 @@ def fitsxy2py(fits_section):
         The section specified by FITS convention, i.e., bracket embraced, comma
         separated, XY order, 1-indexing, and including the end index.
 
-    Note
-    ----
+    Notes
+    -----
     >>> np.eye(5)[fitsxy2py('[1:2,:]')]
     # array([[1., 0.],
     #       [0., 1.],
@@ -903,8 +936,8 @@ def quantile_lh(
     try:
         lq = float(lq)
         hq = float(hq)
-    except TypeError:
-        raise TypeError("lq and hq must be floats, not array-like.")
+    except TypeError as E:
+        raise E("lq and hq must be floats, not array-like.")
 
     if linterp == hinterp:
         out = qfunc(a, (lq, hq), axis=axis, interpolation=linterp)
