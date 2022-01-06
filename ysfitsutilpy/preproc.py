@@ -207,7 +207,7 @@ def crrej(
 
         Default: ``"medmask"``.
 
-    fs : {'median', 'gauss', 'gaussx', 'gaussy', 'moffat'}, ndarray, optional.
+    fs : {'median', 'gauss', 'gaussx', 'gaussy', 'moffat'}, ndarray, `None`, optional.
         Method to generate the fine structure. Combination of `fsmode`,
         `psfmodel`, `psfk` of `astroscrappy`.
 
@@ -227,6 +227,9 @@ def crrej(
         * ``fsmode="convolve", psfmodel=*`` == ``fs=*``, where ``*`` can be
           any of ``{'gauss', 'gaussx', 'gaussy', 'moffat'}``.
         * ``fsmode="convolve", psfk=<ndarray>`` == ``fs=<ndarray>``
+
+        If `None`, CR rejection will not happen and copy of input `ccd` will be
+        returned.
 
         Default: ``'median'``.
 
@@ -302,6 +305,9 @@ def crrej(
     >>> yfu.ccdutil.set_ccd_gain_rdnoise(ccd)
     >>> nccd, mask = crrej(ccd)
     """
+    if fs is None:
+        return ccd.copy(), None
+
     str_cr = ("Cosmic-Ray rejection (CRNFIX={:d} pixels fixed) by astroscrappy (v {}). "
               + "Parameters: {}")
 
@@ -381,7 +387,7 @@ def crrej(
             crmask, cleanarr = detect_cosmics(
                 _ccd.data,
                 inmask=inmask,
-                pssl=inbkg,
+                pssl=0 if inbkg is None else inbkg,
                 verbose=verbose,
                 **crrej_kwargs
             )
