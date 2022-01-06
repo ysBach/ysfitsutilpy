@@ -1,5 +1,7 @@
 
-__all__ = ['REJECT_PARAMETERS_COMMON', "REJECT_RETURNS_COMMON",
+__all__ = ["REJECT_PARAMETERS_COMMON",
+           'REJECT_PARAMETERS_SIGMA',
+           "REJECT_RETURNS_SIGMA",
            "NDCOMB_NOT_IMPLEMENTED",
            "NDCOMB_PARAMETERS_COMMON", "NDCOMB_RETURNS_COMMON",
            "OFFSETS_LONG", "OFFSETS_SHORT", "IMCOMBINE_LINK"]
@@ -21,6 +23,18 @@ mask : ndarray, optional.
     The initial mask provided prior to any rejection. `arr` and `mask` must have the identical
     shape.
 
+axis : int, optional.
+    The axis to combine the image.
+
+full : bool, optional.
+    Whether to return full results. See Return.
+"""
+)
+
+
+def REJECT_PARAMETERS_SIGMA(indent=0):
+    return _fix(
+        """
 sigma : float-like, optional.
     The sigma-factors to be muiltiplied to the sigma values. Overridden by `sigma_lower` and/or
     `sigma_upper`, if input.
@@ -60,15 +74,10 @@ cenfunc : str, optional.
 irafmode : bool, optional.
         Whether to use IRAF-like pixel restoration scheme. Default is `True`.
 
-axis : int, optional.
-    The axis to combine the image.
-
-full : bool, optional.
-    Whether to return full results. See Return.
 """, indent)
 
 
-def REJECT_RETURNS_COMMON(indent=0):
+def REJECT_RETURNS_SIGMA(indent=0):
     return _fix("""
 o_mask : ndarray of bool
     The mask of the same shape as `arr` and `mask`.
@@ -164,6 +173,10 @@ zero_to_0th : bool, optional.
 scale_to_0th : bool, optional.
     Whether to re-scale the scales such that ``scale[0]`` is unity (in python, ``scale/scale[0]``).
     This is the behavior of IRAF, so `scale_to_0th` is `True` by default.
+
+zero_section, scale_section : str, optional.
+    The sections used for zeroing and scaling. These must be in FITS section
+    format, and are the sections **AFTER** trimming based on `fits_section`.
 
 zero_kw, scale_kw : dict
     Used only if `scale` or `zero` are sigma-clipped mean, median, etc (ending with ``_sc`` such as
