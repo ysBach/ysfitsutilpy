@@ -21,8 +21,8 @@ from ccdproc import trim_image
 # from scipy.interpolate import griddata
 from scipy.ndimage import label as ndlabel
 
-from .misc import (_image_shape, binning, change_to_quantity, fitsxy2py,
-                   is_list_like, listify, str_now)
+from .misc import (_image_shape, bezel2slice, binning, change_to_quantity,
+                   fitsxy2py, is_list_like, listify, str_now)
 
 try:
     import fitsio
@@ -53,9 +53,10 @@ __all__ = [
     "CCDData_astype", "set_ccd_attribute", "set_ccd_gain_rdnoise",
     "propagate_ccdmask",
     # ! ccdproc:
-    "trim_ccd", "bezel_ccd", "trim_overlap", "cutccd", "cut_ccd", "bin_ccd",
+    "trim_ccd", "bezel_ccd", "trim_overlap", "cut_ccd", "bin_ccd",
     "fixpix",
     "make_errormap", "errormap",
+    "find_extpix", "find_satpix",
     # ! header update:
     "cmt2hdr", "update_tlm", "update_process", "hedit", "key_remover", "key_mapper", "chk_keyval",
     # ! header accessor:
@@ -67,7 +68,7 @@ __all__ = [
     "give_stats"
 ]
 
-ASTROPY_CCD_TYPES = (CCDData, fits.PrimaryHDU, fits.ImageHDU)
+ASTROPY_CCD_TYPES = (CCDData, fits.PrimaryHDU, fits.ImageHDU)  # fits.CompImageHDU ?
 
 
 def get_size(obj, seen=None):
@@ -464,8 +465,8 @@ def _parse_extension(*args, ext=None, extname=None, extver=None):
     This is essential for fits_ccddata_reader, because it only has `hdu`, not
     all three of ext, extname, and extver.
 
-    Note
-    ----
+    Notes
+    -----
     %timeit yfu._parse_extension()
     # 1.52 µs +- 69.3 ns per loop (mean +- std. dev. of 7 runs, 1000000 loops each)
     """
@@ -1071,8 +1072,8 @@ def set_ccd_attribute(
     >>> set_ccd_attribute(ccd, 'gain', value=2, unit='electron/adu')
     >>> set_ccd_attribute(ccd, 'ra', key='RA', unit=u.deg, default=0)
 
-    Note
-    ----
+    Notes
+    -----
     '''
     _t_start = Time.now()
     str_history = "From {}, {} = {} [unit = {}]"
@@ -1191,8 +1192,8 @@ def propagate_ccdmask(ccd, additional_mask=None):
     additional_mask : mask-like, None
         The mask to be propagated.
 
-    Note
-    ----
+    Notes
+    -----
     The original ``ccd.mask`` is not modified. To do so,
     >>> ccd.mask = propagate_ccdmask(ccd, additional_mask=mask2)
     '''
@@ -1291,8 +1292,8 @@ def bezel_ccd(
     -------
     >>>
 
-    Note
-    ----
+    Notes
+    -----
 
     """
     def _sanitize_bezel(bezel, npix):
@@ -1353,6 +1354,7 @@ def bezel_ccd(
 # FIXME: not finished.
 def trim_overlap(inputs, extension=None, coordinate='image'):
     ''' Trim only the overlapping regions of the two CCDs
+
     Parameters
     ----------
     coordinate : str, optional.
@@ -1367,8 +1369,8 @@ def trim_overlap(inputs, extension=None, coordinate='image'):
         str and int: ``(EXTNAME, EXTVER)``. If `None` (default), the *first
         extension with data* will be used.
 
-    Note
-    ----
+    Notes
+    -----
     WCS is not acceptable because no rotation/scaling is supported.
     '''
     items = inputs2list(inputs, sort=False, accept_ccdlike=True, check_coherency=False)
@@ -1388,11 +1390,6 @@ def trim_overlap(inputs, extension=None, coordinate='image'):
     offsets, new_shape = _image_shape(
         shapes, offsets, method='overlap', intify_offsets=False
     )
-
-
-def cutccd(ccd, position, size, mode='trim', fill_value=np.nan):
-    warn("use `cut_ccd` instead of `cutccd`.")
-    return cut_ccd(**locals())
 
 
 # FIXME: docstring looks strange
@@ -1519,8 +1516,8 @@ def bin_ccd(
     update_header : bool, optional.
         Whether to update header. Defaults to True.
 
-    Note
-    ----
+    Notes
+    -----
     This is ~ 20-30 to upto 10^5 times faster than astropy.nddata's
     block_reduce:
     >>> from astropy.nddata.blocks import block_reduce
@@ -1808,6 +1805,185 @@ def fixpix(
 #     return _ccd
 
 
+def find_extpix(
+        ccd,
+        mask=None,
+        npixs=(1, 1),
+        bezels=None,
+        order_xyz=True,
+        sort=True,
+        update_header=True,
+        verbose=0
+):
+    """ Finds the N extrema pixel values excluding masked pixels.
+
+    Paramters
+    ---------
+    ccd : CCDData
+        The ccd to find extreme values
+
+    mask : CCDData-like (e.g., PrimaryHDU, ImageHDU, HDUList), ndarray, path-like, or number-like
+        The mask to be used. To reduce file I/O time, better to provide
+        ndarray.
+
+    npixs : length-2 tuple of int, optional
+        The numbers of extrema to find, in the form of ``[small, large]``, so
+        that ``small`` number of smallest and ``large`` number of largest pixel
+        values will be found. If `None`, no extrema is found (`None` is
+        returned for that extremum).
+        Deafult: ``(1, 1)`` (find minimum and maximum)
+
+    bezels : list of list of int, optional.
+        If given, must be a list of list of int. Each list of int is in the
+        form of ``[lower, upper]``, i.e., the first ``lower`` and last
+        ``upper`` rows/columns are ignored.
+
+    order_xyz : bool, optional.
+        Whether `bezel` in xyz order or not (python order:
+        ``xyz_order[::-1]``).
+        Default: `True`.
+
+    sort: bool, optional.
+        Whether to sort the extrema in ascending order.
+
+    Returns
+    -------
+    min
+        The list of extrema pixel values.
+    """
+    if not len(npixs) == 2:
+        raise ValueError("npixs must be a length-2 tuple of int.")
+    _t = Time.now()
+    data = ccd.data.copy().astype("float32")  # Not float64 to reduce memory usage
+    # slice first to reduce computation time
+    if bezels is not None:
+        sls = bezel2slice(bezels, order_xyz=order_xyz)
+        data = data[sls]
+        if mask is not None:
+            mask = mask[sls]
+
+    if mask is None:
+        maskname = "No mask"
+        mask = ~np.isfinite(data)
+    else:
+        if not isinstance(mask, np.ndarray):
+            mask, maskname, _ = _parse_image(mask, force_ccddata=True)
+            mask = mask.data | ~np.isfinite(data)
+        else:
+            maskname = "User-provided mask"
+
+    exts = []
+    for npix, sign, minmaxval in zip(npixs, [1, -1], [np.inf, -np.inf]):
+        if npix is None:
+            exts.append(None)
+            continue
+        data[mask] = minmaxval
+        # ^ if getting maximum/minimum pix vals, replace with minimum/maximum
+        extvals = np.partition(data.ravel(), sign*npix)
+        #         ^^^^^^^^^^^^
+        # bn.partitoin has virtually no speed gain.
+        extvals = extvals[:npix] if sign > 0 else extvals[-npix:]
+        if sort:
+            extvals = np.sort(extvals)[::sign]
+        exts.append(extvals)
+
+    if update_header:
+        for ext, mm in zip(exts, ["min", "max"]):
+            if ext is not None:
+                for i, extval in enumerate(ext):
+                    ccd.header.set(f"{mm.upper()}V{i+1:03d}", extval, f"{mm} pixel value")
+        bezstr = ""
+        if bezels is not None:
+            order = "xyz order" if order_xyz else "pythonic order"
+            bezstr = f" and bezel: {bezels} in {order}"
+        cmt2hdr(ccd.header, 'h', verbose=verbose, t_ref=_t,
+                s=(f"Extrema pixel values found N(smallest, largest) = {npixs} "
+                   + f"excluding mask ({maskname}){bezstr}. See MINViii and MAXViii.")
+                )
+    return exts
+
+
+def find_satpix(
+        ccd,
+        mask=None,
+        satlevel=65535,
+        bezels=None,
+        order_xyz=True,
+        update_header=True,
+        verbose=0
+):
+    """ Finds saturated pixel values excluding masked pixels.
+
+    Paramters
+    ---------
+    ccd : CCDData, ndarray
+        The ccd to find extreme values. If `ndarray`, `update_header` will
+        automatically be set to `False`.
+
+    mask : CCDData-like (e.g., PrimaryHDU, ImageHDU, HDUList), ndarray, path-like, or number-like
+        The mask to be used. To reduce file I/O time, better to provide
+        ndarray.
+
+    satlevel: numeric, optional.
+        The saturation level. Pixels >= `satlevel` will be retarded as
+        saturated pixels, except for those masked by `mask`.
+
+    bezels : list of list of int, optional.
+        If given, must be a list of list of int. Each list of int is in the
+        form of ``[lower, upper]``, i.e., the first ``lower`` and last
+        ``upper`` rows/columns are ignored.
+
+    order_xyz : bool, optional.
+        Whether `bezel` in xyz order or not (python order:
+        ``xyz_order[::-1]``).
+        Default: `True`.
+
+    Returns
+    -------
+    min
+        The list of extrema pixel values.
+    """
+    _t = Time.now()
+    if isinstance(ccd, CCDData):
+        data = ccd.data.copy()
+    else:
+        data = ccd.copy()
+        update_header = False
+    satmask = np.zeros(data.shape, dtype=bool)
+    # slice first to reduce computation time
+    if bezels is not None:
+        sls = bezel2slice(bezels, order_xyz=order_xyz)
+        data = data[sls]
+        if mask is not None:
+            mask = mask[sls]
+    else:
+        sls = [slice(None, None, None) for _ in range(data.ndim)]
+
+    if mask is None:
+        maskname = "No mask"
+        satmask[sls] = data >= satlevel
+    else:
+        if not isinstance(mask, np.ndarray):
+            mask, maskname, _ = _parse_image(mask, force_ccddata=True)
+            mask = mask.data
+        else:
+            maskname = "User-provided mask"
+        satmask[sls] = (data >= satlevel) & (~mask)  # saturated && not masked
+
+    if update_header:
+        nsat = np.count_nonzero(satmask[sls])
+        ccd.header["NSATPIX"] = (nsat, "No. of saturated pix")
+        ccd.header["SATLEVEL"] = (satlevel, "Saturation: pixels >= this value")
+        bezstr = ""
+        if bezels is not None:
+            order = "xyz order" if order_xyz else "pythonic order"
+            bezstr = f" and bezel: {bezels} in {order}"
+        cmt2hdr(ccd.header, 'h', verbose=verbose, t_ref=_t,
+                s=(f"Saturated pixels calculated based on satlevel = {satlevel}, excluding "
+                   + f"mask ({maskname}){bezstr}. See NSATPIX and SATLEVEL."))
+    return satmask
+
+
 def make_errormap(
         ccd,
         gain_epadu=1,
@@ -1985,8 +2161,8 @@ def cmt2hdr(
         ``{'after':-1}``, i.e., the history or comment will be appended to the
         very last part of the header.
 
-    Note
-    ----
+    Notes
+    -----
     The timming benchmark shows that,
     %timeit cmt2hdr(hdu.header, 'comm', 'aadfaer sdf')
     310 µs +/- 2.93 µs per loop (mean +/- std. dev. of 7 runs, 1000 loops each)
@@ -2088,21 +2264,21 @@ def update_process(
     process = listify(process)
 
     if key in header:
-        process = [header[key]].split(delimiter) + process
+        process = header[key].split(delimiter) + process
         # do not additionally add comment.
     elif add_comment:
         # add comment.
         cmt2hdr(
-            header, 'c',
-            f"Standard items for {key} includes B=bias, D=dark, F=flat, T=trim, W=WCS, "
-            + "C=CRrej, Fr=fringe, P=fixpix, X=crosstalk."
+            header, 'c', time_fmt=None,
+            s=(f"Standard items for {key} includes B=bias, D=dark, F=flat, T=trim, W=WCS, "
+               + "C=CRrej, Fr=fringe, P=fixpix, X=crosstalk.")
         )
 
     header[key] = (delimiter.join(process), "Process (order: 1-2-3-...): see comment.")
 
     if additional_comment:
         addstr = ", ".join([f"{k}={v}" for k, v in additional_comment.items()])
-        cmt2hdr(header, 'c', f"User added items to {key}: {addstr}.")
+        cmt2hdr(header, 'c', f"User added items to {key}: {addstr}.", time_fmt=None)
     update_tlm(header)
 
 
@@ -2321,8 +2497,8 @@ def chk_keyval(type_key, type_val, group_key):
         grouping will occur, but it will return the `~pandas.DataFrameGroupBy`
         object will be returned for the sake of consistency.
 
-    Return
-    ------
+    Returns
+    -------
     type_key, type_val, group_key
     '''
     # Make type_key to list
@@ -2439,8 +2615,8 @@ def get_if_none(value, header, key, unit=None, verbose=True, default=0, to_value
 
 def wcs_crota(wcs, degree=True):
     '''
-    Note
-    ----
+    Notes
+    -----
     https://iraf.net/forum/viewtopic.php?showtopic=108893
     CROTA2 = arctan (-CD1_2 / CD2_2) = arctan ( CD2_1 / CD1_1)
     '''
@@ -2477,8 +2653,8 @@ def center_radec(
 ):
     ''' Returns the central ra/dec from header or WCS.
 
-    Note
-    ----
+    Notes
+    -----
     Even though RA or DEC is in sexagesimal, e.g., "20 53 20", astropy
     correctly reads it in such a form, so no worries.
 
@@ -2701,13 +2877,13 @@ def calc_offset_physical(
 def fov_radius(header, unit=u.deg):
     ''' Calculates the rough radius (cone) of the (square) FOV using WCS.
 
-    Parameter
-    ---------
+    Parameters
+    ----------
     header: Header
         The header to extract WCS information.
 
-    Return
-    ------
+    Returns
+    -------
     radius: `~astropy.Quantity`
         The radius in degrees
     '''
@@ -2866,8 +3042,9 @@ def wcsremove(
 
 def convert_bit(fname, original_bit=12, target_bit=16):
     ''' Converts a FIT(S) file's bit.
-    Note
-    ----
+
+    Notes
+    -----
     In ASI1600MM, for example, the output data is 12-bit but since FITS
     standard do not accept 12-bit (but the closest integer is 16-bit), so, for
     example, the pixel values can have 0 and 15, but not any integer between
@@ -2930,8 +3107,8 @@ def give_stats(
         `nanfunc` must be `True` to get proper statistics at a cost of
         computational speed.
 
-    Return
-    ------
+    Returns
+    -------
     result : dict
         The dict which contains all the statistics.
 
@@ -2940,8 +3117,8 @@ def give_stats(
         `item` is FITS file path or has `header` attribute (e.g.,
         `~astropy.nddata.CCDData` or `hdu`)
 
-    Note
-    ----
+    Notes
+    -----
     If you have bottleneck package, the functions from bottleneck will be used.
     Otherwise, numpy is used.
 
