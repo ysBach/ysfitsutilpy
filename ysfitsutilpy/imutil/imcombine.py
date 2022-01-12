@@ -545,7 +545,7 @@ def imcombine(
                 extension=extension,
                 extension_mask=e_m,
                 extension_uncertainty=e_u,
-                return_full_fitsio=True
+                full=True
             )
         except TypeError:
             if isinstance(_item, CCDData):

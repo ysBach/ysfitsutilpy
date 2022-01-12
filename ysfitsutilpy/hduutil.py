@@ -551,8 +551,7 @@ def load_ccd(
         extension_uncertainty="UNCERT",
         extension_mask='MASK',
         extension_flags=None,
-        load_primary_only_fitsio=True,
-        return_full_fitsio=False,
+        full=False,
         key_uncertainty_type='UTYPE',
         memmap=False,
         **kwd
@@ -601,16 +600,10 @@ def load_ccd(
             The behavior differs from astropy's original fits_ccddata_reader:
             If no ``BUNIT`` is found and `unit` is `None`, ADU is assumed.
 
-    load_primary_only_fitsio : bool, optional.
-        Whether to ignore uncertainty, mask, and flags extensions when using
-        fitsio (i.e., when ``use_ccd=False``). This is `True` by default,
-        because that's the most common usage for fitsio.
-
-    return_full_fitsio : bool, optional.
-        Whether to return full (`data`, `unc`, `mask`, `flag`) even when
-        `load_primary_only_fitsio` is `True` and `extension_uncertainty` is
-        `None` and `extension_mask` is `None`, which can be convenient for API
-        design.
+    full : bool, optional.
+        Whether to return full `(data, unc, mask, flag)` when using
+        `fitsio` (i.e., when `ccddata=False`). If `False`(default), only `data`
+        will be returned.
         Default: `False`.
 
     extension_uncertainty : str or None, optional
@@ -660,6 +653,10 @@ def load_ccd(
     case, if ``load_primary_only_fitsio=False``, the uncertainty and mask
     extensions, as well as flags (not supported, so just `None`) will be
     returned as well as the one specified by `extension`.
+
+    If ``ccddata=False``, the returned object can be an ndarray (`full_fitsio`
+    is `False`) or a tuple of arrays ``(data, unc, mask, flag)`` (`full_fitsio`
+    is `True`).
 
     Notes
     -----
@@ -797,32 +794,26 @@ def load_ccd(
 
                 return arr
 
-            hdul = fitsio.FITS(path)
-            data = _read_by_fitsio(hdul, path, extension, _fits_section=fits_section)
-            if (load_primary_only_fitsio
-                    and extension_uncertainty is None
-                    and extension_mask is None):
-                hdul.close()
-                if return_full_fitsio:
-                    return data, None, None, None
+            with fitsio.FITS(path) as hdul:
+                data = _read_by_fitsio(hdul, path, extension, _fits_section=fits_section)
+
+                if full:
+                    try:  # Read uncertainty if exists
+                        e_u = _parse_extension(extension_uncertainty)
+                        unc = _read_by_fitsio(hdul, path, e_u, _fits_section=fits_section)
+                    except (OSError, ValueError):  # if the extension is not found
+                        unc = None
+                    try:  # Read uncertainty if exists
+                        e_m = _parse_extension(extension_mask)
+                        mask = _read_by_fitsio(hdul, path, e_m, _fits_section=fits_section)
+                    except (OSError, ValueError):  # if the extension is not found
+                        mask = None
+
+                    flag = None  # FIXME: add this line when CCDData starts to support flags.
+                    return data, unc, mask, flag
+
                 else:
                     return data
-
-            else:
-                try:  # Read uncertainty if exists
-                    e_u = _parse_extension(extension_uncertainty)
-                    unc = _read_by_fitsio(hdul, path, e_u, _fits_section=fits_section)
-                except (OSError, ValueError):  # if the extension is not found
-                    unc = None
-                try:  # Read uncertainty if exists
-                    e_m = _parse_extension(extension_mask)
-                    mask = _read_by_fitsio(hdul, path, e_m, _fits_section=fits_section)
-                except (OSError, ValueError):  # if the extension is not found
-                    mask = None
-
-                flag = None  # FIXME: add this line when CCDData starts to support flags.
-                hdul.close()
-                return data, unc, mask, flag
 
     else:
         ignore_u = True if extension_uncertainty is None else False
@@ -867,14 +858,7 @@ def load_ccd(
         if ccddata and as_ccd:  # if at least one of these is False, it uses fitsio.
             return ccd
         else:
-            if (load_primary_only_fitsio
-                    and extension_uncertainty is None
-                    and extension_mask is None):
-                if return_full_fitsio:
-                    return ccd.data, None, None, None
-                else:
-                    return ccd.data
-            else:
+            if full:
                 try:
                     unc = np.array(ccd.uncertainty.array)
                 except AttributeError:
@@ -882,6 +866,8 @@ def load_ccd(
                 mask = None if ccd.mask is None else np.array(ccd.mask)
                 flag = None  # FIXME: add this line when CCDData starts to support flags.
                 return ccd.data, unc, mask, flag
+            else:
+                return ccd.data
 
 
 def inputs2list(
