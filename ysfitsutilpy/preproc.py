@@ -1097,15 +1097,15 @@ def bdf_process(
             if data_exposure is None:
                 try:
                     data_exposure = proc.header[exposure_key]
-                except (KeyError, AttributeError) as e:
-                    raise e("Dark must be scaled but data's exposure time "
-                            + f"({exposure_key}) is not found from.")
+                except (KeyError, AttributeError):
+                    raise ValueError("Dark must be scaled but data's exposure time "
+                                     + f"({exposure_key}) is not found from.")
             if dark_exposure is None:
                 try:
                     dark_exposure = mdark.header[exposure_key]
-                except (KeyError, AttributeError) as e:
-                    raise e("Dark must be scaled but dark's exposure time "
-                            + f"({exposure_key}) is not found from.")
+                except (KeyError, AttributeError):
+                    raise ValueError("Dark must be scaled but dark's exposure time "
+                                     + f"({exposure_key}) is not found from.")
 
         proc = subtract_dark(proc,
                              mdark,

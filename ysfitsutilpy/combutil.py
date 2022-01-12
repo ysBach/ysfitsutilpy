@@ -503,8 +503,10 @@ def stack_FITS(
     if fitslist is not None:
         try:
             fitslist = list(fitslist)
-        except TypeError as E:
-            raise E(f"fitslist must be convertable to list. It's now {type(fitslist)}.")
+        except TypeError:
+            raise TypeError(
+                f"fitslist must be convertable to list. It's now {type(fitslist)}."
+            )
 
         if selecting:
             summary_table = make_summary(
@@ -855,8 +857,10 @@ def combine_ccd(
                 # == a list of path-like or CCDData ====================================== #
                 try:
                     fitslist = list(fitslist)
-                except TypeError as E:
-                    raise E(f"fitslist must be list-like. It's now {type(fitslist)}.")
+                except TypeError:
+                    raise TypeError(
+                        f"fitslist must be list-like. It's now {type(fitslist)}."
+                    )
 
     # If summary_table
     if summary_table is not None:

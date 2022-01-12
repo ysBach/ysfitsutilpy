@@ -936,8 +936,8 @@ def quantile_lh(
     try:
         lq = float(lq)
         hq = float(hq)
-    except TypeError as E:
-        raise E("lq and hq must be floats, not array-like.")
+    except TypeError:
+        raise TypeError("lq and hq must be floats, not array-like.")
 
     if linterp == hinterp:
         out = qfunc(a, (lq, hq), axis=axis, interpolation=linterp)
