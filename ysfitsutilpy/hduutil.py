@@ -1326,7 +1326,7 @@ def bezel_ccd(
         nccd.data[:bezel_y[0], :] = replace
         nccd.data[ny - bezel_y[1]:, :] = replace
         nccd.data[:, :bezel_x[0]] = replace
-        nccd.data[:, nx - bezel_x[0]:] = replace
+        nccd.data[:, nx - bezel_x[1]:] = replace
         if update_header:
             cmt2hdr(
                 nccd.header, 'h', t_ref=_t, verbose=verbose,
