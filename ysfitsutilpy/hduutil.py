@@ -264,7 +264,7 @@ def _parse_image(
         name=None,
         force_ccddata=False,
         prefer_ccddata=False,
-        use_ccddata_if_path=True
+        copy=True,
 ):
     '''Parse and return input image as desired format (ndarray or CCDData)
     Parameters
@@ -283,18 +283,14 @@ def _parse_image(
     force_ccddata: bool, optional.
         To force the retun im as `~astropy.nddata.CCDData` object. This is
         useful when error calculation is turned on.
+        Default is `False`.
 
     prefer_ccddata: bool, optional.
         Mildly use `~astropy.nddata.CCDData`, i.e., return
         `~astropy.nddata.CCDData` only if `im` was `~astropy.nddata.CCDData`,
         HDU object, or Path-like to a FITS file, but **not** if it was ndarray
-        or numbers. If `False` (default), it prefers ndarray.
-
-    use_ccddata_if_path : bool, optional.
-        Whether to load the full CCD information (using
-        `~astropy.nddata.CCDData`). If `False`, `fitsio.read` will be used
-        without parsing header, significantly increasing the IO speed.
-        Default is `True`.
+        or numbers.
+        Default is `False`.
 
     Returns
     -------
@@ -330,13 +326,16 @@ def _parse_image(
             unit = ccdlike.header.get("BUNIT", default=u.adu)
             if isinstance(unit, str):
                 unit = unit.lower()
-            return CCDData(data=hdu.data, header=hdu.header, unit=unit)
+            if copy:
+                return CCDData(data=hdu.data.copy(), header=hdu.header.copy(), unit=unit)
+            else:
+                return CCDData(data=hdu.data, header=hdu.header, unit=unit)
             # The two lines above took ~ 5 us and 10-30 us for the simplest
             # header and 1x1 pixel data case (regardless of BUNIT exists), on
             # MBP 15" [2018, macOS 10.14.6, i7-8850H (2.6 GHz; 6-core), RAM 16
             # GB (2400MHz DDR4), Radeon Pro 560X (4GB)]
         else:
-            return hdu.data
+            return hdu.data.copy() if copy else hdu.data
 
     ccd_kw = dict(force_ccddata=force_ccddata, prefer_ccddata=prefer_ccddata)
     has_no_name = name is None
@@ -346,9 +345,9 @@ def _parse_image(
     if isinstance(ccdlike, CCDData):
         # force_ccddata: CCDData // prefer_ccddata: CCDData // else: ndarray
         if (force_ccddata or prefer_ccddata):
-            new_im = ccdlike.copy()
+            new_im = ccdlike.copy() if copy else ccdlike
         else:
-            new_im = ccdlike.data.copy()
+            new_im = ccdlike.data.copy() if copy else ccdlike.data
         imtype = "CCDdata"
     elif isinstance(ccdlike, (fits.PrimaryHDU, fits.ImageHDU)):
         # force_ccddata: CCDData // prefer_ccddata: CCDData // else: ndarray
@@ -360,11 +359,15 @@ def _parse_image(
         imtype = "HDUList"
     elif isinstance(ccdlike, np.ndarray):
         # force_ccddata: CCDData // prefer_ccddata: ndarray // else: ndarray
-        new_im = CCDData(data=ccdlike.copy(), unit='adu') if force_ccddata else ccdlike
+        if copy:
+            new_im = (CCDData(data=ccdlike.copy(), unit='adu') if force_ccddata
+                      else ccdlike.copy())
+        else:
+            new_im = CCDData(data=ccdlike, unit='adu') if force_ccddata else ccdlike
         imtype = "ndarray"
     else:
         try:  # IF number (ex: im = 1.3)
-            # force_ccddata: CCDData // prefer_ccddata: number // else: number
+            # force_ccddata: CCDData // prefer_ccddata: array // else: array
             imname = f"{imname} {ccdlike}" if has_no_name else name
             _im = float(ccdlike)
             new_im = CCDData(data=_im, unit='adu') if force_ccddata else np.asarray(_im)
@@ -377,8 +380,13 @@ def _parse_image(
                 imname = f"{str(fpath)}{extstr}" if has_no_name else name
                 # set redundant extensions to None so that only the part
                 # specified by `extension` be loaded:
-                new_im = load_ccd(fpath, extension, ccddata=use_ccddata_if_path,
-                                  extension_uncertainty=None, extension_mask=None)
+                new_im = load_ccd(
+                    fpath,
+                    extension,
+                    ccddata=force_ccddata or force_ccddata,
+                    extension_uncertainty=None,
+                    extension_mask=None
+                )
                 imtype = "path"
             except TypeError as E:
                 raise E(
@@ -755,22 +763,12 @@ def load_ccd(
                 reader_kw["wcs"] = WCS(hdr)
                 del hdr
 
-            try:
+            try:  # Use BUNIT if unit is None
                 ccd = CCDData.read(path, unit=unit, **reader_kw)
             except ValueError:  # e.g., user did not give unit and there's no BUNIT
-                ccd = CCDData.read(path, unit='adu', **reader_kw)
-            # if prefer_bunit:
-            #     try:  # Try with no unit to CCDData
-            #         ccd = CCDData.read(path, unit=None, **reader_kw)
-            #     except ValueError:  # Try with user-given unit to CCDData
-            #         ccd = CCDData.read(path, unit=unit, **reader_kw)
-            # else:  # prefer user's input
-            #     ccd = CCDData.read(path, unit=unit, **reader_kw)
+                ccd = CCDData.read(path, unit=u.adu, **reader_kw)
 
-            if fits_section is not None:
-                ccd = trim_ccd(ccd, fits_section=fits_section)
-
-            return ccd
+            return ccd if fits_section is None else trim_ccd(ccd, fits_section=fits_section)
 
         else:
             # Use fitsio and only load the data as soon as possible.
@@ -1577,7 +1575,6 @@ def fixpix(
         mask_extension=None,
         priority=None,
         update_header=True,
-        use_ccddata_if_path=True,
         verbose=True
 ):
     ''' Interpolate the masked location (N-D generalization of IRAF PROTO.FIXPIX)
@@ -1631,10 +1628,8 @@ def fixpix(
 
     _t_start = Time.now()
 
-    _ccd, _, _ = _parse_image(ccd, extension=extension, force_ccddata=True,
-                              use_ccddata_if_path=use_ccddata_if_path)
-    mask, maskpath, _ = _parse_image(mask, extension=mask_extension, force_ccddata=True,
-                                     name=maskpath, use_ccddata_if_path=False)
+    _ccd, _, _ = _parse_image(ccd, extension=extension, force_ccddata=True)
+    mask, maskpath, _ = _parse_image(mask, extension=mask_extension, name=maskpath)
     mask = mask.data.astype(bool)
     data = _ccd.data
     naxis = _ccd.shape
@@ -1654,7 +1649,7 @@ def fixpix(
         priority = tuple(priority)
     elif (np.min(priority) != 0) or (np.max(priority) != ndim - 1):
         raise ValueError(f"`priority` must be a tuple of int (0 <= int <= {ccd.ndim-1=}). "
-                         + f"now it's {priority=}")
+                         + f"Now it's {priority=}")
 
     structures = [np.zeros([3]*ndim) for _ in range(ndim)]
     for i in range(ndim):
@@ -2350,8 +2345,10 @@ def hedit(
             print("item is astropy Header. (any `output` is igrnoed).")
         output = None
         ccd = None
-    else:
-        ccd, imname, _ = _parse_image(item, force_ccddata=True)
+    elif isinstance(item, ASTROPY_CCD_TYPES):
+        ccd, imname, _ = _parse_image(item, force_ccddata=True, copy=False)
+        #                                                   ^^^^^^^^^^
+        # Use copy=False to update header of the input CCD inplace.z
         header = ccd.header
 
     keys, values, comments, befores, afters = listify(keys, values, comments,
@@ -2360,11 +2357,12 @@ def hedit(
     for key, val, cmt, bef, aft in zip(keys, values, comments, befores, afters):
         if key in header:
             oldv = header[key]
-            infostr = (f"[HEDIT] {key}={oldv} ({type(oldv)}) --> {val} ({type(val)})")
+            infostr = (f"[HEDIT] {key}={oldv} ({type(oldv).__name__}) "
+                       + f"--> {val} ({type(val).__name__})")
             _add_key(header, key, val, infostr, cmt=cmt, before=bef, after=aft)
         else:
             if add:  # add key only if `add` is True.
-                infostr = f"[HEDIT add] {key}={val} ({type(val)})"
+                infostr = f"[HEDIT add] {key}= {val} ({type(val).__name__})"
                 _add_key(header, key, val, infostr, cmt=cmt, before=bef, after=aft)
             elif verbose:
                 print(f"{key = } does not exist in the header. Skipped. (add=True to proceed)")
