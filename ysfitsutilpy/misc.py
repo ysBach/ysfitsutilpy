@@ -10,7 +10,7 @@ from astropy.time import Time
 
 __all__ = ["MEDCOMB_KEYS_INT", "SUMCOMB_KEYS_INT", "MEDCOMB_KEYS_FLT32",
            "LACOSMIC_KEYS", "LACOSMIC_CRREJ", "parse_crrej_psf",
-           "bezel2slice", "is_list_like", "listify",
+           "bezel2slice", "is_list_like", "listify", "ndfy",
            "weighted_avg", "sigclip_dataerr", "circular_mask",
            "_image_shape", "_offsets2slice",
            "str_now", "change_to_quantity", "binning", "fitsxy2py",
@@ -125,6 +125,9 @@ def is_list_like(*objs, allow_sets=True, func=all):
 
     Note that pd.DataFrame also returns True.
     '''
+    # I don't think we need speed boost here but...
+    # if `func` is `any`, below can be reorganized by for loop and can return
+    # `True` once it reaches `True` for the first time.
     return func(
         isinstance(obj, Iterable)
         # we do not count strings/unicode/bytes as list-like
@@ -154,43 +157,63 @@ def is_list_like(*objs, allow_sets=True, func=all):
 #         return [obj]
 
 
-def listify(*objs):
+def listify(*objs, scalar2list=True, none2list=False):
     """Make multiple object into list of same length.
 
     Parameters
     ----------
     objs : None, str, list-like
-        If single object, it will be converted to a list ``[obj]``. If `None`,
-        an empty list (`[]`) is returned. If multiple objects are given,
-        maximum length of them is used as the target length. Any scalar valued
-        object will be converted to a list of that target length. If any obj of
-        `None` need to be converted to a length>1 list, it will be made as
-        [None, None, ...], rather than an empty list.
+        If single object, it will be converted to a list ``[obj]`` or ``obj``,
+        depending on `scalar2list`. Any scalar input will be converted to a
+        list of a target length (largest length among `objs`). If `None`, an
+        empty list (`[]`) or ``[None]`` is returned depending on `none2list`.
+        If multiple objects are given, maximum length of them is used as the
+        target length.
+    scalar2list : bool, optional.
+        If `True`, a single scalar input will be converted to a list of a
+        target length. Otherwise, it will be returned as is.
+
+    none2list : bool, optional.
+        Whether to return an empty list (`[]`). If `True`, ``[None]`` is
+        returned if `objs` is `None`.
+        Default: `False`
+
+    Notes
+    -----
+    If any obj of `None` need to be converted to a length>1 list, it will be
+    made as [None, None, ...], rather than an empty list, regardless of
+    `empty_if_none`.
 
     Tests
-    assert listify("ab") == ["ab"]
+    -----
     assert listify(12) == [12]
     assert listify([1]) == [1]
+    assert listify(12, scalar2list=False) == 12
+    assert listify([1], scalar2list=False) == [1]
     assert listify(None) == []
+    assert listify(None, none2list=True) == [None]
     assert listify([1, 2]) == [1, 2]
     assert listify([1, "a"]) == [1, "a"]
-    assert listify([1, 2], "a") == [[1, 2], ['a', 'a']]
-    assert listify([1, 2], "a", None) == [[1, 2], ['a', 'a'], [None, None]]
     with pytest.raises(ValueError):
         listify([1, 2], "a", [3, 4, 5])
+    # Below are the most important cases `listify` is useful
+    assert listify("ab") == ["ab"]
+    assert listify("ab", scalar2list=False) == "ab"
+    assert listify([1, 2], "a") == [[1, 2], ['a', 'a']]
+    assert listify([1, 2], "a", None) == [[1, 2], ['a', 'a'], [None, None]]
     """
-    def _listify_single(obj, none_to_list=True):
+    def _listify_single(obj, none2list=True):
         if obj is None:
-            return [obj] if none_to_list else []
+            return [obj] if none2list else []
         elif is_list_like(obj):
             return list(obj)
         else:
-            return [obj]
+            return [obj] if scalar2list else obj
 
     if len(objs) == 1:
-        return _listify_single(objs[0], none_to_list=False)
+        return _listify_single(objs[0], none2list=none2list)
 
-    objlists = [_listify_single(obj, none_to_list=True) for obj in objs]
+    objlists = [_listify_single(obj, none2list=True) for obj in objs]
     lengths = [len(obj) for obj in objlists]
     length = max(lengths)
     for objl in objlists:
@@ -198,6 +221,55 @@ def listify(*objs):
             raise ValueError(f"Each input must be 1 or max(lengths)={length}.")
 
     return [obj*length if len(obj) == 1 else obj for obj in objlists]
+
+
+def ndfy(item, length=None, default=0):
+    """ Make an item to ndarray of length.
+
+    Parameters
+    ----------
+    item : None, general object, list-like
+        The item to be made into an ndarray. If `None`, `default` is used.
+
+    length : int, optional.
+        The length of the final ndarray. If `None`, the length of the input is
+        used (if `item` is a scalar, a length-1 array is returned).
+
+    default : general object
+        The default value to be used if `item` or any element of `item` is
+        `None`.
+
+    Notes
+    -----
+    Useful for the cases when bezels, sigma, ... are needed. Example case when
+    you want to make ((20, 20), (20, 20)) bezels from given ``bezels = 20``::
+    >>> arr = np.arange(10).reshape(2, 5)  # 2-D array
+    >>> bezels1 = 20
+    >>> bezels2 = (20, 20)
+    >>> bezels3 = ((20, 20), (20, 20))
+    >>> ans = [[20, 20], [20, 20]]
+    >>> assert ndfy([ndfy(b, 2, default=0) for b in listify(bezels1)], arr.ndim) == ans
+    >>> assert ndfy([ndfy(b, 2, default=0) for b in listify(bezels2)], arr.ndim) == ans
+    >>> assert ndfy([ndfy(b, 2, default=0) for b in listify(bezels3)], arr.ndim) == ans
+
+    Note that 2-element bezels is ambiguous: ``[a, b]`` may mean either (1)
+    both bezels in x-axis to be ``a`` and both bezels in y-axis to be ``b`` or
+    (2) both x-/y-axis have bezels ``[a, b]`` for lower/upper regions. `ndfy`
+    uses the first assumption::
+    >>> ndfy([ndfy(b, 2, default=0) for b in listify([(30, 40)])], arr.ndim)
+    >>> # [[30, 30], [40, 40]]
+    Because of this, it will raise ValueError if `arr.ndim != bezels.size`.
+    """
+    item = listify(item)
+    item = [default if i is None else i for i in item]
+
+    if (length is None) or (len(item) == length):
+        return item
+    elif len(item) != 1:
+        raise ValueError(f"Length of item must be 1 or {length=}. Now it is {len(item)}.")
+
+    # Now, len(item) == 1
+    return [item[0] for _ in range(length)]
 
 
 def parse_crrej_psf(
