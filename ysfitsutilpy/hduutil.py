@@ -1186,8 +1186,12 @@ def propagate_ccdmask(ccd, additional_mask=None):
 
 
 # FIXME: Remove when https://github.com/astropy/ccdproc/issues/718 is solved
-def trim_ccd(ccd, fits_section=None, update_header=True, verbose=False):
+def trim_ccd(ccd, fits_section=None, bezels=None, update_header=True, verbose=False):
     _t = Time.now()
+    if bezels is not None:
+        bezels = ndfy([ndfy(b, 2, default=0) for b in listify(bezels)], ccd.ndim)
+        sects = [f"{b[0] + 1}:{n - b[1]}" for n, b in zip(ccd.shape[::-1], bezels)]
+        fits_section = "[" + ",".join(sects) + "]"
     trimmed_ccd = trim_image(ccd, fits_section=fits_section, add_keyword=update_header)
 
     if update_header:
