@@ -22,7 +22,7 @@ from ccdproc import trim_image
 from scipy.ndimage import label as ndlabel
 
 from .misc import (_image_shape, bezel2slice, binning, change_to_quantity,
-                   fitsxy2py, is_list_like, listify, str_now)
+                   fitsxy2py, is_list_like, listify, ndfy, str_now)
 
 try:
     import fitsio
@@ -55,7 +55,8 @@ __all__ = [
     # ! ccdproc:
     "trim_ccd", "bezel_ccd", "trim_overlap", "cut_ccd", "bin_ccd",
     "fixpix",
-    "make_errormap", "errormap",
+    #"make_errormap",
+    "errormap",
     "find_extpix", "find_satpix",
     # ! header update:
     "cmt2hdr", "update_tlm", "update_process", "hedit", "key_remover", "key_mapper", "chk_keyval",
@@ -348,7 +349,7 @@ def _parse_image(
             new_im = ccdlike.copy() if copy else ccdlike
         else:
             new_im = ccdlike.data.copy() if copy else ccdlike.data
-        imtype = "CCDdata"
+        imtype = "CCDData"
     elif isinstance(ccdlike, (fits.PrimaryHDU, fits.ImageHDU)):
         # force_ccddata: CCDData // prefer_ccddata: CCDData // else: ndarray
         new_im = __extract_from_hdu(ccdlike, **ccd_kw)
@@ -724,7 +725,7 @@ def load_ccd(
         9.42 ms +/- 391 µs per loop (mean +/- std. dev. of 7 runs, 100 loops each)
     ```
     '''
-    def ext_umf(ext):
+    def _ext_umf(ext):
         """ Return None if ext is None, otherwise, parse it (usu. returns 0)
         """
         return None if ext is None else _parse_extension(ext)
@@ -738,23 +739,19 @@ def load_ccd(
 
     if HAS_FITSIO:
         if ccddata and as_ccd:  # if at least one of these is False, it uses fitsio.
-            extension_uncertainty = ext_umf(extension_uncertainty)
-            extension_mask = ext_umf(extension_mask)
-            extension_flag = ext_umf(extension_flags)
-            # If not None, this happens: NotImplementedError: loading flags is
-            # currently not supported.
-
             reader_kw = dict(
                 hdu=extension,
-                hdu_uncertainty=extension_uncertainty,
-                hdu_mask=extension_mask,
-                hdu_flags=extension_flag,
+                hdu_uncertainty=_ext_umf(extension_uncertainty),
+                hdu_mask=_ext_umf(extension_mask),
+                hdu_flags=_ext_umf(extension_flags),
                 key_uncertainty_type=key_uncertainty_type,
                 memmap=memmap,
                 **kwd
             )
+            # ^ If hdu_flags is not None, CCDData raises this Error:
+            #   NotImplementedError: loading flags is currently not supported.
 
-            # FIXME: Remove this if block in the future if WCS issue is resolved.
+            # FIXME: Remove this `if` block in the future if WCS issue is resolved.
             if use_wcs:  # Because of the TPV WCS issue
                 hdr = fits.getheader(path)
                 reader_kw["wcs"] = WCS(hdr)
@@ -765,72 +762,62 @@ def load_ccd(
             except ValueError:  # e.g., user did not give unit and there's no BUNIT
                 ccd = CCDData.read(path, unit=u.adu, **reader_kw)
 
-            return ccd if fits_section is None else trim_ccd(ccd, fits_section=fits_section)
+            if full:  # Just for API consistency
+                return ccd, ccd.uncertainty, ccd.mask, ccd.flags
+            elif fits_section is None:
+                return ccd
+            else:
+                return trim_ccd(ccd, fits_section=fits_section)
 
         else:
             # Use fitsio and only load the data as soon as possible.
             # This is much quicker than astropy's getdata
-            def _read_by_fitsio(_hdul, _path, _extension, _fits_section=None):
+            def _read_by_fitsio(_hdul, _ext, _fits_section=None):
+                if _ext is None:
+                    return None
+                _ext = _ext_umf(_ext)
                 try:
                     if _fits_section is not None:
                         sl = fitsxy2py(_fits_section)
-                        if is_list_like(_extension):
+                        if is_list_like(_ext):
                             # length == 2 is already checked in _parse_extension.
-                            arr = _hdul[_extension[0], _extension[1]][sl]
+                            arr = _hdul[_ext[0], _ext[1]][sl]
                         else:
-                            arr = _hdul[_extension][sl]
+                            arr = _hdul[_ext][sl]
                     else:
-                        if is_list_like(_extension):
+                        if is_list_like(_ext):
                             # length == 2 is already checked in _parse_extension.
-                            arr = _hdul[_extension[0], _extension[1]].read()
+                            arr = _hdul[_ext[0], _ext[1]].read()
                         else:
-                            arr = _hdul[_extension].read()
-                except OSError:
-                    raise ValueError(
-                        f"Extension `{_extension}` is not found (file: {_path})"
-                    )
-                except ValueError:
-                    raise ValueError()
-
-                return arr
+                            arr = _hdul[_ext].read()
+                    return arr
+                except (OSError, ValueError):
+                    # "Extension `{_ext}` is not found (file: {_path})")
+                    return None
 
             with fitsio.FITS(path) as hdul:
-                data = _read_by_fitsio(hdul, path, extension, _fits_section=fits_section)
-
                 if full:
-                    try:  # Read uncertainty if exists
-                        e_u = _parse_extension(extension_uncertainty)
-                        unc = _read_by_fitsio(hdul, path, e_u, _fits_section=fits_section)
-                    except (OSError, ValueError):  # if the extension is not found
-                        unc = None
-                    try:  # Read uncertainty if exists
-                        e_m = _parse_extension(extension_mask)
-                        mask = _read_by_fitsio(hdul, path, e_m, _fits_section=fits_section)
-                    except (OSError, ValueError):  # if the extension is not found
-                        mask = None
-
-                    flag = None  # FIXME: add this line when CCDData starts to support flags.
-                    return data, unc, mask, flag
+                    dat = _read_by_fitsio(hdul, extension, fits_section)
+                    unc = _read_by_fitsio(hdul, extension_uncertainty, fits_section)
+                    msk = _read_by_fitsio(hdul, extension_mask, fits_section)
+                    flg = _read_by_fitsio(hdul, extension_flags, fits_section)
+                    return dat, unc, msk, flg
 
                 else:
-                    return data
+                    return _read_by_fitsio(hdul, extension, fits_section)
 
     else:
-        ignore_u = True if extension_uncertainty is None else False
-        ignore_m = True if extension_mask is None else False
-
-        extension_uncertainty = _parse_extension(extension_uncertainty)
-        extension_mask = _parse_extension(extension_mask)
-        if extension_flags is not None:
-            extension_flags = _parse_extension(extension_flags)
-        # If not None, this happens:
+        e_u = _ext_umf(extension_uncertainty)
+        e_m = _ext_umf(extension_mask)
+        e_f = _ext_umf(extension_flags)
+        # ^ If not None, this happens:
         #   NotImplementedError: loading flags is currently not supported.
 
         reader_kw = dict(
             hdu=extension,
-            hdu_uncertainty=extension_uncertainty,
-            hdu_mask=extension_mask,
-            hdu_flags=extension_flag,
+            hdu_uncertainty=e_u,
+            hdu_mask=e_m,
+            hdu_flags=e_f,
             key_uncertainty_type=key_uncertainty_type,
             memmap=memmap,
             **kwd
@@ -849,25 +836,27 @@ def load_ccd(
 
         # Force them to be None if extension is not specified
         # (astropy.NDData.CCDData forces them to be loaded, which is not desirable imho)
-        ccd.uncertainty = None if ignore_u else ccd.uncertainty
-        ccd.mask = None if ignore_m else ccd.mask
+        ccd.uncertainty = None if e_u is None else ccd.uncertainty
+        ccd.mask = None if e_m is None else ccd.mask
 
         if fits_section is not None:
             ccd = trim_ccd(ccd, fits_section=fits_section)
 
         if ccddata and as_ccd:  # if at least one of these is False, it uses fitsio.
-            return ccd
-        else:
-            if full:
-                try:
-                    unc = np.array(ccd.uncertainty.array)
-                except AttributeError:
-                    unc = None
-                mask = None if ccd.mask is None else np.array(ccd.mask)
-                flag = None  # FIXME: add this line when CCDData starts to support flags.
-                return ccd.data, unc, mask, flag
+            if full:  # Just for API consistency
+                return ccd, ccd.uncertainty, ccd.mask, ccd.flags
             else:
-                return ccd.data
+                return ccd
+        elif full:
+            try:
+                unc = None if e_u is None else np.array(ccd.uncertainty.array)
+            except AttributeError:
+                unc = None
+            mask = None if e_m is None else np.array(ccd.mask.array)
+            flag = None if e_f is None else np.array(ccd.flags)
+            return ccd.data, unc, mask, flag
+        else:
+            return ccd.data
 
 
 def inputs2list(
@@ -1253,34 +1242,27 @@ def bezel_ccd(
         verbose=False
 ):
     """ Replace pixel values at the edges of the image.
-
     Parameters
     ----------
     ccd : CCDData or ndarray
         The data to be used.
-
     bezel_x, bezel_y : None, int, float, size-2 of these, optional.
         The bezel width along x and y directions. If `float`, it will be
         rounded to integer. If given as size-2 array-like, it must be
         ``(bezel_lower, bezel_upper)``.
-
     replace : None, float-like, optinoal.
         If `None`, it is identical to trimming the CCD with given bezels. If
         given as float-like, the bezel pixels will be replaced with this value.
         Defaults to ``np.nan`` to keep the size of the input `ccd`.
-
     Returns
     -------
     nccd : `~astropy.nddata.CCDData`
         The trimmed (``replace=None``) or bezel-replaced (otherwise) ccd.
-
     Example
     -------
     >>>
-
     Notes
     -----
-
     """
     def _sanitize_bezel(bezel, npix):
         if bezel is None:
@@ -1617,7 +1599,8 @@ def fixpix(
     _t_start = Time.now()
 
     _ccd, _, _ = _parse_image(ccd, extension=extension, force_ccddata=True)
-    mask, maskpath, _ = _parse_image(mask, extension=mask_extension, name=maskpath)
+    mask, maskpath, _ = _parse_image(mask, extension=mask_extension,
+                                     name=maskpath, force_ccddata=True)
     mask = mask.data.astype(bool)
     data = _ccd.data
     naxis = _ccd.shape
@@ -1967,18 +1950,18 @@ def find_satpix(
     return satmask
 
 
-def make_errormap(
-        ccd,
-        gain_epadu=1,
-        rdnoise_electron=0,
-        flat_err=0.0,
-        subtracted_dark=None,
-        return_variance=False
-):
-    print("Use `errormap` instead.")
-    return errormap(ccd, gain_epadu=gain_epadu, rdnoise_electron=rdnoise_electron,
-                    subtracted_dark=subtracted_dark, flat_err=flat_err,
-                    return_variance=return_variance)
+# def make_errormap(
+#         ccd,
+#         gain_epadu=1,
+#         rdnoise_electron=0,
+#         flat_err=0.0,
+#         subtracted_dark=None,
+#         return_variance=False
+# ):
+#     print("Use `errormap` instead.")
+#     return errormap(ccd, gain_epadu=gain_epadu, rdnoise_electron=rdnoise_electron,
+#                     subtracted_dark=subtracted_dark, flat_err=flat_err,
+#                     return_variance=return_variance)
 
 
 def errormap(
