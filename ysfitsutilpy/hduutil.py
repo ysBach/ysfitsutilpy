@@ -2531,6 +2531,63 @@ def chk_keyval(type_key, type_val, group_key):
     return type_key, type_val, group_key
 
 
+def valinhdr(header=None, key=None, val=None, unit=None, default=None):
+    ''' Get the value from header if val is None.
+
+    Parameters
+    ----------
+    header : Header, optional.
+        The header to extract the value.
+
+    key : str, optional.
+        The header keyword to extract.
+
+    val : object, optional.
+        If not `None`, `header`, `key`, and `default` will **not** be used.
+        This is different from `header.get(key, default)`. It is therefore
+        useful if the API wants to override the header value by the
+        user-provided one (e.g., exposure key ("EXPTIME") is given but exposure
+        time is also given as 3s, then use the latter even though
+        ``header["EXPTIME"] = 20``).
+
+    unit : str, optional.
+        None to ignore unit. ``''`` (empty string) means `Unit(dimensionless)`.
+        Better to leave it as None unless astropy unit is truely needed.
+
+    Tests
+    -----
+    true_q = 20*u.s
+    true_v = 20
+    default_q = 0*u.s
+    default_v = 0
+    test_q = 3*u.s
+    test_v = 3
+
+    # w/o unit
+    assert valinhdr(hdr, "EXPTIME", None,   default=0) == true_v
+    assert valinhdr(hdr, "EXPTIxx", None,   default=0) == default_v
+    assert valinhdr(hdr, "EXPTIxx", test_v, default=0) == test_v
+    assert valinhdr(hdr, "EXPTIxx", test_q, default=0) == test_v
+    # w/ unit
+    assert valinhdr(hdr, "EXPTIME", None,   unit='s', default=0) == true_q
+    assert valinhdr(hdr, "EXPTIxx", None,   unit='s', default=0) == default_q
+    assert valinhdr(hdr, "EXPTIxx", test_v, unit='s', default=0) == test_q
+    assert valinhdr(hdr, "EXPTIxx", test_q, unit='s', default=0) == test_q
+
+    '''
+    uu = 1 if unit is None else u.Unit(unit)
+    #    ^ NOT 1.0 to preserve the original dtype (e.g., int)
+    val = header.get(key, default) if val is None else val
+
+    if isinstance(val, u.Quantity):
+        return val.value if unit is None else val.to(unit)
+    else:
+        try:
+            return val*uu
+        except TypeError:  # e.g., val is a str
+            return val
+
+
 def get_from_header(header, key, unit=None, verbose=True, default=0):
     ''' Get a variable from the header object.
 
