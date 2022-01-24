@@ -772,7 +772,8 @@ def change_to_quantity(x, desired='', to_value=False):
         changed to the `desired`, i.e., ``x.to(desired)``.
 
     desired : str or astropy Unit
-        The desired unit for `x`.
+        The desired unit for `x`. If `''` (default), it will be interpreted as
+        `Unit(dimensionless)`.
 
     to_value : bool, optional.
         Whether to return as scalar value. If `True`, just the value(s) of the
@@ -800,9 +801,7 @@ def change_to_quantity(x, desired='', to_value=False):
         return None
 
     try:
-        ux = x.to(desired)
-        if to_value:
-            ux = ux.value
+        ux = x.to(desired).value if to_value else x.to(desired)
     except AttributeError:  # if not Quantity
         if not to_value:
             if isinstance(desired, str):
