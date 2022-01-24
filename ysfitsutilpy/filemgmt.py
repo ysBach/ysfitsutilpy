@@ -13,10 +13,11 @@ import pandas as pd
 from astropy.io import fits
 from astropy.io.fits.verify import VerifyError
 from astropy.nddata import CCDData
+from astropy.time import Time
 
 from .hduutil import (_parse_extension, cut_ccd, inputs2list, key_mapper,
                       key_remover)
-from .misc import listify, parse_crrej_psf, LACOSMIC_CRREJ
+from .misc import LACOSMIC_CRREJ, listify, parse_crrej_psf
 
 __all__ = [
     "mkdir", "load_if_exists", "make_summary", "df_selector",
@@ -462,7 +463,10 @@ def make_reduc_planner(
         output=None,
         cal_column="file",
         col_remove="REMOVEIT",
-        use_0th_if_many=False
+        ifmany="error",
+        timecol="DATE-OBS",
+        timefmt=None,
+        verbose=1
 ):
     """Make a general purpose reducing plan table.
 
@@ -498,9 +502,34 @@ def make_reduc_planner(
         name) in `cal_summary`. If str, it is assumed all `cal_summary` have
         the information at that column. Default: ``"file"``
 
-    use_0th_if_many : bool, optional
-        Use the 0-th element, if there are more than one calibration frames
-        found.
+    ifmany : str, optional
+        The action to take when there are more than one calibration frames
+        found::
+
+          * ``"error"``: raise a `ValueError`
+          * ``"ignore"``: ignore the calibration frames for this row
+          * ``"first"``: use the first calibration frame
+          * ``"last"``: use the last calibration frame
+          * ``"time"``: use the frame with the closest time
+
+        If multiple frames are found for the closest time, the 0-th frame is
+        used among them (the default behavior of `~numpy.argmin`). `timecol`
+        must be specified if `ifmany` is ``"time"``.
+
+    timecol : str, optional.
+        The column contains the time of the observation. The FITS standard is
+        `"DATE-OBS"`. **Used only if `ifmany` is ``"time"``**.
+
+    timefmt : str, optional
+        The format of the time in `timecol`. **Used only if `ifmany` is
+        ``"time"``**. Usually ``"isot"`` or ``"jd"``. All possible formats are::
+
+          >>> list(Time.FORMATS)
+          ['jd', 'mjd', 'decimalyear', 'unix', 'unix_tai', 'cxcsec', 'gps', 'plot_date',
+           'stardate', 'datetime', 'ymdhms', 'iso', 'isot', 'yday', 'datetime64',
+           'fits', 'byear', 'jyear', 'byear_str', 'jyear_str']
+
+        Default: `None`
 
     Examples
     --------
@@ -615,7 +644,10 @@ def make_reduc_planner(
     for c in cols:
         df[c] = None
 
+    infos = "More than one calibration frame found for {} = {}"
     for idx, row in df.iterrows():
+        if ifmany == "time":
+            time_row = Time(row[timecol], format=timefmt)
         for col, cal, mat, calcol in zip(cols, cals, mats, calcols):
             mat = np.atleast_1d(mat)
             # If just a str, cal[mat]==row[mat] gives `Series`, not `DataFrame`,
@@ -625,11 +657,27 @@ def make_reduc_planner(
                 if len(sel) == 1:
                     df.loc[idx, col] = sel[calcol].values[0]
                 elif len(sel) > 1:
-                    if use_0th_if_many:
+                    if ifmany == "error":
+                        raise ValueError(infos.format(mat, row[mat].values))
+                    elif ifmany == "ignore":
+                        continue  # leave it as None
+                    elif ifmany == "first":
                         df.loc[idx, col] = sel[calcol].values[0]
+                    elif ifmany == "last":
+                        df.loc[idx, col] = sel[calcol].values[-1]
+                    elif ifmany == "time":
+                        times_cal = sel[timecol].values
+                        if times_cal.dtype.kind.startswith("O"):
+                            # Usu. the str time (isot format) is in dtype
+                            # "object" --> Time(time_cal.values, format="isot")
+                            # raise `ValueError`. So convert it to str first.
+                            # 2022-01-17 19:27:06 (KST: GMT+09:00) ysBach
+                            times_cal = times_cal.astype(str)
+                        times_cal = Time(times_cal, format=timefmt)
+                        minidx = np.argmin(np.abs(time_row - times_cal))
+                        df.loc[idx, col] = sel[calcol].values[minidx]
                     else:
-                        raise ValueError("More than one calibration frame found for "
-                                         + f"{mat} = {row[mat].values}")
+                        raise ValueError(f"{ifmany=} not understood")
                 else:
                     continue
             except (IndexError):  # no match
