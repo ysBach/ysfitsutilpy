@@ -6,6 +6,7 @@ from .hduutil import *
 from .misc import *
 from .preproc import *
 from .imutil import *
+from .fitting import *
 
 from warnings import warn
 
