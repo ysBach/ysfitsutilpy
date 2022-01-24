@@ -1,4 +1,5 @@
 import numpy as np
+from astropy.nddata import CCDData
 
 from ..hduutil import (CCDData_astype, _parse_image, inputs2list, trim_ccd,
                        update_tlm)
@@ -13,7 +14,7 @@ def imcopy(
         fits_sections=None,
         outputs=None,
         return_ccd=True,
-        dtype='float32',
+        dtype=None,
         **kwargs
 ):
     ''' Similar to IRAF IMCOPY
@@ -48,7 +49,8 @@ def imcopy(
         Whether to load the FITS files as `~astropy.nddata.CCDData` and return it.
 
     dtype : dtype, optional.
-        The dtype for the `outputs` or returning ccds.
+        The dtype for the `outputs` or returning ccds. If `None` (default),
+        don't change anything.
 
     kwargs : optionals
         The keyword arguments for ``CCDData.write``.
@@ -127,17 +129,21 @@ def imcopy(
 
     # TODO: Use fits.open rather than CCDData for speed isseu.
     for i, item in enumerate(inputs):
-        ccd = _parse_image(item, extension=extension, force_ccddata=True)[0]
+        if isinstance(item, CCDData):
+            ccd = item
+        else:
+            ccd = _parse_image(item, extension=extension, force_ccddata=True)[0]
         result = []
         if to_trim:  # n CCDData will be in `result`
             for sect in sects:
                 # FIXME: use ccdproc.trim_image when trim_ccd is removed.
                 nccd = trim_ccd(ccd, fits_section=sect)
-                nccd = CCDData_astype(nccd, dtype=dtype)
+                if dtype is not None:
+                    nccd = CCDData_astype(nccd, dtype=dtype)
                 update_tlm(nccd.header)
                 result.append(nccd)
         else:  # only one single CCDData will be in `result`
-            nccd = CCDData_astype(ccd, dtype=dtype)
+            nccd = ccd if dtype is None else CCDData_astype(ccd, dtype=dtype)
             update_tlm(nccd.header)
             result.append(nccd)
 
