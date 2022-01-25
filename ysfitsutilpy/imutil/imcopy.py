@@ -15,6 +15,7 @@ def imcopy(
         outputs=None,
         return_ccd=True,
         dtype=None,
+        update_header=True,
         **kwargs
 ):
     ''' Similar to IRAF IMCOPY
@@ -140,11 +141,13 @@ def imcopy(
                 nccd = trim_ccd(ccd, fits_section=sect)
                 if dtype is not None:
                     nccd = CCDData_astype(nccd, dtype=dtype)
-                update_tlm(nccd.header)
+                if update_header:
+                    update_tlm(nccd.header)
                 result.append(nccd)
         else:  # only one single CCDData will be in `result`
             nccd = ccd if dtype is None else CCDData_astype(ccd, dtype=dtype)
-            update_tlm(nccd.header)
+            if update_header:
+                update_tlm(nccd.header)
             result.append(nccd)
 
         if to_save:
