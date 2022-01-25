@@ -2241,7 +2241,7 @@ def update_process(
         cmt2hdr(
             header, 'c', time_fmt=None,
             s=(f"Standard items for {key} includes B=bias, D=dark, F=flat, T=trim, W=WCS, "
-               + "C=CRrej, Fr=fringe, P=fixpix, X=crosstalk.")
+               + "O=Overscan, I=Illumination, C=CRrej, R=fringe, P=fixpix, X=crosstalk.")
         )
 
     header[key] = (delimiter.join(process), "Process (order: 1-2-3-...): see comment.")
