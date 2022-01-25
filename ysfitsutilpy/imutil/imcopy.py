@@ -65,10 +65,8 @@ def imcopy(
 
     Notes
     -----
-    Due to the memory issue, it is generally better NOT to load all the FITS
-    files and pass them to this function. Therefore, as it is in IRAF, I made
-    this function to accept only the file paths, not the pre-loaded CCDData
-    objects. I here will load the
+    To make imcopy faster, use  update_header=False (2.8 ms -> 2.3 ms) and
+    dtype=None.
 
     All the sections will be flattened if they are higher than 1-d. I think it
     will only increase the complexity of the code if I accept that...?
