@@ -61,7 +61,7 @@ __all__ = [
     # ! header update:
     "cmt2hdr", "update_tlm", "update_process", "hedit", "key_remover", "key_mapper", "chk_keyval",
     # ! header accessor:
-    "get_from_header", "get_if_none",
+    "valinhdr", "get_from_header", "get_if_none",
     # ! WCS related:
     "wcs_crota", "center_radec", "calc_offset_wcs", "calc_offset_physical",
     "wcsremove", "fov_radius",
@@ -544,7 +544,7 @@ def _parse_extension(*args, ext=None, extname=None, extver=None):
 def load_ccd(
         path,
         extension=None,
-        fits_section=None,
+        trimsec=None,
         ccddata=True,
         as_ccd=True,
         use_wcs=True,
@@ -564,7 +564,7 @@ def load_ccd(
     path : path-like
         The path to the FITS file to load.
 
-    fits_section : str, optional.
+    trimsec : str, optional.
         Region of `~astropy.nddata.CCDData` from which the data is extracted.
         Default: `None`.
 
@@ -764,21 +764,21 @@ def load_ccd(
 
             if full:  # Just for API consistency
                 return ccd, ccd.uncertainty, ccd.mask, ccd.flags
-            elif fits_section is None:
+            elif trimsec is None:
                 return ccd
             else:
-                return trim_ccd(ccd, fits_section=fits_section)
+                return trim_ccd(ccd, trimsec=trimsec)
 
         else:
             # Use fitsio and only load the data as soon as possible.
             # This is much quicker than astropy's getdata
-            def _read_by_fitsio(_hdul, _ext, _fits_section=None):
+            def _read_by_fitsio(_hdul, _ext, _trimsec=None):
                 if _ext is None:
                     return None
                 _ext = _ext_umf(_ext)
                 try:
-                    if _fits_section is not None:
-                        sl = fitsxy2py(_fits_section)
+                    if _trimsec is not None:
+                        sl = fitsxy2py(_trimsec)
                         if is_list_like(_ext):
                             # length == 2 is already checked in _parse_extension.
                             arr = _hdul[_ext[0], _ext[1]][sl]
@@ -797,14 +797,14 @@ def load_ccd(
 
             with fitsio.FITS(path) as hdul:
                 if full:
-                    dat = _read_by_fitsio(hdul, extension, fits_section)
-                    unc = _read_by_fitsio(hdul, extension_uncertainty, fits_section)
-                    msk = _read_by_fitsio(hdul, extension_mask, fits_section)
-                    flg = _read_by_fitsio(hdul, extension_flags, fits_section)
+                    dat = _read_by_fitsio(hdul, extension, trimsec)
+                    unc = _read_by_fitsio(hdul, extension_uncertainty, trimsec)
+                    msk = _read_by_fitsio(hdul, extension_mask, trimsec)
+                    flg = _read_by_fitsio(hdul, extension_flags, trimsec)
                     return dat, unc, msk, flg
 
                 else:
-                    return _read_by_fitsio(hdul, extension, fits_section)
+                    return _read_by_fitsio(hdul, extension, trimsec)
 
     else:
         e_u = _ext_umf(extension_uncertainty)
@@ -839,8 +839,8 @@ def load_ccd(
         ccd.uncertainty = None if e_u is None else ccd.uncertainty
         ccd.mask = None if e_m is None else ccd.mask
 
-        if fits_section is not None:
-            ccd = trim_ccd(ccd, fits_section=fits_section)
+        if trimsec is not None:
+            ccd = trim_ccd(ccd, trimsec=trimsec)
 
         if ccddata and as_ccd:  # if at least one of these is False, it uses fitsio.
             if full:  # Just for API consistency
@@ -1186,20 +1186,20 @@ def propagate_ccdmask(ccd, additional_mask=None):
 
 
 # FIXME: Remove when https://github.com/astropy/ccdproc/issues/718 is solved
-def trim_ccd(ccd, fits_section=None, bezels=None, update_header=True, verbose=False):
+def trim_ccd(ccd, trimsec=None, bezels=None, update_header=True, verbose=False):
     _t = Time.now()
     if bezels is not None:
         bezels = ndfy([ndfy(b, 2, default=0) for b in listify(bezels)], ccd.ndim)
         sects = [f"{b[0] + 1}:{n - b[1]}" for n, b in zip(ccd.shape[::-1], bezels)]
-        fits_section = "[" + ",".join(sects) + "]"
-    trimmed_ccd = trim_image(ccd, fits_section=fits_section, add_keyword=update_header)
+        trimsec = "[" + ",".join(sects) + "]"
+    trimmed_ccd = trim_image(ccd, trimsec=trimsec, add_keyword=None)
 
     if update_header:
-        trim_str = f"Trimmed using {fits_section}"
+        trim_str = f"Trimmed using {trimsec}"
         ndim = ccd.data.ndim  # ndim == NAXIS keyword
         shape = ccd.data.shape
-        if fits_section is not None:
-            trim_slice = fitsxy2py(fits_section)
+        if trimsec is not None:
+            trim_slice = fitsxy2py(trimsec)
             ltvs = []
             for i_python, npix in enumerate(shape):
                 # example: "[10:110]", we must have LTV = -9, not -10.
@@ -1303,7 +1303,7 @@ def bezel_ccd(
     if replace is None:
         sl = (f"[{bezel_x[0] + 1}:{nx - bezel_x[1]},{bezel_y[0] + 1}:{ny - bezel_y[1]}]")
         if isinstance(ccd, CCDData):
-            nccd = trim_ccd(ccd, fits_section=sl, update_header=update_header)
+            nccd = trim_ccd(ccd, trimsec=sl, update_header=update_header)
         else:
             nccd = np.array(ccd)[fitsxy2py(sl)]
         # i.e., use trim_ccd if CCDData, and use python slice if ndarray-like
@@ -2531,48 +2531,56 @@ def chk_keyval(type_key, type_val, group_key):
     return type_key, type_val, group_key
 
 
-def valinhdr(header=None, key=None, val=None, unit=None, default=None):
-    ''' Get the value from header if val is None.
+def valinhdr(val=None, header=None, key=None, default=None, unit=None):
+    ''' Get the value by priority: val > header[key] > default.
 
     Parameters
     ----------
-    header : Header, optional.
-        The header to extract the value.
-
-    key : str, optional.
-        The header keyword to extract.
-
     val : object, optional.
         If not `None`, `header`, `key`, and `default` will **not** be used.
         This is different from `header.get(key, default)`. It is therefore
         useful if the API wants to override the header value by the
-        user-provided one (e.g., exposure key ("EXPTIME") is given but exposure
-        time is also given as 3s, then use the latter even though
-        ``header["EXPTIME"] = 20``).
+        user-provided one.
+
+    header : Header, optional.
+        The header to extract the value if `value` is `None`.
+
+    key : str, optional.
+        The header keyword to extract if `value` is `None`.
+
+    default : object, optional.
+        The default value. If `value` is `None`, then ``header.get(key,
+        default)``.
 
     unit : str, optional.
         None to ignore unit. ``''`` (empty string) means `Unit(dimensionless)`.
         Better to leave it as None unless astropy unit is truely needed.
 
+    Notes
+    -----
+    It takes << 10 us (when unit=None) or for any case for a reasonably lengthy
+    header. See `Tests` below. Tested on MBP 15" [2018, macOS 11.6, i7-8850H
+    (2.6 GHz; 6-core), RAM 16 GB (2400MHz DDR4), Radeon Pro 560X (4GB)].
+
     Tests
     -----
-    true_q = 20*u.s
-    true_v = 20
+    real_q = 20*u.s
+    real_v = 20
     default_q = 0*u.s
     default_v = 0
     test_q = 3*u.s
     test_v = 3
 
-    # w/o unit
-    assert valinhdr(hdr, "EXPTIME", None,   default=0) == true_v
-    assert valinhdr(hdr, "EXPTIxx", None,   default=0) == default_v
-    assert valinhdr(hdr, "EXPTIxx", test_v, default=0) == test_v
-    assert valinhdr(hdr, "EXPTIxx", test_q, default=0) == test_v
-    # w/ unit
-    assert valinhdr(hdr, "EXPTIME", None,   unit='s', default=0) == true_q
-    assert valinhdr(hdr, "EXPTIxx", None,   unit='s', default=0) == default_q
-    assert valinhdr(hdr, "EXPTIxx", test_v, unit='s', default=0) == test_q
-    assert valinhdr(hdr, "EXPTIxx", test_q, unit='s', default=0) == test_q
+    # w/o unit  Times are the %timeit result of the LHS
+    assert valinhdr(None,   hdr, "EXPTIME", default=0) == real_v  # ~ 6.5 us
+    assert valinhdr(None,   hdr, "EXPTIxx", default=0) == default_v # ~ 3.5 us
+    assert valinhdr(test_v, hdr, "EXPTIxx", default=0) == test_v  # ~ 0.3 us
+    assert valinhdr(test_q, hdr, "EXPTIxx", default=0) == test_v  # ~ 0.6 us
+    # w/ unit  Times are the %timeit result of the LHS
+    assert valinhdr(None,   hdr, "EXPTIME", default=0, unit='s') == real_q  # ~ 23 us
+    assert valinhdr(None,   hdr, "EXPTIxx", default=0, unit='s') == default_q # ~ 16 us
+    assert valinhdr(test_v, hdr, "EXPTIxx", default=0, unit='s') == test_q  # ~ 11 us
+    assert valinhdr(test_q, hdr, "EXPTIxx", default=0, unit='s') == test_q  # ~ 15 us
 
     '''
     uu = 1 if unit is None else u.Unit(unit)
