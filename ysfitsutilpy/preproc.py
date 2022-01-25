@@ -11,14 +11,15 @@ from astropy.time import Time
 from astroscrappy import detect_cosmics
 from ccdproc import flat_correct, subtract_bias, subtract_dark
 
-from .hduutil import (CCDData_astype, _parse_data_header, _parse_image,
-                      cmt2hdr, errormap, fixpix, listify, load_ccd,
-                      propagate_ccdmask, set_ccd_gain_rdnoise, trim_ccd,
-                      update_process, update_tlm)
-from .misc import change_to_quantity, fitsxy2py, parse_crrej_psf, LACOSMIC_CRREJ
+from .hduutil import (CCDData_astype, _parse_image, cmt2hdr, errormap, fixpix,
+                      listify, load_ccd, propagate_ccdmask,
+                      set_ccd_gain_rdnoise, trim_ccd, update_process,
+                      update_tlm, valinhdr)
+from .misc import (LACOSMIC_CRREJ, change_to_quantity, fitsxy2py,
+                   parse_crrej_psf)
 
 __all__ = [
-    "crrej", "medfilt_bpm", "bdf_process", "run_reduc_plan"
+    "crrej", "medfilt_bpm", "fringecor", "bdf_process", "run_reduc_plan"
 ]
 
 
@@ -741,6 +742,115 @@ def medfilt_bpm(
         return nccd
 
 
+def subtract_dark():
+    pass
+
+
+def fringecor(
+        ccd,
+        mfringe,
+        fringe_scale=None,
+        fringe_scale_region=None,
+        fringe_scale_kw={},
+        exposure_key="EXPTIME",
+        data_exposure=None,
+        fringe_exposure=None,
+        verbose=1
+):
+    """ Subtract fringe frame
+    Parameters
+    ----------
+    ccd : CCDData
+        The ccd to processed.
+
+    mfringe : CCDData
+        The fringe frame.
+
+    fringe_scale : int, float, ndarry, function object, {"exp", "exposure", "exptime"}, optional.
+        The scale to be applied to the fringe frame. If numeric or ndarray, it
+        will directly be multiplied to the fringe before fringe subtraction. If
+        function object, it will be applied to the fringe before fringe
+        subtraction (using `fringe_scale_section`). If "exp", "exposure", or
+        "exptime", the exposure time of the fringe frame will be used. (using
+        either `fringe_exposure` or `exposure_key`). If `None`, the fringe
+        will be subtracted without modification.
+        Default: `None`.
+
+    fringe_scale_region : ndarray(bool), str, optional.
+        The mask or FITS-convention section of the fringe and object (science)
+        frames to match the fringe pattern before the subtraction. If ndarray,
+        it will be forced to be changed into `bool` array. The scale will be
+        ``fringe_scale(object_frame[fringe_scale_region]) /
+        fringe_scale(fringe_frame[fringe_scale_region])``.
+        default: `None`.
+
+    fringe_scale_kw : dict, optional.
+        The kwargs that can be passed to `fringe_scale` if it is a function.
+
+    exposure_key : str
+        The header keyword for exposure time. Used only if `fringe_scale` is in
+        ``{"exp", "exposure", "exptime"}``.
+
+    data_exposure, fringe_exposure, : None, numeric, astropy Quantity, optional.
+        The exposure times of data and fringe frame, respectively. Any header
+        information will be ignored (i.e., `xxx_exposure` has higher priority
+        than `xxx.header[exposure_key]`).
+    """
+    str_fringe_noscale = "Fringe subtracted (see FRINFRM)"
+    str_fringe_scale = ("Finge subtracted with scaling (image - scale*fringe)"
+                        + "(see FRINFRM, FRINSECT, FRINFUNC and FRINSCAL)")
+
+    _t = Time.now()
+
+    if fringe_scale is None:
+        scale = 1  # Not 1.0 so that (ccd in int) - (mfringe in int) remains int.
+        s = str_fringe_noscale
+        fun = "noscale"
+        sect = "all"
+    elif isinstance(fringe_scale, (int, float, np.ndarray)):
+        scale = fringe_scale
+        s = str_fringe_scale
+        fun = "noscale"
+        sect = "all"
+    elif isinstance(fringe_scale, str):
+        if fringe_scale.lower() in ["exp", "exposure", "exptime"]:
+            if data_exposure is None:
+                data_exposure = ccd.header.get(exposure_key)
+            if fringe_exposure is None:
+                fringe_exposure = mfringe.header.get(exposure_key)
+            scale = (float(data_exposure) / float(fringe_exposure))
+            s = str_fringe_scale
+            fun = "EXPTIME"
+            sect = "all"
+        else:
+            raise ValueError(
+                "If `fringe_scale` is str, it must be {'exp', 'exposure', 'exptime'}."
+                + f". Now {fringe_scale=}"
+            )
+    else:  # Function
+        if isinstance(fringe_scale_region, str):
+            reg = fitsxy2py(fringe_scale_region)
+            sect = fringe_scale_region
+        elif isinstance(fringe_scale_region, np.ndarray):
+            reg = fringe_scale_region.astype(bool)
+            sect = "User-input mask"
+        else:
+            reg = None  # All
+            sect = "all"
+        scale = fringe_scale(ccd.data[reg]/mfringe.data[reg], **fringe_scale_kw)
+        s = str_fringe_scale
+        fun = fringe_scale.__name__
+
+    mfringe.data *= scale
+    ccd.data = ccd.subtract(mfringe).data  # should I calc. error..?
+
+    ccd.header["FRINSECT"] = (sect, "The region used for FRINFUNC")
+    ccd.header["FRINFUNC"] = (fun, "Function used to get FRINSCAL")
+    ccd.header["FRINSCAL"] = (scale, "Scale multiplied to fringe")
+    cmt2hdr(ccd.header, 'h', s, verbose=verbose, t_ref=_t)
+    return ccd
+
+
 # NOTE: crrej should be done AFTER bias/dark and flat correction:
 # http://www.astro.yale.edu/dokkum/lacosmic/notes.html
 def bdf_process(
@@ -756,9 +866,10 @@ def bdf_process(
         mflat=None,
         mfringe=None,
         fringe_flat_fielded=True,
-        fringe_scale_fun=np.mean,
-        fringe_scale_section=None,
-        trim_fits_section=None,
+        fringe_scale=None,
+        fringe_scale_region=None,
+        fringe_scale_kw={},
+        trimsec=None,
         calc_err=False,
         unit=None,
         gain=None,
@@ -810,26 +921,33 @@ def bdf_process(
         header (``BIASFRM``, ``DARKFRM``, ``FLATFRM`` and/or ``FRINFRM``). If
         the paths are not given, the header values will be ``<User>``.
 
-    fringe_scale_fun : function object, {"exp", "exposure", "exptime"}, optional.
-        The function to be used to scale the fringe before subtraction,
-        specified by the region `fringe_scale_section`. If one of ``{"exp",
-        "exposure", "exptime"}``, the exposure time from `exposure_key` is used
-        for scaling. Scaling is turned of if `fringe_scale_section` is `None`.
-        Default: `np.mean`.
+    fringe_scale : int, float, ndarry, function object, {"exp", "exposure", "exptime"}, optional.
+        The scale to be applied to the fringe frame. If numeric or ndarray, it
+        will directly be multiplied to the fringe before fringe subtraction. If
+        function object, it will be applied to the fringe before fringe
+        subtraction (using `fringe_scale_section`). If "exp", "exposure", or
+        "exptime", the exposure time of the fringe frame will be used. (using
+        either `fringe_exposure` or `exposure_key`). If `None`, the fringe
+        will be subtracted without modification.
+        Default: `None`.
 
-    fringe_scale_section : str, optional.
-        The FITS-convention section of the fringe and object (science) frames
-        to match the fringe pattern before the subtraction. If `None`, this
-        scaling is turned off. To use all region, use such as ``'[:, :]`` for
-        2-D.
+    fringe_scale_region : ndarray(bool), str, optional.
+        The mask or FITS-convention section of the fringe and object (science)
+        frames to match the fringe pattern before the subtraction. If ndarray,
+        it will be forced to be changed into `bool` array. The scale will be
+        ``fringe_scale(object_frame[fringe_scale_region]) /
+        fringe_scale(fringe_frame[fringe_scale_region])``.
         default: `None`.
+
+    fringe_scale_kw : dict, optional.
+        The kwargs that can be passed to `fringe_scale` if it is a function.
 
     fringe_flat_fielded : bool, optional.
         Whether the fringe frame is flat-fielded. If `True`, fringe is
         subtracted AFTER flat-fielding the input frame. Otherwise (default),
         fringe is subtracted BEFORE flat-fielding the input frame.
 
-    trim_fits_section: str, optional.
+    trimsec: str, optional.
         Region of `ccd` to be trimmed; see `~ccdproc.subtract_overscan` for
         details. Default is `None`.
 
@@ -874,11 +992,10 @@ def bdf_process(
 
     exposure_key : str, optional.
         The header keyword for exposure time.
-        Ignored if ``mdarkpath=None``.
 
     exposure_unit : astropy Unit, optional.
         The unit of the exposure time.
-        Ignored if ``mdarkpath=None``.
+        Used in `~ccdproc.subtract_dark`.
 
     normalize_exposure : bool, optional.
         Whether to normalize the values by the exposure time of each frame.
@@ -938,9 +1055,6 @@ def bdf_process(
     str_dark = "Dark subtracted (see DARKFRM)"
     str_dscale = "Dark scaling using {}"
     str_flat = "Flat corrected by image/flat*flat_norm_value (see FLATFRM; FLATNORM)"
-    str_fringe_noscale = "Fringe subtracted (see FRINFRM)"
-    str_fringe_scale = ("Finge subtracted with scaling (image - scale*fringe)"
-                        + "(see FRINFRM, FRINSECT, FRINFUNC and FRINSCAL)")
     str_trim = "Trim by FITS section {} (see LTV, LTM, TRIMIM)"
     str_e0 = "Readnoise propagated with Poisson noise (using gain above) of source."
     str_ed = "Poisson noise from subtracted dark was propagated."
@@ -969,30 +1083,8 @@ def bdf_process(
 
         return do, master, path
 
-    def _sub_frin(proc, mfringe, fringe_scale_fun=np.mean, fringe_scale_section=None):
-        _t = Time.now()
-        if fringe_scale_section is not None:
-            if isinstance(fringe_scale_fun, str):
-                if fringe_scale_fun.lower() in ["exp", "exposure", "exptime"]:
-                    scale = (float(proc.header.get(exposure_key, data_exposure))
-                             / float(mfringe.header.get(exposure_key, fringe_exposure)))
-                else:
-                    raise ValueError(
-                        "If `fringe_scale_fun` is str, it must be one of "
-                        + f"{'exp', 'exposure', 'exptime'}. Now it's {fringe_scale_fun}"
-                    )
-            else:
-                sl = fitsxy2py(fringe_scale_section)
-                scale = fringe_scale_fun(proc.data[sl]) / fringe_scale_fun(mfringe.data[sl])
-            proc.header["FRINSCAL"] = (scale, "Scale factor multiplied to fringe")
-            s = str_fringe_scale
-        else:
-            scale = 1  # Not 1.0 so that (ccd in int) - (mfringe in int) remains int.
-            s = str_fringe_noscale
-        mfringe.data *= scale
-        proc.data = proc.subtract(mfringe).data  # should I calc. error..?
-        cmt2hdr(proc.header, 'h', s, verbose=verbose_bdf, t_ref=_t)
-        return proc
+    def _procfrm(proc, name, path):
+        proc.header[f"{name.upper()[:4]}FRM"] = (path, f"applied {name} frame")
 
     # ************************************************************************************ #
     # *                                  INITIAL SETTING                                 * #
@@ -1020,14 +1112,14 @@ def bdf_process(
     do_bias, mbias, mbiaspath = _load_master(mbiaspath, mbias)
     if do_bias:
         PROCESS.append("B")
-        proc.header["BIASFRM"] = (str(mbiaspath), "Applied bias frame")
+        _procfrm(proc, "BIAS", mbiaspath)
 
     # == Set for DARK ==================================================================== #
     do_dark, mdark, mdarkpath = _load_master(mdarkpath, mdark)
 
     if do_dark:
         PROCESS.append("D")
-        proc.header["DARKFRM"] = (str(mdarkpath), "Applied dark frame")
+        _procfrm(proc, "DARK", mdarkpath)
 
         if dark_scale:
             # TODO: what if dark_exposure, data_exposure are given explicitly?
@@ -1037,8 +1129,7 @@ def bdf_process(
     do_flat, mflat, mflatpath = _load_master(mflatpath, mflat)
     if do_flat:
         PROCESS.append("F")
-        proc.header["FLATFRM"] = (str(mflatpath),
-                                  "Applied flat frame")
+        _procfrm(proc, "FLAT", mflatpath)
         proc.header["FLATNORM"] = (flat_norm_value,
                                    "flat_norm_value (none = mean of input flat)")
 
@@ -1046,12 +1137,7 @@ def bdf_process(
     do_fringe, mfringe, mfringepath = _load_master(mfringepath, mfringe)
     if do_fringe:
         PROCESS.append("Fr")
-        proc.header["FRINFRM"] = (str(mfringepath), "Applied fringe frame")
-        if fringe_scale_section is not None:
-            proc.header["FRINSECT"] = (fringe_scale_section,
-                                       "FITS section used for scaling fringe")
-            proc.header["FRINFUNC"] = (fringe_scale_fun.__name__,
-                                       "Function used for fringe scaling")
+        _procfrm(proc, "FRINGE", mfringepath)
 
     # == Set gain and rdnoise if at least one of calc_err and do_crrej is True. ========== #
     if calc_err or do_crrej:
@@ -1072,9 +1158,9 @@ def bdf_process(
     # *                                 RUN PREPROCESSING                                * #
     # ************************************************************************************ #
     # == Do TRIM ========================================================================= #
-    if trim_fits_section is not None:
+    if trimsec is not None:
         _t = Time.now()
-        sect = dict(fits_section=trim_fits_section, update_header=False)
+        sect = dict(trimsec=trimsec, update_header=False)
         proc = trim_ccd(proc, **sect)
         mbias = trim_ccd(mbias, **sect) if do_bias else None
         mdark = trim_ccd(mdark, **sect) if do_dark else None
@@ -1082,7 +1168,8 @@ def bdf_process(
         mfringe = trim_ccd(mfringe, **sect) if do_fringe else None
         PROCESS.append("T")
 
-        cmt2hdr(proc.header, 'h', str_trim.format(trim_fits_section), verbose=verbose_bdf, t_ref=_t)
+        cmt2hdr(proc.header, 'h', str_trim.format(trimsec),
+                verbose=verbose_bdf, t_ref=_t)
 
     # == Do BIAS ========================================================================= #
     if do_bias:
@@ -1093,19 +1180,9 @@ def bdf_process(
     # == Do DARK ========================================================================= #
     if do_dark:
         _t = Time.now()
-        if dark_scale and exposure_key is None:
-            if data_exposure is None:
-                try:
-                    data_exposure = proc.header[exposure_key]
-                except (KeyError, AttributeError):
-                    raise ValueError("Dark must be scaled but data's exposure time "
-                                     + f"({exposure_key}) is not found from.")
-            if dark_exposure is None:
-                try:
-                    dark_exposure = mdark.header[exposure_key]
-                except (KeyError, AttributeError):
-                    raise ValueError("Dark must be scaled but dark's exposure time "
-                                     + f"({exposure_key}) is not found from.")
+        if dark_scale:
+            data_exposure = valinhdr(data_exposure, proc.header, exposure_key)
+            dark_exposure = valinhdr(dark_exposure, mdark.header, exposure_key)
 
         proc = subtract_dark(proc,
                              mdark,
@@ -1132,8 +1209,15 @@ def bdf_process(
 
     # == Do FRINGE **before** flat if not `fringe_flat_fielded` ========================== #
     if do_fringe and not fringe_flat_fielded:
-        proc = _sub_frin(proc, mfringe, fringe_scale_fun=fringe_scale_fun,
-                         fringe_scale_section=fringe_scale_section)
+        proc = fringecor(proc,
+                         mfringe,
+                         fringe_scale=fringe_scale,
+                         fringe_scale_region=fringe_scale_region,
+                         fringe_scale_kw=fringe_scale_kw,
+                         exposure_key=exposure_key,
+                         data_exposure=data_exposure,
+                         fringe_exposure=fringe_exposure,
+                         verbose=verbose_bdf)
 
     # == Do FLAT ========================================================================= #
     if do_flat:
@@ -1152,8 +1236,15 @@ def bdf_process(
 
     # == Do FRINGE **after** flat if `fringe_flat_fielded` =============================== #
     if do_fringe and fringe_flat_fielded:
-        proc = _sub_frin(proc, mfringe, fringe_scale_fun=fringe_scale_fun,
-                         fringe_scale_section=fringe_scale_section)
+        proc = fringecor(proc,
+                         mfringe,
+                         fringe_scale=fringe_scale,
+                         fringe_scale_region=fringe_scale_region,
+                         fringe_scale_kw=fringe_scale_kw,
+                         exposure_key=exposure_key,
+                         data_exposure=data_exposure,
+                         fringe_exposure=fringe_exposure,
+                         verbose=verbose_bdf)
 
     # == Normalization =================================================================== #
     if normalize_exposure:
