@@ -11,7 +11,7 @@ __all__ = ['imcopy']
 def imcopy(
         inputs,
         extension=None,
-        fits_sections=None,
+        trimsecs=None,
         outputs=None,
         return_ccd=True,
         dtype=None,
@@ -35,7 +35,7 @@ def imcopy(
         str and int: ``(EXTNAME, EXTVER)``. If `None` (default), the *first
         extension with data* will be used.
 
-    fits_sections : str or array-like of such, optional.
+    trimsecs : str or array-like of such, optional.
         The section specified by FITS convention, i.e., bracket embraced, comma
         separated, XY order, 1-indexing, and including the end index. If given
         as array-like format of length ``N``, all such sections in all FITS
@@ -44,7 +44,7 @@ def imcopy(
     outputs : path-like or array-like of such, optional.
         The output paths of each FITS file to be copied. If array-like, it must
         have the shape of ``(M, N)`` where ``M`` and ``N`` are the sizes of
-        `fpaths` and `fits_sections`, respectively.
+        `fpaths` and `trimsecs`, respectively.
 
     return_ccd : bool, optional.
         Whether to load the FITS files as `~astropy.nddata.CCDData` and return it.
@@ -91,7 +91,7 @@ def imcopy(
     >>> imcopy(pcrfits[0], sections, outputs=outputs, overwrite=True)
     >>>
     >>> # multi file multi section
-    >>> trims2d = imcopy(pcrfits[:2], fits_sections=sections, outputs=None)
+    >>> trims2d = imcopy(pcrfits[:2], trimsecs=sections, outputs=None)
     '''
     to_trim = False
     to_save = False
@@ -101,11 +101,11 @@ def imcopy(
 
     m = len(inputs)
 
-    if fits_sections is not None:
-        sects = np.atleast_1d(fits_sections)
+    if trimsecs is not None:
+        sects = np.atleast_1d(trimsecs)
         to_trim = True
         if sects.ndim > 1:
-            print(str_flat.format("fits_sections", sects.ndim))
+            print(str_flat.format("trimsecs", sects.ndim))
             sects = sects.flatten()
         n = sects.shape[0]
     else:
@@ -120,7 +120,7 @@ def imcopy(
         if outputs.shape != (m, n):
             raise ValueError(
                 "If outputs is array-like, it's shape must have the shape of (fpaths.size, "
-                + "fits_sections.size)= ({}, {}). Now it's ({}).".format(m, n, *outputs.shape)
+                + "trimsecs.size)= ({}, {}). Now it's ({}).".format(m, n, *outputs.shape)
             )
 
     if return_ccd:
@@ -136,7 +136,7 @@ def imcopy(
         if to_trim:  # n CCDData will be in `result`
             for sect in sects:
                 # FIXME: use ccdproc.trim_image when trim_ccd is removed.
-                nccd = trim_ccd(ccd, fits_section=sect)
+                nccd = trim_ccd(ccd, trimsec=sect)
                 if dtype is not None:
                     nccd = CCDData_astype(nccd, dtype=dtype)
                 if update_header:

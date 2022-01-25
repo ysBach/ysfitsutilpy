@@ -932,12 +932,12 @@ def binning(
 
 
 # TODO: add `coord` to select whether image/physical. If physical, header is required.
-def fitsxy2py(fits_section):
+def fitsxy2py(trimsec):
     ''' Given FITS section in str, returns the slices in python convention.
 
     Parameters
     ----------
-    fits_section : str or list-like of such
+    trimsec : str or list-like of such
         The section specified by FITS convention, i.e., bracket embraced, comma
         separated, XY order, 1-indexing, and including the end index.
 
@@ -950,7 +950,7 @@ def fitsxy2py(fits_section):
     #       [0., 0.],
     #       [0., 0.]])
     '''
-    fs = np.atleast_1d(fits_section)
+    fs = np.atleast_1d(trimsec)
     sl = [ccdproc.utils.slices.slice_from_string(sect, fits_convention=True) for sect in fs]
     if len(sl) == 1:
         return sl[0]

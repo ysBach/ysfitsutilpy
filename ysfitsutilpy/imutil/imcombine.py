@@ -38,7 +38,7 @@ nrejmasks              : output_nrej
 expmasks               : Should I implement???
 sigma                  : output_err
 outtype                : dtype
-outlimits              : fits_section
+outlimits              : trimsec
 expname                : exposure_key
 
 # ALGORITHM PARAMETERS ====================================================== #
@@ -268,7 +268,7 @@ def imcombine(
         extension_uncertainty=None,
         extension_mask=None,
         uncertainty_type='stddev',
-        fits_section=None,
+        trimsec=None,
         blank=np.nan,
         offsets=None,
         thresholds=[-np.inf, np.inf],
@@ -332,7 +332,7 @@ def imcombine(
     e_u = None if extension_uncertainty is None else _parse_extension(extension_uncertainty)
     e_m = None if extension_mask is None else _parse_extension(extension_mask)
     extract_hdr = imcmb_key not in [None, '', '$I']
-    slice_load = None if fits_section is None else fitsxy2py(fits_section)
+    slice_load = None if trimsec is None else fitsxy2py(trimsec)
 
     # These must be initialized at the early stage.
     zeros = np.zeros(shape=ncombine)
@@ -470,7 +470,7 @@ def imcombine(
                 except TypeError:
                     imcmb_val.append(f"User-provided {type(item)}")
             data = _parse_data_header(item, extension=extension, parse_header=False)[0]
-            if fits_section is not None:
+            if trimsec is not None:
                 shapes[i, ] = data[slice_load].shape
             else:
                 shapes[i, ] = data.shape
@@ -540,7 +540,7 @@ def imcombine(
         try:
             _data, _var, _mask, _ = load_ccd(
                 _item,
-                fits_section=fits_section,
+                trimsec=trimsec,
                 ccddata=False,
                 extension=extension,
                 extension_mask=e_m,

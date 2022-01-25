@@ -131,7 +131,7 @@ def select_fits(
         inputs,
         extension=None,
         unit=None,
-        trim_fits_section=None,
+        trimsec=None,
         table_filecol="file",
         prefer_ccddata=False,
         type_key=None,
@@ -161,8 +161,8 @@ def select_fits(
         and `prefer_ccddata` is `True`.
         Ignored if `inputs` is table-like.
 
-    trim_fits_section : str or None, optional
-        The `fits_section` of `ccdproc.trim_image`. Region of
+    trimsec : str or None, optional
+        The `trimsec` of `ccdproc.trim_image`. Region of
         `~astropy.nddata.CCDData` from which the overscan is extracted; see
         `~ccdproc.subtract_overscan` for details.
         Default is `None`.
@@ -318,17 +318,17 @@ def select_fits(
             # if not skipped:
             item = fitslist[i]
             if isinstance(item, CCDData):
-                if trim_fits_section is None:
+                if trimsec is None:
                     matched.append(item)
                 else:
-                    matched.append(trim_image(item, fits_section=trim_fits_section))
+                    matched.append(trim_image(item, trimsec=trimsec))
             else:  # it must be a path to a file
                 fpath = Path(item)
                 if prefer_ccddata:
                     # extension will be parsed within load_ccd (no need to care here)
                     ccd_i = load_ccd(fpath, extension=extension, unit=unit)
-                    if trim_fits_section is not None:
-                        ccd_i = trim_image(ccd_i, fits_section=trim_fits_section)
+                    if trimsec is not None:
+                        ccd_i = trim_image(ccd_i, trimsec=trimsec)
                     matched.append(ccd_i)
                 else:
                     if path_to_text:
@@ -340,16 +340,16 @@ def select_fits(
         # summary_table is not used.
         for item in fitslist:
             if isinstance(item, CCDData):
-                if trim_fits_section is None:
+                if trimsec is None:
                     matched.append(item)
                 else:
-                    matched.append(trim_image(item, fits_section=trim_fits_section))
+                    matched.append(trim_image(item, trimsec=trimsec))
             else:  # it must be a path to a file
                 if prefer_ccddata:
                     # extension will be parsed within load_ccd (no need to care here)
                     ccd_i = load_ccd(item, extension=extension, unit=unit)
-                    if trim_fits_section is not None:
-                        ccd_i = trim_image(ccd_i, fits_section=trim_fits_section)
+                    if trimsec is not None:
+                        ccd_i = trim_image(ccd_i, trimsec=trimsec)
                     matched.append(ccd_i)
                 else:  # TODO: Is is better to remove Path here?
                     if path_to_text:
@@ -390,7 +390,7 @@ def stack_FITS(
         extension=None,
         unit=None,
         table_filecol="file",
-        trim_fits_section=None,
+        trimsec=None,
         ccddata=True,
         asccd=True,
         type_key=None,
@@ -433,8 +433,8 @@ def stack_FITS(
     table_filecol: str
         The column name of the `summary_table` which contains the path to the FITS files.
 
-    trim_fits_section : str or None, optional
-        The `fits_section` of `ccdproc.trim_image`. Region of
+    trimsec : str or None, optional
+        The `trimsec` of `ccdproc.trim_image`. Region of
         `~astropy.nddata.CCDData` from which the overscan is extracted; see
         `~ccdproc.subtract_overscan` for details.
         Default is `None`.
@@ -573,8 +573,8 @@ def stack_FITS(
                 if ccddata:
                     # extension will be parsed within load_ccd (no need to care here)
                     ccd_i = load_ccd(fpath, extension=extension, unit=unit)
-                    if trim_fits_section is not None:
-                        ccd_i = trim_image(ccd_i, fits_section=trim_fits_section)
+                    if trimsec is not None:
+                        ccd_i = trim_image(ccd_i, trimsec=trimsec)
                     if asccd:
                         matched.append(ccd_i)
                     else:
@@ -594,8 +594,8 @@ def stack_FITS(
                 if ccddata:
                     # extension will be parsed within load_ccd (no need to care here)
                     ccd_i = load_ccd(item, extension=extension, unit=unit)
-                    if trim_fits_section is not None:
-                        ccd_i = trim_image(ccd_i, fits_section=trim_fits_section)
+                    if trimsec is not None:
+                        ccd_i = trim_image(ccd_i, trimsec=trimsec)
                     if asccd:
                         matched.append(ccd_i)
                     else:
@@ -634,7 +634,7 @@ def combine_ccd(
         fitslist=None,
         summary_table=None,
         table_filecol="file",
-        trim_fits_section=None,
+        trimsec=None,
         output=None,
         unit=None,
         subtract_frame=None,
@@ -682,8 +682,8 @@ def combine_ccd(
         The column name of the `summary_table` which contains the path to the
         FITS files.
 
-    trim_fits_section : str or None, optional
-        The `fits_section` of `ccdproc.trim_image`. Region of
+    trimsec : str or None, optional
+        The `trimsec` of `ccdproc.trim_image`. Region of
         `~astropy.nddata.CCDData` from which the overscan is extracted; see
         `~ccdproc.subtract_overscan` for details.
         Default is `None`.
@@ -919,7 +919,7 @@ def combine_ccd(
         ccddata=False,
         verbose=verbose
     )
-    #  trim_fits_section=trim_fits_section,
+    #  trimsec=trimsec,
     # ccddata=False: Loading CCD here may cause memory blast...
 
     try:
@@ -1014,8 +1014,8 @@ def combine_ccd(
         master.data = master.subtract(subtract).data
         cmt2hdr(header, 'h', str_subt, header, verbose=verbose, t_ref=_t)
 
-    if trim_fits_section is not None:
-        master = trim_ccd(master, fits_section=trim_fits_section,
+    if trimsec is not None:
+        master = trim_ccd(master, trimsec=trimsec,
                           verbose=verbose)
 
     master.header = header

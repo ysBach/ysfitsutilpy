@@ -837,7 +837,7 @@ def fitsrenamer(
         remove_keys=None,
         overwrite=False,
         fillnan="",
-        trim_fits_section=None,
+        trimsec=None,
         verbose=True,
         add_header=None
 ):
@@ -881,7 +881,7 @@ def fitsrenamer(
         deprecation warning. If `True`, the original keywords' comments will
         become ``Deprecated. See <standard_key>.``.
 
-    trim_fits_section : str or None, optional
+    trimsec : str or None, optional
         Region of ``CCDData`` from which the overscan is extracted; see
         `~ccdproc.subtract_overscan` for details. Default is `None`.
 
@@ -930,9 +930,9 @@ def fitsrenamer(
     #   ``trim_image`` of ccdproc, it will not be preserved).
     # TODO: Maybe I can put some LTV-like keys to the header, rather
     #   than this crazy code...? (ysBach 2019-05-09)
-    if trim_fits_section is not None:
+    if trimsec is not None:
         slices = ccdproc.utils.slices.slice_from_string(
-            trim_fits_section,
+            trimsec,
             fits_convention=True
         )
         # initially guess start and stop indices as 0's and from shape in (ny, nx) order

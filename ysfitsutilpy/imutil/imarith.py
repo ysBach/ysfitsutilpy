@@ -125,17 +125,17 @@ def _load_im_name_hdr(
         else:
             raise ValueError("offsets not understood.")
 
-        fits_sections = _offsets2slice(shapes, offsets, method='inner', fits_convention=True)
+        trimsecs = _offsets2slice(shapes, offsets, method='inner', fits_convention=True)
         if verbose:
             print(f"Using offsets {offsets_name}, trimming happened for im1 and im2:")
 
         if force_ccddata:
-            im1 = trim_ccd(im1, fits_sections[0], verbose=verbose)
-            im2 = trim_ccd(im2, fits_sections[1], verbose=verbose)
+            im1 = trim_ccd(im1, trimsecs[0], verbose=verbose)
+            im2 = trim_ccd(im2, trimsecs[1], verbose=verbose)
         else:
             # No need to update header
-            im1 = trim_ccd(im1, fits_sections[0], verbose=verbose, update_header=False).data
-            im2 = trim_ccd(im2, fits_sections[1], verbose=verbose, update_header=False).data
+            im1 = trim_ccd(im1, trimsecs[0], verbose=verbose, update_header=False).data
+            im2 = trim_ccd(im2, trimsecs[1], verbose=verbose, update_header=False).data
 
     else:  # Open only 1 header
         im1, im1name, _ = _parse_image(im1, extension1, name1, force_ccddata=force_ccddata)

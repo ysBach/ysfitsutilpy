@@ -176,7 +176,7 @@ scale_to_0th : bool, optional.
 
 zero_section, scale_section : str, optional.
     The sections used for zeroing and scaling. These must be in FITS section
-    format, and are the sections **AFTER** trimming based on `fits_section`.
+    format, and are the sections **AFTER** trimming based on `trimsec`.
 
 zero_kw, scale_kw : dict
     Used only if `scale` or `zero` are sigma-clipped mean, median, etc (ending with ``_sc`` such as
