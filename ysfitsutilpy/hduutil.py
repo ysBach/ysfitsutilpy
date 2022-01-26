@@ -93,11 +93,7 @@ def write2fits(data, header, output, return_ccd=False, **kwargs):
         `~astropy.nddata.fits_data_writer`, such as ``output_verify=True``,
         ``overwrite=True``.
     """
-    try:
-        unit = header['BUNIT']
-    except (KeyError, IndexError):
-        unit = 'adu'
-    ccd = CCDData(data=data, header=header, unit=unit)
+    ccd = CCDData(data=data, header=header, unit=header.get("BUNIT", "adu"))
 
     try:
         ccd.write(output, **kwargs)
