@@ -273,6 +273,11 @@ def _parse_image(
     _parse_data_header is to get a quick copy of the data and/or header,
     especially to CHECK if it has header, while _parse_image is to deal mainly
     with the data (and has options to return as CCDData).
+
+    For a random (430, 150) shape CCDData:
+    %timeit yfu._parse_image(ccd)
+    21 µs +- 720 ns per loop (mean +- std. dev. of 7 runs, 10000 loops each)
+
     '''
     def __extract_extension(ext):
         extension = _parse_extension(ext)
