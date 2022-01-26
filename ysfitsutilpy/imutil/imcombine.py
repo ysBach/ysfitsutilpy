@@ -11,10 +11,10 @@ from astropy.wcs import WCS
 from ..combutil import group_fits
 from ..filemgmt import make_summary
 from ..hduutil import (_parse_data_header, _parse_extension, cmt2hdr,
-                       calc_offset_physical, calc_offset_wcs, get_size,
+                       calc_offset_physical, calc_offset_wcs,
                        inputs2list, load_ccd, str_now,
-                       update_tlm, write2fits, fitsxy2py)
-from ..misc import _image_shape, is_list_like
+                       update_tlm, write2fits, slicefy)
+from ..misc import _image_shape, is_list_like, get_size
 from . import docstrings
 from .util_comb import (_set_cenfunc, _set_combfunc, _set_gain_rdns,
                         _set_int_dtype, _set_keeprej, _set_mask,
@@ -332,7 +332,7 @@ def imcombine(
     e_u = None if extension_uncertainty is None else _parse_extension(extension_uncertainty)
     e_m = None if extension_mask is None else _parse_extension(extension_mask)
     extract_hdr = imcmb_key not in [None, '', '$I']
-    slice_load = None if trimsec is None else fitsxy2py(trimsec)
+    slice_load = None if trimsec is None else slicefy(trimsec)
 
     # These must be initialized at the early stage.
     zeros = np.zeros(shape=ncombine)
