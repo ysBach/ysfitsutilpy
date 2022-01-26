@@ -13,9 +13,9 @@ from ccdproc import flat_correct, subtract_bias, subtract_dark
 
 from .hduutil import (CCDData_astype, _parse_image, cmt2hdr, errormap, fixpix,
                       listify, load_ccd, propagate_ccdmask,
-                      set_ccd_gain_rdnoise, trim_ccd, update_process,
+                      set_ccd_gain_rdnoise, imslice, update_process,
                       update_tlm, valinhdr)
-from .misc import (LACOSMIC_CRREJ, change_to_quantity, fitsxy2py,
+from .misc import (LACOSMIC_CRREJ, change_to_quantity, slicefy,
                    parse_crrej_psf)
 
 __all__ = [
@@ -35,68 +35,26 @@ ASTROSCRAPPY_DIVFACTOR = detect_cosmics(np.ones((3, 3)), gain=1., niter=0)[1][0,
 #   I'm using Rosetta2 (Anaconda) on the latter? 2021-12-13 13:27:35
 #   (KST: GMT+09:00) ysBach
 
-# def _add_and_print(s, header, verbose, update_header=True, t_ref=None):
-#     if update_header:
-#         # add as history
-#         cmt2hdr(header, 'h', s, t_ref=t_ref)
-#     if verbose:
-#         if isinstance(s, str):
-#             print(str_now(fmt='{}'), s)
-#         else:
-#             for _s in s:
-#                 print(str_now(fmt='{}'), _s)
+def _load_master(path, master, ccddata=True, unit=None, calc_err=False):
+    if path is None and master is None:
+        return False, None, None
+
+    # else, at least one is given
+    do = True
+    if master is None:
+        master = load_ccd(path, unit=unit, ccddata=ccddata, use_wcs=False)
+
+    # Make master as CCDData if desired
+    master, imname, _ = _parse_image(master, prefer_ccddata=ccddata, force_ccddata=ccddata)
+
+    if not calc_err:
+        master.uncertainty = None
+
+    return do, master, imname
 
 
-# # TODO: This is quite much overlapping with set_ccd_gain_rdnoise...
-# def get_gain_readnoise(ccd, gain=None, gain_key="GAIN",
-#                        gain_unit=u.electron/u.adu,
-#                        rdnoise=None, rdnoise_key="RDNOISE",
-#                        rdnoise_unit=u.electron, verbose=True,
-#                        update_header=True):
-#     """ Get gain and readnoise from given paramters.
-#     gain, rdnoise : None, float, astropy.Quantity, optional.
-#         The gain and readnoise value. If ``gain`` or ``readnoise`` is
-#         specified, they are interpreted with ``gain_unit`` and
-#         ``rdnoise_unit``, respectively. If they are not specified, this
-#         function will seek for the header with keywords of ``gain_key``
-#         and ``rdnoise_key``, and interprete the header value in the unit
-#         of ``gain_unit`` and ``rdnoise_unit``, respectively.
-
-#     gain_key, rdnoise_key : str, optional.
-#         See ``gain``, ``rdnoise`` explanation above.
-
-#     gain_unit, rdnoise_unit : str, astropy.Unit, optional.
-#         See ``gain``, ``rdnoise`` explanation above.
-
-#     verbose : bool, optional.
-#         The verbose option.
-
-#     update_header : bool, optional
-#         Whether to update the given header.
-
-#     Note
-#     ----
-#     If gain and readout noise are not found properly, the default values
-#     of 1.0 and 0.0 with corresponding units will be returned.
-#     """
-#     gain_Q, gain_from = get_if_none(
-#         gain, ccd.header, key=gain_key, unit=gain_unit,
-#         verbose=verbose, default=1.0)
-#     rdnoise_Q, rdnoise_from = get_if_none(
-#         rdnoise, ccd.header, key=rdnoise_key, unit=rdnoise_unit,
-#         verbose=False, default=0.0)
-
-#     _add_and_print(str_grd.format(gain_from,
-#                                   "gain",
-#                                   gain_Q.value,
-#                                   gain_Q.unit),
-#                    ccd.header, verbose, update_header=update_header)
-#     _add_and_print(str_grd.format(rdnoise_from,
-#                                   "rdnoise",
-#                                   rdnoise_Q.value,
-#                                   rdnoise_Q.unit),
-#                    ccd.header, verbose, update_header=update_header)
-#     return gain_Q, rdnoise_Q
+def _addfrm(ccd, name, path):
+    ccd.header[f"{name.upper()[:4]}FRM"] = (path, f"applied {name} frame")
 
 
 def crrej(
@@ -597,7 +555,7 @@ def medfilt_bpm(
     arr += cadd
 
     if std_section is not None:
-        slices = fitsxy2py(std_section)
+        slices = slicefy(std_section)
     else:
         slices = [slice(None, None, None)]*arr.ndim
 
@@ -719,7 +677,7 @@ def medfilt_bpm(
 
         cmt2hdr(
             hdr, 'h', verbose=verbose, t_ref=_t,
-            s="Median-filter based Bad-Pixel Masking (MBPM) applied."
+            s="[medfilt_bpm] Median-filter based Bad-Pixel Masking (MBPM) applied."
         )
         # cmt2hdr(
         #     hdr, 'h', verbose=verbose, t_ref=_t,
@@ -742,13 +700,31 @@ def medfilt_bpm(
         return nccd
 
 
-def subtract_dark():
+def biascor(
+        ccd,
+        bias=None,
+        biaspath=None,
+        trimsec=None,
+):
+    do_bias, mbias, mbiaspath = _load_master(mbiaspath, mbias)
+    if do_bias:
+        PROCESS.append("B")
+        _addfrm(proc, "BIAS", mbiaspath)
+
+
+
+def darkcor(
+        ccd,
+        mdark,
+
+):
     pass
 
 
 def fringecor(
         ccd,
         mfringe,
+        mfringepath=None,
         fringe_scale=None,
         fringe_scale_region=None,
         fringe_scale_kw={},
@@ -829,7 +805,7 @@ def fringecor(
             )
     else:  # Function
         if isinstance(fringe_scale_region, str):
-            reg = fitsxy2py(fringe_scale_region)
+            reg = slicefy(fringe_scale_region)
             sect = fringe_scale_region
         elif isinstance(fringe_scale_region, np.ndarray):
             reg = fringe_scale_region.astype(bool)
@@ -847,6 +823,7 @@ def fringecor(
     ccd.header["FRINSECT"] = (sect, "The region used for FRINFUNC")
     ccd.header["FRINFUNC"] = (fun, "Function used to get FRINSCAL")
     ccd.header["FRINSCAL"] = (scale, "Scale multiplied to fringe")
+    _addfrm(ccd, "FRINGE", mfringepath)
     cmt2hdr(ccd.header, 'h', s, verbose=verbose, t_ref=_t)
     return ccd
 
@@ -1063,29 +1040,6 @@ def bdf_process(
     str_navg = "Normalized by the average value of the frame."
     str_nmed = "Normalized by the median value of the frame."
 
-    def _load_master(path, master):
-        if path is None and master is None:
-            do = False
-            master = None
-        else:  # at least one is given
-            do = True
-            if master is None:
-                master = load_ccd(path, unit=unit, ccddata=True, use_wcs=False)
-
-            # Make master as CCDData
-            master, _, _ = _parse_image(master, force_ccddata=True)
-
-            if path is None:
-                path = "<User>"
-
-            if not calc_err:
-                master.uncertainty = None
-
-        return do, master, path
-
-    def _procfrm(proc, name, path):
-        proc.header[f"{name.upper()[:4]}FRM"] = (path, f"applied {name} frame")
-
     # ************************************************************************************ #
     # *                                  INITIAL SETTING                                 * #
     # ************************************************************************************ #
@@ -1112,14 +1066,14 @@ def bdf_process(
     do_bias, mbias, mbiaspath = _load_master(mbiaspath, mbias)
     if do_bias:
         PROCESS.append("B")
-        _procfrm(proc, "BIAS", mbiaspath)
+        _addfrm(proc, "BIAS", mbiaspath)
 
     # == Set for DARK ==================================================================== #
     do_dark, mdark, mdarkpath = _load_master(mdarkpath, mdark)
 
     if do_dark:
         PROCESS.append("D")
-        _procfrm(proc, "DARK", mdarkpath)
+        _addfrm(proc, "DARK", mdarkpath)
 
         if dark_scale:
             # TODO: what if dark_exposure, data_exposure are given explicitly?
@@ -1129,15 +1083,15 @@ def bdf_process(
     do_flat, mflat, mflatpath = _load_master(mflatpath, mflat)
     if do_flat:
         PROCESS.append("F")
-        _procfrm(proc, "FLAT", mflatpath)
+        _addfrm(proc, "FLAT", mflatpath)
         proc.header["FLATNORM"] = (flat_norm_value,
                                    "flat_norm_value (none = mean of input flat)")
 
     # == Set for FRINGE ================================================================== #
     do_fringe, mfringe, mfringepath = _load_master(mfringepath, mfringe)
     if do_fringe:
-        PROCESS.append("Fr")
-        _procfrm(proc, "FRINGE", mfringepath)
+        PROCESS.append("R")
+        _addfrm(proc, "FRINGE", mfringepath)
 
     # == Set gain and rdnoise if at least one of calc_err and do_crrej is True. ========== #
     if calc_err or do_crrej:
@@ -1161,11 +1115,11 @@ def bdf_process(
     if trimsec is not None:
         _t = Time.now()
         sect = dict(trimsec=trimsec, update_header=False)
-        proc = trim_ccd(proc, **sect)
-        mbias = trim_ccd(mbias, **sect) if do_bias else None
-        mdark = trim_ccd(mdark, **sect) if do_dark else None
-        mflat = trim_ccd(mflat, **sect) if do_flat else None
-        mfringe = trim_ccd(mfringe, **sect) if do_fringe else None
+        proc = imslice(proc, **sect)
+        mbias = imslice(mbias, **sect) if do_bias else None
+        mdark = imslice(mdark, **sect) if do_dark else None
+        mflat = imslice(mflat, **sect) if do_flat else None
+        mfringe = imslice(mfringe, **sect) if do_fringe else None
         PROCESS.append("T")
 
         cmt2hdr(proc.header, 'h', str_trim.format(trimsec),

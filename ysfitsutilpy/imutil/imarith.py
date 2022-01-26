@@ -7,7 +7,7 @@ from astropy.time import Time
 
 from ..hduutil import (CCDData_astype, _has_header, _parse_extension,
                        _parse_image, cmt2hdr, calc_offset_physical,
-                       calc_offset_wcs, trim_ccd, update_tlm)
+                       calc_offset_wcs, imslice, update_tlm)
 from ..misc import _offsets2slice
 
 __all__ = ["imarith"]
@@ -130,12 +130,12 @@ def _load_im_name_hdr(
             print(f"Using offsets {offsets_name}, trimming happened for im1 and im2:")
 
         if force_ccddata:
-            im1 = trim_ccd(im1, trimsecs[0], verbose=verbose)
-            im2 = trim_ccd(im2, trimsecs[1], verbose=verbose)
+            im1 = imslice(im1, trimsecs[0], verbose=verbose)
+            im2 = imslice(im2, trimsecs[1], verbose=verbose)
         else:
             # No need to update header
-            im1 = trim_ccd(im1, trimsecs[0], verbose=verbose, update_header=False).data
-            im2 = trim_ccd(im2, trimsecs[1], verbose=verbose, update_header=False).data
+            im1 = imslice(im1, trimsecs[0], verbose=verbose, update_header=False).data
+            im2 = imslice(im2, trimsecs[1], verbose=verbose, update_header=False).data
 
     else:  # Open only 1 header
         im1, im1name, _ = _parse_image(im1, extension1, name1, force_ccddata=force_ccddata)

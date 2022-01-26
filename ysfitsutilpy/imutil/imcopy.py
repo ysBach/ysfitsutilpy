@@ -1,7 +1,7 @@
 import numpy as np
 from astropy.nddata import CCDData
 
-from ..hduutil import (CCDData_astype, _parse_image, inputs2list, trim_ccd,
+from ..hduutil import (CCDData_astype, _parse_image, inputs2list, imslice,
                        update_tlm)
 
 __all__ = ['imcopy']
@@ -96,7 +96,6 @@ def imcopy(
     to_trim = False
     to_save = False
 
-    str_flat = "{} with dimension higher than 2-d is not supported yet. Currently it's {}-d. Flattening..."
     inputs = inputs2list(inputs, sort=True, accept_ccdlike=True, check_coherency=False)
 
     m = len(inputs)
@@ -105,8 +104,8 @@ def imcopy(
         sects = np.atleast_1d(trimsecs)
         to_trim = True
         if sects.ndim > 1:
-            print(str_flat.format("trimsecs", sects.ndim))
-            sects = sects.flatten()
+            print(f"`trimsecs` with > 1D are flattened. Now {sects.ndim}-D.")
+            sects = sects.ravel()
         n = sects.shape[0]
     else:
         sects = None
@@ -135,8 +134,8 @@ def imcopy(
         result = []
         if to_trim:  # n CCDData will be in `result`
             for sect in sects:
-                # FIXME: use ccdproc.trim_image when trim_ccd is removed.
-                nccd = trim_ccd(ccd, trimsec=sect)
+                # FIXME: use ccdproc.trim_image when imslice is removed.
+                nccd = imslice(ccd, trimsec=sect)
                 if dtype is not None:
                     nccd = CCDData_astype(nccd, dtype=dtype)
                 if update_header:

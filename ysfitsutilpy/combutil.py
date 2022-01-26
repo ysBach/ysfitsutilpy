@@ -12,7 +12,7 @@ from ccdproc import combine, trim_image
 
 from .filemgmt import load_if_exists, make_summary
 from .hduutil import (CCDData_astype, _parse_extension, cmt2hdr,
-                      inputs2list, load_ccd, trim_ccd, chk_keyval)
+                      inputs2list, load_ccd, imslice, chk_keyval)
 
 __all__ = [
     "sstd", "weighted_mean", "group_fits", "select_fits", "stack_FITS",
@@ -1015,8 +1015,7 @@ def combine_ccd(
         cmt2hdr(header, 'h', str_subt, header, verbose=verbose, t_ref=_t)
 
     if trimsec is not None:
-        master = trim_ccd(master, trimsec=trimsec,
-                          verbose=verbose)
+        master = imslice(master, trimsec, verbose=verbose)
 
     master.header = header
     master = CCDData_astype(master, dtype=dtype,

@@ -53,7 +53,7 @@ __all__ = [
     "CCDData_astype", "set_ccd_attribute", "set_ccd_gain_rdnoise",
     "propagate_ccdmask",
     # ! ccdproc:
-    "trim_ccd", "bezel_ccd", "trim_overlap", "cut_ccd", "bin_ccd",
+    "imslice", "trim_overlap", "cut_ccd", "bin_ccd",
     "fixpix",
     # "make_errormap",
     "errormap",
@@ -733,7 +733,7 @@ def load_ccd(
             elif trimsec is None:
                 return ccd
             else:
-                return trim_ccd(ccd, trimsec=trimsec)
+                return imslice(ccd, trimsec)
 
         else:
             # Use fitsio and only load the data as soon as possible.
@@ -806,7 +806,7 @@ def load_ccd(
         ccd.mask = None if e_m is None else ccd.mask
 
         if trimsec is not None:
-            ccd = trim_ccd(ccd, trimsec=trimsec)
+            ccd = imslice(ccd, trimsec=trimsec)
 
         if ccddata and as_ccd:  # if at least one of these is False, it uses fitsio.
             if full:  # Just for API consistency
@@ -1151,11 +1151,11 @@ def propagate_ccdmask(ccd, additional_mask=None):
     return mask
 
 
-def imslice(ccd, rule, fill_value=None, order_xyz=True,
+def imslice(ccd, trimsec, fill_value=None, order_xyz=True,
             update_header=True, verbose=False):
     """ Slice the CCDData using one of trimsec, bezels, or slices.
     # combine bezel_ccd, trim_ccd to this one.
-    rule : str, int, list of int, list of slice, None, optional
+    trimsec : str, int, list of int, list of slice, None, optional
         It can have several forms::
 
           * str: The FITS convention section to trim (e.g., IRAF TRIMSEC).
@@ -1167,9 +1167,10 @@ def imslice(ccd, rule, fill_value=None, order_xyz=True,
         If a single int/slice is given, it will be applied to all the axes.
 
     order_xyz : bool, optional
-        Whether the order of rule is in xyz order. Works only if the `rule` is
-        bezel-like (int or list of int). If it is slice-like, `rule` must be in
-        the pythonic order (i.e., ``[slice_for_axis0, slice_for_axis1, ...]``).
+        Whether the order of trimsec is in xyz order. Works only if the
+        `trimsec` is bezel-like (int or list of int). If it is slice-like,
+        `trimsec` must be in the pythonic order (i.e., ``[slice_for_axis0,
+        slice_for_axis1, ...]``).
 
     fill_value : None, float-like, optinoal.
         If `None`, it removes the pixels outside of it. If given as float-like
@@ -1180,7 +1181,7 @@ def imslice(ccd, rule, fill_value=None, order_xyz=True,
     _t = Time.now()
 
     # Parse
-    sl = slicefy(rule, ccd.ndim, order_xyz=order_xyz)
+    sl = slicefy(trimsec, ccd.ndim, order_xyz=order_xyz)
 
     if fill_value is None:
         nccd = ccd[sl].copy()  # CCDData supports this kind of slicing
@@ -1193,7 +1194,7 @@ def imslice(ccd, rule, fill_value=None, order_xyz=True,
         ltms = [1 if s.step is None else 1/s.step for s in sl]
         ndim = ccd.ndim  # ndim == NAXIS keyword
         shape = ccd.shape
-        if rule is not None:
+        if trimsec is not None:
             ltvs = []
             for axis_i_py, naxis_i in enumerate(shape):
                 # example: "[10:110]", we must have LTV = -9, not -10.
@@ -1216,177 +1217,180 @@ def imslice(ccd, rule, fill_value=None, order_xyz=True,
                 else:
                     hdr.setdefault(f"LTM{i+1}_{j+1}", 0.)
 
-        if rule is not None:
-            cmt2hdr(hdr, 'h', t_ref=_t, verbose=verbose,
-                    s=f"[imslice] Sliced using {rule}, converted to {sl}")
-
-
-# FIXME: Remove when https://github.com/astropy/ccdproc/issues/718 is solved
-def trim_ccd(ccd, trimsec, replace=None,
-             update_header=True, verbose=False):
-    """ Trim the CCDData using one of trimsec, bezels, or slices (in this priority).
-
-    Parameters
-    ----------
-    ccd : CCDData
-        The ccd to trim.
-    trimsec : str, int, list of int, list of slice, None, optional
-        It can have several forms::
-
-          * str: The FITS convention section to trim (e.g., IRAF TRIMSEC).
-          * list of int: The number of pixels to trim from the edge of the image (bezel)
-          * list of slice: The slice of each axis (`slice(start, stop, step)`)
-
-        If a single int/slice is given, it will be applied to all the axes.
-
-    replace : None, float-like, optinoal.
-        If `None`, it removes the pixels outside of it. If given as float-like
-        (including `np.nan`), the bezel pixels will be replaced with this
-        value.
-
-    """
-
-    _t = Time.now()
-
-    if trimsec is not None:
-        pass
-
-    elif bezels is not None:
-        bezels = ndfy([ndfy(b, 2, default=0) for b in listify(bezels)], ccd.ndim)
-        sects = [f"{b[0] + 1}:{n - b[1]}" for n, b in zip(ccd.shape[::-1], bezels)]
-        trimsec = "[" + ",".join(sects) + "]"
-
-    trimmed_ccd = trim_image(ccd, trimsec=trimsec, add_keyword=None)
-
-    if update_header:
-        trim_str = f"Trimmed using {trimsec}"
-        ndim = ccd.data.ndim  # ndim == NAXIS keyword
-        shape = ccd.data.shape
         if trimsec is not None:
-            trim_slice = slicefy(trimsec)
-            ltvs = []
-            for i_python, npix in enumerate(shape):
-                # example: "[10:110]", we must have LTV = -9, not -10.
-                ltvs.append(-1*trim_slice[i_python].indices(npix)[0])
-        else:
-            ltvs = [0.]*ndim
-
-        # python shape is in z, y, x order, so reverse it
-        ltvs = ltvs[::-1]
-        hdr = trimmed_ccd.header
-        for i_axis, ltv in enumerate(ltvs):
-            i = i_axis + 1
-            try:  # if LTV exists already
-                hdr[f"LTV{i}"] += ltv
-                # NB: LTV is negative (gets more negative if more trimmed)
-            except KeyError:
-                hdr[f"LTV{i}"] = ltv
-
-        for i_axis in range(ndim):
-            i = i_axis + 1
-            for j_axis in range(ndim):
-                j = j_axis + 1
-                if i == j:
-                    if f"LTM{i}" in hdr:
-                        hdr[f"LTM_{i}_{i}"] = hdr[f"LTM{i}"]
-                    else:
-                        hdr[f"LTM{i}_{i}"] = 1.
-                else:
-                    if f"LTM{i}_{j}" not in hdr:
-                        hdr[f"LTM{i}_{j}"] = 0.
-
-        cmt2hdr(hdr, 'h', trim_str, t_ref=_t, verbose=verbose)
-
-    return trimmed_ccd
+            infostr = f"[imslice] Sliced using {trimsec}, converted to {sl}. "
+            if fill_value is not None:
+                infostr += f"Filled background with {fill_value}."
+            cmt2hdr(hdr, 'h', infostr, t_ref=_t, verbose=verbose)
 
 
-# TODO: Make it work for ND-CCD
-def bezel_ccd(
-        ccd,
-        bezel_x=None,
-        bezel_y=None,
-        replace=np.nan,
-        update_header=True,
-        verbose=False
+
+# # FIXME: Remove when https://github.com/astropy/ccdproc/issues/718 is solved
+# def trim_ccd(ccd, trimsec, replace=None,
+#              update_header=True, verbose=False):
+#     """ Trim the CCDData using one of trimsec, bezels, or slices (in this priority).
+
+#     Parameters
+#     ----------
+#     ccd : CCDData
+#         The ccd to trim.
+#     trimsec : str, int, list of int, list of slice, None, optional
+#         It can have several forms::
+
+#           * str: The FITS convention section to trim (e.g., IRAF TRIMSEC).
+#           * list of int: The number of pixels to trim from the edge of the image (bezel)
+#           * list of slice: The slice of each axis (`slice(start, stop, step)`)
+
+#         If a single int/slice is given, it will be applied to all the axes.
+
+#     replace : None, float-like, optinoal.
+#         If `None`, it removes the pixels outside of it. If given as float-like
+#         (including `np.nan`), the bezel pixels will be replaced with this
+#         value.
+
+#     """
+
+#     _t = Time.now()
+
+#     if trimsec is not None:
+#         pass
+
+#     elif bezels is not None:
+#         bezels = ndfy([ndfy(b, 2, default=0) for b in listify(bezels)], ccd.ndim)
+#         sects = [f"{b[0] + 1}:{n - b[1]}" for n, b in zip(ccd.shape[::-1], bezels)]
+#         trimsec = "[" + ",".join(sects) + "]"
+
+#     trimmed_ccd = trim_image(ccd, trimsec=trimsec, add_keyword=None)
+
+#     if update_header:
+#         trim_str = f"Trimmed using {trimsec}"
+#         ndim = ccd.data.ndim  # ndim == NAXIS keyword
+#         shape = ccd.data.shape
+#         if trimsec is not None:
+#             trim_slice = slicefy(trimsec)
+#             ltvs = []
+#             for i_python, npix in enumerate(shape):
+#                 # example: "[10:110]", we must have LTV = -9, not -10.
+#                 ltvs.append(-1*trim_slice[i_python].indices(npix)[0])
+#         else:
+#             ltvs = [0.]*ndim
+
+#         # python shape is in z, y, x order, so reverse it
+#         ltvs = ltvs[::-1]
+#         hdr = trimmed_ccd.header
+#         for i_axis, ltv in enumerate(ltvs):
+#             i = i_axis + 1
+#             try:  # if LTV exists already
+#                 hdr[f"LTV{i}"] += ltv
+#                 # NB: LTV is negative (gets more negative if more trimmed)
+#             except KeyError:
+#                 hdr[f"LTV{i}"] = ltv
+
+#         for i_axis in range(ndim):
+#             i = i_axis + 1
+#             for j_axis in range(ndim):
+#                 j = j_axis + 1
+#                 if i == j:
+#                     if f"LTM{i}" in hdr:
+#                         hdr[f"LTM_{i}_{i}"] = hdr[f"LTM{i}"]
+#                     else:
+#                         hdr[f"LTM{i}_{i}"] = 1.
+#                 else:
+#                     if f"LTM{i}_{j}" not in hdr:
+#                         hdr[f"LTM{i}_{j}"] = 0.
+
+#         cmt2hdr(hdr, 'h', trim_str, t_ref=_t, verbose=verbose)
+
+#     return trimmed_ccd
 
 
-):
-    """ Replace pixel values at the edges of the image.
-    Parameters
-    ----------
-    ccd : CCDData or ndarray
-        The data to be used.
-    bezel_x, bezel_y : None, int, float, size-2 of these, optional.
-        The bezel width along x and y directions. If `float`, it will be
-        rounded to integer. If given as size-2 array-like, it must be
-        ``(bezel_lower, bezel_upper)``.
-    replace : None, float-like, optinoal.
-        If `None`, it is identical to trimming the CCD with given bezels. If
-        given as float-like, the bezel pixels will be replaced with this value.
-        Defaults to ``np.nan`` to keep the size of the input `ccd`.
-    Returns
-    -------
-    nccd : `~astropy.nddata.CCDData`
-        The trimmed (``replace=None``) or bezel-replaced (otherwise) ccd.
-    Example
-    -------
-    >>>
-    Notes
-    -----
-    """
-    def _sanitize_bezel(bezel, npix):
-        if bezel is None:
-            bezel = [0, 0]
-        else:
-            bezel = np.around(np.atleast_1d(bezel)).astype(int)
-            if bezel.size == 1:
-                bezel = np.repeat(bezel_x, 2)
-            elif bezel.size != 2:
-                raise ValueError("bezel must be size of 1 or 2.")
+# # TODO: Make it work for ND-CCD
+# def bezel_ccd(
+#         ccd,
+#         bezel_x=None,
+#         bezel_y=None,
+#         replace=np.nan,
+#         update_header=True,
+#         verbose=False
 
-            bezel = bezel.ravel()
-            if (bezel[0] >= npix) or (bezel[1] >= npix):
-                raise ValueError("bezel width larger than image size")
-            if bezel[0] + bezel[1] >= npix:
-                raise ValueError("no pixel left after bezel")
 
-        return bezel
+# ):
+#     """ Replace pixel values at the edges of the image.
+#     Parameters
+#     ----------
+#     ccd : CCDData or ndarray
+#         The data to be used.
+#     bezel_x, bezel_y : None, int, float, size-2 of these, optional.
+#         The bezel width along x and y directions. If `float`, it will be
+#         rounded to integer. If given as size-2 array-like, it must be
+#         ``(bezel_lower, bezel_upper)``.
+#     replace : None, float-like, optinoal.
+#         If `None`, it is identical to trimming the CCD with given bezels. If
+#         given as float-like, the bezel pixels will be replaced with this value.
+#         Defaults to ``np.nan`` to keep the size of the input `ccd`.
+#     Returns
+#     -------
+#     nccd : `~astropy.nddata.CCDData`
+#         The trimmed (``replace=None``) or bezel-replaced (otherwise) ccd.
+#     Example
+#     -------
+#     >>>
+#     Notes
+#     -----
+#     """
+#     def _sanitize_bezel(bezel, npix):
+#         if bezel is None:
+#             bezel = [0, 0]
+#         else:
+#             bezel = np.around(np.atleast_1d(bezel)).astype(int)
+#             if bezel.size == 1:
+#                 bezel = np.repeat(bezel_x, 2)
+#             elif bezel.size != 2:
+#                 raise ValueError("bezel must be size of 1 or 2.")
 
-    _t = Time.now()
+#             bezel = bezel.ravel()
+#             if (bezel[0] >= npix) or (bezel[1] >= npix):
+#                 raise ValueError("bezel width larger than image size")
+#             if bezel[0] + bezel[1] >= npix:
+#                 raise ValueError("no pixel left after bezel")
 
-    ccd = _parse_image(ccd, force_ccddata=True)[0]
-    if ccd.data.ndim != 2:
-        raise ValueError("Only 2-D input data is supported yet.")
+#         return bezel
 
-    ny, nx = ccd.data.shape
+#     _t = Time.now()
 
-    if bezel_x is None and bezel_y is None:
-        return ccd
+#     ccd = _parse_image(ccd, force_ccddata=True)[0]
+#     if ccd.data.ndim != 2:
+#         raise ValueError("Only 2-D input data is supported yet.")
 
-    bezel_x = _sanitize_bezel(bezel_x, nx)
-    bezel_y = _sanitize_bezel(bezel_y, ny)
+#     ny, nx = ccd.data.shape
 
-    if replace is None:
-        sl = (f"[{bezel_x[0] + 1}:{nx - bezel_x[1]},{bezel_y[0] + 1}:{ny - bezel_y[1]}]")
-        if isinstance(ccd, CCDData):
-            nccd = trim_ccd(ccd, trimsec=sl, update_header=update_header)
-        else:
-            nccd = np.array(ccd)[slicefy(sl)]
-        # i.e., use trim_ccd if CCDData, and use python slice if ndarray-like
-    else:
-        nccd = ccd.copy()
-        nccd.data[:bezel_y[0], :] = replace
-        nccd.data[ny - bezel_y[1]:, :] = replace
-        nccd.data[:, :bezel_x[0]] = replace
-        nccd.data[:, nx - bezel_x[1]:] = replace
-        if update_header:
-            cmt2hdr(
-                nccd.header, 'h', t_ref=_t, verbose=verbose,
-                s=(f"Replaced pixels with bezel width {bezel_x} along x and "
-                    + f"{bezel_y} along y with {replace}.")
-            )
+#     if bezel_x is None and bezel_y is None:
+#         return ccd
 
-    return nccd
+#     bezel_x = _sanitize_bezel(bezel_x, nx)
+#     bezel_y = _sanitize_bezel(bezel_y, ny)
+
+#     if replace is None:
+#         sl = (f"[{bezel_x[0] + 1}:{nx - bezel_x[1]},{bezel_y[0] + 1}:{ny - bezel_y[1]}]")
+#         if isinstance(ccd, CCDData):
+#             nccd = trim_ccd(ccd, trimsec=sl, update_header=update_header)
+#         else:
+#             nccd = np.array(ccd)[slicefy(sl)]
+#         # i.e., use trim_ccd if CCDData, and use python slice if ndarray-like
+#     else:
+#         nccd = ccd.copy()
+#         nccd.data[:bezel_y[0], :] = replace
+#         nccd.data[ny - bezel_y[1]:, :] = replace
+#         nccd.data[:, :bezel_x[0]] = replace
+#         nccd.data[:, nx - bezel_x[1]:] = replace
+#         if update_header:
+#             cmt2hdr(
+#                 nccd.header, 'h', t_ref=_t, verbose=verbose,
+#                 s=(f"Replaced pixels with bezel width {bezel_x} along x and "
+#                     + f"{bezel_y} along y with {replace}.")
+#             )
+
+#     return nccd
 
 
 # FIXME: not finished.
