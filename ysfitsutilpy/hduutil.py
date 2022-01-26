@@ -1,6 +1,5 @@
 import glob
 import re
-import sys
 from copy import deepcopy
 from pathlib import Path, PosixPath, WindowsPath
 from warnings import warn
@@ -1223,6 +1222,7 @@ def imslice(ccd, trimsec, fill_value=None, order_xyz=True,
                 infostr += f"Filled background with {fill_value}."
             cmt2hdr(hdr, 'h', infostr, t_ref=_t, verbose=verbose)
 
+    return nccd
 
 
 # # FIXME: Remove when https://github.com/astropy/ccdproc/issues/718 is solved
