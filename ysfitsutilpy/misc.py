@@ -110,10 +110,17 @@ def slicefy(rule, ndim=2, order_xyz=True):
         It can have several forms::
 
           * str: The FITS convention section to trim (e.g., IRAF TRIMSEC).
-          * list of int: The number of pixels to trim from the edge of the image (bezel)
-          * list of slice: The slice of each axis (`slice(start, stop, step)`)
+          * [list of] int: The number of pixels to trim from the edge of the
+            image (bezel)
+          * [list of] slice: The slice of each axis (`slice(start, stop,
+            step)`)
 
         If a single int/slice is given, it will be applied to all the axes.
+
+    order_xyz : bool, optional
+        Whether the order of rule is in xyz order. Works only if the `rule` is
+        bezel-like (int or list of int). If it is slice-like, `rule` must be in
+        the pythonic order (i.e., ``[slice_for_axis0, slice_for_axis1, ...]``).
 
     >>> np.eye(5)[slicefy('[1:2,:]')]
     # array([[1., 0.],
