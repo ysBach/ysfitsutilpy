@@ -68,23 +68,56 @@ LACOSMIC_CRREJ = {'sigclip': 4.5,
                   'psfbeta': 4.765}
 
 
+# TODO: add `coord` to select whether image/physical. If physical, header is required.
 def slicefy(rule, ndim=2, order_xyz=True):
     """ Parse the rule by trimsec, bezels, or slices (in this priority).
     Parameters
     ----------
-    rule : str,
-    """
+    rule : str, int, list of int, list of slice, None, optional
+        It can have several forms::
 
-    if isinstance(rule, str):
-        return fitsxy2py(rule)
+          * str: The FITS convention section to trim (e.g., IRAF TRIMSEC).
+          * list of int: The number of pixels to trim from the edge of the image (bezel)
+          * list of slice: The slice of each axis (`slice(start, stop, step)`)
+
+        If a single int/slice is given, it will be applied to all the axes.
+
+    >>> np.eye(5)[slicefy('[1:2,:]')]
+    # array([[1., 0.],
+    #       [0., 1.],
+    #       [0., 0.],
+    #       [0., 0.],
+    #       [0., 0.]])
+    >>> np.eye(5)[slicefy(1)]  # bezel by 1 pix
+    # array([[1., 0., 0.],
+    #    [0., 1., 0.],
+    #    [0., 0., 1.]])
+    >>> np.eye(5)[slicefy((1, 2))]  # bezel by (1, 1), (2, 2) pix (x/y dir)
+    # array([[0., 1., 0.]])
+    >>> np.eye(5)[slicefy(slice(1, -1, 2))]  # data[1:-1:2, 1:-1:2]
+    # array([[1., 0.],
+    #    [0., 1.]])
+    """
+    if rule is None:
+        return tuple([slice(None, None, None) for _ in range(ndim)])
+    elif isinstance(rule, str):
+        fs = np.atleast_1d(rule)
+        sl = [ccdproc.utils.slices.slice_from_string(sect, fits_convention=True)
+              for sect in fs]
+        return sl[0] if len(sl) == 1 else tuple(sl)
     elif is_list_like(rule):
         if isinstance(rule[0], slice):
-            return rule
+            return ndfy(rule, ndim)
         else:  # bezels
             bezels = ndfy([ndfy(b, 2, default=0) for b in listify(rule)], ndim)
             return bezel2slice(bezels, order_xyz=order_xyz)
+    elif isinstance(rule, slice):
+        return ndfy(rule, ndim)
+    elif isinstance(rule, int):  # bezels
+        bezels = ndfy([ndfy(b, 2, default=0) for b in listify(rule)], ndim)
+        return bezel2slice(bezels, order_xyz=order_xyz)
     else:
-        raise TypeError("rule must be a string or a list of int/slice.")
+        raise TypeError(f"rule must be a string or a list of int/slice. Now {type(rule)=}")
 
 
 def bezel2slice(bezels, order_xyz=True):
@@ -948,33 +981,6 @@ def binning(
     funcaxis = np.arange(1, binned.ndim + 1, 2).astype(int)
     binned = binfunc(binned, axis=tuple(funcaxis))
     return binned
-
-
-# TODO: add `coord` to select whether image/physical. If physical, header is required.
-def fitsxy2py(trimsec):
-    ''' Given FITS section in str, returns the slices in python convention.
-
-    Parameters
-    ----------
-    trimsec : str or list-like of such
-        The section specified by FITS convention, i.e., bracket embraced, comma
-        separated, XY order, 1-indexing, and including the end index.
-
-    Notes
-    -----
-    >>> np.eye(5)[fitsxy2py('[1:2,:]')]
-    # array([[1., 0.],
-    #       [0., 1.],
-    #       [0., 0.],
-    #       [0., 0.],
-    #       [0., 0.]])
-    '''
-    fs = np.atleast_1d(trimsec)
-    sl = [ccdproc.utils.slices.slice_from_string(sect, fits_convention=True) for sect in fs]
-    if len(sl) == 1:
-        return sl[0]
-    else:
-        return sl
 
 
 def quantile_lh(
