@@ -22,7 +22,7 @@ from ccdproc import trim_image
 from scipy.ndimage import label as ndlabel
 
 from .misc import (_image_shape, bezel2slice, binning, change_to_quantity,
-                   fitsxy2py, is_list_like, listify, ndfy, str_now)
+                   slicefy, is_list_like, listify, ndfy, str_now)
 
 try:
     import fitsio
@@ -55,7 +55,7 @@ __all__ = [
     # ! ccdproc:
     "trim_ccd", "bezel_ccd", "trim_overlap", "cut_ccd", "bin_ccd",
     "fixpix",
-    #"make_errormap",
+    # "make_errormap",
     "errormap",
     "find_extpix", "find_satpix",
     # ! header update:
@@ -70,38 +70,6 @@ __all__ = [
 ]
 
 ASTROPY_CCD_TYPES = (CCDData, fits.PrimaryHDU, fits.ImageHDU)  # fits.CompImageHDU ?
-
-
-def get_size(obj, seen=None):
-    """Recursively finds size of objects.
-    Directly from
-    https://goshippo.com/blog/measure-real-size-any-python-object/
-    Returns the size in bytes.
-    """
-    size = sys.getsizeof(obj)
-    if seen is None:
-        seen = set()
-    obj_id = id(obj)
-    if obj_id in seen:
-        return 0
-    # Important mark as seen *before* entering recursion to gracefully handle
-    # self-referential objects
-    seen.add(obj_id)
-    if isinstance(obj, dict):
-        objv = obj.values()
-        objk = obj.keys()
-        for kv in [objk, objv]:
-            for v in kv:
-                if not (isinstance(v, np.ndarray) and v.ndim == 0):
-                    size += get_size(v, seen)
-        # size += sum([get_size(v, seen) for v in obj.values()])
-        # size += sum([get_size(k, seen) for k in obj.keys()])
-    elif hasattr(obj, '__dict__'):
-        size += get_size(obj.__dict__, seen)
-    elif (hasattr(obj, '__iter__')
-          and not isinstance(obj, (str, bytes, bytearray))):
-        size += sum([get_size(i, seen) for i in obj])
-    return size
 
 
 def write2fits(data, header, output, return_ccd=False, **kwargs):
@@ -476,6 +444,8 @@ def _parse_extension(*args, ext=None, extname=None, extver=None):
 
     Notes
     -----
+    extension parser itself is not a time-consuming process:
+
     %timeit yfu._parse_extension()
     # 1.52 µs +- 69.3 ns per loop (mean +- std. dev. of 7 runs, 1000000 loops each)
     """
@@ -778,7 +748,7 @@ def load_ccd(
                 _ext = _ext_umf(_ext)
                 try:
                     if _trimsec is not None:
-                        sl = fitsxy2py(_trimsec)
+                        sl = slicefy(_trimsec)
                         if is_list_like(_ext):
                             # length == 2 is already checked in _parse_extension.
                             arr = _hdul[_ext[0], _ext[1]][sl]
@@ -1185,13 +1155,98 @@ def propagate_ccdmask(ccd, additional_mask=None):
     return mask
 
 
-# FIXME: Remove when https://github.com/astropy/ccdproc/issues/718 is solved
-def trim_ccd(ccd, trimsec=None, bezels=None, update_header=True, verbose=False):
+def imsample(ccd, rule, replace=None, order_xyz=True,
+             update_header=True, verbose=False):
+    """ Trim the CCDData using one of trimsec, bezels, or slices (in this priority).
+    # combine bezel_ccd, trim_ccd to this one.
+    """
     _t = Time.now()
-    if bezels is not None:
+
+    # PArse
+    sl = slicefy(rule, ccd.ndim, order_xyz=order_xyz)
+
+    if replace is None:
+        nccd = ccd[sl].copy()  # CCDData supports this kind of slicing
+    else:
+        nccd = ccd.copy()
+        nccd.data = replace
+        nccd.data[sl] = ccd.data[sl]
+
+    if update_header:  # update LTV/LTM
+        steps = [s.step for s in sl]
+        trim_str = f"Trimmed using {trimsec}"
+        ndim = ccd.data.ndim  # ndim == NAXIS keyword
+        shape = ccd.data.shape
+        if trimsec is not None:
+            trim_slice = slicefy(trimsec)
+            ltvs = []
+            for i_python, npix in enumerate(shape):
+                # example: "[10:110]", we must have LTV = -9, not -10.
+                ltvs.append(-1*trim_slice[i_python].indices(npix)[0])
+        else:
+            ltvs = [0.]*ndim
+
+        # python shape is in z, y, x order, so reverse it
+        ltvs = ltvs[::-1]
+        hdr = trimmed_ccd.header
+        for i_axis, ltv in enumerate(ltvs):
+            i = i_axis + 1
+            try:  # if LTV exists already
+                hdr[f"LTV{i}"] += ltv
+                # NB: LTV is negative (gets more negative if more trimmed)
+            except KeyError:
+                hdr[f"LTV{i}"] = ltv
+
+        for i_axis in range(ndim):
+            i = i_axis + 1
+            for j_axis in range(ndim):
+                j = j_axis + 1
+                if i == j:
+                    if f"LTM{i}" in hdr:
+                        hdr[f"LTM_{i}_{i}"] = hdr[f"LTM{i}"]
+                    else:
+                        hdr[f"LTM{i}_{i}"] = 1.
+                else:
+                    if f"LTM{i}_{j}" not in hdr:
+                        hdr[f"LTM{i}_{j}"] = 0.
+
+        cmt2hdr(hdr, 'h', trim_str, t_ref=_t, verbose=verbose)
+
+# FIXME: Remove when https://github.com/astropy/ccdproc/issues/718 is solved
+def trim_ccd(ccd, trimsec, replace=None,
+             update_header=True, verbose=False):
+    """ Trim the CCDData using one of trimsec, bezels, or slices (in this priority).
+
+    Parameters
+    ----------
+    ccd : CCDData
+        The ccd to trim.
+    trimsec : str, int, list of int, list of slice, None, optional
+        It can have several forms::
+
+          * str: The FITS convention section to trim (e.g., IRAF TRIMSEC).
+          * list of int: The number of pixels to trim from the edge of the image (bezel)
+          * list of slice: The slice of each axis (`slice(start, stop, step)`)
+
+        If a single int/slice is given, it will be applied to all the axes.
+
+    replace : None, float-like, optinoal.
+        If `None`, it removes the pixels outside of it. If given as float-like
+        (including `np.nan`), the bezel pixels will be replaced with this
+        value.
+
+    """
+
+    _t = Time.now()
+
+    if trimsec is not None:
+        pass
+
+    elif bezels is not None:
         bezels = ndfy([ndfy(b, 2, default=0) for b in listify(bezels)], ccd.ndim)
         sects = [f"{b[0] + 1}:{n - b[1]}" for n, b in zip(ccd.shape[::-1], bezels)]
         trimsec = "[" + ",".join(sects) + "]"
+
     trimmed_ccd = trim_image(ccd, trimsec=trimsec, add_keyword=None)
 
     if update_header:
@@ -1199,7 +1254,7 @@ def trim_ccd(ccd, trimsec=None, bezels=None, update_header=True, verbose=False):
         ndim = ccd.data.ndim  # ndim == NAXIS keyword
         shape = ccd.data.shape
         if trimsec is not None:
-            trim_slice = fitsxy2py(trimsec)
+            trim_slice = slicefy(trimsec)
             ltvs = []
             for i_python, npix in enumerate(shape):
                 # example: "[10:110]", we must have LTV = -9, not -10.
@@ -1244,6 +1299,8 @@ def bezel_ccd(
         replace=np.nan,
         update_header=True,
         verbose=False
+
+
 ):
     """ Replace pixel values at the edges of the image.
     Parameters
@@ -1305,7 +1362,7 @@ def bezel_ccd(
         if isinstance(ccd, CCDData):
             nccd = trim_ccd(ccd, trimsec=sl, update_header=update_header)
         else:
-            nccd = np.array(ccd)[fitsxy2py(sl)]
+            nccd = np.array(ccd)[slicefy(sl)]
         # i.e., use trim_ccd if CCDData, and use python slice if ndarray-like
     else:
         nccd = ccd.copy()
@@ -1317,7 +1374,7 @@ def bezel_ccd(
             cmt2hdr(
                 nccd.header, 'h', t_ref=_t, verbose=verbose,
                 s=(f"Replaced pixels with bezel width {bezel_x} along x and "
-                   + f"{bezel_y} along y with {replace}.")
+                    + f"{bezel_y} along y with {replace}.")
             )
 
     return nccd
@@ -1536,7 +1593,7 @@ def bin_ccd(
                                    "Binning done after the observation in Y direction")
         # add as history
         cmt2hdr(_ccd.header, 'h', t_ref=_t_start,
-                s=f"Binned by (xbin, ybin) = ({factor_x}, {factor_y}) ")
+                s=f"[bin_ccd] Binned by (xbin, ybin) = ({factor_x}, {factor_y}) ")
     return _ccd
 
 
@@ -1718,7 +1775,7 @@ def fixpix(
         # MASKFILE: name identical to IRAF
         # add as history
         cmt2hdr(_ccd.header, 'h', t_ref=_t_start, verbose=verbose,
-                s="Pixel values fixed by fixpix.")
+                s="[fixpix] Pixel values interpolated.")
         update_process(_ccd.header, "P")
 
     return _ccd
@@ -1867,8 +1924,9 @@ def find_extpix(
             order = "xyz order" if order_xyz else "pythonic order"
             bezstr = f" and bezel: {bezels} in {order}"
         cmt2hdr(ccd.header, 'h', verbose=verbose, t_ref=_t,
-                s=(f"Extrema pixel values found N(smallest, largest) = {npixs} "
-                   + f"excluding mask ({maskname}){bezstr}. See MINViii and MAXViii.")
+                s=("[find_extpix] Extrema pixel values found N(smallest, largest) = "
+                   + f"{npixs} excluding mask ({maskname}){bezstr}. "
+                   + "See MINViii and MAXViii.")
                 )
     return exts
 
@@ -1949,8 +2007,9 @@ def find_satpix(
             order = "xyz order" if order_xyz else "pythonic order"
             bezstr = f" and bezel: {bezels} in {order}"
         cmt2hdr(ccd.header, 'h', verbose=verbose, t_ref=_t,
-                s=(f"Saturated pixels calculated based on satlevel = {satlevel}, excluding "
-                   + f"mask ({maskname}){bezstr}. See NSATPIX and SATLEVEL."))
+                s=("[find_satpix] Saturated pixels calculated based on satlevel = "
+                   + f"{satlevel}, excluding mask ({maskname}){bezstr}. "
+                   + "See NSATPIX and SATLEVEL."))
     return satmask
 
 
@@ -2198,7 +2257,7 @@ def update_process(
         header,
         process=None,
         key="PROCESS",
-        delimiter='-',
+        delimiter='',
         add_comment=True,
         additional_comment=dict()
 ):
@@ -3180,7 +3239,7 @@ def give_stats(
     data, hdr = _parse_data_header(item, extension=extension)
     if statsecs is not None:
         statsecs = [statsecs] if isinstance(statsecs, str) else list(statsecs)
-        data = np.array([data[fitsxy2py(sec)] for sec in statsecs])
+        data = np.array([data[slicefy(sec)] for sec in statsecs])
 
     data = data.ravel()
 
