@@ -10,7 +10,7 @@ from astropy.time import Time
 
 __all__ = ["MEDCOMB_KEYS_INT", "SUMCOMB_KEYS_INT", "MEDCOMB_KEYS_FLT32",
            "LACOSMIC_KEYS", "LACOSMIC_CRREJ", "parse_crrej_psf",
-           "bezel2slice", "is_list_like", "listify", "ndfy",
+           "slicefy", "bezel2slice", "is_list_like", "listify", "ndfy",
            "weighted_avg", "sigclip_dataerr", "circular_mask",
            "_image_shape", "_offsets2slice",
            "str_now", "change_to_quantity", "binning", "fitsxy2py",
@@ -66,6 +66,25 @@ LACOSMIC_CRREJ = {'sigclip': 4.5,
                   'psffwhm': 2.5,
                   'psfsize': 7,
                   'psfbeta': 4.765}
+
+
+def slicefy(rule, ndim=2, order_xyz=True):
+    """ Parse the rule by trimsec, bezels, or slices (in this priority).
+    Parameters
+    ----------
+    rule : str,
+    """
+
+    if isinstance(rule, str):
+        return fitsxy2py(rule)
+    elif is_list_like(rule):
+        if isinstance(rule[0], slice):
+            return rule
+        else:  # bezels
+            bezels = ndfy([ndfy(b, 2, default=0) for b in listify(rule)], ndim)
+            return bezel2slice(bezels, order_xyz=order_xyz)
+    else:
+        raise TypeError("rule must be a string or a list of int/slice.")
 
 
 def bezel2slice(bezels, order_xyz=True):
