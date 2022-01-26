@@ -44,7 +44,7 @@ except ImportError:
 __all__ = [
     "ASTROPY_CCD_TYPES",
     # ! file io related:
-    "get_size", "write2fits",
+    "write2fits",
     # ! parsers:
     "_parse_data_header", "_parse_image", "_has_header", "_parse_extension",
     # ! loaders:
@@ -1151,62 +1151,75 @@ def propagate_ccdmask(ccd, additional_mask=None):
     return mask
 
 
-def imsample(ccd, rule, replace=None, order_xyz=True,
-             update_header=True, verbose=False):
-    """ Trim the CCDData using one of trimsec, bezels, or slices (in this priority).
+def imslice(ccd, rule, fill_value=None, order_xyz=True,
+            update_header=True, verbose=False):
+    """ Slice the CCDData using one of trimsec, bezels, or slices.
     # combine bezel_ccd, trim_ccd to this one.
+    rule : str, int, list of int, list of slice, None, optional
+        It can have several forms::
+
+          * str: The FITS convention section to trim (e.g., IRAF TRIMSEC).
+          * [list of] int: The number of pixels to trim from the edge of the
+            image (bezel)
+          * [list of] slice: The slice of each axis (`slice(start, stop,
+            step)`)
+
+        If a single int/slice is given, it will be applied to all the axes.
+
+    order_xyz : bool, optional
+        Whether the order of rule is in xyz order. Works only if the `rule` is
+        bezel-like (int or list of int). If it is slice-like, `rule` must be in
+        the pythonic order (i.e., ``[slice_for_axis0, slice_for_axis1, ...]``).
+
+    fill_value : None, float-like, optinoal.
+        If `None`, it removes the pixels outside of it. If given as float-like
+        (including `np.nan`), the bezel pixels will be replaced with this
+        value.
+
     """
     _t = Time.now()
 
-    # PArse
+    # Parse
     sl = slicefy(rule, ccd.ndim, order_xyz=order_xyz)
 
-    if replace is None:
+    if fill_value is None:
         nccd = ccd[sl].copy()  # CCDData supports this kind of slicing
     else:
         nccd = ccd.copy()
-        nccd.data = replace
+        nccd.data = fill_value
         nccd.data[sl] = ccd.data[sl]
 
     if update_header:  # update LTV/LTM
-        steps = [s.step for s in sl]
-        trim_str = f"Trimmed using {trimsec}"
-        ndim = ccd.data.ndim  # ndim == NAXIS keyword
-        shape = ccd.data.shape
-        if trimsec is not None:
-            trim_slice = slicefy(trimsec)
+        ltms = [1 if s.step is None else 1/s.step for s in sl]
+        ndim = ccd.ndim  # ndim == NAXIS keyword
+        shape = ccd.shape
+        if rule is not None:
             ltvs = []
-            for i_python, npix in enumerate(shape):
+            for axis_i_py, naxis_i in enumerate(shape):
                 # example: "[10:110]", we must have LTV = -9, not -10.
-                ltvs.append(-1*trim_slice[i_python].indices(npix)[0])
+                ltvs.append(-1*sl[axis_i_py].indices(naxis_i)[0])
+            ltvs = ltvs[::-1]  # zyx -> xyz order
         else:
             ltvs = [0.]*ndim
 
-        # python shape is in z, y, x order, so reverse it
-        ltvs = ltvs[::-1]
-        hdr = trimmed_ccd.header
-        for i_axis, ltv in enumerate(ltvs):
-            i = i_axis + 1
-            try:  # if LTV exists already
-                hdr[f"LTV{i}"] += ltv
-                # NB: LTV is negative (gets more negative if more trimmed)
-            except KeyError:
-                hdr[f"LTV{i}"] = ltv
+        hdr = nccd.header
+        for i, ltv in enumerate(ltvs):
+            if (key := f"LTV{i+1}") in hdr:
+                hdr[key] += ltv
+            else:
+                hdr[key] = ltv
 
-        for i_axis in range(ndim):
-            i = i_axis + 1
-            for j_axis in range(ndim):
-                j = j_axis + 1
+        for i in range(ndim):
+            for j in range(ndim):
                 if i == j:
-                    if f"LTM{i}" in hdr:
-                        hdr[f"LTM_{i}_{i}"] = hdr[f"LTM{i}"]
-                    else:
-                        hdr[f"LTM{i}_{i}"] = 1.
+                    hdr[f"LTM_{i+1}_{i+1}"] = hdr.get(f"LTM{i+1}", ltms[i])
                 else:
-                    if f"LTM{i}_{j}" not in hdr:
-                        hdr[f"LTM{i}_{j}"] = 0.
+                    hdr.setdefault(f"LTM{i+1}_{j+1}", 0.)
 
-        cmt2hdr(hdr, 'h', trim_str, t_ref=_t, verbose=verbose)
+        if rule is not None:
+            cmt2hdr(hdr, 'h', t_ref=_t, verbose=verbose,
+                    s=f"[imslice] Sliced using {rule}, converted to {sl}")
+
 
 # FIXME: Remove when https://github.com/astropy/ccdproc/issues/718 is solved
 def trim_ccd(ccd, trimsec, replace=None,
