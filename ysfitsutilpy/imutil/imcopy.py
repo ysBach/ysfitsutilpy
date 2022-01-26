@@ -10,9 +10,9 @@ __all__ = ['imcopy']
 # TODO: use fitsio if (outputs is None) and not return_ccd
 def imcopy(
         inputs,
-        extension=None,
         trimsecs=None,
         outputs=None,
+        extension=None,
         return_ccd=True,
         dtype=None,
         update_header=True,
