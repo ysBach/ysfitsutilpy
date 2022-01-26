@@ -1,6 +1,7 @@
 '''
 (Basic) Functions that are completely INDEPENDENT of all other modules of this package.
 '''
+import sys
 from collections import Iterable, abc
 
 import ccdproc
