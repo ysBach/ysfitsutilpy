@@ -16,12 +16,11 @@ from astropy.table import Table
 from astropy.time import Time
 from astropy.visualization import ImageNormalize, ZScaleInterval
 from astropy.wcs import WCS, Wcsprm
-from ccdproc import trim_image
 # from scipy.interpolate import griddata
 from scipy.ndimage import label as ndlabel
 
 from .misc import (_image_shape, bezel2slice, binning, change_to_quantity,
-                   slicefy, is_list_like, listify, ndfy, str_now)
+                   slicefy, is_list_like, listify, str_now)
 
 try:
     import fitsio
