@@ -1860,7 +1860,7 @@ def find_satpix(
             order = "xyz order" if order_xyz else "pythonic order"
             bezstr = f" and bezel: {bezels} in {order}"
         cmt2hdr(ccd.header, 'h', verbose=verbose, t_ref=_t,
-                s=("[find_satpix] Saturated pixels calculated based on satlevel = "
+                s=("[yfu.find_satpix] Saturated pixels calculated based on satlevel = "
                    + f"{satlevel}, excluding mask ({maskname}){bezstr}. "
                    + "See NSATPIX and SATLEVEL."))
     return satmask
