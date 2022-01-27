@@ -8,7 +8,7 @@ from astropy.io import fits
 from astropy.nddata import CCDData, StdDevUncertainty
 from astropy.table import Table
 from astropy.time import Time
-from ccdproc import combine, trim_image
+from ccdproc import combine
 
 from .filemgmt import load_if_exists, make_summary
 from .hduutil import (CCDData_astype, _parse_extension, cmt2hdr,
@@ -161,10 +161,8 @@ def select_fits(
         and `prefer_ccddata` is `True`.
         Ignored if `inputs` is table-like.
 
-    trimsec : str or None, optional
-        The `trimsec` of `ccdproc.trim_image`. Region of
-        `~astropy.nddata.CCDData` from which the overscan is extracted; see
-        `~ccdproc.subtract_overscan` for details.
+    trimsec : str, [list of] int, [list of] slice, optional
+        Section of the data to be extracted by `~ysfitsutilpy.hduutil.imslice`.
         Default is `None`.
         Ignored if `inputs` is table-like.
 
@@ -321,14 +319,14 @@ def select_fits(
                 if trimsec is None:
                     matched.append(item)
                 else:
-                    matched.append(trim_image(item, trimsec=trimsec))
+                    matched.append(imslice(item, trimsec=trimsec))
             else:  # it must be a path to a file
                 fpath = Path(item)
                 if prefer_ccddata:
                     # extension will be parsed within load_ccd (no need to care here)
                     ccd_i = load_ccd(fpath, extension=extension, unit=unit)
                     if trimsec is not None:
-                        ccd_i = trim_image(ccd_i, trimsec=trimsec)
+                        ccd_i = imslice(ccd_i, trimsec=trimsec)
                     matched.append(ccd_i)
                 else:
                     if path_to_text:
@@ -343,13 +341,13 @@ def select_fits(
                 if trimsec is None:
                     matched.append(item)
                 else:
-                    matched.append(trim_image(item, trimsec=trimsec))
+                    matched.append(imslice(item, trimsec=trimsec))
             else:  # it must be a path to a file
                 if prefer_ccddata:
                     # extension will be parsed within load_ccd (no need to care here)
                     ccd_i = load_ccd(item, extension=extension, unit=unit)
                     if trimsec is not None:
-                        ccd_i = trim_image(ccd_i, trimsec=trimsec)
+                        ccd_i = imslice(ccd_i, trimsec=trimsec)
                     matched.append(ccd_i)
                 else:  # TODO: Is is better to remove Path here?
                     if path_to_text:
@@ -433,10 +431,8 @@ def stack_FITS(
     table_filecol: str
         The column name of the `summary_table` which contains the path to the FITS files.
 
-    trimsec : str or None, optional
-        The `trimsec` of `ccdproc.trim_image`. Region of
-        `~astropy.nddata.CCDData` from which the overscan is extracted; see
-        `~ccdproc.subtract_overscan` for details.
+    trimsec : str, [list of] int, [list of] slice, optional
+        Section of the data to be extracted by `~ysfitsutilpy.hduutil.imslice`.
         Default is `None`.
 
     ccddata: bool, optional
@@ -574,7 +570,7 @@ def stack_FITS(
                     # extension will be parsed within load_ccd (no need to care here)
                     ccd_i = load_ccd(fpath, extension=extension, unit=unit)
                     if trimsec is not None:
-                        ccd_i = trim_image(ccd_i, trimsec=trimsec)
+                        ccd_i = imslice(ccd_i, trimsec=trimsec)
                     if asccd:
                         matched.append(ccd_i)
                     else:
@@ -595,7 +591,7 @@ def stack_FITS(
                     # extension will be parsed within load_ccd (no need to care here)
                     ccd_i = load_ccd(item, extension=extension, unit=unit)
                     if trimsec is not None:
-                        ccd_i = trim_image(ccd_i, trimsec=trimsec)
+                        ccd_i = imslice(ccd_i, trimsec=trimsec)
                     if asccd:
                         matched.append(ccd_i)
                     else:
@@ -682,10 +678,8 @@ def combine_ccd(
         The column name of the `summary_table` which contains the path to the
         FITS files.
 
-    trimsec : str or None, optional
-        The `trimsec` of `ccdproc.trim_image`. Region of
-        `~astropy.nddata.CCDData` from which the overscan is extracted; see
-        `~ccdproc.subtract_overscan` for details.
+    trimsec : str, [list of] int, [list of] slice, optional
+        Section of the data to be extracted by `~ysfitsutilpy.hduutil.imslice`.
         Default is `None`.
 
     output : path-like or None, optional.

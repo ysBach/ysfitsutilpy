@@ -134,7 +134,6 @@ def imcopy(
         result = []
         if to_trim:  # n CCDData will be in `result`
             for sect in sects:
-                # FIXME: use ccdproc.trim_image when imslice is removed.
                 nccd = imslice(ccd, trimsec=sect)
                 if dtype is not None:
                     nccd = CCDData_astype(nccd, dtype=dtype)
