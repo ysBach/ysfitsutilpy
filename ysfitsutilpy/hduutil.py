@@ -1052,7 +1052,7 @@ def set_ccd_attribute(
 
             try:
                 v = ccd.header[key]
-                s.append(f"(Original {key} = {v} is overwritten.)")
+                s.append(f"[yfu.set_ccd_attribute] (Original {key} = {v} is overwritten.)")
             except (KeyError, ValueError):
                 pass
 
@@ -1193,7 +1193,7 @@ def imslice(ccd, trimsec, fill_value=None, order_xyz=True,
         nccd = ccd[sl].copy()  # CCDData supports this kind of slicing
     else:
         nccd = ccd.copy()
-        nccd.data = fill_value
+        nccd.data = np.ones(nccd.shape)*fill_value
         nccd.data[sl] = ccd.data[sl]
 
     if update_header:  # update LTV/LTM
@@ -1224,9 +1224,9 @@ def imslice(ccd, trimsec, fill_value=None, order_xyz=True,
                     hdr.setdefault(f"LTM{i+1}_{j+1}", 0.)
 
         if trimsec is not None:
-            infostr = f"[imslice] Sliced using {trimsec}, converted to {sl}. "
+            infostr = [f"[yfu.imslice] Sliced using `{trimsec = }`: converted to {sl}. "]
             if fill_value is not None:
-                infostr += f"Filled background with {fill_value}."
+                infostr.append(f"Filled background with `{fill_value = }`.")
             cmt2hdr(hdr, 'h', infostr, t_ref=_t, verbose=verbose)
             update_process(hdr, "T")
 
@@ -1446,7 +1446,7 @@ def bin_ccd(
                                    "Binning done after the observation in Y direction")
         # add as history
         cmt2hdr(_ccd.header, 'h', t_ref=_t_start,
-                s=f"[bin_ccd] Binned by (xbin, ybin) = ({factor_x}, {factor_y}) ")
+                s=f"[yfu.bin_ccd] Binned by (xbin, ybin) = ({factor_x}, {factor_y}) ")
     return _ccd
 
 
@@ -1998,8 +1998,8 @@ def cmt2hdr(
         time_fmt="{:.>72s}",
         t_ref=None,
         dt_fmt="(dt = {:.3f} s)",
+        set_kw={'after': -1},
         verbose=False,
-        set_kw={'after': -1}
 ):
     ''' Automatically add timestamp as well as HISTORY or COMMENT string
 
@@ -2045,15 +2045,18 @@ def cmt2hdr(
 
     Notes
     -----
-    The timming benchmark shows that,
-    %timeit cmt2hdr(hdu.header, 'comm', 'aadfaer sdf')
-    310 µs +/- 2.93 µs per loop (mean +/- std. dev. of 7 runs, 1000 loops each)
+    The timming benchmark for a reasonably long header (len(ccd.header.cards) =
+    197) shows dt ~ 0.2-0.3 ms on MBP 15" [2018, macOS 11.6, i7-8850H (2.6 GHz;
+    6-core), RAM 16 GB (2400MHz DDR4), Radeon Pro 560X (4GB)]:
 
-    %timeit cmt2hdr(hdu.header, 'comM', 'aadfaer sdf')
-    309 µs +/- 2.48 µs per loop (mean +/- std. dev. of 7 runs, 1000 loops each)
-
-    %timeit cmt2hdr(hdu.header, 'comMent', 'aadfaer sdf')
-    15.4 ms +/- 299 µs per loop (mean +/- std. dev. of 7 runs, 100 loops each)
+    %timeit ccd.header.copy()
+    1.67 ms +/- 33.3 µs per loop (mean +/- std. dev. of 7 runs, 1000 loops each)
+    %timeit yfu.cmt2hdr(ccd.header.copy(), 'h', 'test')
+    1.89 ms +/- 141 µs per loop (mean +/- std. dev. of 7 runs, 1000 loops each)
+    %timeit yfu.cmt2hdr(ccd.header.copy(), 'hist', 'test')
+    1.89 ms +/- 144 µs per loop (mean +/- std. dev. of 7 runs, 1000 loops each)
+    %timeit yfu.cmt2hdr(ccd.header.copy(), 'histORy', 'test')
+    1.95 ms +/- 146 µs per loop (mean +/- std. dev. of 7 runs, 100 loops each)
     '''
     pall = locals()
     if histcomm.lower() in ['h', 'hist']:
@@ -2073,10 +2076,7 @@ def cmt2hdr(
             # For a CCDData that has just initialized, header is in OrderdDict, not Header
             header[histcomm] = content
 
-    if isinstance(s, str):
-        s = [s]
-
-    for _s in s:
+    for _s in listify(s):
         _add_content(header, _s)
         if verbose:
             print(f"{histcomm.upper():<8s} {_s}")
@@ -2091,6 +2091,11 @@ def cmt2hdr(
 
 def update_tlm(header):
     ''' Adds the IRAF-like ``FITS-TLM`` right after ``NAXISi``.
+
+    Timing on MBP 15" [2018, macOS 11.6, i7-8850H (2.6 GHz; 6-core), RAM 16 GB
+    (2400MHz DDR4), Radeon Pro 560X (4GB)]:
+    %timeit yfu.update_tlm(ccd.header)
+    # 443 µs +/- 19.5 µs per loop (mean +/- std. dev. of 7 runs, 1000 loops each)
     '''
     now = Time(Time.now(), precision=0).isot
     try:
@@ -2155,8 +2160,9 @@ def update_process(
         # add comment.
         cmt2hdr(
             header, 'c', time_fmt=None,
-            s=(f"Standard items for {key} includes B=bias, D=dark, F=flat, T=trim, W=WCS, "
-               + "O=Overscan, I=Illumination, C=CRrej, R=fringe, P=fixpix, X=crosstalk.")
+            s=(f"[yfu.update_process] Standard items for {key} includes B=bias, D=dark, "
+               + "F=flat, T=trim, W=WCS, O=Overscan, I=Illumination, C=CRrej, R=fringe, "
+               + "P=fixpix, X=crosstalk.")
         )
 
     header[key] = (delimiter.join(process), "Process (order: 1-2-3-...): see comment.")
@@ -2247,12 +2253,12 @@ def hedit(
     for key, val, cmt, bef, aft in zip(keys, values, comments, befores, afters):
         if key in header:
             oldv = header[key]
-            infostr = (f"[HEDIT] {key}={oldv} ({type(oldv).__name__}) "
+            infostr = (f"[yfu.HEDIT] {key}={oldv} ({type(oldv).__name__}) "
                        + f"--> {val} ({type(val).__name__})")
             _add_key(header, key, val, infostr, cmt=cmt, before=bef, after=aft)
         else:
             if add:  # add key only if `add` is True.
-                infostr = f"[HEDIT add] {key}= {val} ({type(val).__name__})"
+                infostr = f"[yfu.HEDIT add] {key}= {val} ({type(val).__name__})"
                 _add_key(header, key, val, infostr, cmt=cmt, before=bef, after=aft)
             elif verbose:
                 print(f"{key = } does not exist in the header. Skipped. (add=True to proceed)")
@@ -2497,6 +2503,11 @@ def valinhdr(val=None, header=None, key=None, default=None, unit=None):
     assert valinhdr(test_v, hdr, "EXPTIxx", default=0, unit='s') == test_q  # ~ 11 us
     assert valinhdr(test_q, hdr, "EXPTIxx", default=0, unit='s') == test_q  # ~ 15 us
 
+    For a test CCDData, the following timing gave ~ 0.5 ms on MBP 15" [2018,
+    macOS 11.6, i7-8850H (2.6 GHz; 6-core), RAM 16 GB (2400MHz DDR4), Radeon
+    Pro 560X (4GB)]
+    %timeit ((yfu.valinhdr(None, ccd.header, "EXPTIME", unit=u.s)
+             / yfu.valinhdr(3*u.s, ccd.header, "EXPTIME", unit=u.s)).si.value)
     '''
     uu = 1 if unit is None else u.Unit(unit)
     #    ^ NOT 1.0 to preserve the original dtype (e.g., int)
