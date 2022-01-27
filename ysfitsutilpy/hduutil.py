@@ -318,10 +318,12 @@ def _parse_image(
         else:
             new_im = ccdlike.data.copy() if copy else ccdlike.data
         imtype = "CCDData"
+        imname = imname.replace("[0]", "")
     elif isinstance(ccdlike, (fits.PrimaryHDU, fits.ImageHDU)):
         # force_ccddata: CCDData // prefer_ccddata: CCDData // else: ndarray
         new_im = __extract_from_hdu(ccdlike, **ccd_kw)
         imtype = "hdu"
+        imname = imname.replace("[0]", "")
     elif isinstance(ccdlike, fits.HDUList):
         # force_ccddata: CCDData // prefer_ccddata: CCDData // else: ndarray
         new_im = __extract_from_hdu(ccdlike[extension], **ccd_kw)
