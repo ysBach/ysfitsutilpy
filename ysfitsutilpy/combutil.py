@@ -13,6 +13,7 @@ from ccdproc import combine
 from .filemgmt import load_if_exists, make_summary
 from .hduutil import (CCDData_astype, _parse_extension, cmt2hdr,
                       inputs2list, load_ccd, imslice, chk_keyval)
+from .misc import listify
 
 __all__ = [
     "sstd", "weighted_mean", "group_fits", "select_fits", "stack_FITS",
@@ -399,7 +400,7 @@ def stack_FITS(
 
     Parameters
     ----------
-    fitslist: None, list of path-like, or list of CCDData
+    fitslist: None, [list of] path-like, or [list of] CCDData
         The list of path to FITS files or the list of CCDData to be stacked. It
         is useful to give list of CCDData if you have already stacked/loaded
         FITS file into a list by your own criteria. If `None` (default), you
@@ -497,12 +498,7 @@ def stack_FITS(
     # ************************************************************************************ #
     # == If fitslist ===================================================================== #
     if fitslist is not None:
-        try:
-            fitslist = list(fitslist)
-        except TypeError:
-            raise TypeError(
-                f"fitslist must be convertable to list. It's now {type(fitslist)}."
-            )
+        fitslist = listify(fitslist)
 
         if selecting:
             summary_table = make_summary(
