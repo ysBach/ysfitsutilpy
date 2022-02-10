@@ -353,7 +353,7 @@ def _parse_image(
                 new_im = load_ccd(
                     fpath,
                     extension,
-                    ccddata=force_ccddata or force_ccddata,
+                    ccddata=prefer_ccddata or force_ccddata,
                     extension_uncertainty=None,
                     extension_mask=None
                 )
