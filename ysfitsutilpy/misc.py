@@ -217,6 +217,10 @@ def is_list_like(*objs, allow_sets=True, func=all):
     https://github.com/pandas-dev/pandas/blob/bdb00f2d5a12f813e93bc55cdcd56dcb1aae776e/pandas/_libs/lib.pyx#L1026
 
     Note that pd.DataFrame also returns True.
+
+    Timing on MBP 14" [2021, macOS 12.2, M1Pro(6P+2E/G16c/N16c/32G)]
+    %timeit yfu.is_list_like("asdfaer.fits")
+    4.32 µs +- 572 ns per loop (mean +- std. dev. of 7 runs, 100000 loops each)
     '''
     # I don't think we need speed boost here but...
     # if `func` is `any`, below can be reorganized by for loop and can return
@@ -294,6 +298,15 @@ def listify(*objs, scalar2list=True, none2list=False):
     assert listify("ab", scalar2list=False) == "ab"
     assert listify([1, 2], "a") == [[1, 2], ['a', 'a']]
     assert listify([1, 2], "a", None) == [[1, 2], ['a', 'a'], [None, None]]
+
+    Timing on MBP 14" [2021, macOS 12.2, M1Pro(6P+2E/G16c/N16c/32G)]:
+    %timeit yfu.listify([12])
+    8.92 µs +- 434 ns per loop (mean +- std. dev. of 7 runs, 100000 loops each)
+    %timeit yfu.listify("asdf")
+    7.08 µs +- 407 ns per loop (mean +- std. dev. of 7 runs, 100000 loops each)
+    %timeit yfu.listify("asdf", scalar2list=False)
+    7.37 µs +- 586 ns per loop (mean +- std. dev. of 7 runs, 100000 loops each)
+
     """
     def _listify_single(obj, none2list=True):
         if obj is None:
