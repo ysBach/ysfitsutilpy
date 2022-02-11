@@ -16,20 +16,31 @@ from astropy.table import Table
 from astropy.time import Time
 from astropy.visualization import ImageNormalize, ZScaleInterval
 from astropy.wcs import WCS, Wcsprm
+
 # from scipy.interpolate import griddata
 from scipy.ndimage import label as ndlabel
 
-from .misc import (_image_shape, bezel2slice, binning, change_to_quantity,
-                   slicefy, is_list_like, listify, str_now)
+from .misc import (
+    _image_shape,
+    bezel2slice,
+    binning,
+    change_to_quantity,
+    slicefy,
+    is_list_like,
+    listify,
+    str_now,
+)
 
 try:
     import fitsio
+
     HAS_FITSIO = True
 except ImportError:
     HAS_FITSIO = False
 
 try:
     import numexpr as ne
+
     HAS_NE = True
     NEVAL = ne.evaluate  # "n"umerical "eval"uator
     NPSTR = ""
@@ -44,27 +55,49 @@ __all__ = [
     # ! file io related:
     "write2fits",
     # ! parsers:
-    "_parse_data_header", "_parse_image", "_has_header", "_parse_extension",
+    "_parse_data_header",
+    "_parse_image",
+    "_has_header",
+    "_parse_extension",
     # ! loaders:
-    "load_ccd", "inputs2list",
+    "load_ccd",
+    "inputs2list",
     # ! setters:
-    "CCDData_astype", "set_ccd_attribute", "set_ccd_gain_rdnoise",
+    "CCDData_astype",
+    "set_ccd_attribute",
+    "set_ccd_gain_rdnoise",
     "propagate_ccdmask",
     # ! ccdproc:
-    "imslice", "trim_overlap", "cut_ccd", "bin_ccd",
+    "imslice",
+    "trim_overlap",
+    "cut_ccd",
+    "bin_ccd",
     "fixpix",
     # "make_errormap",
     "errormap",
-    "find_extpix", "find_satpix",
+    "find_extpix",
+    "find_satpix",
     # ! header update:
-    "cmt2hdr", "update_tlm", "update_process", "hedit", "key_remover", "key_mapper", "chk_keyval",
+    "cmt2hdr",
+    "update_tlm",
+    "update_process",
+    "hedit",
+    "key_remover",
+    "key_mapper",
+    "chk_keyval",
     # ! header accessor:
-    "valinhdr", "get_from_header", "get_if_none",
+    "valinhdr",
+    "get_from_header",
+    "get_if_none",
     # ! WCS related:
-    "wcs_crota", "center_radec", "calc_offset_wcs", "calc_offset_physical",
-    "wcsremove", "fov_radius",
+    "wcs_crota",
+    "center_radec",
+    "calc_offset_wcs",
+    "calc_offset_physical",
+    "wcsremove",
+    "fov_radius",
     # ! math:
-    "give_stats"
+    "give_stats",
 ]
 
 ASTROPY_CCD_TYPES = (CCDData, fits.PrimaryHDU, fits.ImageHDU)  # fits.CompImageHDU ?
@@ -102,13 +135,9 @@ def write2fits(data, header, output, return_ccd=False, **kwargs):
 
 
 def _parse_data_header(
-        ccdlike,
-        extension=None,
-        parse_data=True,
-        parse_header=True,
-        copy=True
+    ccdlike, extension=None, parse_data=True, parse_header=True, copy=True
 ):
-    '''Parses data and header and return them separately after copy.
+    """Parses data and header and return them separately after copy.
 
     Paramters
     ---------
@@ -141,8 +170,8 @@ def _parse_data_header(
     _parse_data_header is to get a quick copy of the data and/or header,
     especially to CHECK if it has header, while _parse_image is to deal mainly
     with the data (and has options to return as CCDData).
-    '''
-    if ccdlike is None or (isinstance(ccdlike, str) and ccdlike == ''):
+    """
+    if ccdlike is None or (isinstance(ccdlike, str) and ccdlike == ""):
         data = None
         hdr = None
     elif isinstance(ccdlike, ASTROPY_CCD_TYPES):
@@ -162,7 +191,9 @@ def _parse_data_header(
         else:
             data = None
         if parse_header:
-            hdr = ccdlike[extension].header.copy() if copy else ccdlike[extension].header
+            hdr = (
+                ccdlike[extension].header.copy() if copy else ccdlike[extension].header
+            )
         else:
             hdr = None
     elif isinstance(ccdlike, (np.ndarray, list, tuple)):
@@ -179,6 +210,7 @@ def _parse_data_header(
             hdr = None
     elif HAS_FITSIO and isinstance(ccdlike, fitsio.FITSHDR):
         import copy
+
         data = None  # regardless of parse_data
         if parse_header:
             hdr = copy.deepcopy(ccdlike) if copy else ccdlike
@@ -204,8 +236,9 @@ def _parse_data_header(
                 else:
                     if isinstance(extension, tuple):
                         if HAS_FITSIO:
-                            data = fitsio.read(Path(ccdlike), ext=extension[0],
-                                               extver=extension[1])
+                            data = fitsio.read(
+                                Path(ccdlike), ext=extension[0], extver=extension[1]
+                            )
                         else:
                             data = fits.getdata(Path(ccdlike), *extension)
                     else:
@@ -215,21 +248,23 @@ def _parse_data_header(
                             data = fits.getdata(Path(ccdlike), extension)
                     hdr = None
             except TypeError:
-                raise TypeError(f"ccdlike type ({type(ccdlike)}) is not acceptable "
-                                + "to find header and data.")
+                raise TypeError(
+                    f"ccdlike type ({type(ccdlike)}) is not acceptable "
+                    + "to find header and data."
+                )
 
     return data, hdr
 
 
 def _parse_image(
-        ccdlike,
-        extension=None,
-        name=None,
-        force_ccddata=False,
-        prefer_ccddata=False,
-        copy=True,
+    ccdlike,
+    extension=None,
+    name=None,
+    force_ccddata=False,
+    prefer_ccddata=False,
+    copy=True,
 ):
-    '''Parse and return input image as desired format (ndarray or CCDData)
+    """Parse and return input image as desired format (ndarray or CCDData)
     Parameters
     ----------
     ccdlike : CCDData-like (e.g., PrimaryHDU, ImageHDU, HDUList), ndarray, path-like, or number-like
@@ -277,11 +312,12 @@ def _parse_image(
     %timeit yfu._parse_image(ccd)
     21 µs +- 720 ns per loop (mean +- std. dev. of 7 runs, 10000 loops each)
 
-    '''
+    """
+
     def __extract_extension(ext):
         extension = _parse_extension(ext)
         if extension is None:
-            extstr = ''
+            extstr = ""
         else:
             if isinstance(extension, (tuple, list)):
                 extstr = f"[{extension[0]}, {extension[1]}]"
@@ -295,7 +331,9 @@ def _parse_image(
             if isinstance(unit, str):
                 unit = unit.lower()
             if copy:
-                return CCDData(data=hdu.data.copy(), header=hdu.header.copy(), unit=unit)
+                return CCDData(
+                    data=hdu.data.copy(), header=hdu.header.copy(), unit=unit
+                )
             else:
                 return CCDData(data=hdu.data, header=hdu.header, unit=unit)
             # The two lines above took ~ 5 us and 10-30 us for the simplest
@@ -308,11 +346,13 @@ def _parse_image(
     ccd_kw = dict(force_ccddata=force_ccddata, prefer_ccddata=prefer_ccddata)
     has_no_name = name is None
     extension, extstr = __extract_extension(extension)
-    imname = f"User-provided {ccdlike.__class__.__name__}{extstr}" if has_no_name else name
+    imname = (
+        f"User-provided {ccdlike.__class__.__name__}{extstr}" if has_no_name else name
+    )
 
     if isinstance(ccdlike, CCDData):
         # force_ccddata: CCDData // prefer_ccddata: CCDData // else: ndarray
-        if (force_ccddata or prefer_ccddata):
+        if force_ccddata or prefer_ccddata:
             new_im = ccdlike.copy() if copy else ccdlike
         else:
             new_im = ccdlike.data.copy() if copy else ccdlike.data
@@ -330,17 +370,20 @@ def _parse_image(
     elif isinstance(ccdlike, np.ndarray):
         # force_ccddata: CCDData // prefer_ccddata: ndarray // else: ndarray
         if copy:
-            new_im = (CCDData(data=ccdlike.copy(), unit='adu') if force_ccddata
-                      else ccdlike.copy())
+            new_im = (
+                CCDData(data=ccdlike.copy(), unit="adu")
+                if force_ccddata
+                else ccdlike.copy()
+            )
         else:
-            new_im = CCDData(data=ccdlike, unit='adu') if force_ccddata else ccdlike
+            new_im = CCDData(data=ccdlike, unit="adu") if force_ccddata else ccdlike
         imtype = "ndarray"
     else:
         try:  # IF number (ex: im = 1.3)
             # force_ccddata: CCDData // prefer_ccddata: array // else: array
             imname = f"{imname} {ccdlike}" if has_no_name else name
             _im = float(ccdlike)
-            new_im = CCDData(data=_im, unit='adu') if force_ccddata else np.asarray(_im)
+            new_im = CCDData(data=_im, unit="adu") if force_ccddata else np.asarray(_im)
             imtype = "num"
             # imname can be "int", "float", "str", etc, so imtype might be useful.
         except (ValueError, TypeError):
@@ -355,7 +398,7 @@ def _parse_image(
                     extension,
                     ccddata=prefer_ccddata or force_ccddata,
                     extension_uncertainty=None,
-                    extension_mask=None
+                    extension_mask=None,
                 )
                 imtype = "path"
             except TypeError:
@@ -367,7 +410,7 @@ def _parse_image(
 
 
 def _has_header(ccdlike, extension=None, open_if_file=True):
-    '''Checks if the object has header; similar to _parse_data_header.
+    """Checks if the object has header; similar to _parse_data_header.
 
     Paramters
     ---------
@@ -395,7 +438,7 @@ def _has_header(ccdlike, extension=None, open_if_file=True):
     disadvantage considering we may use file-path for most of the time, the
     overhead is only ~ 1 us, tested on MBP 15" [2018, macOS 10.14.6, i7-8850H
     (2.6 GHz; 6-core), RAM 16 GB (2400MHz DDR4), Radeon Pro 560X (4GB)].
-    '''
+    """
     hashdr = True
     if isinstance(ccdlike, ASTROPY_CCD_TYPES):  # extension not used
         try:
@@ -451,8 +494,8 @@ def _parse_extension(*args, ext=None, extname=None, extver=None):
     # 1.52 µs +- 69.3 ns per loop (mean +- std. dev. of 7 runs, 1000000 loops each)
     """
 
-    err_msg = ('Redundant/conflicting extension arguments(s): {}'.format(
-        {'args': args, 'ext': ext, 'extname': extname, 'extver': extver})
+    err_msg = "Redundant/conflicting extension arguments(s): {}".format(
+        {"args": args, "ext": ext, "extname": extname, "extver": extver}
     )
 
     # This code would be much simpler if just one way of specifying an
@@ -461,8 +504,9 @@ def _parse_extension(*args, ext=None, extname=None, extver=None):
     if len(args) == 1:
         # Must be either an extension number, an extension name, or an
         # (extname, extver) tuple
-        if (isinstance(args[0], (int, np.integer))
-                or (isinstance(ext, tuple) and len(ext) == 2)):
+        if isinstance(args[0], (int, np.integer)) or (
+            isinstance(ext, tuple) and len(ext) == 2
+        ):
             if ext is not None or extname is not None or extver is not None:
                 raise TypeError(err_msg)
             ext = args[0]
@@ -482,20 +526,25 @@ def _parse_extension(*args, ext=None, extname=None, extver=None):
         extname = args[0]
         extver = args[1]
     elif len(args) > 2:
-        raise TypeError('Too many positional arguments.')
+        raise TypeError("Too many positional arguments.")
 
-    if (ext is not None and
-            not (isinstance(ext, (int, np.integer)) or
-                 (isinstance(ext, tuple) and len(ext) == 2 and
-                  isinstance(ext[0], str) and isinstance(ext[1], (int, np.integer))))):
+    if ext is not None and not (
+        isinstance(ext, (int, np.integer))
+        or (
+            isinstance(ext, tuple)
+            and len(ext) == 2
+            and isinstance(ext[0], str)
+            and isinstance(ext[1], (int, np.integer))
+        )
+    ):
         raise ValueError(
-            'The ext keyword must be either an extension number (zero-indexed) '
-            + 'or a (extname, extver) tuple.'
+            "The ext keyword must be either an extension number (zero-indexed) "
+            + "or a (extname, extver) tuple."
         )
     if extname is not None and not isinstance(extname, str):
-        raise ValueError('The extname argument must be a string.')
+        raise ValueError("The extname argument must be a string.")
     if extver is not None and not isinstance(extver, (int, np.integer)):
-        raise ValueError('The extver argument must be an integer.')
+        raise ValueError("The extver argument must be an integer.")
 
     if ext is None and extname is None and extver is None:
         ext = 0
@@ -507,33 +556,34 @@ def _parse_extension(*args, ext=None, extname=None, extver=None):
         else:
             ext = (extname, 1)
     elif extver and extname is None:
-        raise TypeError('extver alone cannot specify an extension.')
+        raise TypeError("extver alone cannot specify an extension.")
 
     return ext
 
 
 def load_ccd(
-        path,
-        extension=None,
-        trimsec=None,
-        ccddata=True,
-        as_ccd=True,
-        use_wcs=True,
-        unit=None,
-        extension_uncertainty="UNCERT",
-        extension_mask='MASK',
-        extension_flags=None,
-        full=False,
-        key_uncertainty_type='UTYPE',
-        memmap=False,
-        **kwd
+    path,
+    extension=None,
+    trimsec=None,
+    ccddata=True,
+    as_ccd=True,
+    use_wcs=True,
+    unit=None,
+    extension_uncertainty="UNCERT",
+    extension_mask="MASK",
+    extension_flags=None,
+    full=False,
+    key_uncertainty_type="UTYPE",
+    memmap=False,
+    **kwd,
 ):
-    ''' Loads FITS file of CCD image data (not table, etc).
+    """ Loads FITS file of CCD image data (not table, etc).
 
     Paramters
     ---------
-    path : path-like
-        The path to the FITS file to load.
+    path : [list-like of] path-like
+        The path to the FITS file to load. If list-like, a simple recursive
+        for-loop is used (``return [load_ccd(p, ...) for p in path]``).
 
     trimsec : str, optional.
         Region of `~astropy.nddata.CCDData` from which the data is extracted.
@@ -695,11 +745,33 @@ def load_ccd(
         %timeit CCDData.read("test10k_32bit.fits")
         9.42 ms +/- 391 µs per loop (mean +/- std. dev. of 7 runs, 100 loops each)
     ```
-    '''
+    """
+
     def _ext_umf(ext):
         """ Return None if ext is None, otherwise, parse it (usu. returns 0)
         """
         return None if ext is None else _parse_extension(ext)
+
+    if is_list_like(path):
+        return [
+            load_ccd(
+                p,
+                extension=extension,
+                trimsec=trimsec,
+                ccddata=ccddata,
+                as_ccd=as_ccd,
+                use_wcs=use_wcs,
+                unit=unit,
+                extension_uncertainty=extension_uncertainty,
+                extension_mask=extension_mask,
+                extension_flags=extension_flags,
+                full=full,
+                key_uncertainty_type=key_uncertainty_type,
+                memmap=memmap,
+                **kwd,
+            )
+            for p in path
+        ]
 
     try:
         path = Path(path)
@@ -717,7 +789,7 @@ def load_ccd(
                 hdu_flags=_ext_umf(extension_flags),
                 key_uncertainty_type=key_uncertainty_type,
                 memmap=memmap,
-                **kwd
+                **kwd,
             )
             # ^ If hdu_flags is not None, CCDData raises this Error:
             #   NotImplementedError: loading flags is currently not supported.
@@ -791,7 +863,7 @@ def load_ccd(
             hdu_flags=e_f,
             key_uncertainty_type=key_uncertainty_type,
             memmap=memmap,
-            **kwd
+            **kwd,
         )
 
         # FIXME: Remove this if block in the future if WCS issue is resolved.
@@ -803,7 +875,7 @@ def load_ccd(
         try:
             ccd = CCDData.read(path, unit=unit, **reader_kw)
         except ValueError:  # e.g., user did not give unit and there's no BUNIT
-            ccd = CCDData.read(path, unit='adu', **reader_kw)
+            ccd = CCDData.read(path, unit="adu", **reader_kw)
 
         # Force them to be None if extension is not specified
         # (astropy.NDData.CCDData forces them to be loaded, which is not desirable imho)
@@ -831,13 +903,9 @@ def load_ccd(
 
 
 def inputs2list(
-        inputs,
-        sort=True,
-        accept_ccdlike=True,
-        path_to_text=False,
-        check_coherency=False
+    inputs, sort=True, accept_ccdlike=True, path_to_text=False, check_coherency=False
 ):
-    ''' Convert glob pattern or list-like of path-like to list of Path
+    """ Convert glob pattern or list-like of path-like to list of Path
 
     Parameters
     ----------
@@ -866,7 +934,7 @@ def inputs2list(
         Whether to check if all elements of the `inputs` have the identical
         type.
         Default: `False`.
-    '''
+    """
     contains_ccdlike = False
     if inputs is None:
         return None
@@ -885,8 +953,10 @@ def inputs2list(
         if accept_ccdlike:
             outlist = [inputs]
         else:
-            raise TypeError(f"{type(inputs)} is given as `inputs`. "
-                            + "Turn off accept_ccdlike or use path-like.")
+            raise TypeError(
+                f"{type(inputs)} is given as `inputs`. "
+                + "Turn off accept_ccdlike or use path-like."
+            )
     elif isinstance(inputs, (Table, dict, pd.DataFrame)):
         # Do this before is_list_like because DataFrame returns True in
         # is_list_like as it is iterable.
@@ -909,8 +979,10 @@ def inputs2list(
                 if accept_ccdlike:
                     outlist.append(item)
                 else:
-                    raise TypeError(f"{type(item)} is given in the {i}-th element. "
-                                    + "Turn off accept_ccdlike or use path-like.")
+                    raise TypeError(
+                        f"{type(item)} is given in the {i}-th element. "
+                        + "Turn off accept_ccdlike or use path-like."
+                    )
             else:  # assume it is path-like
                 if path_to_text:
                     outlist.append(str(item))
@@ -925,8 +997,8 @@ def inputs2list(
     return outlist
 
 
-def CCDData_astype(ccd, dtype='float32', uncertainty_dtype=None, copy=True):
-    ''' Assign dtype to the CCDData object (numpy uses float64 default).
+def CCDData_astype(ccd, dtype="float32", uncertainty_dtype=None, copy=True):
+    """ Assign dtype to the CCDData object (numpy uses float64 default).
 
     Parameters
     ----------
@@ -947,7 +1019,7 @@ def CCDData_astype(ccd, dtype='float32', uncertainty_dtype=None, copy=True):
     >>> ccd = CCDData.read("image_unitygain001.fits", 0)
     >>> ccd.uncertainty = np.sqrt(ccd.data)
     >>> ccd = yfu.CCDData_astype(ccd, dtype='int16', uncertainty_dtype='float32')
-    '''
+    """
     if copy:
         nccd = ccd.copy()
     else:
@@ -967,19 +1039,19 @@ def CCDData_astype(ccd, dtype='float32', uncertainty_dtype=None, copy=True):
 
 
 def set_ccd_attribute(
-        ccd,
-        name,
-        value=None,
-        key=None,
-        default=None,
-        unit=None,
-        header_comment=None,
-        update_header=True,
-        verbose=True,
-        wrapper=None,
-        wrapper_kw={}
+    ccd,
+    name,
+    value=None,
+    key=None,
+    default=None,
+    unit=None,
+    header_comment=None,
+    update_header=True,
+    verbose=True,
+    wrapper=None,
+    wrapper_kw={},
 ):
-    ''' Set attributes from given paramters.
+    """ Set attributes from given paramters.
 
     Parameters
     ----------
@@ -1020,7 +1092,7 @@ def set_ccd_attribute(
 
     Notes
     -----
-    '''
+    """
     _t_start = Time.now()
     str_history = "From {}, {} = {} [unit = {}]"
     #                   value_from, name, value_Q.value, value_Q.unit
@@ -1037,7 +1109,7 @@ def set_ccd_attribute(
         key=key,
         unit=unit,
         verbose=verbose,
-        default=default
+        default=default,
     )
     if wrapper is not None:
         value_Q = wrapper(value_Q, **wrapper_kw)
@@ -1049,17 +1121,19 @@ def set_ccd_attribute(
                 try:
                     header_comment = ccd.header.comments[key]
                 except (KeyError, ValueError):
-                    header_comment = ''
+                    header_comment = ""
 
             try:
                 v = ccd.header[key]
-                s.append(f"[yfu.set_ccd_attribute] (Original {key} = {v} is overwritten.)")
+                s.append(
+                    f"[yfu.set_ccd_attribute] (Original {key} = {v} is overwritten.)"
+                )
             except (KeyError, ValueError):
                 pass
 
             ccd.header[key] = (value_Q.value, header_comment)
         # add as history
-        cmt2hdr(ccd.header, 'h', s, t_ref=_t_start)
+        cmt2hdr(ccd.header, "h", s, t_ref=_t_start)
 
     setattr(ccd, name, value_Q)
     update_tlm(ccd.header)
@@ -1067,15 +1141,15 @@ def set_ccd_attribute(
 
 # TODO: This is quite much overlapping with get_gain_rdnoise...
 def set_ccd_gain_rdnoise(
-        ccd,
-        verbose=True,
-        update_header=True,
-        gain=None,
-        rdnoise=None,
-        gain_key="GAIN",
-        rdnoise_key="RDNOISE",
-        gain_unit=u.electron/u.adu,
-        rdnoise_unit=u.electron
+    ccd,
+    verbose=True,
+    update_header=True,
+    gain=None,
+    rdnoise=None,
+    gain_key="GAIN",
+    rdnoise_key="RDNOISE",
+    gain_unit=u.electron / u.adu,
+    rdnoise_unit=u.electron,
 ):
     """ A convenience set_ccd_attribute for gain and readnoise.
 
@@ -1104,30 +1178,30 @@ def set_ccd_gain_rdnoise(
     rdn_str = f"[{rdnoise_unit:s}] Readout noise of the detector"
     set_ccd_attribute(
         ccd=ccd,
-        name='gain',
+        name="gain",
         value=gain,
         key=gain_key,
         unit=gain_unit,
         default=1.0,
         header_comment=gain_str,
         update_header=update_header,
-        verbose=verbose
+        verbose=verbose,
     )
     set_ccd_attribute(
         ccd=ccd,
-        name='rdnoise',
+        name="rdnoise",
         value=rdnoise,
         key=rdnoise_key,
         unit=rdnoise_unit,
         default=0.0,
         header_comment=rdn_str,
         update_header=update_header,
-        verbose=verbose
+        verbose=verbose,
     )
 
 
 def propagate_ccdmask(ccd, additional_mask=None):
-    ''' Propagate the CCDData's mask and additional mask.
+    """ Propagate the CCDData's mask and additional mask.
 
     Parameters
     ----------
@@ -1142,7 +1216,7 @@ def propagate_ccdmask(ccd, additional_mask=None):
     -----
     The original ``ccd.mask`` is not modified. To do so,
     >>> ccd.mask = propagate_ccdmask(ccd, additional_mask=mask2)
-    '''
+    """
     if additional_mask is None:
         try:
             mask = ccd.mask.copy()
@@ -1156,8 +1230,9 @@ def propagate_ccdmask(ccd, additional_mask=None):
     return mask
 
 
-def imslice(ccd, trimsec, fill_value=None, order_xyz=True,
-            update_header=True, verbose=False):
+def imslice(
+    ccd, trimsec, fill_value=None, order_xyz=True, update_header=True, verbose=False
+):
     """ Slice the CCDData using one of trimsec, bezels, or slices.
 
     Paramters
@@ -1194,21 +1269,21 @@ def imslice(ccd, trimsec, fill_value=None, order_xyz=True,
         nccd = ccd[sl].copy()  # CCDData supports this kind of slicing
     else:
         nccd = ccd.copy()
-        nccd.data = np.ones(nccd.shape)*fill_value
+        nccd.data = np.ones(nccd.shape) * fill_value
         nccd.data[sl] = ccd.data[sl]
 
     if update_header:  # update LTV/LTM
-        ltms = [1 if s.step is None else 1/s.step for s in sl]
+        ltms = [1 if s.step is None else 1 / s.step for s in sl]
         ndim = ccd.ndim  # ndim == NAXIS keyword
         shape = ccd.shape
         if trimsec is not None:
             ltvs = []
             for axis_i_py, naxis_i in enumerate(shape):
                 # example: "[10:110]", we must have LTV = -9, not -10.
-                ltvs.append(-1*sl[axis_i_py].indices(naxis_i)[0])
+                ltvs.append(-1 * sl[axis_i_py].indices(naxis_i)[0])
             ltvs = ltvs[::-1]  # zyx -> xyz order
         else:
-            ltvs = [0.]*ndim
+            ltvs = [0.0] * ndim
 
         hdr = nccd.header
         for i, ltv in enumerate(ltvs):
@@ -1222,21 +1297,23 @@ def imslice(ccd, trimsec, fill_value=None, order_xyz=True,
                 if i == j:
                     hdr[f"LTM_{i+1}_{i+1}"] = hdr.get(f"LTM{i+1}", ltms[i])
                 else:
-                    hdr.setdefault(f"LTM{i+1}_{j+1}", 0.)
+                    hdr.setdefault(f"LTM{i+1}_{j+1}", 0.0)
 
         if trimsec is not None:
-            infostr = [f"[yfu.imslice] Sliced using `{trimsec = }`: converted to {sl}. "]
+            infostr = [
+                f"[yfu.imslice] Sliced using `{trimsec = }`: converted to {sl}. "
+            ]
             if fill_value is not None:
                 infostr.append(f"Filled background with `{fill_value = }`.")
-            cmt2hdr(hdr, 'h', infostr, t_ref=_t, verbose=verbose)
+            cmt2hdr(hdr, "h", infostr, t_ref=_t, verbose=verbose)
             update_process(hdr, "T")
 
     return nccd
 
 
 # FIXME: not finished.
-def trim_overlap(inputs, extension=None, coordinate='image'):
-    ''' Trim only the overlapping regions of the two CCDs
+def trim_overlap(inputs, extension=None, coordinate="image"):
+    """ Trim only the overlapping regions of the two CCDs
 
     Parameters
     ----------
@@ -1255,29 +1332,33 @@ def trim_overlap(inputs, extension=None, coordinate='image'):
     Notes
     -----
     WCS is not acceptable because no rotation/scaling is supported.
-    '''
+    """
     items = inputs2list(inputs, sort=False, accept_ccdlike=True, check_coherency=False)
     if len(items) < 2:
         raise ValueError("inputs must have at least 2 objects.")
 
     offsets = []
     shapes = []
-    reference = _parse_image(items[0], extension=extension, name=None, force_ccddata=True)
+    reference = _parse_image(
+        items[0], extension=extension, name=None, force_ccddata=True
+    )
     for item in items:
-        ccd, _, _ = _parse_image(item, extension=extension, name=None, force_ccddata=True)
+        ccd, _, _ = _parse_image(
+            item, extension=extension, name=None, force_ccddata=True
+        )
         shapes.append(ccd.data.shape)
         offsets.append(
             calc_offset_physical(ccd, reference, order_xyz=False, ignore_ltm=True)
         )
 
     offsets, new_shape = _image_shape(
-        shapes, offsets, method='overlap', intify_offsets=False
+        shapes, offsets, method="overlap", intify_offsets=False
     )
 
 
 # FIXME: docstring looks strange
-def cut_ccd(ccd, position, size, mode='trim', fill_value=np.nan):
-    ''' Converts the Cutout2D object to proper CCDData.
+def cut_ccd(ccd, position, size, mode="trim", fill_value=np.nan):
+    """ Converts the Cutout2D object to proper CCDData.
 
     Parameters
     ----------
@@ -1330,7 +1411,7 @@ def cut_ccd(ccd, position, size, mode='trim', fill_value=np.nan):
         If ``mode='partial'``, the value to fill pixels in the cutout array
         that do not overlap with the input `data`. `fill_value` must have the
         same `dtype` as the input `data` array.
-    '''
+    """
     hdr_orig = ccd.header
     w = WCS(hdr_orig)
     cutout = Cutout2D(
@@ -1340,7 +1421,7 @@ def cut_ccd(ccd, position, size, mode='trim', fill_value=np.nan):
         wcs=w,
         mode=mode,
         fill_value=fill_value,
-        copy=True
+        copy=True,
     )
     # Copy True just to avoid any contamination to the original ccd.
 
@@ -1370,15 +1451,15 @@ def cut_ccd(ccd, position, size, mode='trim', fill_value=np.nan):
 
 
 def bin_ccd(
-        ccd,
-        factor_x=1,
-        factor_y=1,
-        binfunc=np.mean,
-        trim_end=False,
-        update_header=True,
-        copy=True
+    ccd,
+    factor_x=1,
+    factor_y=1,
+    binfunc=np.mean,
+    trim_end=False,
+    update_header=True,
+    copy=True,
 ):
-    ''' Bins the given ccd.
+    """ Bins the given ccd.
 
     Paramters
     ---------
@@ -1419,7 +1500,7 @@ def bin_ccd(
     >>> # some strange chaching happens?
     Tested on  MBP 15" [2018, macOS 10.14.6, i7-8850H (2.6 GHz; 6-core), RAM 16
     GB (2400MHz DDR4), Radeon Pro 560X (4GB)]
-    '''
+    """
     _t_start = Time.now()
 
     if not isinstance(ccd, CCDData):
@@ -1433,36 +1514,45 @@ def bin_ccd(
     else:
         _ccd = ccd
 
-    _ccd.data = binning(_ccd.data,
-                        factor_x=factor_x,
-                        factor_y=factor_y,
-                        binfunc=binfunc,
-                        trim_end=trim_end)
+    _ccd.data = binning(
+        _ccd.data,
+        factor_x=factor_x,
+        factor_y=factor_y,
+        binfunc=binfunc,
+        trim_end=trim_end,
+    )
     if update_header:
-        _ccd.header["BINFUNC"] = (binfunc.__name__,
-                                  "The function used for binning.")
-        _ccd.header["XBINNING"] = (factor_x,
-                                   "Binning done after the observation in X direction")
-        _ccd.header["YBINNING"] = (factor_y,
-                                   "Binning done after the observation in Y direction")
+        _ccd.header["BINFUNC"] = (binfunc.__name__, "The function used for binning.")
+        _ccd.header["XBINNING"] = (
+            factor_x,
+            "Binning done after the observation in X direction",
+        )
+        _ccd.header["YBINNING"] = (
+            factor_y,
+            "Binning done after the observation in Y direction",
+        )
         # add as history
-        cmt2hdr(_ccd.header, 'h', t_ref=_t_start,
-                s=f"[yfu.bin_ccd] Binned by (xbin, ybin) = ({factor_x}, {factor_y}) ")
+        cmt2hdr(
+            _ccd.header,
+            "h",
+            t_ref=_t_start,
+            s=f"[yfu.bin_ccd] Binned by (xbin, ybin) = ({factor_x}, {factor_y}) ",
+        )
     return _ccd
 
 
 # TODO: Need something (e.g., cython with pythran) to boost the speed of this function.
 def fixpix(
-        ccd,
-        mask=None,
-        maskpath=None,
-        extension=None,
-        mask_extension=None,
-        priority=None,
-        update_header=True,
-        verbose=True
+    ccd,
+    mask=None,
+    maskpath=None,
+    extension=None,
+    mask_extension=None,
+    priority=None,
+    update_header=True,
+    verbose=True,
 ):
-    ''' Interpolate the masked location (N-D generalization of IRAF PROTO.FIXPIX)
+    """ Interpolate the masked location (N-D generalization of IRAF PROTO.FIXPIX)
     Parameters
     ----------
     ccd : CCDData-like (e.g., PrimaryHDU, ImageHDU, HDUList), ndarray, path-like, or number-like
@@ -1507,39 +1597,46 @@ def fixpix(
     # [[ 1.64164502 -1.00385046 -1.24748504]
     #  [-1.31877621 -0.32934328  0.66008966]
     #  [-0.7960262  -0.14613834 -1.34513327]] adu
-    '''
+    """
     if mask is None:
         return ccd.copy()
 
     _t_start = Time.now()
 
     _ccd, _, _ = _parse_image(ccd, extension=extension, force_ccddata=True)
-    mask, maskpath, _ = _parse_image(mask, extension=mask_extension,
-                                     name=maskpath, force_ccddata=True)
+    mask, maskpath, _ = _parse_image(
+        mask, extension=mask_extension, name=maskpath, force_ccddata=True
+    )
     mask = mask.data.astype(bool)
     data = _ccd.data
     naxis = _ccd.shape
 
     if _ccd.shape != mask.shape:
-        raise ValueError("ccd and mask must have the identical shape; "
-                         + f"now {_ccd.shape} VS {mask.shape}.")
+        raise ValueError(
+            "ccd and mask must have the identical shape; "
+            + f"now {_ccd.shape} VS {mask.shape}."
+        )
 
     ndim = data.ndim
 
     if priority is None:
         priority = tuple([i for i in range(ndim)][::-1])
     elif len(priority) != ndim:
-        raise ValueError("len(priority) and ccd.ndim must be the same; "
-                         + f"now {len(priority)} VS {ccd.ndim}.")
+        raise ValueError(
+            "len(priority) and ccd.ndim must be the same; "
+            + f"now {len(priority)} VS {ccd.ndim}."
+        )
     elif not isinstance(priority, tuple):
         priority = tuple(priority)
     elif (np.min(priority) != 0) or (np.max(priority) != ndim - 1):
-        raise ValueError(f"`priority` must be a tuple of int (0 <= int <= {ccd.ndim-1=}). "
-                         + f"Now it's {priority=}")
+        raise ValueError(
+            f"`priority` must be a tuple of int (0 <= int <= {ccd.ndim-1=}). "
+            + f"Now it's {priority=}"
+        )
 
-    structures = [np.zeros([3]*ndim) for _ in range(ndim)]
+    structures = [np.zeros([3] * ndim) for _ in range(ndim)]
     for i in range(ndim):
-        sls = [[slice(1, 2, None)]*ndim for _ in range(ndim)][0]
+        sls = [[slice(1, 2, None)] * ndim for _ in range(ndim)][0]
         sls[i] = slice(None, None, None)
         structures[i][tuple(sls)] = 1
     # structures[i] is the structure to obtain the num. of connected pix. along axis=i
@@ -1553,7 +1650,7 @@ def fixpix(
         _pixels = {}
         _n_axs = {}
         for k in range(1, _nlabel + 1):
-            _label_k = (_label == k)
+            _label_k = _label == k
             _pixels[k] = np.where(_label_k)
             _n_axs[k] = np.count_nonzero(_label_k)
         labels.append(_label)
@@ -1619,17 +1716,25 @@ def fixpix(
 
         val_init = data.item(tuple(coord_init))
         val_last = data.item(tuple(coord_last))
-        data[tuple(coord_slice)].flat = (val_last - val_init)/delta*grid + val_init
+        data[tuple(coord_slice)].flat = (val_last - val_init) / delta * grid + val_init
 
     if update_header:
         nfix = np.count_nonzero(mask)
         _ccd.header["MASKNPIX"] = (nfix, "No. of pixels masked (fixed) by fixpix.")
         _ccd.header["MASKFILE"] = (maskpath, "Applied mask for fixpix.")
-        _ccd.header["MASKORD"] = (str(priority), "Axis priority for fixpix (python order)")
+        _ccd.header["MASKORD"] = (
+            str(priority),
+            "Axis priority for fixpix (python order)",
+        )
         # MASKFILE: name identical to IRAF
         # add as history
-        cmt2hdr(_ccd.header, 'h', t_ref=_t_start, verbose=verbose,
-                s="[fixpix] Pixel values interpolated.")
+        cmt2hdr(
+            _ccd.header,
+            "h",
+            t_ref=_t_start,
+            verbose=verbose,
+            s="[fixpix] Pixel values interpolated.",
+        )
         update_process(_ccd.header, "P")
 
     return _ccd
@@ -1687,14 +1792,14 @@ def fixpix(
 
 
 def find_extpix(
-        ccd,
-        mask=None,
-        npixs=(1, 1),
-        bezels=None,
-        order_xyz=True,
-        sort=True,
-        update_header=True,
-        verbose=0
+    ccd,
+    mask=None,
+    npixs=(1, 1),
+    bezels=None,
+    order_xyz=True,
+    sort=True,
+    update_header=True,
+    verbose=0,
 ):
     """ Finds the N extrema pixel values excluding masked pixels.
 
@@ -1760,7 +1865,7 @@ def find_extpix(
             continue
         data[mask] = minmaxval
         # ^ if getting maximum/minimum pix vals, replace with minimum/maximum
-        extvals = np.partition(data.ravel(), sign*npix)
+        extvals = np.partition(data.ravel(), sign * npix)
         #         ^^^^^^^^^^^^
         # bn.partitoin has virtually no speed gain.
         extvals = extvals[:npix] if sign > 0 else extvals[-npix:]
@@ -1772,27 +1877,35 @@ def find_extpix(
         for ext, mm in zip(exts, ["min", "max"]):
             if ext is not None:
                 for i, extval in enumerate(ext):
-                    ccd.header.set(f"{mm.upper()}V{i+1:03d}", extval, f"{mm} pixel value")
+                    ccd.header.set(
+                        f"{mm.upper()}V{i+1:03d}", extval, f"{mm} pixel value"
+                    )
         bezstr = ""
         if bezels is not None:
             order = "xyz order" if order_xyz else "pythonic order"
             bezstr = f" and bezel: {bezels} in {order}"
-        cmt2hdr(ccd.header, 'h', verbose=verbose, t_ref=_t,
-                s=("[find_extpix] Extrema pixel values found N(smallest, largest) = "
-                   + f"{npixs} excluding mask ({maskname}){bezstr}. "
-                   + "See MINViii and MAXViii.")
-                )
+        cmt2hdr(
+            ccd.header,
+            "h",
+            verbose=verbose,
+            t_ref=_t,
+            s=(
+                "[find_extpix] Extrema pixel values found N(smallest, largest) = "
+                + f"{npixs} excluding mask ({maskname}){bezstr}. "
+                + "See MINViii and MAXViii."
+            ),
+        )
     return exts
 
 
 def find_satpix(
-        ccd,
-        mask=None,
-        satlevel=65535,
-        bezels=None,
-        order_xyz=True,
-        update_header=True,
-        verbose=0
+    ccd,
+    mask=None,
+    satlevel=65535,
+    bezels=None,
+    order_xyz=True,
+    update_header=True,
+    verbose=0,
 ):
     """ Finds saturated pixel values excluding masked pixels.
 
@@ -1860,10 +1973,17 @@ def find_satpix(
         if bezels is not None:
             order = "xyz order" if order_xyz else "pythonic order"
             bezstr = f" and bezel: {bezels} in {order}"
-        cmt2hdr(ccd.header, 'h', verbose=verbose, t_ref=_t,
-                s=("[yfu.find_satpix] Saturated pixels calculated based on satlevel = "
-                   + f"{satlevel}, excluding mask ({maskname}){bezstr}. "
-                   + "See NSATPIX and SATLEVEL."))
+        cmt2hdr(
+            ccd.header,
+            "h",
+            verbose=verbose,
+            t_ref=_t,
+            s=(
+                "[yfu.find_satpix] Saturated pixels calculated based on satlevel = "
+                + f"{satlevel}, excluding mask ({maskname}){bezstr}. "
+                + "See NSATPIX and SATLEVEL."
+            ),
+        )
     return satmask
 
 
@@ -1882,17 +2002,17 @@ def find_satpix(
 
 
 def errormap(
-        ccd_biassub,
-        gain_epadu=1,
-        rdnoise_electron=0,
-        subtracted_dark=0.,
-        flat=1.,
-        dark_std=0.,
-        flat_err=0.,
-        dark_std_min='rdnoise',
-        return_variance=False
+    ccd_biassub,
+    gain_epadu=1,
+    rdnoise_electron=0,
+    subtracted_dark=0.0,
+    flat=1.0,
+    dark_std=0.0,
+    flat_err=0.0,
+    dark_std_min="rdnoise",
+    return_variance=False,
 ):
-    ''' Calculate the detailed pixel-wise error map in ADU unit.
+    """ Calculate the detailed pixel-wise error map in ADU unit.
 
     Parameters
     ----------
@@ -1953,7 +2073,7 @@ def errormap(
     >>>               subtracted_dark=dark.data)
     >>> ccd.uncertainty = StdDevUncertainty(errormap(ccd, **params))
 
-    '''
+    """
     data, _ = _parse_data_header(ccd_biassub)
     data[data < 0] = 0  # make all negative pixel to 0
 
@@ -1967,18 +2087,19 @@ def errormap(
     elif isinstance(rdnoise_electron, str):
         rdnoise_electron = float(rdnoise_electron)
 
-    if dark_std_min == 'rdnoise':
-        dark_std_min = rdnoise_electron/gain_epadu
+    if dark_std_min == "rdnoise":
+        dark_std_min = rdnoise_electron / gain_epadu
     if isinstance(dark_std, np.ndarray):
         dark_std[dark_std < dark_std_min] = dark_std_min
 
     # Calculate the full variance map
     # restore dark for Poisson term calculation
-    eval_str = ("(data + subtracted_dark)/(gain_epadu*flat**2)"
-                + "+ (dark_std/flat)**2"
-                + "+ data**2*(flat_err/flat)**2"
-                + "+ (rdnoise_electron/(gain_epadu*flat))**2"
-                )
+    eval_str = (
+        "(data + subtracted_dark)/(gain_epadu*flat**2)"
+        + "+ (dark_std/flat)**2"
+        + "+ data**2*(flat_err/flat)**2"
+        + "+ (rdnoise_electron/(gain_epadu*flat))**2"
+    )
 
     if return_variance:
         return NEVAL(eval_str)
@@ -1992,17 +2113,17 @@ def errormap(
 
 
 def cmt2hdr(
-        header,
-        histcomm,
-        s,
-        precision=3,
-        time_fmt="{:.>72s}",
-        t_ref=None,
-        dt_fmt="(dt = {:.3f} s)",
-        set_kw={'after': -1},
-        verbose=False,
+    header,
+    histcomm,
+    s,
+    precision=3,
+    time_fmt="{:.>72s}",
+    t_ref=None,
+    dt_fmt="(dt = {:.3f} s)",
+    set_kw={"after": -1},
+    verbose=False,
 ):
-    ''' Automatically add timestamp as well as HISTORY or COMMENT string
+    """ Automatically add timestamp as well as HISTORY or COMMENT string
 
     Parameters
     ----------
@@ -2058,13 +2179,13 @@ def cmt2hdr(
     1.89 ms +/- 144 µs per loop (mean +/- std. dev. of 7 runs, 1000 loops each)
     %timeit yfu.cmt2hdr(ccd.header.copy(), 'histORy', 'test')
     1.95 ms +/- 146 µs per loop (mean +/- std. dev. of 7 runs, 100 loops each)
-    '''
+    """
     pall = locals()
-    if histcomm.lower() in ['h', 'hist']:
-        pall['histcomm'] = 'HISTORY'
+    if histcomm.lower() in ["h", "hist"]:
+        pall["histcomm"] = "HISTORY"
         return cmt2hdr(**pall)
-    elif histcomm.lower() in ['c', 'com', 'comm']:
-        pall['histcomm'] = 'COMMENT'
+    elif histcomm.lower() in ["c", "com", "comm"]:
+        pall["histcomm"] = "COMMENT"
         return cmt2hdr(**pall)
     # The "elif not in raise" gives large bottleneck if, e.g., ``histcomm="ComMent"``...
     # elif histcomm.lower() not in ['history', 'comment']:
@@ -2091,34 +2212,36 @@ def cmt2hdr(
 
 
 def update_tlm(header):
-    ''' Adds the IRAF-like ``FITS-TLM`` right after ``NAXISi``.
+    """ Adds the IRAF-like ``FITS-TLM`` right after ``NAXISi``.
 
     Timing on MBP 15" [2018, macOS 11.6, i7-8850H (2.6 GHz; 6-core), RAM 16 GB
     (2400MHz DDR4), Radeon Pro 560X (4GB)]:
     %timeit yfu.update_tlm(ccd.header)
     # 443 µs +/- 19.5 µs per loop (mean +/- std. dev. of 7 runs, 1000 loops each)
-    '''
+    """
     now = Time(Time.now(), precision=0).isot
     try:
         del header["FITS-TLM"]
     except KeyError:
         pass
     try:
-        header.set("FITS-TLM",
-                   value=now,
-                   comment="UT of last modification of this FITS file",
-                   after=f"NAXIS{header['NAXIS']}")
+        header.set(
+            "FITS-TLM",
+            value=now,
+            comment="UT of last modification of this FITS file",
+            after=f"NAXIS{header['NAXIS']}",
+        )
     except AttributeError:  # If header is OrderedDict
         header["FITS-TLM"] = (now, "UT of last modification of this FITS file")
 
 
 def update_process(
-        header,
-        process=None,
-        key="PROCESS",
-        delimiter='',
-        add_comment=True,
-        additional_comment=dict()
+    header,
+    process=None,
+    key="PROCESS",
+    delimiter="",
+    add_comment=True,
+    additional_comment=dict(),
 ):
     """ update the process history keyword in the header.
 
@@ -2160,32 +2283,36 @@ def update_process(
     elif add_comment:
         # add comment.
         cmt2hdr(
-            header, 'c', time_fmt=None,
-            s=(f"[yfu.update_process] Standard items for {key} includes B=bias, D=dark, "
-               + "F=flat, T=trim, W=WCS, O=Overscan, I=Illumination, C=CRrej, R=fringe, "
-               + "P=fixpix, X=crosstalk.")
+            header,
+            "c",
+            time_fmt=None,
+            s=(
+                f"[yfu.update_process] Standard items for {key} includes B=bias, D=dark, "
+                + "F=flat, T=trim, W=WCS, O=Overscan, I=Illumination, C=CRrej, R=fringe, "
+                + "P=fixpix, X=crosstalk."
+            ),
         )
 
     header[key] = (delimiter.join(process), "Process (order: 1-2-3-...): see comment.")
 
     if additional_comment:
         addstr = ", ".join([f"{k}={v}" for k, v in additional_comment.items()])
-        cmt2hdr(header, 'c', f"User added items to {key}: {addstr}.", time_fmt=None)
+        cmt2hdr(header, "c", f"User added items to {key}: {addstr}.", time_fmt=None)
     update_tlm(header)
 
 
 def hedit(
-        item,
-        keys,
-        values,
-        comments=None,
-        befores=None,
-        afters=None,
-        add=False,
-        output=None,
-        overwrite=False,
-        output_verify="fix",
-        verbose=True
+    item,
+    keys,
+    values,
+    comments=None,
+    befores=None,
+    afters=None,
+    add=False,
+    output=None,
+    overwrite=False,
+    output_verify="fix",
+    verbose=True,
 ):
     """ Edit the header key (usu. to update value of a keyword).
 
@@ -2226,6 +2353,7 @@ def hedit(
     ccd : CCDData
         The header-updated CCDData. `None` if `item` was pure Header.
     """
+
     def _add_key(header, key, val, infostr, cmt=None, before=None, after=None):
         header.set(key, value=val, comment=cmt, before=before, after=after)
         # infostr += " (comment: {})".format(comment) if comment is not None else ""
@@ -2233,7 +2361,7 @@ def hedit(
             infostr += f" (moved: {before=})"
         elif after is not None:  # `after` is ignored if `before` is given
             infostr += f" (moved: {after=})"
-        cmt2hdr(header, 'h', infostr, verbose=verbose)
+        cmt2hdr(header, "h", infostr, verbose=verbose)
         update_tlm(header)
 
     if isinstance(item, fits.header.Header):
@@ -2248,21 +2376,26 @@ def hedit(
         # Use copy=False to update header of the input CCD inplace.z
         header = ccd.header
 
-    keys, values, comments, befores, afters = listify(keys, values, comments,
-                                                      befores, afters)
+    keys, values, comments, befores, afters = listify(
+        keys, values, comments, befores, afters
+    )
 
     for key, val, cmt, bef, aft in zip(keys, values, comments, befores, afters):
         if key in header:
             oldv = header[key]
-            infostr = (f"[yfu.HEDIT] {key}={oldv} ({type(oldv).__name__}) "
-                       + f"--> {val} ({type(val).__name__})")
+            infostr = (
+                f"[yfu.HEDIT] {key}={oldv} ({type(oldv).__name__}) "
+                + f"--> {val} ({type(val).__name__})"
+            )
             _add_key(header, key, val, infostr, cmt=cmt, before=bef, after=aft)
         else:
             if add:  # add key only if `add` is True.
                 infostr = f"[yfu.HEDIT add] {key}= {val} ({type(val).__name__})"
                 _add_key(header, key, val, infostr, cmt=cmt, before=bef, after=aft)
             elif verbose:
-                print(f"{key = } does not exist in the header. Skipped. (add=True to proceed)")
+                print(
+                    f"{key = } does not exist in the header. Skipped. (add=True to proceed)"
+                )
 
     if output is not None:
         ccd.write(output, overwrite=overwrite, output_verify=output_verify)
@@ -2273,7 +2406,7 @@ def hedit(
 
 
 def key_remover(header, remove_keys, deepremove=True):
-    ''' Removes keywords from the header.
+    """ Removes keywords from the header.
 
     Parameters
     ----------
@@ -2291,7 +2424,7 @@ def key_remover(header, remove_keys, deepremove=True):
         `remove_keys` will be removed. If not, only the first occurence of each
         key in `remove_keys` will be removed. It is more sensical to set it
         `True` in most of the cases.
-    '''
+    """
     nhdr = header.copy()
     if deepremove:
         for key in remove_keys:
@@ -2311,7 +2444,7 @@ def key_remover(header, remove_keys, deepremove=True):
 
 
 def key_mapper(header, keymap=None, deprecation=False, remove=False):
-    ''' Update the header to meed the standard (keymap).
+    """ Update the header to meed the standard (keymap).
 
     Parameters
     ----------
@@ -2346,7 +2479,8 @@ def key_mapper(header, keymap=None, deprecation=False, remove=False):
     will happen. If ``deprecation=True``, the old one's comment will be
     changed, and if ``remove=True``, the old one will be removed; the new
     keyword will never be changed or overwritten.
-    '''
+    """
+
     def _rm_or_dep(hdr, old, new):
         if remove:
             hdr.remove(old)
@@ -2360,7 +2494,9 @@ def key_mapper(header, keymap=None, deprecation=False, remove=False):
                 continue
 
             if k_old is not None:
-                if k_new in newhdr:  # if k_new already in the header, JUST deprecate k_old.
+                if (
+                    k_new in newhdr
+                ):  # if k_new already in the header, JUST deprecate k_old.
                     _rm_or_dep(newhdr, k_old, k_new)
                 else:  # if not, copy k_old to k_new and deprecate k_old.
                     try:
@@ -2375,7 +2511,7 @@ def key_mapper(header, keymap=None, deprecation=False, remove=False):
 
 
 def chk_keyval(type_key, type_val, group_key):
-    ''' Checks the validity of key and values used heavily in combutil.
+    """ Checks the validity of key and values used heavily in combutil.
 
     Parameters
     ----------
@@ -2395,7 +2531,7 @@ def chk_keyval(type_key, type_val, group_key):
     Returns
     -------
     type_key, type_val, group_key
-    '''
+    """
     # Make type_key to list
     if type_key is None:
         type_key = []
@@ -2409,7 +2545,9 @@ def chk_keyval(type_key, type_val, group_key):
     elif isinstance(type_key, str):
         type_key = [type_key]
     else:
-        raise TypeError(f"`type_key` not understood (type = {type(type_key)}): {type_key}")
+        raise TypeError(
+            f"`type_key` not understood (type = {type(type_key)}): {type_key}"
+        )
 
     # Make type_val to list
     if type_val is None:
@@ -2422,7 +2560,9 @@ def chk_keyval(type_key, type_val, group_key):
     elif isinstance(type_val, str):
         type_val = [type_val]
     else:
-        raise TypeError(f"`type_val` not understood (type = {type(type_val)}): {type_val}")
+        raise TypeError(
+            f"`type_val` not understood (type = {type(type_val)}): {type_val}"
+        )
 
     # Make group_key to list
     if group_key is None:
@@ -2447,14 +2587,16 @@ def chk_keyval(type_key, type_val, group_key):
     # If there is overlap
     overlap = set(type_key).intersection(set(group_key))
     if len(overlap) > 0:
-        warn(f"{overlap} appear in both `type_key` and `group_key`."
-             + "It may not be harmful but better to avoid.")
+        warn(
+            f"{overlap} appear in both `type_key` and `group_key`."
+            + "It may not be harmful but better to avoid."
+        )
 
     return type_key, type_val, group_key
 
 
 def valinhdr(val=None, header=None, key=None, default=None, unit=None):
-    ''' Get the value by priority: val > header[key] > default.
+    """ Get the value by priority: val > header[key] > default.
 
     Parameters
     ----------
@@ -2509,7 +2651,7 @@ def valinhdr(val=None, header=None, key=None, default=None, unit=None):
     Pro 560X (4GB)]
     %timeit ((yfu.valinhdr(None, ccd.header, "EXPTIME", unit=u.s)
              / yfu.valinhdr(3*u.s, ccd.header, "EXPTIME", unit=u.s)).si.value)
-    '''
+    """
     uu = 1 if unit is None else u.Unit(unit)
     #    ^ NOT 1.0 to preserve the original dtype (e.g., int)
     val = header.get(key, default) if val is None else val
@@ -2518,13 +2660,13 @@ def valinhdr(val=None, header=None, key=None, default=None, unit=None):
         return val.value if unit is None else val.to(unit)
     else:
         try:
-            return val*uu
+            return val * uu
         except TypeError:  # e.g., val is a str
             return val
 
 
 def get_from_header(header, key, unit=None, verbose=True, default=0):
-    ''' Get a variable from the header object.
+    """ Get a variable from the header object.
 
     Parameters
     ----------
@@ -2545,7 +2687,7 @@ def get_from_header(header, key, unit=None, verbose=True, default=0):
     q: Quantity or any object
         The extracted quantity from the header. It's a Quantity if the unit is
         given. Otherwise, appropriate type will be assigned.
-    '''
+    """
     # If using q = header.get(key, default=default),
     # we cannot give any meaningful verboses infostr.
     # Anyway the `header.get` sourcecode contains only 4-line:
@@ -2563,10 +2705,12 @@ def get_from_header(header, key, unit=None, verbose=True, default=0):
 
 
 def get_if_none(value, header, key, unit=None, verbose=True, default=0, to_value=False):
-    ''' Similar to get_from_header, but a convenience wrapper.
-    '''
+    """ Similar to get_from_header, but a convenience wrapper.
+    """
     if value is None:
-        value_Q = get_from_header(header, key, unit=unit, verbose=verbose, default=default)
+        value_Q = get_from_header(
+            header, key, unit=unit, verbose=verbose, default=default
+        )
         value_from = f"{key} in header"
     else:
         value_Q = change_to_quantity(value, unit, to_value=False)
@@ -2579,19 +2723,21 @@ def get_if_none(value, header, key, unit=None, verbose=True, default=0, to_value
 
 
 def wcs_crota(wcs, degree=True):
-    '''
+    """
     Notes
     -----
     https://iraf.net/forum/viewtopic.php?showtopic=108893
     CROTA2 = arctan (-CD1_2 / CD2_2) = arctan ( CD2_1 / CD1_1)
-    '''
+    """
     if isinstance(wcs, WCS):
         wcsprm = wcs.wcs
     elif isinstance(wcs, Wcsprm):
         wcsprm = wcs
     else:
-        raise TypeError("wcs type not understood. "
-                        + "It must be either astropy.wcs.WCS or astropy.wcs.Wcsprm")
+        raise TypeError(
+            "wcs type not understood. "
+            + "It must be either astropy.wcs.WCS or astropy.wcs.Wcsprm"
+        )
 
     # numpy arctan2 gets y-coord (numerator) and then x-coord(denominator)
     crota = np.arctan2(wcsprm.cd[0, 0], wcsprm.cd[1, 0])
@@ -2602,21 +2748,21 @@ def wcs_crota(wcs, degree=True):
 
 
 def center_radec(
-        header,
-        center_of_image=True,
-        ra_key="RA",
-        dec_key="DEC",
-        equinox=None,
-        frame=None,
-        equinox_key="EPOCH",
-        frame_key="RADECSYS",
-        ra_unit=u.hourangle,
-        dec_unit=u.deg,
-        mode='all',
-        verbose=True,
-        plain=False
+    header,
+    center_of_image=True,
+    ra_key="RA",
+    dec_key="DEC",
+    equinox=None,
+    frame=None,
+    equinox_key="EPOCH",
+    frame_key="RADECSYS",
+    ra_unit=u.hourangle,
+    dec_unit=u.deg,
+    mode="all",
+    verbose=True,
+    plain=False,
 ):
-    ''' Returns the central ra/dec from header or WCS.
+    """ Returns the central ra/dec from header or WCS.
 
     Notes
     -----
@@ -2652,7 +2798,7 @@ def center_radec(
 
     plain : bool
         If `True`, only the values of RA/DEC in degrees will be returned.
-    '''
+    """
     if center_of_image:
         w = WCS(header)
         nx, ny = float(header["NAXIS1"]), float(header["NAXIS2"])
@@ -2663,7 +2809,9 @@ def center_radec(
         ra = get_from_header(header, ra_key, verbose=verbose)
         dec = get_from_header(header, dec_key, verbose=verbose)
         if equinox is None:
-            equinox = get_from_header(header, equinox_key, verbose=verbose, default=None)
+            equinox = get_from_header(
+                header, equinox_key, verbose=verbose, default=None
+            )
         if frame is None:
             frame = get_from_header(
                 header, frame_key, verbose=verbose, default=None
@@ -2678,14 +2826,14 @@ def center_radec(
 
 
 def calc_offset_wcs(
-        target,
-        reference,
-        loc_target='center',
-        loc_reference='center',
-        order_xyz=True,
-        intify_offset=False
+    target,
+    reference,
+    loc_target="center",
+    loc_reference="center",
+    order_xyz=True,
+    intify_offset=False,
 ):
-    ''' The pixel offset of target's location when using WCS in referene.
+    """ The pixel offset of target's location when using WCS in referene.
 
     Parameters
     ----------
@@ -2712,7 +2860,8 @@ def calc_offset_wcs(
     order_xyz : bool, optional.
         Whether to return the position in xyz order or not (python order:
         ``[::-1]`` of the former). Default is `True`.
-    '''
+    """
+
     def _parse_loc(loc, obj):
         if isinstance(obj, WCS):
             w = obj
@@ -2720,10 +2869,10 @@ def calc_offset_wcs(
             _, hdr = _parse_data_header(obj, parse_data=False, copy=False)
             w = WCS(hdr)
 
-        if loc == 'center':
-            _loc = np.atleast_1d(w._naxis)/2
-        elif loc == 'origin':
-            _loc = [0.]*w.naxis
+        if loc == "center":
+            _loc = np.atleast_1d(w._naxis) / 2
+        elif loc == "origin":
+            _loc = [0.0] * w.naxis
         else:
             _loc = np.atleast_1d(loc)
 
@@ -2747,13 +2896,9 @@ def calc_offset_wcs(
 
 
 def calc_offset_physical(
-        target,
-        reference=None,
-        order_xyz=True,
-        ignore_ltm=True,
-        intify_offset=False
+    target, reference=None, order_xyz=True, ignore_ltm=True, intify_offset=False
 ):
-    ''' The pixel offset by physical-coordinate information in referene.
+    """ The pixel offset by physical-coordinate information in referene.
 
     Parameters
     ----------
@@ -2782,17 +2927,20 @@ def calc_offset_physical(
     Similar to `calc_offset_wcs`, but with locations fixed to origin (as
     non-identity LTM matrix is not supported). Also, input of WCS is not
     accepted because astropy's wcs module does not parse LTV/LTM from header.
-    '''
+    """
+
     def _check_ltm(hdr):
         ndim = hdr["NAXIS"]
         for i in range(ndim):
             for j in range(ndim):
                 try:
-                    assert float(hdr["LTM{i}_{j}"]) == 1.0*(i == j)
+                    assert float(hdr["LTM{i}_{j}"]) == 1.0 * (i == j)
                 except (KeyError, IndexError):
                     continue
                 except (AssertionError):
-                    raise NotImplementedError("Non-identity LTM matrix is not supported.")
+                    raise NotImplementedError(
+                        "Non-identity LTM matrix is not supported."
+                    )
 
             try:  # Sometimes LTM matrix is saved as ``LTMi``, not ``LTMi_j``.
                 assert float(target["LTM{i}"]) == 1.0
@@ -2840,7 +2988,7 @@ def calc_offset_physical(
 
 
 def fov_radius(header, unit=u.deg):
-    ''' Calculates the rough radius (cone) of the (square) FOV using WCS.
+    """ Calculates the rough radius (cone) of the (square) FOV using WCS.
 
     Parameters
     ----------
@@ -2851,14 +2999,14 @@ def fov_radius(header, unit=u.deg):
     -------
     radius: `~astropy.Quantity`
         The radius in degrees
-    '''
+    """
     w = WCS(header)
     nx, ny = float(header["NAXIS1"]), float(header["NAXIS2"])
     # Rough calculation, so use mode='wcs'
-    c1 = SkyCoord.from_pixel(0, 0, wcs=w, origin=0, mode='wcs')
-    c2 = SkyCoord.from_pixel(nx, 0, wcs=w, origin=0, mode='wcs')
-    c3 = SkyCoord.from_pixel(0, ny, wcs=w, origin=0, mode='wcs')
-    c4 = SkyCoord.from_pixel(nx, ny, wcs=w, origin=0, mode='wcs')
+    c1 = SkyCoord.from_pixel(0, 0, wcs=w, origin=0, mode="wcs")
+    c2 = SkyCoord.from_pixel(nx, 0, wcs=w, origin=0, mode="wcs")
+    c3 = SkyCoord.from_pixel(0, ny, wcs=w, origin=0, mode="wcs")
+    c4 = SkyCoord.from_pixel(nx, ny, wcs=w, origin=0, mode="wcs")
 
     # TODO: Can't we just do ``return max(r1, r2).to(unit)``???
     #   Why did I do this? I can't remember...
@@ -2871,16 +3019,16 @@ def fov_radius(header, unit=u.deg):
 
 # TODO: do not load data extension if not explicitly ordered
 def wcsremove(
-        path=None,
-        additional_keys=None,
-        extension=None,
-        output=None,
-        output_verify='fix',
-        overwrite=False,
-        verbose=True,
-        close=True
+    path=None,
+    additional_keys=None,
+    extension=None,
+    output=None,
+    output_verify="fix",
+    overwrite=False,
+    verbose=True,
+    close=True,
 ):
-    ''' Remove most WCS related keywords from the header.
+    """ Remove most WCS related keywords from the header.
 
     Paramters
     ---------
@@ -2890,51 +3038,51 @@ def wcsremove(
 
     output: str or Path
         The output file path.
-    '''
+    """
     # Define header keywords to be deleted in regex:
-    re2remove = ['CD[0-9]_[0-9]',  # Coordinate Description matrix
-                 'CTYPE[0-9]',      # e.g., 'RA---TAN' and 'DEC--TAN'
-                 'C[0-9]YPE[0-9]',  # FOCAS
-                 'CUNIT[0-9]',      # e.g., 'deg'
-                 'C[0-9]NIT[0-9]',  # FOCAS
-                 'CRPIX[0-9]',      # The reference pixels in image coordinate
-                 'C[0-9]PIX[0-9]',  # FOCAS
-                 # The world cooordinate values at CRPIX[1, 2]
-                 'CRVAL[0-9]',
-                 'C[0-9]VAL[0-9]',  # FOCAS
-                 'CDELT[0-9]',      # with CROTA, older version of CD matrix.
-                 'C[0-9]ELT[0-9]',  # FOCAS
-                 # The angle between image Y and world Y axes
-                 'CROTA[0-9]',
-                 'CRDELT[0-9]',
-                 'CFINT[0-9]',
-                 'RADE[C]?SYS*'     # RA/DEC system (frame)
-                 'WCS-ORIG',        # FOCAS
-                 'LTM[0-9]_[0-9]',
-                 'LTV[0-9]*',
-                 'PIXXMIT',
-                 'PIXOFFST',
-                 'WAT[0-9]_[0-9]',  # For TNX and ZPX, e.g., "WAT1_001"
-                 'C0[0-9]_[0-9]',   # polynomial CD by imwcs
-                 'PC[0-9]_[0-9]',
-                 'P[A-Z]?[0-9]?[0-9][0-9][0-9][0-9][0-9][0-9]',  # FOCAS
-                 'PV[0-9]_[0-9]',
-                 '[A,B][P]?_[0-9]_[0-9]',  # astrometry.net
-                 '[A,B][P]?_ORDER',   # astrometry.net
-                 '[A,B][P]?_DMAX',    # astrometry.net
-                 'WCS[A-Z]',          # see below
-                 'AST_[A-Z]',         # astrometry.net
-                 'ASTIRMS[0-9]',      # astrometry.net
-                 'ASTRRMS[0-9]',      # astrometry.net
-                 'FGROUPNO',          # SCAMP field group label
-                 'ASTINST',           # SCAMP astrometric instrument label
-                 'FLXSCALE',          # SCAMP relative flux scale
-                 'MAGZEROP',          # SCAMP zero-point
-                 'PHOTIRMS',          # mag dispersion RMS (internal, high S/N)
-                 'PHOTINST',          # SCAMP photometric instrument label
-                 'PHOTLINK',          # True if linked to a photometric field
-                 'SECPIX[0-9]'
-                 ]
+    re2remove = [
+        "CD[0-9]_[0-9]",  # Coordinate Description matrix
+        "CTYPE[0-9]",  # e.g., 'RA---TAN' and 'DEC--TAN'
+        "C[0-9]YPE[0-9]",  # FOCAS
+        "CUNIT[0-9]",  # e.g., 'deg'
+        "C[0-9]NIT[0-9]",  # FOCAS
+        "CRPIX[0-9]",  # The reference pixels in image coordinate
+        "C[0-9]PIX[0-9]",  # FOCAS
+        # The world cooordinate values at CRPIX[1, 2]
+        "CRVAL[0-9]",
+        "C[0-9]VAL[0-9]",  # FOCAS
+        "CDELT[0-9]",  # with CROTA, older version of CD matrix.
+        "C[0-9]ELT[0-9]",  # FOCAS
+        # The angle between image Y and world Y axes
+        "CROTA[0-9]",
+        "CRDELT[0-9]",
+        "CFINT[0-9]",
+        "RADE[C]?SYS*" "WCS-ORIG",  # RA/DEC system (frame)  # FOCAS
+        "LTM[0-9]_[0-9]",
+        "LTV[0-9]*",
+        "PIXXMIT",
+        "PIXOFFST",
+        "WAT[0-9]_[0-9]",  # For TNX and ZPX, e.g., "WAT1_001"
+        "C0[0-9]_[0-9]",  # polynomial CD by imwcs
+        "PC[0-9]_[0-9]",
+        "P[A-Z]?[0-9]?[0-9][0-9][0-9][0-9][0-9][0-9]",  # FOCAS
+        "PV[0-9]_[0-9]",
+        "[A,B][P]?_[0-9]_[0-9]",  # astrometry.net
+        "[A,B][P]?_ORDER",  # astrometry.net
+        "[A,B][P]?_DMAX",  # astrometry.net
+        "WCS[A-Z]",  # see below
+        "AST_[A-Z]",  # astrometry.net
+        "ASTIRMS[0-9]",  # astrometry.net
+        "ASTRRMS[0-9]",  # astrometry.net
+        "FGROUPNO",  # SCAMP field group label
+        "ASTINST",  # SCAMP astrometric instrument label
+        "FLXSCALE",  # SCAMP relative flux scale
+        "MAGZEROP",  # SCAMP zero-point
+        "PHOTIRMS",  # mag dispersion RMS (internal, high S/N)
+        "PHOTINST",  # SCAMP photometric instrument label
+        "PHOTLINK",  # True if linked to a photometric field
+        "SECPIX[0-9]",
+    ]
     # WCS[A-Z] captures, WCS[DIM, RFCAT, IMCAT, MATCH, NREF, TOL, SEP],
     # but not [IM]WCS, for example. These are likely to have been inserted
     # by WCS updating tools like astrometry.net or WCSlib/WCSTools. I
@@ -2944,14 +3092,14 @@ def wcsremove(
         re2remove = re2remove + listify(additional_keys)
 
     # If following str is in comment, suggest it if verbose
-    candidate_re = ['wcs', 'axis', 'axes', 'coord', 'distortion', 'reference']
+    candidate_re = ["wcs", "axis", "axes", "coord", "distortion", "reference"]
     candidate_key = []
 
     hdul = fits.open(path)
     hdr = hdul[_parse_extension(extension)].header
 
     if verbose:
-        print("Removed keywords: ", end='')
+        print("Removed keywords: ", end="")
 
     for k in list(hdr.keys()):
         com = hdr.comments[k]
@@ -2961,14 +3109,14 @@ def wcsremove(
                 hdr.remove(k)
                 deleted = True
                 if verbose:
-                    print(f"{k}", end=' ')
+                    print(f"{k}", end=" ")
                 continue
         if not deleted:
             for re_cand in candidate_re:
                 if re.match(re_cand, com):
                     candidate_key.append(k)
     if verbose:
-        print('\n')
+        print("\n")
         if len(candidate_key) != 0:
             print(f"\nFollowing keys may be related to WCS too:\n\t{candidate_key}")
 
@@ -3006,7 +3154,7 @@ def wcsremove(
 
 
 def convert_bit(fname, original_bit=12, target_bit=16):
-    ''' Converts a FIT(S) file's bit.
+    """ Converts a FIT(S) file's bit.
 
     Notes
     -----
@@ -3014,30 +3162,32 @@ def convert_bit(fname, original_bit=12, target_bit=16):
     standard do not accept 12-bit (but the closest integer is 16-bit), so, for
     example, the pixel values can have 0 and 15, but not any integer between
     these two. So it is better to convert to 16-bit.
-    '''
+    """
     hdul = fits.open(fname)
-    dscale = 2**(target_bit - original_bit)
-    hdul[0].data = (hdul[0].data / dscale).astype('int')
-    hdul[0].header['MAXDATA'] = (2**original_bit - 1,
-                                 "maximum valid physical value in raw data")
+    dscale = 2 ** (target_bit - original_bit)
+    hdul[0].data = (hdul[0].data / dscale).astype("int")
+    hdul[0].header["MAXDATA"] = (
+        2 ** original_bit - 1,
+        "maximum valid physical value in raw data",
+    )
     # hdul[0].header['BITPIX'] = target_bit
     # FITS ``BITPIX`` cannot have, e.g., 12, so the above is redundant line.
-    hdul[0].header['BUNIT'] = 'ADU'
+    hdul[0].header["BUNIT"] = "ADU"
     hdul.close()
     return hdul
 
 
 # TODO: add sigma-clipped statistics option (hdr key can be using "SIGC", e.g., SIGCAVG.)
 def give_stats(
-        item,
-        extension=None,
-        statsecs=None,
-        percentiles=[1, 99],
-        N_extrema=None,
-        return_header=False,
-        nanfunc=False
+    item,
+    extension=None,
+    statsecs=None,
+    percentiles=[1, 99],
+    N_extrema=None,
+    return_header=False,
+    nanfunc=False,
 ):
-    ''' Calculates simple statistics.
+    """ Calculates simple statistics.
 
     Parameters
     ----------
@@ -3103,7 +3253,7 @@ def give_stats(
     # To read the stringfied list into python list (e.g., percentiles):
     # >>> import json
     # >>> percentiles = json.loads(ccd.header['percentiles'])
-    '''
+    """
     data, hdr = _parse_data_header(item, extension=extension)
     if statsecs is not None:
         statsecs = [statsecs] if isinstance(statsecs, str) else list(statsecs)
@@ -3136,7 +3286,7 @@ def give_stats(
         madstd=mad_std(data, ignore_nan=not nanfunc),
         percentiles=percentiles,
         pct=pctf(data, percentiles),
-        slices=statsecs
+        slices=statsecs,
     )
     # d_pct = np.percentile(data, percentiles)
     # for i, pct in enumerate(percentiles):
@@ -3149,29 +3299,32 @@ def give_stats(
     result["zmax"] = d_zmax
 
     if N_extrema is not None:
-        if 2*N_extrema > result['num']:
+        if 2 * N_extrema > result["num"]:
             warn(
                 f"Extrema overlaps (2*N_extrema ({2*N_extrema}) > N_pix ({result['num']}))"
             )
         data_flatten = np.sort(data, axis=None)  # axis=None will do flatten.
         d_los = data_flatten[:N_extrema]
-        d_his = data_flatten[-1*N_extrema:]
+        d_his = data_flatten[-1 * N_extrema :]
         result["ext_lo"] = d_los
         result["ext_hi"] = d_his
 
     if return_header and hdr is not None:
-        hdr["STATNPIX"] = (result['num'], "Number of pixels used in statistics below")
-        hdr["STATMIN"] = (result['min'], "Minimum value of the pixels")
-        hdr["STATMAX"] = (result['max'], "Maximum value of the pixels")
-        hdr["STATAVG"] = (result['avg'], "Average value of the pixels")
-        hdr["STATMED"] = (result['med'], "Median value of the pixels")
-        hdr["STATSTD"] = (result['std'], "Sample standard deviation value of the pixels")
-        hdr["STATMED"] = (result['zmin'], "Median value of the pixels")
-        hdr["STATZMIN"] = (result['zmin'], "zscale minimum value of the pixels")
-        hdr["STATZMAX"] = (result['zmax'], "zscale minimum value of the pixels")
+        hdr["STATNPIX"] = (result["num"], "Number of pixels used in statistics below")
+        hdr["STATMIN"] = (result["min"], "Minimum value of the pixels")
+        hdr["STATMAX"] = (result["max"], "Maximum value of the pixels")
+        hdr["STATAVG"] = (result["avg"], "Average value of the pixels")
+        hdr["STATMED"] = (result["med"], "Median value of the pixels")
+        hdr["STATSTD"] = (
+            result["std"],
+            "Sample standard deviation value of the pixels",
+        )
+        hdr["STATMED"] = (result["zmin"], "Median value of the pixels")
+        hdr["STATZMIN"] = (result["zmin"], "zscale minimum value of the pixels")
+        hdr["STATZMAX"] = (result["zmax"], "zscale minimum value of the pixels")
         for i, p in enumerate(percentiles):
             hdr[f"PERCTS{i+1:02d}"] = (p, "The percentile used in STATPCii")
-            hdr[f"STATPC{i+1:02d}"] = (result['pct'][i], "Percentile value at PERCTSii")
+            hdr[f"STATPC{i+1:02d}"] = (result["pct"][i], "Percentile value at PERCTSii")
 
         if statsecs is not None:
             for i, sec in enumerate(statsecs):
@@ -3181,9 +3334,13 @@ def give_stats(
             if N_extrema > 99:
                 warn("N_extrema > 99 may not work properly in header.")
             for i in range(N_extrema):
-                hdr[f"STATLO{i+1:02d}"] = (result['ext_lo'][i],
-                                           f"Lower extreme values (N_extrema={N_extrema})")
-                hdr[f"STATHI{i+1:02d}"] = (result['ext_hi'][i],
-                                           f"Upper extreme values (N_extrema={N_extrema})")
+                hdr[f"STATLO{i+1:02d}"] = (
+                    result["ext_lo"][i],
+                    f"Lower extreme values (N_extrema={N_extrema})",
+                )
+                hdr[f"STATHI{i+1:02d}"] = (
+                    result["ext_hi"][i],
+                    f"Upper extreme values (N_extrema={N_extrema})",
+                )
         return result, hdr
     return result
