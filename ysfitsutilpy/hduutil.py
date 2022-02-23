@@ -962,7 +962,7 @@ def load_ccds(
 
     Paramters
     ---------
-    path : [list of] path-like
+    paths : [list of] path-like
         The path, glob pattern, or list of such, e.g., ``"a.fits"``,
         ``"c*.fits"``, ``["a.fits", "c*.fits"]``
 
