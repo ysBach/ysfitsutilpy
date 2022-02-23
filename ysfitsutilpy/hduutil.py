@@ -942,6 +942,58 @@ def inputs2list(
     return outlist
 
 
+def load_ccds(
+        paths,
+        extension=None,
+        trimsec=None,
+        ccddata=True,
+        as_ccd=True,
+        use_wcs=True,
+        unit=None,
+        extension_uncertainty="UNCERT",
+        extension_mask='MASK',
+        extension_flags=None,
+        full=False,
+        key_uncertainty_type='UTYPE',
+        memmap=False,
+        **kwd
+):
+    """ Simple recursion of load_ccd
+
+    Paramters
+    ---------
+    path : [list of] path-like
+        The path, glob pattern, or list of such, e.g., ``"a.fits"``,
+        ``"c*.fits"``, ``["a.fits", "c*.fits"]``
+
+    Notes
+    -----
+    Timing on MBP 14" [2021, macOS 12.2, M1Pro(6P+2E/G16c/N16c/32G)] using 10
+    FITS (each 4.3 MB) with ~ 100 header cards:
+    %timeit ccds = yfu.load_ccds("h_20191021_000*")
+    105 ms +- 2.11 ms per loop (mean +- std. dev. of 7 runs, 10 loops each)
+    """
+    paths2load = []
+    for p in listify(paths):
+        paths2load += inputs2list(p, sort=True, accept_ccdlike=False)
+    return [load_ccd(
+        p,
+        extension=extension,
+        trimsec=trimsec,
+        ccddata=ccddata,
+        as_ccd=as_ccd,
+        use_wcs=use_wcs,
+        unit=unit,
+        extension_uncertainty=extension_uncertainty,
+        extension_mask=extension_mask,
+        extension_flags=extension_flags,
+        full=full,
+        key_uncertainty_type=key_uncertainty_type,
+        memmap=memmap,
+        **kwd,
+    )
+    for p in np.array(paths2load).ravel()]
+
 
 def CCDData_astype(ccd, dtype='float32', uncertainty_dtype=None, copy=True):
     """ Assign dtype to the CCDData object (numpy uses float64 default).
