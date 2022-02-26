@@ -281,7 +281,6 @@ def _parse_image(
     %timeit yfu._parse_image(ccd, name="test", force_ccddata=True)
     14.2 µs +- 208 ns per loop (mean +- std. dev. of 7 runs, 100000 loops each)
     16.6 µs +- 298 ns per loop (mean +- std. dev. of 7 runs, 100000 loops each)
-
     """
 
     def __extract_extension(ext):
@@ -3247,7 +3246,7 @@ def give_stats(
     if N_extrema is not None:
         if 2*N_extrema > result["num"]:
             warn(
-                f"Extrema overlaps (2*N_extrema ({2*N_extrema}) > N_pix ({result["num"]}))"
+                f"Extrema overlaps (2*N_extrema ({2*N_extrema}) > N_pix ({result['num']}))"
             )
         data_flatten = np.sort(data, axis=None)  # axis=None will do flatten.
         d_los = data_flatten[:N_extrema]
