@@ -2708,7 +2708,7 @@ def center_radec(
         dec_unit=u.deg,
         mode="all",
         verbose=True,
-        plain=Falsem
+        plain=False,
 ):
     """ Returns the central ra/dec from header or WCS.
 
