@@ -797,7 +797,7 @@ def circular_mask(shape, center=None, radius=None, center_xyz=True):
 
 
 def _regularize_offsets(offsets, offset_order_xyz=True, intify_offsets=False):
-    """ Makes offsets all non-negativevg and relative to each other.
+    """ Makes offsets all non-negative and relative to each other.
     """
     _offsets = np.atleast_2d(offsets)
     if offset_order_xyz:
