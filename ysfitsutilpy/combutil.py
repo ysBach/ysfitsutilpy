@@ -12,7 +12,8 @@ from ccdproc import combine
 
 from .filemgmt import load_if_exists, make_summary
 from .hduutil import (CCDData_astype, _parse_extension, cmt2hdr,
-                      inputs2list, load_ccd, imslice, chk_keyval)
+                      inputs2list, load_ccd, chk_keyval)
+from .imutil import imslice
 from .misc import listify
 
 __all__ = [
