@@ -16,7 +16,6 @@ from astropy.table import Table
 from astropy.time import Time
 from astropy.visualization import ImageNormalize, ZScaleInterval
 from astropy.wcs import WCS, Wcsprm
-from ccdproc import trim_image
 # from scipy.interpolate import griddata
 from scipy.ndimage import label as ndlabel
 
@@ -274,13 +273,24 @@ def _parse_image(
     especially to CHECK if it has header, while _parse_image is to deal mainly
     with the data (and has options to return as CCDData).
 
-    np.random.RandomState(123)
-    data = np.random.normal(size=(100,100))
-    ccd = CCDData(data, unit='adu')
-    %timeit yfu._parse_image(data, name="test", force_ccddata=True)
-    %timeit yfu._parse_image(ccd, name="test", force_ccddata=True)
-    14.2 µs +- 208 ns per loop (mean +- std. dev. of 7 runs, 100000 loops each)
-    16.6 µs +- 298 ns per loop (mean +- std. dev. of 7 runs, 100000 loops each)
+    Timing on MBP 14" [2021, macOS 12.2.1, M1Pro(6P+2E/G16c/N16c/32G)]:
+
+    >>> np.random.RandomState(123)
+    >>> data = np.random.normal(size=(100,100))
+    >>> ccd = CCDData(data, unit='adu')
+    >>> fpath = "img/0001.fits"  # doctest: +SKIP
+    >>> %timeit yfu._parse_image(data, name="test", force_ccddata=True)
+    >>> %timeit yfu._parse_image(ccd, name="test", force_ccddata=True)
+    >>> %timeit yfu._parse_image(fpath, name="test", force_ccddata=True) # doctest: +SKIP
+    >>> %timeit yfu._parse_image(fpath, name="test", force_ccddata=False)[0]*1.0 # doctest: +SKIP
+    # 14.2 µs +- 208 ns per loop (mean +- std. dev. of 7 runs, 100000 loops each)
+    # 16.6 µs +- 298 ns per loop (mean +- std. dev. of 7 runs, 100000 loops each)
+    # 20.8 ms +- 133 µs per loop (mean +- std. dev. of 7 runs, 10000 loops each)
+    # 156 µs +- 3.3 µs per loop (mean +- std. dev. of 7 runs, 10000 loops each)
+
+    `fpath` contains a FITS file of 276KB. Note that path with `force_ccddata =
+    True` consumes tremendous amount of time, because of astropy's header
+    parsing scheme.
     """
 
     def __extract_extension(ext):
