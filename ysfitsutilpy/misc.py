@@ -1,5 +1,7 @@
 '''
-(Basic) Functions that are completely INDEPENDENT of all other modules of this package.
+Objects that are
+(1) too fundamental, so used in various places,
+(2) completely INDEPENDENT of all other modules of this package.
 '''
 import sys
 from collections import Iterable, abc
@@ -13,6 +15,7 @@ __all__ = ["MEDCOMB_KEYS_INT", "SUMCOMB_KEYS_INT", "MEDCOMB_KEYS_FLT32",
            "LACOSMIC_KEYS", "LACOSMIC_CRREJ", "parse_crrej_psf",
            "get_size",
            "slicefy", "bezel2slice", "is_list_like", "listify", "ndfy",
+           "cmt2hdr", "update_tlm", "update_process",
            "weighted_avg", "sigclip_dataerr", "circular_mask",
            "_image_shape", "_offsets2slice",
            "str_now", "change_to_quantity", "binning",
@@ -376,6 +379,195 @@ def ndfy(item, length=None, default=0):
 
     # Now, len(item) == 1
     return [item[0] for _ in range(length)]
+
+
+def cmt2hdr(
+        header,
+        histcomm,
+        s,
+        precision=3,
+        time_fmt="{:.>72s}",
+        t_ref=None,
+        dt_fmt="(dt = {:.3f} s)",
+        set_kw={"after": -1},
+        verbose=False,
+):
+    """ Automatically add timestamp as well as HISTORY or COMMENT string
+
+    Parameters
+    ----------
+    header : Header
+        The header.
+
+    histcomm : str in ['h', 'hist', 'history', 'c', 'comm', 'comment']
+        Whether to add history or comment.
+
+    s : str or list of str
+        The string to add as history or comment.
+
+    precision : int, optional.
+        The precision of the isot format time.
+
+    time_fmt : str, None, optional.
+        The Python 3 format string to format the time in the header. If `None`,
+        the timestamp string will not be added.
+
+        Examples::
+          * ``"{:s}"``: plain time ``2020-01-01T01:01:01.23``
+          * ``"({:s})"``: plain time in ``()``. ``(2020-01-01T01:01:01.23)``
+          * ``"{:_^72s}"``: center align, filling with gain_key="GAIN", ``_``.
+
+    t_ref : Time
+        The reference time. If not `None`, delta time is calculated.
+
+    dt_fmt : str, optional.
+        The Python 3 format string to format the delta time in the header.
+
+    verbose : bool, optional.
+        Whether to print the same information on the output terminal.
+
+    verbose_fmt : str, optional.
+        The Python 3 format string to format the time in the terminal.
+
+    set_kw : dict, optional.
+        The keyword arguments added to `Header.set()`. Default is
+        ``{'after':-1}``, i.e., the history or comment will be appended to the
+        very last part of the header.
+
+    Notes
+    -----
+    The timming benchmark for a reasonably long header (len(ccd.header.cards) =
+    197) shows dt ~ 0.2-0.3 ms on MBP 15" [2018, macOS 11.6, i7-8850H (2.6 GHz;
+    6-core), RAM 16 GB (2400MHz DDR4), Radeon Pro 560X (4GB)]:
+
+    %timeit ccd.header.copy()
+    1.67 ms +/- 33.3 µs per loop (mean +/- std. dev. of 7 runs, 1000 loops each)
+    %timeit yfu.cmt2hdr(ccd.header.copy(), 'h', 'test')
+    1.89 ms +/- 141 µs per loop (mean +/- std. dev. of 7 runs, 1000 loops each)
+    %timeit yfu.cmt2hdr(ccd.header.copy(), 'hist', 'test')
+    1.89 ms +/- 144 µs per loop (mean +/- std. dev. of 7 runs, 1000 loops each)
+    %timeit yfu.cmt2hdr(ccd.header.copy(), 'histORy', 'test')
+    1.95 ms +/- 146 µs per loop (mean +/- std. dev. of 7 runs, 100 loops each)
+    """
+    pall = locals()
+    if histcomm.lower() in ["h", "hist"]:
+        pall["histcomm"] = "HISTORY"
+        return cmt2hdr(**pall)
+    elif histcomm.lower() in ["c", "com", "comm"]:
+        pall["histcomm"] = "COMMENT"
+        return cmt2hdr(**pall)
+    # The "elif not in raise" gives large bottleneck if, e.g., ``histcomm="ComMent"``...
+    # elif histcomm.lower() not in ['history', 'comment']:
+    #     raise ValueError("Only HISTORY or COMMENT are supported now.")
+
+    def _add_content(header, content):
+        try:
+            header.set(histcomm, content, **set_kw)
+        except AttributeError:
+            # For a CCDData that has just initialized, header is in OrderdDict, not Header
+            header[histcomm] = content
+
+    for _s in listify(s):
+        _add_content(header, _s)
+        if verbose:
+            print(f"{histcomm.upper():<8s} {_s}")
+
+    if time_fmt is not None:
+        timestr = str_now(precision=precision, fmt=time_fmt, t_ref=t_ref, dt_fmt=dt_fmt)
+        _add_content(header, timestr)
+        if verbose:
+            print(f"{histcomm.upper():<8s} {timestr}")
+    update_tlm(header)
+
+
+def update_tlm(header):
+    """ Adds the IRAF-like ``FITS-TLM`` right after ``NAXISi``.
+
+     Timing on MBP 15" [2018, macOS 11.6, i7-8850H (2.6 GHz; 6-core), RAM 16 GB
+    (2400MHz DDR4), Radeon Pro 560X (4GB)]:
+    %timeit yfu.update_tlm(ccd.header)
+    # 443 µs +/- 19.5 µs per loop (mean +/- std. dev. of 7 runs, 1000 loops each)
+    """
+    now = Time(Time.now(), precision=0).isot
+    try:
+        del header["FITS-TLM"]
+    except KeyError:
+        pass
+    try:
+        header.set(
+            "FITS-TLM",
+            value=now,
+            comment="UT of last modification of this FITS file",
+            after=f"NAXIS{header['NAXIS']}",
+        )
+    except AttributeError:  # If header is OrderedDict
+        header["FITS-TLM"] = (now, "UT of last modification of this FITS file")
+
+
+def update_process(
+        header,
+        process=None,
+        key="PROCESS",
+        delimiter="",
+        add_comment=True,
+        additional_comment=dict(),
+):
+    """ update the process history keyword in the header.
+
+    Parameters
+    ----------
+    header : header
+        The header to update the ``PROCESS`` (tunable by `key` parameter)
+        keyword.
+
+    process : str or list-like of str
+        The additional process keys to add to the header.
+
+    key : str, optional.
+        The key for the process-related header keyword.
+
+    delimiter : str, optional.
+        The delimiter for each process. It can be null string (``''``). The
+        best is to match it with the pre-existing delimiter of the
+        ``header[key]``.
+
+    add_comment : bool, optional.
+        Whether to add a comment to the header if there was no `key`
+        (``"PROCESS"`` by default) in the header.
+
+    additional_comment : dict, optional.
+        The additional comment to add. For instance, ``dict(v="vertical
+        pattern", f="fourier pattern")`` will add a new line of comment which
+        reads "User added items for `key`: v=vertical pattern, f=fourier
+        pattern."
+    """
+    process = listify(process)
+
+    if key in header:
+        if delimiter:
+            process = header[key].split(delimiter) + process
+        else:
+            process = list(header[key]) + process
+        # do not additionally add comment.
+    elif add_comment:
+        # add comment.
+        cmt2hdr(
+            header,
+            "c",
+            time_fmt=None,
+            s=(
+                f"[yfu.update_process] Standard items for {key} includes B=bias, D=dark, "
+                + "F=flat, T=trim, W=WCS, O=Overscan, I=Illumination, C=CRrej, R=fringe, "
+                + "P=fixpix, X=crosstalk."
+            ),
+        )
+
+    header[key] = (delimiter.join(process), "Process (order: 1-2-3-...): see comment.")
+
+    if additional_comment:
+        addstr = ", ".join([f"{k}={v}" for k, v in additional_comment.items()])
+        cmt2hdr(header, "c", f"User added items to {key}: {addstr}.", time_fmt=None)
+    update_tlm(header)
 
 
 def parse_crrej_psf(

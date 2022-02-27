@@ -10,17 +10,16 @@ from astropy.wcs import WCS
 
 from ..combutil import group_fits
 from ..filemgmt import make_summary
-from ..hduutil import (_parse_data_header, _parse_extension, cmt2hdr,
-                       calc_offset_physical, calc_offset_wcs,
-                       inputs2list, load_ccd, str_now,
-                       update_tlm, write2fits, slicefy)
-from ..misc import _image_shape, is_list_like, get_size
+from ..hduutil import (_parse_data_header, _parse_extension,
+                       calc_offset_physical, calc_offset_wcs, inputs2list,
+                       load_ccd, slicefy, str_now, write2fits)
+from ..misc import _image_shape, cmt2hdr, get_size, is_list_like, update_tlm
 from . import docstrings
 from .util_comb import (_set_cenfunc, _set_combfunc, _set_gain_rdns,
                         _set_int_dtype, _set_keeprej, _set_mask,
                         _set_reject_name, _set_sigma, _set_thresh_mask, do_zs,
                         get_zsw)
-from .util_reject import ccdclip_mask, sigclip_mask, minmax_mask
+from .util_reject import ccdclip_mask, minmax_mask, sigclip_mask
 
 __all__ = ["group_combine", "group_save", "imcombine", "ndcombine"]
 

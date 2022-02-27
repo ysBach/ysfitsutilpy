@@ -1,8 +1,8 @@
 import numpy as np
 from astropy.nddata import CCDData
 
-from ..hduutil import (CCDData_astype, _parse_image, inputs2list, imslice,
-                       update_tlm)
+from ..hduutil import CCDData_astype, _parse_image, imslice, inputs2list
+from ..misc import update_tlm
 
 __all__ = ['imcopy']
 

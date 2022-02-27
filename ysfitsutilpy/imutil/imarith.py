@@ -6,9 +6,9 @@ from astropy.nddata import CCDData
 from astropy.time import Time
 
 from ..hduutil import (CCDData_astype, _has_header, _parse_extension,
-                       _parse_image, cmt2hdr, calc_offset_physical,
-                       calc_offset_wcs, imslice, update_tlm)
-from ..misc import _offsets2slice
+                       _parse_image, calc_offset_physical, calc_offset_wcs,
+                       imslice)
+from ..misc import _offsets2slice, cmt2hdr, update_tlm
 
 __all__ = ["imarith"]
 

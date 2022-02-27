@@ -19,8 +19,10 @@ from astropy.wcs import WCS, Wcsprm
 # from scipy.interpolate import griddata
 from scipy.ndimage import label as ndlabel
 
+from .imutil import imslice
 from .misc import (_image_shape, bezel2slice, binning, change_to_quantity,
-                   is_list_like, listify, slicefy, str_now)
+                   cmt2hdr, is_list_like, listify, slicefy, update_process,
+                   update_tlm)
 
 try:
     import fitsio
@@ -50,14 +52,14 @@ __all__ = [
     # ! setters:
     "CCDData_astype", "set_ccd_attribute", "set_ccd_gain_rdnoise",
     "propagate_ccdmask",
-    # ! ccdproc:
-    "imslice", "trim_overlap", "cut_ccd", "bin_ccd",
+    # ! ccd processes
+    "trim_overlap", "cut_ccd", "bin_ccd",
     "fixpix",
     # "make_errormap",
     "errormap",
     "find_extpix", "find_satpix",
     # ! header update:
-    "cmt2hdr", "update_tlm", "update_process", "hedit", "key_remover", "key_mapper", "chk_keyval",
+    "hedit", "key_remover", "key_mapper", "chk_keyval",
     # ! header accessor:
     "valinhdr", "get_from_header", "get_if_none",
     # ! WCS related:
@@ -72,6 +74,7 @@ ASTROPY_CCD_TYPES = (CCDData, fits.PrimaryHDU, fits.ImageHDU)  # fits.CompImageH
 
 def write2fits(data, header, output, return_ccd=False, **kwargs):
     """ A convenience function to write proper FITS file.
+
     Parameters
     ----------
     data : ndarray
@@ -101,6 +104,9 @@ def write2fits(data, header, output, return_ccd=False, **kwargs):
         return ccd
 
 
+# **************************************************************************************** #
+#*                                         PARSERS                                       * #
+# **************************************************************************************** #
 def _parse_data_header(
         ccdlike,
         extension=None,
@@ -537,6 +543,9 @@ def _parse_extension(*args, ext=None, extname=None, extver=None):
     return ext
 
 
+# **************************************************************************************** #
+# *                                        FILE IO                                       * #
+# **************************************************************************************** #
 def load_ccd(
         path,
         extension=None,
@@ -1045,6 +1054,9 @@ def CCDData_astype(ccd, dtype='float32', uncertainty_dtype=None, copy=True):
     return nccd
 
 
+# **************************************************************************************** #
+#*                                         SETTER                                        * #
+# **************************************************************************************** #
 def set_ccd_attribute(
         ccd,
         name,
@@ -1208,6 +1220,9 @@ def set_ccd_gain_rdnoise(
     )
 
 
+# **************************************************************************************** #
+# *                                   CCD MANIPULATIONS                                  * #
+# **************************************************************************************** #
 def propagate_ccdmask(ccd, additional_mask=None):
     """ Propagate the CCDData's mask and additional mask.
 
@@ -1236,86 +1251,6 @@ def propagate_ccdmask(ccd, additional_mask=None):
         except (TypeError, AttributeError):  # i.e., if ccd.mask is None:
             mask = deepcopy(additional_mask)
     return mask
-
-
-def imslice(ccd, trimsec, fill_value=None, order_xyz=True,
-            update_header=True, verbose=False):
-    """ Slice the CCDData using one of trimsec, bezels, or slices.
-
-    Paramters
-    ---------
-    trimsec : str, int, list of int, list of slice, None, optional
-        It can have several forms::
-
-          * str: The FITS convention section to trim (e.g., IRAF TRIMSEC).
-          * [list of] int: The number of pixels to trim from the edge of the
-            image (bezel)
-          * [list of] slice: The slice of each axis (`slice(start, stop,
-            step)`)
-
-        If a single int/slice is given, it will be applied to all the axes.
-
-    order_xyz : bool, optional
-        Whether the order of trimsec is in xyz order. Works only if the
-        `trimsec` is bezel-like (int or list of int). If it is slice-like,
-        `trimsec` must be in the pythonic order (i.e., ``[slice_for_axis0,
-        slice_for_axis1, ...]``).
-
-    fill_value : None, float-like, optinoal.
-        If `None`, it removes the pixels outside of it. If given as float-like
-        (including `np.nan`), the bezel pixels will be replaced with this
-        value.
-
-    """
-    _t = Time.now()
-
-    # Parse
-    sl = slicefy(trimsec, ccd.ndim, order_xyz=order_xyz)
-
-    if fill_value is None:
-        nccd = ccd[sl].copy()  # CCDData supports this kind of slicing
-    else:
-        nccd = ccd.copy()
-        nccd.data = np.ones(nccd.shape) * fill_value
-        nccd.data[sl] = ccd.data[sl]
-
-    if update_header:  # update LTV/LTM
-        ltms = [1 if s.step is None else 1/s.step for s in sl]
-        ndim = ccd.ndim  # ndim == NAXIS keyword
-        shape = ccd.shape
-        if trimsec is not None:
-            ltvs = []
-            for axis_i_py, naxis_i in enumerate(shape):
-                # example: "[10:110]", we must have LTV = -9, not -10.
-                ltvs.append(-1*sl[axis_i_py].indices(naxis_i)[0])
-            ltvs = ltvs[::-1]  # zyx -> xyz order
-        else:
-            ltvs = [0.0]*ndim
-
-        hdr = nccd.header
-        for i, ltv in enumerate(ltvs):
-            if (key := f"LTV{i+1}") in hdr:
-                hdr[key] += ltv
-            else:
-                hdr[key] = ltv
-
-        for i in range(ndim):
-            for j in range(ndim):
-                if i == j:
-                    hdr[f"LTM_{i+1}_{i+1}"] = hdr.get(f"LTM{i+1}", ltms[i])
-                else:
-                    hdr.setdefault(f"LTM{i+1}_{j+1}", 0.0)
-
-        if trimsec is not None:
-            infostr = [
-                f"[yfu.imslice] Sliced using `{trimsec = }`: converted to {sl}. "
-            ]
-            if fill_value is not None:
-                infostr.append(f"Filled background with `{fill_value = }`.")
-            cmt2hdr(hdr, "h", infostr, t_ref=_t, verbose=verbose)
-            update_process(hdr, "T")
-
-    return nccd
 
 
 # FIXME: not finished.
@@ -2087,195 +2022,9 @@ def errormap(
     # var_dark_err = (dark_err/flat)**2
 
 
-def cmt2hdr(
-        header,
-        histcomm,
-        s,
-        precision=3,
-        time_fmt="{:.>72s}",
-        t_ref=None,
-        dt_fmt="(dt = {:.3f} s)",
-        set_kw={"after": -1},
-        verbose=False,
-):
-    """ Automatically add timestamp as well as HISTORY or COMMENT string
-
-    Parameters
-    ----------
-    header : Header
-        The header.
-
-    histcomm : str in ['h', 'hist', 'history', 'c', 'comm', 'comment']
-        Whether to add history or comment.
-
-    s : str or list of str
-        The string to add as history or comment.
-
-    precision : int, optional.
-        The precision of the isot format time.
-
-    time_fmt : str, None, optional.
-        The Python 3 format string to format the time in the header. If `None`,
-        the timestamp string will not be added.
-
-        Examples::
-          * ``"{:s}"``: plain time ``2020-01-01T01:01:01.23``
-          * ``"({:s})"``: plain time in ``()``. ``(2020-01-01T01:01:01.23)``
-          * ``"{:_^72s}"``: center align, filling with gain_key="GAIN", ``_``.
-
-    t_ref : Time
-        The reference time. If not `None`, delta time is calculated.
-
-    dt_fmt : str, optional.
-        The Python 3 format string to format the delta time in the header.
-
-    verbose : bool, optional.
-        Whether to print the same information on the output terminal.
-
-    verbose_fmt : str, optional.
-        The Python 3 format string to format the time in the terminal.
-
-    set_kw : dict, optional.
-        The keyword arguments added to `Header.set()`. Default is
-        ``{'after':-1}``, i.e., the history or comment will be appended to the
-        very last part of the header.
-
-    Notes
-    -----
-   The timming benchmark for a reasonably long header (len(ccd.header.cards) =
-    197) shows dt ~ 0.2-0.3 ms on MBP 15" [2018, macOS 11.6, i7-8850H (2.6 GHz;
-    6-core), RAM 16 GB (2400MHz DDR4), Radeon Pro 560X (4GB)]:
-
-    %timeit ccd.header.copy()
-    1.67 ms +/- 33.3 µs per loop (mean +/- std. dev. of 7 runs, 1000 loops each)
-    %timeit yfu.cmt2hdr(ccd.header.copy(), 'h', 'test')
-    1.89 ms +/- 141 µs per loop (mean +/- std. dev. of 7 runs, 1000 loops each)
-    %timeit yfu.cmt2hdr(ccd.header.copy(), 'hist', 'test')
-    1.89 ms +/- 144 µs per loop (mean +/- std. dev. of 7 runs, 1000 loops each)
-    %timeit yfu.cmt2hdr(ccd.header.copy(), 'histORy', 'test')
-    1.95 ms +/- 146 µs per loop (mean +/- std. dev. of 7 runs, 100 loops each)
-    """
-    pall = locals()
-    if histcomm.lower() in ["h", "hist"]:
-        pall["histcomm"] = "HISTORY"
-        return cmt2hdr(**pall)
-    elif histcomm.lower() in ["c", "com", "comm"]:
-        pall["histcomm"] = "COMMENT"
-        return cmt2hdr(**pall)
-    # The "elif not in raise" gives large bottleneck if, e.g., ``histcomm="ComMent"``...
-    # elif histcomm.lower() not in ['history', 'comment']:
-    #     raise ValueError("Only HISTORY or COMMENT are supported now.")
-
-    def _add_content(header, content):
-        try:
-            header.set(histcomm, content, **set_kw)
-        except AttributeError:
-            # For a CCDData that has just initialized, header is in OrderdDict, not Header
-            header[histcomm] = content
-
-    for _s in listify(s):
-        _add_content(header, _s)
-        if verbose:
-            print(f"{histcomm.upper():<8s} {_s}")
-
-    if time_fmt is not None:
-        timestr = str_now(precision=precision, fmt=time_fmt, t_ref=t_ref, dt_fmt=dt_fmt)
-        _add_content(header, timestr)
-        if verbose:
-            print(f"{histcomm.upper():<8s} {timestr}")
-    update_tlm(header)
-
-
-def update_tlm(header):
-    """ Adds the IRAF-like ``FITS-TLM`` right after ``NAXISi``.
-
-     Timing on MBP 15" [2018, macOS 11.6, i7-8850H (2.6 GHz; 6-core), RAM 16 GB
-    (2400MHz DDR4), Radeon Pro 560X (4GB)]:
-    %timeit yfu.update_tlm(ccd.header)
-    # 443 µs +/- 19.5 µs per loop (mean +/- std. dev. of 7 runs, 1000 loops each)
-    """
-    now = Time(Time.now(), precision=0).isot
-    try:
-        del header["FITS-TLM"]
-    except KeyError:
-        pass
-    try:
-        header.set(
-            "FITS-TLM",
-            value=now,
-            comment="UT of last modification of this FITS file",
-            after=f"NAXIS{header['NAXIS']}",
-        )
-    except AttributeError:  # If header is OrderedDict
-        header["FITS-TLM"] = (now, "UT of last modification of this FITS file")
-
-
-def update_process(
-        header,
-        process=None,
-        key="PROCESS",
-        delimiter="",
-        add_comment=True,
-        additional_comment=dict(),
-):
-    """ update the process history keyword in the header.
-
-    Parameters
-    ----------
-    header : header
-        The header to update the ``PROCESS`` (tunable by `key` parameter)
-        keyword.
-
-    process : str or list-like of str
-        The additional process keys to add to the header.
-
-    key : str, optional.
-        The key for the process-related header keyword.
-
-    delimiter : str, optional.
-        The delimiter for each process. It can be null string (``''``). The
-        best is to match it with the pre-existing delimiter of the
-        ``header[key]``.
-
-    add_comment : bool, optional.
-        Whether to add a comment to the header if there was no `key`
-        (``"PROCESS"`` by default) in the header.
-
-    additional_comment : dict, optional.
-        The additional comment to add. For instance, ``dict(v="vertical
-        pattern", f="fourier pattern")`` will add a new line of comment which
-        reads "User added items for `key`: v=vertical pattern, f=fourier
-        pattern."
-    """
-    process = listify(process)
-
-    if key in header:
-        if delimiter:
-            process = header[key].split(delimiter) + process
-        else:
-            process = list(header[key]) + process
-        # do not additionally add comment.
-    elif add_comment:
-        # add comment.
-        cmt2hdr(
-            header,
-            "c",
-            time_fmt=None,
-            s=(
-                f"[yfu.update_process] Standard items for {key} includes B=bias, D=dark, "
-                + "F=flat, T=trim, W=WCS, O=Overscan, I=Illumination, C=CRrej, R=fringe, "
-                + "P=fixpix, X=crosstalk."
-            ),
-        )
-
-    header[key] = (delimiter.join(process), "Process (order: 1-2-3-...): see comment.")
-
-    if additional_comment:
-        addstr = ", ".join([f"{k}={v}" for k, v in additional_comment.items()])
-        cmt2hdr(header, "c", f"User added items to {key}: {addstr}.", time_fmt=None)
-    update_tlm(header)
-
-
+# **************************************************************************************** #
+# *                                  HEADER MANIPULATION                                 * #
+# **************************************************************************************** #
 def hedit(
         item,
         keys,
