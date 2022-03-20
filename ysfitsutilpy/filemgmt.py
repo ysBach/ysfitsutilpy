@@ -17,7 +17,7 @@ from astropy.time import Time
 
 from .hduutil import (_parse_extension, cut_ccd, inputs2list, key_mapper,
                       key_remover)
-from .misc import LACOSMIC_CRREJ, listify, parse_crrej_psf
+from .misc import listify
 
 __all__ = [
     "mkdir", "load_if_exists", "make_summary", "df_selector",
