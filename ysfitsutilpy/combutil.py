@@ -11,9 +11,8 @@ from astropy.time import Time
 from ccdproc import combine
 
 from .filemgmt import load_if_exists, make_summary
-from .hduutil import (CCDData_astype, _parse_extension, cmt2hdr,
-                      inputs2list, load_ccd, chk_keyval)
-from .imutil import imslice
+from .hduutil import (CCDData_astype, _parse_extension, chk_keyval, cmt2hdr,
+                      imslice, inputs2list, load_ccd)
 from .misc import listify
 
 __all__ = [

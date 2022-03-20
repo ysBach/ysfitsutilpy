@@ -19,7 +19,6 @@ from astropy.wcs import WCS, Wcsprm
 # from scipy.interpolate import griddata
 from scipy.ndimage import label as ndlabel
 
-from .imutil import imslice
 from .misc import (_image_shape, bezel2slice, binning, change_to_quantity,
                    cmt2hdr, is_list_like, listify, slicefy, update_process,
                    update_tlm)
@@ -53,7 +52,7 @@ __all__ = [
     "CCDData_astype", "set_ccd_attribute", "set_ccd_gain_rdnoise",
     "propagate_ccdmask",
     # ! ccd processes
-    "trim_overlap", "cut_ccd", "bin_ccd",
+    "imslice", "trim_overlap", "cut_ccd", "bin_ccd",
     "fixpix",
     # "make_errormap",
     "errormap",
@@ -773,6 +772,7 @@ def load_ccd(
             elif trimsec is None:
                 return ccd
             else:
+                # Do imslice AFTER loading the data to easily add LTV/LTM...
                 return imslice(ccd, trimsec)
 
         else:
@@ -1010,7 +1010,7 @@ def load_ccds(
         memmap=memmap,
         **kwd,
     )
-    for p in np.array(paths2load).ravel()]
+        for p in np.array(paths2load).ravel()]
 
 
 def CCDData_astype(ccd, dtype='float32', uncertainty_dtype=None, copy=True):
@@ -1251,6 +1251,91 @@ def propagate_ccdmask(ccd, additional_mask=None):
         except (TypeError, AttributeError):  # i.e., if ccd.mask is None:
             mask = deepcopy(additional_mask)
     return mask
+
+
+def imslice(ccd, trimsec, fill_value=None, order_xyz=True,
+            update_header=True, verbose=False):
+    """ Slice the CCDData using one of trimsec, bezels, or slices.
+
+    Paramters
+    ---------
+    trimsec : str, int, list of int, list of slice, None, optional
+        It can have several forms::
+
+          * str: The FITS convention section to trim (e.g., IRAF TRIMSEC).
+          * [list of] int: The number of pixels to trim from the edge of the
+            image (bezel)
+          * [list of] slice: The slice of each axis (`slice(start, stop,
+            step)`)
+
+        If a single int/slice is given, it will be applied to all the axes.
+
+    order_xyz : bool, optional
+        Whether the order of trimsec is in xyz order. Works only if the
+        `trimsec` is bezel-like (int or list of int). If it is slice-like,
+        `trimsec` must be in the pythonic order (i.e., ``[slice_for_axis0,
+        slice_for_axis1, ...]``).
+
+    fill_value : None, float-like, optinoal.
+        If `None`, it removes the pixels outside of it. If given as float-like
+        (including `np.nan`), the bezel pixels will be replaced with this
+        value.
+
+    Notes
+    -----
+    Similar to ccdproc.trim_image or imcopy. Compared to ccdproc, it has
+    flexibility, and can add LTV/LTM to header.
+
+    """
+    _t = Time.now()
+
+    # Parse
+    sl = slicefy(trimsec, ccd.ndim, order_xyz=order_xyz)
+
+    if fill_value is None:
+        nccd = ccd[sl].copy()  # CCDData supports this kind of slicing
+    else:
+        nccd = ccd.copy()
+        nccd.data = np.ones(nccd.shape) * fill_value
+        nccd.data[sl] = ccd.data[sl]
+
+    if update_header:  # update LTV/LTM
+        ltms = [1 if s.step is None else 1/s.step for s in sl]
+        ndim = ccd.ndim  # ndim == NAXIS keyword
+        shape = ccd.shape
+        if trimsec is not None:
+            ltvs = []
+            for axis_i_py, naxis_i in enumerate(shape):
+                # example: "[10:110]", we must have LTV = -9, not -10.
+                ltvs.append(-1*sl[axis_i_py].indices(naxis_i)[0])
+            ltvs = ltvs[::-1]  # zyx -> xyz order
+        else:
+            ltvs = [0.0]*ndim
+
+        hdr = nccd.header
+        for i, ltv in enumerate(ltvs):
+            if (key := f"LTV{i+1}") in hdr:
+                hdr[key] += ltv
+            else:
+                hdr[key] = ltv
+
+        for i in range(ndim):
+            for j in range(ndim):
+                if i == j:
+                    hdr[f"LTM_{i+1}_{i+1}"] = hdr.get(f"LTM{i+1}", ltms[i])
+                else:
+                    hdr.setdefault(f"LTM{i+1}_{j+1}", 0.0)
+
+        if trimsec is not None:
+            infostr = [
+                f"[yfu.imslice] Sliced using `{trimsec = }`: converted to {sl}. "
+            ]
+            if fill_value is not None:
+                infostr.append(f"Filled background with `{fill_value = }`.")
+            cmt2hdr(hdr, "h", infostr, t_ref=_t, verbose=verbose)
+            update_process(hdr, "T")
+
+    return nccd
 
 
 # FIXME: not finished.
