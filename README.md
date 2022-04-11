@@ -1,6 +1,8 @@
 # ysfitsutilpy
 Convenience utilities made by ysBach especially for dealing FITS files in astronomical sciences.
 
+**Why "ys"fitsutilpy? The name "fitsutilpy" is too general, and I believe a better package should take that name, so I decided not to occupy the name. I see many useless packages that preoccupy meaningful names...**
+
 Install by
 
 ```
@@ -18,30 +20,24 @@ This package is made to be used for
 * Educational purpose
 * ...
 
-It is **not** designed for very general use, e.g., MEF (multi-extension FITS) and radio data, for instance. MEF is somewhat treatable in current version, but not satisfactorily yet.
+Although I tried to make some functions as general as possible, this package as a whole is **not** designed for very general use, e.g., MEF (multi-extension FITS) and radio data, for instance. MEF is somewhat treatable in current version, but not satisfactorily yet.
 
 You may import using ``import ysfitsutilpy as yfu``.
-
-Although the package is subdivided into ``ccdutil``, ``filemgmt``, etc, all the modules' functions are imported to the core package by ``__init__.py``. So you never have to care about the submodules of this package, but just use ``yfu``.
 
 An example usage to make a summary file of FITS files:
 ```python
 import ysfitsutilpy as yfu
 
-# The keywords you want to extract (from the headers of FITS files)
-keys = ["DATE-OBS", "FILTER", "OBJECT"]  # actually it is case-insensitive
-
 summary = yfu.make_summary(
     "observation_2018-01-01/R*.fits",
-    keywords=keys,
+    keywords=["DATE-OBS", "FILTER", "OBJECT"],  # header keywords; actually it is case-insensitive
     fname_option='name',  # 'file' column will contain only the name of the file (not full path)
-    sort_by="DATE-OBS",  # 'file's will be sorted based on "DATE-OBS" value in the header
+    sort_by="DATE-OBS",  # 'file' column will be sorted based on "DATE-OBS" value in the header
     output="summary_2018-01-01.csv",
 )
 
 summary
 # shows results of the summary CSV file.
-
 ```
 
 A simple example to combine multiple images:
@@ -77,6 +73,6 @@ comb = yfu.group_combine(
     type_val=["calib", "DARK"],
     group_key=["FILTER", "EXPTIME"],
     fmt="dark_{:s}_{:.1f}sec.fits",  # output file name format
-    outdir="cal-dark"
+    outdir="cal-dark"  # output directory (will automatically be made if not exist)
 )
 ```
