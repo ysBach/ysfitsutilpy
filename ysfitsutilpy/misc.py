@@ -108,6 +108,7 @@ def get_size(obj, seen=None):
 # TODO: add `coord` to select whether image/physical. If physical, header is required.
 def slicefy(rule, ndim=2, order_xyz=True):
     """ Parse the rule by trimsec, bezels, or slices (in this priority).
+
     Parameters
     ----------
     rule : str, int, list of int, list of slice, None, optional

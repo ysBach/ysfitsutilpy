@@ -1264,7 +1264,7 @@ def imslice(ccd, trimsec, fill_value=None, order_xyz=True,
 
           * str: The FITS convention section to trim (e.g., IRAF TRIMSEC).
           * [list of] int: The number of pixels to trim from the edge of the
-            image (bezel)
+            image (bezel). If list, it must be [bezel_lower, bezel_upper].
           * [list of] slice: The slice of each axis (`slice(start, stop,
             step)`)
 
@@ -1290,7 +1290,7 @@ def imslice(ccd, trimsec, fill_value=None, order_xyz=True,
     _t = Time.now()
 
     # Parse
-    sl = slicefy(trimsec, ccd.ndim, order_xyz=order_xyz)
+    sl = slicefy(trimsec, ndim=ccd.ndim, order_xyz=order_xyz)
 
     if fill_value is None:
         nccd = ccd[sl].copy()  # CCDData supports this kind of slicing
