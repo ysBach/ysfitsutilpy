@@ -4,7 +4,7 @@ Objects that are
 (2) completely INDEPENDENT of all other modules of this package.
 '''
 import sys
-from collections import Iterable, abc
+from collections import abc
 
 import ccdproc
 import numpy as np
@@ -230,7 +230,7 @@ def is_list_like(*objs, allow_sets=True, func=all):
     # if `func` is `any`, below can be reorganized by for loop and can return
     # `True` once it reaches `True` for the first time.
     return func(
-        isinstance(obj, Iterable)
+        isinstance(obj, abc.Iterable)
         # we do not count strings/unicode/bytes as list-like
         and not isinstance(obj, (str, bytes))
         # exclude zero-dimensional numpy arrays, effectively scalars
