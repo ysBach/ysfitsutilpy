@@ -1213,7 +1213,7 @@ def binning(
     if trim_end:
         n_orig = binned.shape
         i_max = n_orig - (n_orig % factors)
-        slices = [slice(None, im, None) for im in i_max]
+        slices = tuple(slice(None, im, None) for im in i_max)
         binned = binned[slices]
 
     npix = binned.shape
