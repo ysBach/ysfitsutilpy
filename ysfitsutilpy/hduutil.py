@@ -62,7 +62,8 @@ __all__ = [
     # ! header accessor:
     "valinhdr", "get_from_header", "get_if_none",
     # ! WCS related:
-    "wcs_crota", "center_radec", "calc_offset_wcs", "calc_offset_physical",
+    "wcs_crota", "midtime_obs", "center_radec",
+    "calc_offset_wcs", "calc_offset_physical",
     "wcsremove", "fov_radius",
     # ! math:
     "give_stats"
@@ -2541,6 +2542,59 @@ def wcs_crota(wcs, degree=True):
         crota = np.rad2deg(crota)
 
     return crota
+
+
+def midtime_obs(
+        header=None,
+        dateobs="DATE-OBS",
+        format=None,
+        scale=None,
+        precision=None,
+        in_subfmt=None,
+        out_subfmt=None,
+        location=None,
+        exptime="EXPTIME",
+        exptime_unit=u.s
+):
+    """Calculates the mid-obs time (exposure start + exposure/2)
+
+    Parameters
+    ----------
+    header : astropy.Header, optional.
+        The header to extract the value. `midtime_obs` can be used without
+        header. But to do so, `dateobs` must be in `~astropy.time.Time` and
+        `exptime` must be given as float or `~astropy.units.Quantity`.
+
+    dateobs : str, `~astropy.Time`, optional.
+        The header keyword for DATE-OBS (start of exposure) or the
+        `~astropy.Time` object.
+
+    exptime : str, float, `~astropy.units.Quantity`, optional.
+        The header keyword for exposure time or the exposure time as float (in
+        seconds) or `~astropy.units.Quantity`.
+
+    """
+    if isinstance(dateobs, str):
+        try:
+            time_0 = Time(header[dateobs], format=format, scale=scale,
+                          precision=precision, in_subfmt=in_subfmt,
+                          out_subfmt=out_subfmt, location=location)
+        except (KeyError, IndexError):
+            raise KeyError(f"The key '{dateobs=}' not found in header.")
+    else:
+        time_0 = dateobs
+
+    if isinstance(exptime, str):
+        try:
+            exptime = header.get(exptime, default=0)*exptime_unit
+        except (KeyError, IndexError):
+            raise KeyError(f"The key '{exptime=}' not found in header.")
+    elif isinstance(exptime, (int, float)):
+        exptime = exptime*exptime_unit
+    elif not isinstance(exptime, u.Quantity):
+        raise TypeError(f"exptime type ({type(exptime)}) not understood.")
+
+    return time_0 + exptime/2
 
 
 def center_radec(
