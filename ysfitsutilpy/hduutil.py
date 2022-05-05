@@ -594,6 +594,10 @@ def load_ccd(
         Default : `True`.
         Used only if ``ccddata=True``.
 
+        ..warning::
+            Use ``ccd.wcs``, but not ``WCS(ccd.header)``. astropy often parses
+            WCS erroneously for some non-standard ones.
+
     unit : `~astropy.units.Unit`, optional
         Units of the image data. If this argument is provided and there is a
         unit for the image in the FITS header (the keyword ``BUNIT`` is used as
@@ -2540,7 +2544,7 @@ def wcs_crota(wcs, degree=True):
 
 
 def center_radec(
-        header,
+        ccd_or_header,
         center_of_image=True,
         ra_key="RA",
         dec_key="DEC",
@@ -2563,12 +2567,12 @@ def center_radec(
 
     Parameters
     ----------
-    header : Header
-        The header to extract the central RA/DEC from keywords or WCS.
+    ccd_or_header : CCD-like, Header
+        The ccd or header to extract the central RA/DEC from keywords or WCS.
 
     center_of_image : bool, optional
-        If `True`, WCS information will be extracted from the header, rather
-        than relying on the `ra_key` and `dec_key` keywords directly. If
+        If `True`, WCS information will be extracted from the ccd or header,
+        rather than relying on the `ra_key` and `dec_key` keywords directly. If
         `False`, `ra_key` and `dec_key` from the header will be understood as
         the "center" and the RA, DEC of that location will be returned.
 
@@ -2591,8 +2595,14 @@ def center_radec(
     plain : bool
         If `True`, only the values of RA/DEC in degrees will be returned.
     """
-    if center_of_image:
+    if isinstance(ccd_or_header, CCDData):
+        header = ccd_or_header.header
+        w = ccd_or_header.wcs
+    elif isinstance(ccd_or_header, fits.Header):
+        header = ccd_or_header
         w = WCS(header)
+
+    if center_of_image:
         nx, ny = float(header["NAXIS1"]), float(header["NAXIS2"])
         centx = nx / 2 - 0.5
         centy = ny / 2 - 0.5
