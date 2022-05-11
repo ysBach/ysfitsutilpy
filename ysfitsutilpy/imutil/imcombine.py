@@ -174,7 +174,7 @@ def group_combine(
             if outdir is not None or fmt is not None:
                 _group_save(combined[g_val], g_val, fmt=fmt, outdir=outdir)
         else:
-            combined[g_val] = imcombine(files, verbose=verbose >= 2, **kwargs)
+            combined[g_val] = imcombine(files, verbose=verbose >= 2, full=False, **kwargs)
             if outdir is not None or fmt is not None:
                 _group_save(combined[g_val], g_val, fmt=fmt, outdir=outdir)
 
@@ -322,6 +322,10 @@ def imcombine(
         _t1 = Time.now()
         print(_t1.iso)
         print("- Organizing", end='... ')
+
+    full = (full or output_mask is not None or output_nrej is not None or
+            output_err is not None or output_low is not None or output_upp is not None
+            or output_rejcode is not None)
 
     items = inputs2list(inputs, sort=True, accept_ccdlike=True, check_coherency=True)
     ncombine = len(items)
@@ -619,7 +623,7 @@ def imcombine(
     # == Combine with rejection! ========================================================= #
     _t = Time.now()
 
-    comb, err, mask_rej, mask_thresh, low, upp, nit, rejcode = ndcombine(
+    comb = ndcombine(
         arr=arr_full,
         mask=mask_full,
         copy=False,  # No need to retain arr_full.
@@ -645,12 +649,15 @@ def imcombine(
         snoise=sns,   # it is sns, not snoise , as it was updated above.
         pclip=pclip,
         irafmode=irafmode,
-        full=True,
+        full=full,
         return_variance=return_variance,
         verbose=verbose
     )
 
-    mask_total = mask_full | mask_thresh | mask_rej
+    if full:  # unpack the output
+        comb, err, mask_rej, mask_thresh, low, upp, nit, rejcode = comb
+        mask_total = mask_full | mask_thresh | mask_rej
+
 
     # == Update header properly ========================================================== #
     # Update WCS or PHYSICAL keywords so that "lock frame wcs", etc, on SAO
@@ -998,7 +1005,7 @@ def ndcombine(
                 rdnoise=rdnoise,
                 snoise=snoise,
                 irafmode=irafmode,
-                full=True
+                full=full
             )
         elif reject_fullname == 'pclip':
             pass
