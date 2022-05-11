@@ -11,15 +11,16 @@ from astropy.time import Time
 from astroscrappy import detect_cosmics
 from ccdproc import flat_correct, subtract_bias, subtract_dark
 
-from .hduutil import (CCDData_astype, _parse_image, cmt2hdr, errormap, fixpix,
+from .hduutil import (CCDData_astype, _parse_image, errormap, fixpix, imslice,
                       listify, load_ccd, propagate_ccdmask,
-                      set_ccd_gain_rdnoise, imslice, update_process,
-                      update_tlm, valinhdr)
-from .misc import (LACOSMIC_CRREJ, change_to_quantity, slicefy,
-                   parse_crrej_psf)
+                      set_ccd_gain_rdnoise, valinhdr)
+from .misc import (LACOSMIC_CRREJ, change_to_quantity, cmt2hdr,
+                   parse_crrej_psf, slicefy, update_process, update_tlm)
 
 __all__ = [
-    "crrej", "medfilt_bpm", "fringecor", "bdf_process", "run_reduc_plan"
+    "crrej", "medfilt_bpm",
+    "biascor", "darkcor", "flatcor", "frincor",
+    "bdf_process", "run_reduc_plan"
 ]
 
 
@@ -28,33 +29,17 @@ ASTROSCRAPPY_DIVFACTOR = detect_cosmics(np.ones((3, 3)), gain=1., niter=0)[1][0,
 # version 1.1.0.... Jeez...
 # https://github.com/astropy/astroscrappy/issues/73
 # %timeit detect_cosmics(np.ones((3, 3)), gain=1., niter=0)[1][0, 0] == 1.
-# ^ takes ~ 40 us VS ~ 1200 us on MBP 15" [2018, macOS 11.6 i7-8850H (2.6 GHz;
-#   6-core), RAM 16 GB (2400MHz DDR4), Radeon Pro 560X (4GB)] VS MBP 16" [2021,
-#   macOS 12.0.1, M1Pro, 8P+2E core, GPU 16-core, RAM 16GB]. I dunno why they
-#   differ so much... Does not change much w.r.t. gain, shape, etc. Maybe cuz
-#   I'm using Rosetta2 (Anaconda) on the latter? 2021-12-13 13:27:35
-#   (KST: GMT+09:00) ysBach
-
-def _load_master(path, master, ccddata=True, unit=None, calc_err=False):
-    if path is None and master is None:
-        return False, None, None
-
-    # else, at least one is given
-    do = True
-    if master is None:
-        master = load_ccd(path, unit=unit, ccddata=ccddata, use_wcs=False)
-
-    # Make master as CCDData if desired
-    master, imname, _ = _parse_image(master, prefer_ccddata=ccddata, force_ccddata=ccddata)
-
-    if not calc_err:
-        master.uncertainty = None
-
-    return do, master, imname
+# ^ takes ~ 40 us VS ~ 1800 us on MBP 15" [2018, macOS 11.6 i7-8850H (2.6 GHz;
+#   6-core), RAM 16 GB (2400MHz DDR4), Radeon Pro 560X (4GB)] VS MBP 14" [2021,
+#   macOS 12.2.1, M1 6c+2c, 32G, GPU 14c]. I dunno why they differ so much...
+#   Does not change much w.r.t. gain, shape, etc. Maybe cuz I'm using Rosetta2
+#   (Anaconda) on the latter?
+#   2021-12-13 13:27:35 (KST: GMT+09:00) ysBach
+#   2022-04-02 14:58:44 (KST: GMT+09:00) ysBach
 
 
 def _addfrm(ccd, name, path):
-    ccd.header[f"{name.upper()[:4]}FRM"] = (path, f"applied {name} frame")
+    ccd.header[f"{name.upper()[:4]}FRM"] = (path, f"Applied {name.upper()} frame")
 
 
 def crrej(
@@ -261,8 +246,6 @@ def crrej(
 
     Example
     -------
-    >>> yfu.ccdutil.set_ccd_gain_rdnoise(ccd)
-    >>> nccd, mask = crrej(ccd)
     """
     if fs is None:
         return ccd.copy(), None
@@ -700,37 +683,227 @@ def medfilt_bpm(
         return nccd
 
 
-def biascor(
+def scancor(
         ccd,
-        bias=None,
-        biaspath=None,
-        trimsec=None,
+        overscan=None,
+        scansec=None,
+        scanax=0,
+        fit_func="legendre",
+        fit_order=1,
+        fit_kw=dict(sigma=(3, 3), maxiters=1, grow=0),
 ):
-    do_bias, mbias, mbiaspath = _load_master(mbiaspath, mbias)
-    if do_bias:
-        PROCESS.append("B")
-        _addfrm(proc, "BIAS", mbiaspath)
+    """ Do overscan correction
 
+    Parameters
+    ----------
+    ccd : `~astropy.nddata.CCDData`
+        The CCDData to be corrected.
+
+    overscan : ndarray, optional.
+        The overscan region in ndarray, e.g., ``ccd.data[:, :overscan]``. One
+        and only one of `overscan` or `scansec` should be given.
+
+    scansec : str, optional.
+        The section of the overscan region to be used for correction, e.g.,
+        "[1:10, :]" in FITS section format. One and only one of `overscan` or
+        `scansec` should be given.
+
+    scanax : int, None, optional.
+        Axis along which overscan should combined with mean or median. Axis
+        numbering follows the *python* convention for ordering, so 0 is the
+        first axis and 1 is the second axis.
+
+        If overscan_axis is explicitly set to None, the axis is set to
+        the shortest dimension of the overscan section (or 1 in case
+        of a square overscan).
+        Default is ``1``.
+    """
+    pass
+
+
+def biascor(ccd, mbias=None, mbiaspath=None, copy=True, verbose=1):
+    """ Do bias correction (purpose: helper function of ccdred)
+
+    Parameters
+    ----------
+    ccd : `~astropy.nddata.CCDData`
+        The CCDData to be corrected.
+
+    mbias : `~astropy.nddata.CCDData`, ndarray
+        The master calibration (bias) frame.
+
+    mbiaspath : path-like
+        The path to the master calibration (bias) frame.
+
+    copy : bool, optional
+        Whether to return a copy of the data (True) or a reference to the
+        original data (False). Using `False` will be slightly faster (few ms
+        order) and memory efficient, but the original data may be modified
+        unintentionally.
+        Default is True.
+    """
+    if mbias is None and mbiaspath is None:
+        return ccd.copy() if copy else ccd
+
+    _t = Time.now()
+    nccd = ccd.copy() if copy else ccd
+    mbias, mbiasname, _ = _parse_image(mbias, name=mbiaspath)
+    # For BIAS, header information is not needed at all... I guess?
+    nccd.data -= mbias
+    _addfrm(nccd, "BIAS", mbiasname)
+    cmt2hdr(nccd.header, 'h', verbose=verbose >= 1, t_ref=_t,
+            s=f"[yfu.biascor] Bias subtracted (BIASFRM = {mbiasname})")
+    update_process(nccd.header, "B")
+    return nccd
 
 
 def darkcor(
         ccd,
-        mdark,
-
+        mdark=None,
+        mdarkpath=None,
+        exptime_key="EXPTIME",
+        exptime_data=None,
+        exptime_dark=None,
+        dark_scale=False,
+        copy=True,
+        verbose=1
 ):
-    pass
+    """ Do dark correction (purpose: helper function of ccdred)
+
+    Parameters
+    ----------
+    ccd : `~astropy.nddata.CCDData`
+        The CCDData to be corrected.
+
+    mdark : `~astropy.nddata.CCDData`, ndarray
+        The master calibration (dark) frame.
+
+    mdarkpath : path-like
+        The path to the master calibration (dark) frame.
+
+    exptime_key : str
+        The keyword of the exposure time in the header. Used only if
+        `dark_scale` is `True`.
+
+    exptime_data, exptime_dark : numeric, optional.
+        The exposure time of the data and the dark frame in the same unit. If
+        `None`, ``exptime = header.get(exptime_key, 1)`` is used for data and
+        dark, respectively. Otherwise, header information is ignored.
+        Ignored if `dark_scale` is `False`.
+        Default: `None`
+
+    dark_scale : bool, optional.
+        Whether to scale dark frame. If `True`, ``scale = exptime_data/exptime_dark`` is
+        multipled to dark frame.
+        Default: `False`
+
+    copy : bool, optional
+        Whether to return a copy of the data (True) or a reference to the
+        original data (False). Using `False` will be slightly faster (few ms
+        order) and memory efficient, but the original data may be modified
+        unintentionally.
+        Default is True.
+    """
+
+    if mdark is None and mdarkpath is None:
+        return ccd.copy() if copy else ccd
+
+    _t = Time.now()
+    nccd = ccd.copy() if copy else ccd
+    use_ccddata = (dark_scale and exptime_dark is None)
+    mdark, mdarkname, _ = _parse_image(mdark, name=mdarkpath, force_ccddata=use_ccddata)
+
+    if dark_scale:
+        exptime_data = exptime_data or ccd.header.get(exptime_key, 1)
+        exptime_dark = exptime_dark or mdark.header.get(exptime_key, 1)
+        scale = exptime_data / exptime_dark
+        mdark = mdark.data*scale if use_ccddata else mdark*scale
+        # ^ mdark is now ndarray regardless of use_ccddata
+        cmt2hdr(ccd.header, 'h', verbose=verbose >= 1,
+                s=("[yfu.darkcor] Dark scaled by exptime: (t_data/t_dark) = "
+                   + f"({exptime_data:.3f}/{exptime_dark:.3f}) = {scale:.3f}"))
+    nccd.data -= mdark
+    _addfrm(nccd, "DARK", mdarkname)
+    cmt2hdr(nccd.header, 'h', verbose=verbose >= 1, t_ref=_t,
+            s=f"[yfu.darkcor] Dark subtracted (DARKFRM = {mdarkname})")
+    update_process(nccd.header, "D")
+    return nccd
 
 
-def fringecor(
+def flatcor(
         ccd,
-        mfringe,
-        mfringepath=None,
-        fringe_scale=None,
-        fringe_scale_region=None,
-        fringe_scale_kw={},
-        exposure_key="EXPTIME",
-        data_exposure=None,
-        fringe_exposure=None,
+        mflat=None,
+        mflatpath=None,
+        flat_mask=0,
+        flat_fill=1,
+        copy=True,
+        verbose=1
+):
+    """ Do flat correction (purpose: helper function of ccdred)
+
+    Parameters
+    ----------
+    ccd : `~astropy.nddata.CCDData`
+        The CCDData to be corrected.
+
+    mflat : `~astropy.nddata.CCDData`, ndarray
+        The master calibration (flat) frame.
+
+    mflatpath : path-like
+        The path to the master calibration (dark) frame.
+
+    flat_mask : numeric, ndarray, None, optional.
+        Mask to replace bad flat pixels by ``mflat[flat_mask] = flat_fill``. If
+        numeric, ``mflat[mflat < flat_mask] = flat_fill``. Skipped if `None`.
+        Default: ``0``
+
+    flat_fill : numeric, optional.
+        The value to fill the masked pixels.
+
+    copy : bool, optional
+        Whether to return a copy of the data (True) or a reference to the
+        original data (False). Using `False` will be slightly faster (few ms
+        order) and memory efficient, but the original data may be modified
+        unintentionally.
+        Default is True.
+    """
+    if mflat is None and mflatpath is None:
+        return ccd.copy() if copy else ccd
+
+    _t = Time.now()
+    nccd = ccd.copy() if copy else ccd
+    mflat, mflatname, _ = _parse_image(mflat, name=mflatpath, ccddata=False)
+    # For FLAT, header information is not needed at all... I guess?
+    if flat_mask is not None:
+        if isinstance(flat_mask, np.ndarray):
+            maskstr = "Flat pixels with `value < flat_mask (User-provided ndarray)`"
+        else:
+            flat_mask = (mflat < flat_mask)
+            maskstr = f"Flat pixels with `value < {flat_mask = }`"
+        mflat[flat_mask] = flat_fill
+        cmt2hdr(nccd.header, 'h', verbose=verbose >= 1,
+                s=(f"[yfu.flatcor] {maskstr} are replaced by `{flat_fill = }`."))
+
+    nccd.data /= mflat
+    _addfrm(nccd, "FLAT", mflatname)
+    cmt2hdr(nccd.header, 'h', verbose=verbose >= 1, t_ref=_t,
+            s=f"[yfu.flatcor] Flat corrected (FLATFRM = {mflatname})")
+    update_process(nccd.header, "F")
+
+    return nccd
+
+
+def frincor(
+        ccd,
+        mfrin,
+        mfrinpath=None,
+        frin_scale=None,
+        frin_scale_region=None,
+        frin_scale_kw={},
+        exptime_key="EXPTIME",
+        exptime_data=None,
+        exptime_frin=None,
+        copy=True,
         verbose=1
 ):
     """ Subtract fringe frame
@@ -742,90 +915,298 @@ def fringecor(
     mfringe : CCDData
         The fringe frame.
 
-    fringe_scale : int, float, ndarry, function object, {"exp", "exposure", "exptime"}, optional.
+    frin_scale : int, float, ndarry, function object, {"exp", "exposure", "exptime"}, optional.
         The scale to be applied to the fringe frame. If numeric or ndarray, it
         will directly be multiplied to the fringe before fringe subtraction. If
         function object, it will be applied to the fringe before fringe
-        subtraction (using `fringe_scale_section`). If "exp", "exposure", or
+        subtraction (using `frin_scale_section`). If "exp", "exposure", or
         "exptime", the exposure time of the fringe frame will be used. (using
-        either `fringe_exposure` or `exposure_key`). If `None`, the fringe
+        either `frin_exposure` or `exptime_key`). If `None`, the fringe
         will be subtracted without modification.
         Default: `None`.
 
-    fringe_scale_region : ndarray(bool), str, optional.
+    frin_scale_region : ndarray(bool), str, [list of] int, [list of] slice, optional.
         The mask or FITS-convention section of the fringe and object (science)
         frames to match the fringe pattern before the subtraction. If ndarray,
         it will be forced to be changed into `bool` array. The scale will be
-        ``fringe_scale(object_frame[fringe_scale_region]) /
-        fringe_scale(fringe_frame[fringe_scale_region])``.
+        ``frin_scale(object_frame[frin_scale_region]) /
+        frin_scale(frin_frame[frin_scale_region])``.
         default: `None`.
 
-    fringe_scale_kw : dict, optional.
-        The kwargs that can be passed to `fringe_scale` if it is a function.
+    frin_scale_kw : dict, optional.
+        The kwargs that can be passed to `frin_scale` if it is a function.
 
-    exposure_key : str
-        The header keyword for exposure time. Used only if `fringe_scale` is in
+    exptime_key : str
+        The header keyword for exposure time. Used only if `frin_scale` is in
         ``{"exp", "exposure", "exptime"}``.
 
-    data_exposure, fringe_exposure, : None, numeric, astropy Quantity, optional.
+    exptime_data, exptime_frin, : None, numeric, optional.
+        The exposure time of the data and the fringe frame in the same unit. If
+        `None`, ``exptime = header.get(exptime_key, 1)`` is used for data and
+        fringe, respectively. Otherwise, header information is ignored.
+        Used only if when `frin_scale` is exposure time mode.
+        Default: `None`
+
         The exposure times of data and fringe frame, respectively. Any header
         information will be ignored (i.e., `xxx_exposure` has higher priority
-        than `xxx.header[exposure_key]`).
+        than `xxx.header[exptime_key]`).
+
+    copy : bool, optional
+        Whether to return a copy of the data (True) or a reference to the
+        original data (False). Using `False` will be slightly faster (few ms
+        order) and memory efficient, but the original data may be modified
+        unintentionally.
+        Default is True.
     """
-    str_fringe_noscale = "Fringe subtracted (see FRINFRM)"
-    str_fringe_scale = ("Finge subtracted with scaling (image - scale*fringe)"
-                        + "(see FRINFRM, FRINSECT, FRINFUNC and FRINSCAL)")
+    if mfrin is None and mfrinpath is None:
+        return ccd.copy() if copy else ccd
+
+    def _str(_ccd, frm, sec=None, fun=None, scal=None):
+        str1 = f"[yfu.ccdred.frincor] Fringe subtracted (FRINFRM = {frm})"
+        _ccd.header["FRINFRM"] = (frm, "Fringe frame")
+        if (nosec := sec is None) and (nofun := fun is None) and (noscal := scal is None):
+            return str1
+        str2 = "[yfu.ccdred.frincor] IMAGE - FRINSCAL*FRINFRM "
+        elems = []
+        if not noscal:  # scal is not None
+            _ccd.header["FRINSCAL"] = (scal, "Scale FRINFUNC(FRINFRM[FRINSECT])")
+            elems.append(f"`FRINSCAL = {scal}`")
+        if not nofun:
+            _ccd.header["FRINFUNC"] = (fun, "Function used to get FRINSCAL")
+            elems.append(f"`FRINFUNC = {fun}`")
+        if not nosec:
+            _ccd.header["FRINSECT"] = (sec, "The region used to get FRINSCAL")
+            elems.append(f"`FRINSECT = {sec}`")
+        return [str1, str2, ",".join(elems)]
 
     _t = Time.now()
+    nccd = ccd.copy() if copy else ccd
 
-    if fringe_scale is None:
-        scale = 1  # Not 1.0 so that (ccd in int) - (mfringe in int) remains int.
-        s = str_fringe_noscale
-        fun = "noscale"
-        sect = "all"
-    elif isinstance(fringe_scale, (int, float, np.ndarray)):
-        scale = fringe_scale
-        s = str_fringe_scale
-        fun = "noscale"
-        sect = "all"
-    elif isinstance(fringe_scale, str):
-        if fringe_scale.lower() in ["exp", "exposure", "exptime"]:
-            if data_exposure is None:
-                data_exposure = ccd.header.get(exposure_key)
-            if fringe_exposure is None:
-                fringe_exposure = mfringe.header.get(exposure_key)
-            scale = (float(data_exposure) / float(fringe_exposure))
-            s = str_fringe_scale
-            fun = "EXPTIME"
-            sect = "all"
+    mfrin, mfrinname, _ = _parse_image(mfrin, name=mfrinpath, ccddata=True)
+    #                                                                 ^^^^
+    # Converting an ndarray to CCDData (or vice versa) is very quick, so just
+    # force CCDData for the sake of simplicity.
+
+    if frin_scale is None:
+        nccd.data -= mfrin.data
+        infostr = _str(mfrinname)
+    elif isinstance(frin_scale, (int, float)):
+        nccd.data -= frin_scale*mfrin.data
+        infostr = _str(mfrinname, fun=type(frin_scale).__name__, scal=frin_scale)
+    elif isinstance(frin_scale, np.ndarray):
+        nccd.data -= frin_scale*mfrin.data
+        infostr = _str(mfrinname, fun=f"{type(frin_scale).__name__}")
+    elif isinstance(frin_scale, str):
+        if frin_scale.lower() in ["exp", "exposure", "exptime"]:
+            exptime_data = exptime_data or nccd.header.get(exptime_key, 1)
+            exptime_frin = exptime_frin or mfrin.header.get(exptime_key, 1)
+            scale = exptime_data / exptime_frin
+            nccd.data -= scale*mfrin.data
+            infostr = _str(mfrinname, fun="EXPTIME", scal=scale)
         else:
-            raise ValueError(
-                "If `fringe_scale` is str, it must be {'exp', 'exposure', 'exptime'}."
-                + f". Now {fringe_scale=}"
-            )
+            raise ValueError(f'`{frin_scale=}` not in {{"exp", "exposure", "exptime"}}.')
     else:  # Function
-        if isinstance(fringe_scale_region, str):
-            reg = slicefy(fringe_scale_region)
-            sect = fringe_scale_region
-        elif isinstance(fringe_scale_region, np.ndarray):
-            reg = fringe_scale_region.astype(bool)
-            sect = "User-input mask"
+        if isinstance(frin_scale_region, str):
+            reg = slicefy(frin_scale_region)
+            sec = frin_scale_region
+        elif isinstance(frin_scale_region, np.ndarray):
+            reg = frin_scale_region.astype(bool)
+            sec = "User-provided mask"
         else:
             reg = None  # All
-            sect = "all"
-        scale = fringe_scale(ccd.data[reg]/mfringe.data[reg], **fringe_scale_kw)
-        s = str_fringe_scale
-        fun = fringe_scale.__name__
+            sec = None
+        scale = frin_scale(ccd.data[reg]/mfrin.data[reg], **frin_scale_kw)
+        nccd.data -= scale*mfrin.data
+        infostr = _str(mfrinname, fun=f"{frin_scale.__name__} with {frin_scale_kw}",
+                       sec=sec, scal=scale)
 
-    mfringe.data *= scale
-    ccd.data = ccd.subtract(mfringe).data  # should I calc. error..?
+    # FRINSCAL=FRINFUNC(FRINFRM[FRINSECT])
+    _addfrm(nccd, "FRIN", mfrinname)
+    cmt2hdr(ccd.header, 'h', verbose=verbose, t_ref=_t, s=infostr)
+    update_process(nccd.header, "R")
 
-    ccd.header["FRINSECT"] = (sect, "The region used for FRINFUNC")
-    ccd.header["FRINFUNC"] = (fun, "Function used to get FRINSCAL")
-    ccd.header["FRINSCAL"] = (scale, "Scale multiplied to fringe")
-    _addfrm(ccd, "FRINGE", mfringepath)
-    cmt2hdr(ccd.header, 'h', s, verbose=verbose, t_ref=_t)
-    return ccd
+    return nccd
+
+
+def illumcor(ccd, ):
+    pass
+
+
+# TODO: add overscan
+def ccdred(
+        ccd,
+        output=None,
+        extension=None,
+        mbiaspath=None,
+        mdarkpath=None,
+        mflatpath=None,
+        mfrinpath=None,
+        mbias=None,
+        mdark=None,
+        mflat=None,
+        mfrin=None,
+        fringe_flat_fielded=True,
+        fringe_scale=None,
+        fringe_scale_region=None,
+        fringe_scale_kw={},
+        trimsec=None,
+        gain=1,
+        gain_key="GAIN",
+        gain_unit=u.electron/u.adu,
+        rdnoise=0,
+        rdnoise_key="RDNOISE",
+        rdnoise_unit=u.electron,
+        exptime_key="EXPTIME",
+        exptime_frin=None,
+        exptime_dark=None,
+        exptime_data=None,
+        dark_scale=False,
+        flat_mask=0,
+        flat_fill=1,
+        do_crrej=False,
+        crrej_kwargs=LACOSMIC_CRREJ,
+        propagate_crmask=False,
+        verbose_crrej=False,
+        verbose_bdf=1,
+        output_verify='fix',
+        overwrite=True,
+        dtype="float32",
+):
+    # This reduction process will ignore `uncertainty` attribute of all
+    # input/master calibration frames. This is because (1) speed matters more
+    # than such an error calculation for cases when this simple generalized
+    # function is used (2) such uncertainties are anyway not accurate in most
+    # cases.
+    def _load_master(path, master):
+        if path is None and master is None:
+            return False, None, None
+
+        # else, at least one is given
+        do = True
+        master, imname, _ = _parse_image(master, force_ccddata=True)
+        return do, master, imname
+
+    # ************************************************************************************ #
+    # *                                  INITIAL SETTING                                 * #
+    # ************************************************************************************ #
+    ccd, _, _ = _parse_image(ccd, extension=extension, force_ccddata=True)
+    proc = ccd.copy()
+
+    # == Set for BIAS ==================================================================== #
+    do_b, mbias, mbiaspath = _load_master(mbiaspath, mbias)  # mbias in ndarray
+    do_d, mdark, mdarkpath = _load_master(mdarkpath, mdark)  # mdark in ndarray
+    do_f, mflat, mflatpath = _load_master(mflatpath, mflat)  # mflat in ndarray
+    do_r, mfrin, mfrinpath = _load_master(mfrinpath, mfrin)  # mfrin in ndarray
+
+    # ************************************************************************************ #
+    # *                                 RUN PREPROCESSING                                * #
+    # ************************************************************************************ #
+    # == Do TRIM ========================================================================= #
+    if trimsec is not None:
+        sect = dict(trimsec=trimsec, fill_value=None, update_header=False)
+        proc = imslice(proc, trimsec=trimsec, fill_value=None)  # update header
+        mbias = imslice(mbias, **sect) if do_b else None
+        mdark = imslice(mdark, **sect) if do_d else None
+        mflat = imslice(mflat, **sect) if do_f else None
+        mfrin = imslice(mfrin, **sect) if do_r else None
+
+    prockw = dict(copy=False, verbose=verbose_bdf)
+    # == Do BIAS ========================================================================= #
+    if do_b:
+        proc = biascor(proc, mbias=mbias, mbiaspath=mbiaspath, **prockw)
+
+    # == Do DARK ========================================================================= #
+    if do_d:
+        proc = darkcor(
+            proc,
+            mdark=mdark,
+            mdarkpath=mdarkpath,
+            exptime_key=exptime_key,
+            exptime_data=exptime_data,
+            exptime_dark=exptime_dark,
+            dark_scale=dark_scale,
+            **prockw
+        )
+
+    # == Do FRINGE **before** flat if not `fringe_flat_fielded` ========================== #
+    if do_r and not fringe_flat_fielded:
+        proc = frincor(
+            proc,
+            mfrin,
+            mfrinpath=mfrinpath,
+            fringe_scale=fringe_scale,
+            fringe_scale_region=fringe_scale_region,
+            fringe_scale_kw=fringe_scale_kw,
+            exptime_key=exptime_key,
+            exptime_data=exptime_data,
+            exptime_frin=exptime_frin,
+            **prockw
+        )
+
+    # == Do FLAT ========================================================================= #
+    if do_f:
+        proc = flatcor(
+            proc,
+            mflat=mflat,
+            mflatpath=mflatpath,
+            flat_mask=flat_mask,
+            flat_fill=flat_fill,
+            **prockw
+        )
+
+    # == Do FRINGE **after** flat if `fringe_flat_fielded` =============================== #
+    if do_r and fringe_flat_fielded:
+        proc = frincor(
+            proc,
+            mfrin,
+            mfrinpath=mfrinpath,
+            fringe_scale=fringe_scale,
+            fringe_scale_region=fringe_scale_region,
+            fringe_scale_kw=fringe_scale_kw,
+            exptime_key=exptime_key,
+            exptime_data=exptime_data,
+            exptime_frin=exptime_frin,
+            **prockw
+        )
+
+    # == Do CRREJ ======================================================================== #
+    if do_crrej:
+        if crrej_kwargs is None:
+            crrej_kwargs = {}
+            warn("Using defailt CR-rejection paramters.")
+
+        _proc = proc.header["PROCESS"]
+        if (("B" in _proc) + ("D" in _proc) + ("F" in _proc)) < 2:
+            warn(
+                "L.A. Cosmic should be run AFTER bias, dark, flat process. "
+                + f"You have only done {proc.header['PROCESS']}. "
+                + "See http://www.astro.yale.edu/dokkum/lacosmic/notes.html"
+            )
+
+        proc, _ = crrej(
+            proc,
+            propagate_crmask=propagate_crmask,
+            update_header=True,
+            gain=valinhdr(gain, proc.header, gain_key, 1, unit=gain_unit),
+            rdnoise=valinhdr(rdnoise, proc.header, rdnoise_key, 0, unit=rdnoise_unit),
+            verbose=verbose_crrej,
+            **crrej_kwargs
+        )
+
+    # ************************************************************************************ #
+    # *                                  PREPARE OUTPUT                                  * #
+    # ************************************************************************************ #
+    # To avoid ``pssl`` in cr rejection, subtract fringe AFTER the CRREJ.
+    proc = CCDData_astype(proc, dtype=dtype)
+    update_tlm(proc.header)
+
+    if output is not None:
+        if verbose_bdf:
+            print(f"Writing FITS to {output}... ", end='')
+        proc.write(output, output_verify=output_verify, overwrite=overwrite)
+        if verbose_bdf:
+            print("Saved.")
+    return proc
 
 
 # NOTE: crrej should be done AFTER bias/dark and flat correction:
@@ -896,7 +1277,7 @@ def bdf_process(
         is given, the files provided by `mbiaspath`, `mdarkpath`, `mflatpath`
         and/or `mfringe` are **not** loaded, but these paths will be used for
         header (``BIASFRM``, ``DARKFRM``, ``FLATFRM`` and/or ``FRINFRM``). If
-        the paths are not given, the header values will be ``<User>``.
+        the paths are not given, ``xxxxFRM`` will be ``<User>``.
 
     fringe_scale : int, float, ndarry, function object, {"exp", "exposure", "exptime"}, optional.
         The scale to be applied to the fringe frame. If numeric or ndarray, it
@@ -1027,6 +1408,26 @@ def bdf_process(
         description. If `None` it uses ``np.float64``.
         Default is `None`.
     """
+    def _load_master(path, master, simple=True, unit=None, calc_err=False):
+        if path is None and master is None:
+            return False, None, None
+
+        # else, at least one is given
+        do = True
+        if master is None:
+            master = load_ccd(path, unit=unit, ccddata=True, use_wcs=False)
+
+        # Make master as CCDData if desired
+        master, imname, _ = _parse_image(master, force_ccddata=True)
+
+        if not calc_err:
+            master.uncertainty = None
+
+        return do, master, imname
+
+    def _addfrm(ccd, name, path):
+        ccd.header[f"{name.upper()[:4]}FRM"] = (path, f"applied {name} frame")
+
     # Set strings for header history & print (if verbose)
     str_bias = "Bias subtracted (see BIASFRM)"
     str_dark = "Dark subtracted (see DARKFRM)"
@@ -1135,9 +1536,11 @@ def bdf_process(
     if do_dark:
         _t = Time.now()
         if dark_scale:
-            data_exposure = valinhdr(data_exposure, proc.header, exposure_key)
-            dark_exposure = valinhdr(dark_exposure, mdark.header, exposure_key)
-
+            kw = dict(default=1, key=exposure_key, unit=exposure_unit)
+            data_exposure = valinhdr(data_exposure, proc.header, **kw)
+            dark_exposure = valinhdr(dark_exposure, mdark.header, **kw)
+        if dark_exposure is not None and data_exposure is not None:
+            exposure_key = None  # ccdproc strangely gives error if exposure_key is given.
         proc = subtract_dark(proc,
                              mdark,
                              dark_exposure=dark_exposure,
@@ -1163,15 +1566,15 @@ def bdf_process(
 
     # == Do FRINGE **before** flat if not `fringe_flat_fielded` ========================== #
     if do_fringe and not fringe_flat_fielded:
-        proc = fringecor(proc,
-                         mfringe,
-                         fringe_scale=fringe_scale,
-                         fringe_scale_region=fringe_scale_region,
-                         fringe_scale_kw=fringe_scale_kw,
-                         exposure_key=exposure_key,
-                         data_exposure=data_exposure,
-                         fringe_exposure=fringe_exposure,
-                         verbose=verbose_bdf)
+        proc = frincor(proc,
+                       mfringe,
+                       fringe_scale=fringe_scale,
+                       fringe_scale_region=fringe_scale_region,
+                       fringe_scale_kw=fringe_scale_kw,
+                       exptime_key=exposure_key,
+                       exptime_data=data_exposure,
+                       exptime_frin=fringe_exposure,
+                       verbose=verbose_bdf)
 
     # == Do FLAT ========================================================================= #
     if do_flat:
@@ -1190,15 +1593,15 @@ def bdf_process(
 
     # == Do FRINGE **after** flat if `fringe_flat_fielded` =============================== #
     if do_fringe and fringe_flat_fielded:
-        proc = fringecor(proc,
-                         mfringe,
-                         fringe_scale=fringe_scale,
-                         fringe_scale_region=fringe_scale_region,
-                         fringe_scale_kw=fringe_scale_kw,
-                         exposure_key=exposure_key,
-                         data_exposure=data_exposure,
-                         fringe_exposure=fringe_exposure,
-                         verbose=verbose_bdf)
+        proc = frincor(proc,
+                       mfringe,
+                       fringe_scale=fringe_scale,
+                       fringe_scale_region=fringe_scale_region,
+                       fringe_scale_kw=fringe_scale_kw,
+                       exptime_key=exposure_key,
+                       exptime_data=data_exposure,
+                       exptime_frin=fringe_exposure,
+                       verbose=verbose_bdf)
 
     # == Normalization =================================================================== #
     if normalize_exposure:
