@@ -23,7 +23,7 @@ setup(
     name="ysfitsutilpy",
     version="0.2.dev",
     author="Yoonsoo P. Bach",
-    author_email="dbstn95@gmail.com",
+    author_email="ysbach93@gmail.com",
     description="",
     license="BSD 3-clause",
     keywords="",
