@@ -196,7 +196,7 @@ def bezel2slice(bezels, order_xyz=True):
     """
     bezels = np.atleast_2d(bezels)
     bezels = bezels[::-1] if order_xyz else bezels
-    return tuple([slice(b[0], -b[1]) for b in bezels])
+    return tuple([slice(b[0], None if b[1] == 0 else -b[1]) for b in bezels])
 
 
 def is_list_like(*objs, allow_sets=True, func=all):
