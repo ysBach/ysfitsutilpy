@@ -772,17 +772,13 @@ def load_ccd(
             except ValueError:  # e.g., user did not give unit and there's no BUNIT
                 ccd = CCDData.read(path, unit=u.adu, **reader_kw)
 
-            if trimsec is None:
-                if full:  # Just for API consistency
-                    return ccd, ccd.uncertainty, ccd.mask, ccd.flags
-                return ccd
-            else:
+            if trimsec is not None:
                 # Do imslice AFTER loading the data to easily add LTV/LTM...
-                if full:  # Just for API consistency
-                    raise NotImplementedError(
-                        "`trimsec` with `full=True` is not implemented yet."
-                    )
-                return imslice(ccd, trimsec)
+                ccd = imslice(trimsec)
+
+            if full:  # Just for API consistency
+                return ccd, ccd.uncertainty, ccd.mask, ccd.flags
+            return ccd
 
         else:
             # Use fitsio and only load the data as soon as possible.
@@ -796,9 +792,9 @@ def load_ccd(
                         sl = slicefy(_trimsec)
                         if is_list_like(_ext):
                             # length == 2 is already checked in _parse_extension.
-                            arr = _hdul[_ext[0], _ext[1]][sl]
+                            arr = _hdul[_ext[0], _ext[1]].read()[sl]
                         else:
-                            arr = _hdul[_ext][sl]
+                            arr = _hdul[_ext].read()[sl]
                     else:
                         if is_list_like(_ext):
                             # length == 2 is already checked in _parse_extension.
@@ -806,7 +802,8 @@ def load_ccd(
                         else:
                             arr = _hdul[_ext].read()
                     return arr
-                except (OSError, ValueError):
+                except (OSError, ValueError) as e:
+                    print(e)
                     # "Extension `{_ext}` is not found (file: {_path})")
                     return None
 
