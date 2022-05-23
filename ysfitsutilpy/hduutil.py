@@ -772,12 +772,16 @@ def load_ccd(
             except ValueError:  # e.g., user did not give unit and there's no BUNIT
                 ccd = CCDData.read(path, unit=u.adu, **reader_kw)
 
-            if full:  # Just for API consistency
-                return ccd, ccd.uncertainty, ccd.mask, ccd.flags
-            elif trimsec is None:
+            if trimsec is None:
+                if full:  # Just for API consistency
+                    return ccd, ccd.uncertainty, ccd.mask, ccd.flags
                 return ccd
             else:
                 # Do imslice AFTER loading the data to easily add LTV/LTM...
+                if full:  # Just for API consistency
+                    raise NotImplementedError(
+                        "`trimsec` with `full=True` is not implemented yet."
+                    )
                 return imslice(ccd, trimsec)
 
         else:
@@ -1264,6 +1268,10 @@ def imslice(ccd, trimsec, fill_value=None, order_xyz=True,
 
     Paramters
     ---------
+    ccd : CCDData, ndarray
+        The ccd to be sliced. If ndarray, it will be converted to CCDData with
+        dummy unit ("ADU").
+
     trimsec : str, int, list of int, list of slice, None, optional
         It can have several forms::
 
@@ -1296,6 +1304,9 @@ def imslice(ccd, trimsec, fill_value=None, order_xyz=True,
 
     # Parse
     sl = slicefy(trimsec, ndim=ccd.ndim, order_xyz=order_xyz)
+
+    if isinstance(ccd, np.ndarray):
+        ccd = CCDData(ccd, unit=u.adu)
 
     if fill_value is None:
         nccd = ccd[sl].copy()  # CCDData supports this kind of slicing
