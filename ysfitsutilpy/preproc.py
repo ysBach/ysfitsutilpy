@@ -897,9 +897,9 @@ def frincor(
         ccd,
         mfrin,
         mfrinpath=None,
-        frin_scale=None,
-        frin_scale_region=None,
-        frin_scale_kw={},
+        fringe_scale=None,
+        fringe_scale_region=None,
+        fringe_scale_kw={},
         exptime_key="EXPTIME",
         exptime_data=None,
         exptime_frin=None,
@@ -915,36 +915,36 @@ def frincor(
     mfringe : CCDData
         The fringe frame.
 
-    frin_scale : int, float, ndarry, function object, {"exp", "exposure", "exptime"}, optional.
+    fringe_scale : int, float, ndarry, function object, {"exp", "exposure", "exptime"}, optional.
         The scale to be applied to the fringe frame. If numeric or ndarray, it
         will directly be multiplied to the fringe before fringe subtraction. If
         function object, it will be applied to the fringe before fringe
-        subtraction (using `frin_scale_section`). If "exp", "exposure", or
+        subtraction (using `fringe_scale_section`). If "exp", "exposure", or
         "exptime", the exposure time of the fringe frame will be used. (using
         either `frin_exposure` or `exptime_key`). If `None`, the fringe
         will be subtracted without modification.
         Default: `None`.
 
-    frin_scale_region : ndarray(bool), str, [list of] int, [list of] slice, optional.
+    fringe_scale_region : ndarray(bool), str, [list of] int, [list of] slice, optional.
         The mask or FITS-convention section of the fringe and object (science)
         frames to match the fringe pattern before the subtraction. If ndarray,
         it will be forced to be changed into `bool` array. The scale will be
-        ``frin_scale(object_frame[frin_scale_region]) /
-        frin_scale(frin_frame[frin_scale_region])``.
+        ``fringe_scale(object_frame[fringe_scale_region]) /
+        fringe_scale(frin_frame[fringe_scale_region])``.
         default: `None`.
 
-    frin_scale_kw : dict, optional.
-        The kwargs that can be passed to `frin_scale` if it is a function.
+    fringe_scale_kw : dict, optional.
+        The kwargs that can be passed to `fringe_scale` if it is a function.
 
     exptime_key : str
-        The header keyword for exposure time. Used only if `frin_scale` is in
+        The header keyword for exposure time. Used only if `fringe_scale` is in
         ``{"exp", "exposure", "exptime"}``.
 
     exptime_data, exptime_frin, : None, numeric, optional.
         The exposure time of the data and the fringe frame in the same unit. If
         `None`, ``exptime = header.get(exptime_key, 1)`` is used for data and
         fringe, respectively. Otherwise, header information is ignored.
-        Used only if when `frin_scale` is exposure time mode.
+        Used only if when `fringe_scale` is exposure time mode.
         Default: `None`
 
         The exposure times of data and fringe frame, respectively. Any header
@@ -987,37 +987,37 @@ def frincor(
     # Converting an ndarray to CCDData (or vice versa) is very quick, so just
     # force CCDData for the sake of simplicity.
 
-    if frin_scale is None:
+    if fringe_scale is None:
         nccd.data -= mfrin.data
         infostr = _str(mfrinname)
-    elif isinstance(frin_scale, (int, float)):
-        nccd.data -= frin_scale*mfrin.data
-        infostr = _str(mfrinname, fun=type(frin_scale).__name__, scal=frin_scale)
-    elif isinstance(frin_scale, np.ndarray):
-        nccd.data -= frin_scale*mfrin.data
-        infostr = _str(mfrinname, fun=f"{type(frin_scale).__name__}")
-    elif isinstance(frin_scale, str):
-        if frin_scale.lower() in ["exp", "exposure", "exptime"]:
+    elif isinstance(fringe_scale, (int, float)):
+        nccd.data -= fringe_scale*mfrin.data
+        infostr = _str(mfrinname, fun=type(fringe_scale).__name__, scal=fringe_scale)
+    elif isinstance(fringe_scale, np.ndarray):
+        nccd.data -= fringe_scale*mfrin.data
+        infostr = _str(mfrinname, fun=f"{type(fringe_scale).__name__}")
+    elif isinstance(fringe_scale, str):
+        if fringe_scale.lower() in ["exp", "exposure", "exptime"]:
             exptime_data = exptime_data or nccd.header.get(exptime_key, 1)
             exptime_frin = exptime_frin or mfrin.header.get(exptime_key, 1)
             scale = exptime_data / exptime_frin
             nccd.data -= scale*mfrin.data
             infostr = _str(mfrinname, fun="EXPTIME", scal=scale)
         else:
-            raise ValueError(f'`{frin_scale=}` not in {{"exp", "exposure", "exptime"}}.')
+            raise ValueError(f'`{fringe_scale=}` not in {{"exp", "exposure", "exptime"}}.')
     else:  # Function
-        if isinstance(frin_scale_region, str):
-            reg = slicefy(frin_scale_region)
-            sec = frin_scale_region
-        elif isinstance(frin_scale_region, np.ndarray):
-            reg = frin_scale_region.astype(bool)
+        if isinstance(fringe_scale_region, str):
+            reg = slicefy(fringe_scale_region)
+            sec = fringe_scale_region
+        elif isinstance(fringe_scale_region, np.ndarray):
+            reg = fringe_scale_region.astype(bool)
             sec = "User-provided mask"
         else:
             reg = None  # All
             sec = None
-        scale = frin_scale(ccd.data[reg]/mfrin.data[reg], **frin_scale_kw)
+        scale = fringe_scale(ccd.data[reg]/mfrin.data[reg], **fringe_scale_kw)
         nccd.data -= scale*mfrin.data
-        infostr = _str(mfrinname, fun=f"{frin_scale.__name__} with {frin_scale_kw}",
+        infostr = _str(mfrinname, fun=f"{fringe_scale.__name__} with {fringe_scale_kw}",
                        sec=sec, scal=scale)
 
     # FRINSCAL=FRINFUNC(FRINFRM[FRINSECT])
