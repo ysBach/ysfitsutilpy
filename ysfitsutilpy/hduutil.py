@@ -3041,12 +3041,12 @@ def convert_bit(fname, original_bit=12, target_bit=16):
 # TODO: add sigma-clipped statistics option (hdr key can be using "SIGC", e.g., SIGCAVG.)
 def give_stats(
         item,
+        mask=None,
         extension=None,
         statsecs=None,
         percentiles=[1, 99],
         N_extrema=None,
         return_header=False,
-        nanfunc=False,
 ):
     """ Calculates simple statistics.
 
@@ -3055,14 +3055,21 @@ def give_stats(
     item: array-like, CCDData, HDUList, PrimaryHDU, ImageHDU, or path-like
         The data or path to a FITS file to be analyzed.
 
+    mask : array-like, optional
+        The mask to be used. If given, it must have the same size as `item`
+        **before** applying `statsecs`.
+
     extension: int, str, (str, int)
         The extension of FITS to be used. It can be given as integer
         (0-indexing) of the extension, ``EXTNAME`` (single str), or a tuple of
         str and int: ``(EXTNAME, EXTVER)``. If `None` (default), the *first
         extension with data* will be used.
 
-    statsecs : str, list of str, optional.
-        The FITS-convention section to calculate the statistics.
+    statsecs : str, slice, int, list of such, optional.
+        The section information to calculate the statistics. It can be given
+        as a string (FITS-convention section, e.g., "[1:100,2:200]"), a slice
+        object (e.g., slice(1,100,2)), or as a bezel (e.g., 10 or (5, 10),
+        etc.). See `~ysfitsutilpy.slicefy` for more details.
 
     percentiles: list-like, optional
         The percentiles to be calculated.
@@ -3076,12 +3083,6 @@ def give_stats(
         Works only if you gave `item` as FITS file path or
         `~astropy.nddata.CCDData`. The statistics information will be added to
         the header and the updated header will be returned.
-
-    nanfunc : bool, optional.
-        Whether to use nan-related functions (e.g., ``np.nanmedian``). If any
-        pixel has non-finite value (such as ``np.nan`` or ``np.inf``),
-        `nanfunc` must be `True` to get proper statistics at a cost of
-        computational speed.
 
     Returns
     -------
@@ -3116,26 +3117,22 @@ def give_stats(
     # >>> percentiles = json.loads(ccd.header['percentiles'])
     """
     data, hdr = _parse_data_header(item, extension=extension)
+    if mask is not None:
+        data[mask] = np.nan
+
     if statsecs is not None:
         statsecs = [statsecs] if isinstance(statsecs, str) else list(statsecs)
         data = np.array([data[slicefy(sec)] for sec in statsecs])
 
     data = data.ravel()
+    data = data[np.isfinite(data)]
 
-    if nanfunc:
-        minf = bn.nanmin
-        maxf = bn.nanmax
-        avgf = bn.nanmean
-        medf = bn.nanmedian
-        stdf = bn.nanstd
-        pctf = np.nanpercentile  # no bn function
-    else:
-        minf = np.min
-        maxf = np.max
-        avgf = np.mean
-        medf = bn.median  # Still median from bn seems faster!
-        stdf = np.std
-        pctf = np.percentile
+    minf = np.min
+    maxf = np.max
+    avgf = np.mean
+    medf = bn.median  # Still median from bn seems faster!
+    stdf = np.std
+    pctf = np.percentile
 
     result = dict(
         num=np.size(data),
@@ -3144,7 +3141,7 @@ def give_stats(
         avg=avgf(data),
         med=medf(data),
         std=stdf(data, ddof=1),
-        madstd=mad_std(data, ignore_nan=not nanfunc),
+        madstd=mad_std(data),
         percentiles=percentiles,
         pct=pctf(data, percentiles),
         slices=statsecs,
