@@ -1710,7 +1710,6 @@ def fixpix(
         # The coordinates of the pixels having the identical label to this
         # pixel position, along the shortest axis
         coord_samelabel = pixels[interp_ax][label_pos[interp_ax]]
-        isinvalid = []
         coord_slice = []
         coord_init = []
         coord_last = []
@@ -1731,6 +1730,7 @@ def fixpix(
                 # Check if lower/upper are all outside the image
                 if init < 0 and last >= naxis[i]:
                     invalid = True
+                    break
                 elif init < 0:  # if only one of lower/upper is outside the image
                     init = last
                 elif last >= naxis[i]:
@@ -1744,11 +1744,11 @@ def fixpix(
             coord_init.append(init)
             coord_last.append(last)
             coord_slice.append(sl)
-            isinvalid.append(invalid)
 
-        val_init = data.item(tuple(coord_init))
-        val_last = data.item(tuple(coord_last))
-        data[tuple(coord_slice)].flat = (val_last - val_init)/delta*grid + val_init
+        if not invalid:
+            val_init = data.item(tuple(coord_init))
+            val_last = data.item(tuple(coord_last))
+            data[tuple(coord_slice)].flat = (val_last - val_init)/delta*grid + val_init
 
     if update_header:
         nfix = np.count_nonzero(mask)
