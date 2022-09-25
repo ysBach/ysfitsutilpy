@@ -20,7 +20,7 @@ from .misc import (LACOSMIC_CRREJ, change_to_quantity, cmt2hdr,
 __all__ = [
     "crrej", "medfilt_bpm",
     "biascor", "darkcor", "flatcor", "frincor",
-    "bdf_process", "run_reduc_plan"
+    "ccdred", "bdf_process", "run_reduc_plan"
 ]
 
 
@@ -749,7 +749,7 @@ def biascor(ccd, mbias=None, mbiaspath=None, copy=True, verbose=1):
     nccd = ccd.copy() if copy else ccd
     mbias, mbiasname, _ = _parse_image(mbias, name=mbiaspath)
     # For BIAS, header information is not needed at all... I guess?
-    nccd.data -= mbias
+    nccd.data = nccd.data - mbias
     _addfrm(nccd, "BIAS", mbiasname)
     cmt2hdr(nccd.header, 'h', verbose=verbose >= 1, t_ref=_t,
             s=f"[yfu.biascor] Bias subtracted (BIASFRM = {mbiasname})")
@@ -814,15 +814,19 @@ def darkcor(
     mdark, mdarkname, _ = _parse_image(mdark, name=mdarkpath, force_ccddata=use_ccddata)
 
     if dark_scale:
-        exptime_data = exptime_data or ccd.header.get(exptime_key, 1)
-        exptime_dark = exptime_dark or mdark.header.get(exptime_key, 1)
-        scale = exptime_data / exptime_dark
+        exptime_data = exptime_data or ccd.header.get(exptime_key, None)
+        exptime_dark = exptime_dark or mdark.header.get(exptime_key, None)
+        if exptime_data is None or exptime_dark is None:
+            warn(f"exptime_data={exptime_data}, exptime_dark={exptime_dark}. Fix scale=1.")
+            scale = 1
+        else:
+            scale = exptime_data / exptime_dark
         mdark = mdark.data*scale if use_ccddata else mdark*scale
         # ^ mdark is now ndarray regardless of use_ccddata
         cmt2hdr(ccd.header, 'h', verbose=verbose >= 1,
                 s=("[yfu.darkcor] Dark scaled by exptime: (t_data/t_dark) = "
                    + f"({exptime_data:.3f}/{exptime_dark:.3f}) = {scale:.3f}"))
-    nccd.data -= mdark
+    nccd.data = nccd.data - mdark
     _addfrm(nccd, "DARK", mdarkname)
     cmt2hdr(nccd.header, 'h', verbose=verbose >= 1, t_ref=_t,
             s=f"[yfu.darkcor] Dark subtracted (DARKFRM = {mdarkname})")
@@ -872,19 +876,19 @@ def flatcor(
 
     _t = Time.now()
     nccd = ccd.copy() if copy else ccd
-    mflat, mflatname, _ = _parse_image(mflat, name=mflatpath, ccddata=False)
+    mflat, mflatname, _ = _parse_image(mflat, name=mflatpath, force_ccddata=False)
     # For FLAT, header information is not needed at all... I guess?
     if flat_mask is not None:
         if isinstance(flat_mask, np.ndarray):
             maskstr = "Flat pixels with `value < flat_mask (User-provided ndarray)`"
         else:
-            flat_mask = (mflat < flat_mask)
             maskstr = f"Flat pixels with `value < {flat_mask = }`"
+            flat_mask = (mflat < flat_mask)
         mflat[flat_mask] = flat_fill
         cmt2hdr(nccd.header, 'h', verbose=verbose >= 1,
                 s=(f"[yfu.flatcor] {maskstr} are replaced by `{flat_fill = }`."))
 
-    nccd.data /= mflat
+    nccd.data = nccd.data / mflat
     _addfrm(nccd, "FLAT", mflatname)
     cmt2hdr(nccd.header, 'h', verbose=verbose >= 1, t_ref=_t,
             s=f"[yfu.flatcor] Flat corrected (FLATFRM = {mflatname})")
@@ -964,8 +968,12 @@ def frincor(
     def _str(_ccd, frm, sec=None, fun=None, scal=None):
         str1 = f"[yfu.ccdred.frincor] Fringe subtracted (FRINFRM = {frm})"
         _ccd.header["FRINFRM"] = (frm, "Fringe frame")
-        if (nosec := sec is None) and (nofun := fun is None) and (noscal := scal is None):
+        noscal = scal is None
+        nosec = sec is None
+        nofun = fun is None
+        if noscal and nofun and nosec:
             return str1
+
         str2 = "[yfu.ccdred.frincor] IMAGE - FRINSCAL*FRINFRM "
         elems = []
         if not noscal:  # scal is not None
@@ -982,27 +990,27 @@ def frincor(
     _t = Time.now()
     nccd = ccd.copy() if copy else ccd
 
-    mfrin, mfrinname, _ = _parse_image(mfrin, name=mfrinpath, ccddata=True)
-    #                                                                 ^^^^
+    mfrin, mfrinname, _ = _parse_image(mfrin, name=mfrinpath, force_ccddata=True)
+    #                                                         ^^^^^^^^^^^^^^^^^^
     # Converting an ndarray to CCDData (or vice versa) is very quick, so just
     # force CCDData for the sake of simplicity.
 
     if fringe_scale is None:
         nccd.data -= mfrin.data
-        infostr = _str(mfrinname)
+        infostr = _str(nccd, mfrinname)
     elif isinstance(fringe_scale, (int, float)):
         nccd.data -= fringe_scale*mfrin.data
-        infostr = _str(mfrinname, fun=type(fringe_scale).__name__, scal=fringe_scale)
+        infostr = _str(nccd, mfrinname, fun=type(fringe_scale).__name__, scal=fringe_scale)
     elif isinstance(fringe_scale, np.ndarray):
         nccd.data -= fringe_scale*mfrin.data
-        infostr = _str(mfrinname, fun=f"{type(fringe_scale).__name__}")
+        infostr = _str(nccd, mfrinname, fun=f"{type(fringe_scale).__name__}")
     elif isinstance(fringe_scale, str):
         if fringe_scale.lower() in ["exp", "exposure", "exptime"]:
             exptime_data = exptime_data or nccd.header.get(exptime_key, 1)
             exptime_frin = exptime_frin or mfrin.header.get(exptime_key, 1)
             scale = exptime_data / exptime_frin
             nccd.data -= scale*mfrin.data
-            infostr = _str(mfrinname, fun="EXPTIME", scal=scale)
+            infostr = _str(nccd, mfrinname, fun="EXPTIME", scal=scale)
         else:
             raise ValueError(f'`{fringe_scale=}` not in {{"exp", "exposure", "exptime"}}.')
     else:  # Function
@@ -1017,7 +1025,8 @@ def frincor(
             sec = None
         scale = fringe_scale(ccd.data[reg]/mfrin.data[reg], **fringe_scale_kw)
         nccd.data -= scale*mfrin.data
-        infostr = _str(mfrinname, fun=f"{fringe_scale.__name__} with {fringe_scale_kw}",
+        infostr = _str(nccd, mfrinname,
+                       fun=f"{fringe_scale.__name__} with {fringe_scale_kw}",
                        sec=sec, scal=scale)
 
     # FRINSCAL=FRINFUNC(FRINFRM[FRINSECT])
@@ -1081,9 +1090,11 @@ def ccdred(
         if path is None and master is None:
             return False, None, None
 
-        # else, at least one is given
+        if path is not None:
+            master = load_ccd(path, ccddata=False) # beacuse it will be forced to CCDData
+
         do = True
-        master, imname, _ = _parse_image(master, force_ccddata=True)
+        master, imname, _ = _parse_image(master, name=path, force_ccddata=True)
         return do, master, imname
 
     # ************************************************************************************ #
@@ -1408,6 +1419,9 @@ def bdf_process(
         description. If `None` it uses ``np.float64``.
         Default is `None`.
     """
+    print(
+        "bdf_process is deprecated in favor of ``ccdred``."
+    )
     def _load_master(path, master, simple=True, unit=None, calc_err=False):
         if path is None and master is None:
             return False, None, None
