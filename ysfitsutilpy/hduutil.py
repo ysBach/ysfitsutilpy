@@ -2850,7 +2850,7 @@ def calc_offset_physical(
         return offset[::-1]
 
 
-def fov_radius(header, unit=u.deg):
+def fov_radius(header=None, wcs=None, unit=u.deg):
     """ Calculates the rough radius (cone) of the (square) FOV using WCS.
 
     Parameters
@@ -2858,12 +2858,16 @@ def fov_radius(header, unit=u.deg):
     header: Header
         The header to extract WCS information.
 
+    wcs : WCS
+        The WCS to extract the information. If `None`, it will be extracted
+        from `header`.
+
     Returns
     -------
     radius: `~astropy.Quantity`
         The radius in degrees
     """
-    w = WCS(header)
+    w = WCS(header) if wcs is None else wcs
     nx, ny = float(header["NAXIS1"]), float(header["NAXIS2"])
     # Rough calculation, so use mode='wcs'
     c1 = SkyCoord.from_pixel(0, 0, wcs=w, origin=0, mode="wcs")
