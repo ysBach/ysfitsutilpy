@@ -9,9 +9,9 @@ Install by
 $ cd <where you want to download this package>
 $ git clone https://github.com/ysBach/ysfitsutilpy
 $ cd ysfitsutilpy
-$ python setup.py install
+$ git pull && pip install -e .
 ```
-
+From the second time, **just run the last line**.
 
 
 This package is made to be used for
