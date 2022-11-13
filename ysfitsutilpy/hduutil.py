@@ -2892,8 +2892,7 @@ def wcsremove(
     output=None,
     output_verify="fix",
     overwrite=False,
-    verbose=True,
-    close=True,
+    verbose=True
 ):
     """ Remove most WCS related keywords from the header.
 
@@ -2934,6 +2933,9 @@ def wcsremove(
         "PC[0-9]_[0-9]",
         "P[A-Z]?[0-9]?[0-9][0-9][0-9][0-9][0-9][0-9]",  # FOCAS
         "PV[0-9]_[0-9]",
+        "EQUINOX",
+        "LONPOLE",
+        "LATPOLE",
         "[A,B][P]?_[0-9]_[0-9]",  # astrometry.net
         "[A,B][P]?_ORDER",  # astrometry.net
         "[A,B][P]?_DMAX",  # astrometry.net
@@ -2958,25 +2960,21 @@ def wcsremove(
     if additional_keys is not None:
         re2remove = re2remove + listify(additional_keys)
 
-    if extension is None:
-        extension = _parse_extension(extension)
-
     # If following str is in comment, suggest it if verbose
     candidate_re = ["wcs", "axis", "axes", "coord", "distortion", "reference"]
     candidate_key = []
 
-    hdul = fits.open(path)
-    hdr = hdul[extension].header
+    ccd = load_ccd(path, extension=extension)
 
     if verbose:
         print("Removed keywords: ", end="")
 
-    for k in list(hdr.keys()):
-        com = hdr.comments[k]
+    for k in list(ccd.header.keys()):
+        com = ccd.header.comments[k]
         deleted = False
         for re_i in re2remove:
             if re.match(re_i, k) is not None and not deleted:
-                hdr.remove(k)
+                ccd.header.remove(k)
                 deleted = True
                 if verbose:
                     print(f"{k}", end=" ")
@@ -2990,16 +2988,10 @@ def wcsremove(
         if len(candidate_key) != 0:
             print(f"\nFollowing keys may be related to WCS too:\n\t{candidate_key}")
 
-    hdul[extension].header = hdr
-
     if output is not None:
-        hdul.writeto(output, output_verify=output_verify, overwrite=overwrite)
+        ccd.write(output, output_verify=output_verify, overwrite=overwrite)
 
-    if close:
-        hdul.close()
-        return
-    else:
-        return hdul
+    return ccd
 
 
 # def center_coord(header, skycoord=False):
