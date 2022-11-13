@@ -2958,12 +2958,15 @@ def wcsremove(
     if additional_keys is not None:
         re2remove = re2remove + listify(additional_keys)
 
+    if extension is None:
+        extension = _parse_extension(extension)
+
     # If following str is in comment, suggest it if verbose
     candidate_re = ["wcs", "axis", "axes", "coord", "distortion", "reference"]
     candidate_key = []
 
     hdul = fits.open(path)
-    hdr = hdul[_parse_extension(extension)].header
+    hdr = hdul[extension].header
 
     if verbose:
         print("Removed keywords: ", end="")
