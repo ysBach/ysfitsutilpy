@@ -834,6 +834,7 @@ def darkcor(
     return nccd
 
 
+# add flat_norm_value
 def flatcor(
         ccd,
         mflat=None,
@@ -841,6 +842,7 @@ def flatcor(
         flat_mask=0,
         flat_fill=1,
         copy=True,
+        flat_norm_value=1,
         verbose=1
 ):
     """ Do flat correction (purpose: helper function of ccdred)
@@ -887,6 +889,15 @@ def flatcor(
         mflat[flat_mask] = flat_fill
         cmt2hdr(nccd.header, 'h', verbose=verbose >= 1,
                 s=(f"[yfu.flatcor] {maskstr} are replaced by `{flat_fill = }`."))
+
+    if flat_norm_value is None:
+        mflat /= np.mean(mflat)
+        cmt2hdr(nccd.header, 'h', verbose=verbose >= 1,
+                s=(f"[yfu.flatcor] Flat normalized by its mean."))
+    elif float(flat_norm_value) != 1.:
+        mflat = flat * float(flat_norm_value)
+        cmt2hdr(nccd.header, 'h', verbose=verbose >= 1,
+                s=(f"[yfu.flatcor] Flat normalized by {flat_norm_value = }."))
 
     nccd.data = nccd.data / mflat
     _addfrm(nccd, "FLAT", mflatname)
@@ -1072,6 +1083,7 @@ def ccdred(
         dark_scale=False,
         flat_mask=0,
         flat_fill=1,
+        flat_norm_value=1,
         do_crrej=False,
         crrej_kwargs=LACOSMIC_CRREJ,
         propagate_crmask=False,
@@ -1162,6 +1174,7 @@ def ccdred(
             mflatpath=mflatpath,
             flat_mask=flat_mask,
             flat_fill=flat_fill,
+            flat_norm_value=flat_norm_value,
             **prockw
         )
 
