@@ -105,7 +105,7 @@ def write2fits(data, header, output, return_ccd=False, **kwargs):
 
 
 # **************************************************************************************** #
-#*                                         PARSERS                                       * #
+# *                                         PARSERS                                       * #
 # **************************************************************************************** #
 def _parse_data_header(
         ccdlike,
@@ -552,7 +552,6 @@ def load_ccd(
         extension=None,
         trimsec=None,
         ccddata=True,
-        as_ccd=True,
         use_wcs=True,
         unit=None,
         extension_uncertainty="UNCERT",
@@ -561,6 +560,7 @@ def load_ccd(
         full=False,
         key_uncertainty_type="UTYPE",
         memmap=False,
+        as_ccd=True,  # DEPRECATED
         **kwd
 ):
     """ Loads FITS file of CCD image data (not table, etc).
@@ -592,9 +592,23 @@ def load_ccd(
     use_wcs : bool, optional.
         Whether to load WCS by `fits.getheader`, **not** by
         `~astropy.nddata.fits_ccdddata_reader`. This is necessary as of now
-        because TPV WCS is not properly understood by the latter.
+        because TPV WCS is not properly understood by the latter. It can
+        degrade the performance, so if the user is sure the file is **not** in
+        TPV, it is recommended to set it to `False`.
         Default : `True`.
         Used only if ``ccddata=True``.
+
+        ..warning::
+            `~astropy.nddata.fits_ccdddata_reader` uses
+            ``_generate_wcs_and_update_header``, which **removes** all
+            WCS-specific keywords from the header and extract information and
+            save it into the attribute, `ccd.wcs`. Following this rule,
+            `load_ccd` will save WCS information in `ccd.wcs`, and the
+            corresponding keywords will not present in `ccd.header`. They will
+            correctly be saved when writing it into a file (N.B. `ccd.write` is
+            a combination of `ccd.to_hdu(wcs_relax=True)` & `hdu.writeto`.
+            Here, `.to_hdu()` internally uses
+            `header.extend(ccd.wcs.to_header())`)
 
         ..warning::
             Use ``ccd.wcs``, but not ``WCS(ccd.header)``. astropy often parses
@@ -1062,7 +1076,7 @@ def CCDData_astype(ccd, dtype='float32', uncertainty_dtype=None, copy=True):
 
 
 # **************************************************************************************** #
-#*                                         SETTER                                        * #
+# *                                         SETTER                                        * #
 # **************************************************************************************** #
 def set_ccd_attribute(
         ccd,
