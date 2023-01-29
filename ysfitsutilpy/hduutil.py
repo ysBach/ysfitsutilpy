@@ -2903,10 +2903,12 @@ def fov_radius(header=None, wcs=None, unit=u.deg):
 def wcsremove(
     path=None,
     additional_keys=None,
+    ccddata=True,
     extension=None,
     output=None,
     output_verify="fix",
     overwrite=False,
+    checksum=False,
     verbose=True
 ):
     """ Remove most WCS related keywords from the header.
@@ -2917,8 +2919,39 @@ def wcsremove(
         Additional keys given by the user to be 'reset'. It must be in regex
         expression. Of course regex accepts just string, like 'NAXIS1'.
 
+    ccddata : bool, optional.
+        Whether to return `~astropy.nddata.CCDData`. Default is `True`. If
+        `False`, it will return `~astropy.io.fits.PrimaryHDU` of the
+        `extension`.
+
+        ..warning::
+            The returned `CCDData` will have `ccd.wcs` as `None`, while if the
+            saved `output` is read by `CCDData.read(filename)`, it will have
+            the proper `ccd.wcs`.
+
+    extension: int, str, (str, int)
+        The extension of FITS to be used. It can be given as integer
+        (0-indexing) of the extension, ``EXTNAME`` (single str), or a tuple of
+        str and int: ``(EXTNAME, EXTVER)``. If `None` (default), the *first
+        extension with data* will be used.
+
     output: str or Path
         The output file path.
+
+    output_verify : str
+        Output verification option.  Must be one of ``"fix"``, ``"silentfix"``,
+        ``"ignore"``, ``"warn"``, or ``"exception"``.  May also be any
+        combination of ``"fix"`` or ``"silentfix"`` with ``"+ignore"``,
+        ``+warn``, or ``+exception" (e.g. ``"fix+warn"``).  See
+        :ref:`astropy:verify` for more info.
+
+    overwrite : bool, optional
+        If `True`, overwrite the output file if it exists. Raises an `OSError`
+        if `False` and the output file exists. Default is `False`.
+
+    checksum : bool, optional
+        If `True`, adds both ``DATASUM`` and ``CHECKSUM`` cards to the headers
+        of all HDU's written to the file.
     """
     # Define header keywords to be deleted in regex:
     re2remove = [
@@ -2938,9 +2971,11 @@ def wcsremove(
         "CROTA[0-9]",
         "CRDELT[0-9]",
         "CFINT[0-9]",
-        "RADE[C]?SYS*" "WCS-ORIG",  # RA/DEC system (frame)  # FOCAS
-        "LTM[0-9]_[0-9]",
-        "LTV[0-9]*",
+        # Others
+        "RADE[C]?SYS*",
+        "WCS-ORIG",  # RA/DEC system (frame)  # FOCAS
+        "LTM[0-9]_[0-9]",  # for PHYSICAL
+        "LTV[0-9]*",  # for PHYSICAL
         "PIXXMIT",
         "PIXOFFST",
         "WAT[0-9]_[0-9]",  # For TNX and ZPX, e.g., "WAT1_001"
@@ -2958,6 +2993,7 @@ def wcsremove(
         "AST_[A-Z]",  # astrometry.net
         "ASTIRMS[0-9]",  # astrometry.net
         "ASTRRMS[0-9]",  # astrometry.net
+        "PLTSOLVD",  # ASTAP
         "FGROUPNO",  # SCAMP field group label
         "ASTINST",  # SCAMP astrometric instrument label
         "FLXSCALE",  # SCAMP relative flux scale
@@ -2973,40 +3009,43 @@ def wcsremove(
     # intentionally ignored IMWCS just for future reference.
 
     if additional_keys is not None:
-        re2remove = re2remove + listify(additional_keys)
+        re2remove += [k.upper() for k in listify(additional_keys)]
 
     # If following str is in comment, suggest it if verbose
     candidate_re = ["wcs", "axis", "axes", "coord", "distortion", "reference"]
     candidate_key = []
 
-    ccd = load_ccd(path, extension=extension)
-
     if verbose:
-        print("Removed keywords: ", end="")
+        print("Removed keywords: ")
 
-    for k in list(ccd.header.keys()):
-        com = ccd.header.comments[k]
+    hdu = fits.open(path, extension=extension)[0]
+
+    for k in list(hdu.header.keys()):
+        com = hdu.header.comments[k]
         deleted = False
         for re_i in re2remove:
             if re.match(re_i, k) is not None and not deleted:
-                ccd.header.remove(k)
+                hdu.header.remove(k)
                 deleted = True
                 if verbose:
                     print(f"{k}", end=" ")
                 continue
-        if not deleted:
+        if not deleted and com:  # do only if com != ""
             for re_cand in candidate_re:
                 if re.match(re_cand, com):
                     candidate_key.append(k)
+                    break  # break here for minor performance boost
     if verbose:
-        print("\n")
         if len(candidate_key) != 0:
             print(f"\nFollowing keys may be related to WCS too:\n\t{candidate_key}")
 
     if output is not None:
-        ccd.write(output, output_verify=output_verify, overwrite=overwrite)
+        hdu.writeto(
+            output, output_verify=output_verify, overwrite=overwrite, checksum=checksum
+        )
 
-    return ccd
+    return hdu if not ccddata else CCDData(data=hdu.data, header=hdu.header,
+                                           unit=hdu.header.get("BUNIT", default="adu"))
 
 
 # def center_coord(header, skycoord=False):
