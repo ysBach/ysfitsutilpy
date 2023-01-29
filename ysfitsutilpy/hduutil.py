@@ -2956,6 +2956,38 @@ def wcsremove(
     checksum : bool, optional
         If `True`, adds both ``DATASUM`` and ``CHECKSUM`` cards to the headers
         of all HDU's written to the file.
+
+    Note
+    ----
+    For ``yfu.wcsremove("test.fit")`` with a simple 33.6MB FITS file (71
+    keywords, 20 WCS-related keywords, 5 COMMENTs) on MBP 14" [2021, macOS
+    13.1, M1Pro(6P+2E/G16c/N16c/32G)]:
+
+        V A C
+        O X O = 10.6 ± 0.2 ms (DEFAULT)
+        X X O = 10.8 ± 0.3 ms (almost no benefit)  - effect of verbose
+
+    Here::
+
+        * A : additional_keys=["COMMEnT"]
+        * V : verbose=True
+        * C : ccddata=True
+
+    With `additional_keys` (the payoff is not that big):
+
+        V A C
+        O O O = 11.2 ± 0.4 ms
+        X O O = 10.6 ± 0.2 ms
+
+    Return PrimaryHDU without converting to CCDData (almost 5x faster):
+        V A C
+        X X X =  1.9 ± 0.0 ms
+        X O X =  2.1 ± 0.0 ms
+
+    The time it takes to parse the header and open the file is 0.4 ms, so the
+    key removal part is changed from ~ 10 ms to ~ 1.5 ms (6-7 times faster)
+
+
     """
     # Define header keywords to be deleted in regex:
     re2remove = [
