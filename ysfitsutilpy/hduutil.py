@@ -2924,6 +2924,10 @@ def wcsremove(
         `False`, it will return `~astropy.io.fits.PrimaryHDU` of the
         `extension`.
 
+        ..note::
+            If there is no need to use the returned `CCDData`, it is better to
+            set `ccddata=False` to improve the performance.
+
         ..warning::
             The returned `CCDData` will have `ccd.wcs` as `None`, while if the
             saved `output` is read by `CCDData.read(filename)`, it will have
