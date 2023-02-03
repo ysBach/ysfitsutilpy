@@ -2901,7 +2901,7 @@ def fov_radius(header=None, wcs=None, unit=u.deg):
 
 # TODO: do not load data extension if not explicitly ordered
 def wcsremove(
-    path=None,
+    path_or_header=None,
     additional_keys=None,
     ccddata=True,
     extension=None,
@@ -2915,6 +2915,11 @@ def wcsremove(
 
     Paramters
     ---------
+    path_or_header : str, `~astropy.io.fits.Header`
+        The path to the FITS file, or the header to be modified. If it is
+        header, `ccddata`, `extension`, `output`, `output_verify`, `overwrite`,
+        and `checksum` will be ignored.
+
     additional_keys : list of regex str, optional
         Additional keys given by the user to be 'reset'. It must be in regex
         expression. Of course regex accepts just string, like 'NAXIS1'.
@@ -3054,14 +3059,19 @@ def wcsremove(
     if verbose:
         print("Removed keywords: ")
 
-    hdu = fits.open(path, extension=extension)[0]
+    if isinstance(path_or_header, fits.Header):
+        hdu = None
+        hdr = path_or_header.copy()
+    else:
+        hdu = fits.open(path_or_header, extension=extension)[0]
+        hdr = hdu.header
 
-    for k in list(hdu.header.keys()):
-        com = hdu.header.comments[k]
+    for k in list(hdr.keys()):
+        com = hdr.comments[k]
         deleted = False
         for re_i in re2remove:
             if re.match(re_i, k) is not None and not deleted:
-                hdu.header.remove(k)
+                hdr.remove(k)
                 deleted = True
                 if verbose:
                     print(f"{k}", end=" ")
@@ -3074,6 +3084,9 @@ def wcsremove(
     if verbose:
         if len(candidate_key) != 0:
             print(f"\nFollowing keys may be related to WCS too:\n\t{candidate_key}")
+
+    if hdu is None:
+        return hdr  # Do not save. Do not try to return CCDData.
 
     if output is not None:
         hdu.writeto(
