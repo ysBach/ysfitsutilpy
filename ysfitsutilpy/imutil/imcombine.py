@@ -463,7 +463,7 @@ def imcombine(
                                                     order_xyz=False, ignore_ltm=True)
 
             # NOTE: the indexing in python is [z, y, x] order!!
-            shapes[i, ] = [(hdr[f'NAXIS{i}']).astype(int) for i in range(ndim, 0, -1)]
+            shapes[i, ] = [int(hdr[f'NAXIS{i}']) for i in range(ndim, 0, -1)]
 
             del hdr
 
