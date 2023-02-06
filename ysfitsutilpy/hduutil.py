@@ -2996,6 +2996,7 @@ def wcsremove(
     """
     # Define header keywords to be deleted in regex:
     re2remove = [
+        # Coordinate system (widely used)
         "CD[0-9]_[0-9]",  # Coordinate Description matrix
         "CTYPE[0-9]",  # e.g., 'RA---TAN' and 'DEC--TAN'
         "C[0-9]YPE[0-9]",  # FOCAS
@@ -3003,34 +3004,37 @@ def wcsremove(
         "C[0-9]NIT[0-9]",  # FOCAS
         "CRPIX[0-9]",  # The reference pixels in image coordinate
         "C[0-9]PIX[0-9]",  # FOCAS
-        # The world cooordinate values at CRPIX[1, 2]
         "CRVAL[0-9]",
         "C[0-9]VAL[0-9]",  # FOCAS
         "CDELT[0-9]",  # with CROTA, older version of CD matrix.
         "C[0-9]ELT[0-9]",  # FOCAS
-        # The angle between image Y and world Y axes
         "CROTA[0-9]",
         "CRDELT[0-9]",
         "CFINT[0-9]",
-        # Others
-        "RADE[C]?SYS*",
-        "WCS-ORIG",  # RA/DEC system (frame)  # FOCAS
-        "LTM[0-9]_[0-9]",  # for PHYSICAL
-        "LTV[0-9]*",  # for PHYSICAL
-        "PIXXMIT",
-        "PIXOFFST",
         "WAT[0-9]_[0-9]",  # For TNX and ZPX, e.g., "WAT1_001"
         "C0[0-9]_[0-9]",  # polynomial CD by imwcs
-        "PC[0-9]_[0-9]",
+        "P[C,V,S][0-9]_[0-9]",  # coordinate transformation
         "P[A-Z]?[0-9]?[0-9][0-9][0-9][0-9][0-9][0-9]",  # FOCAS
-        "PV[0-9]_[0-9]",
-        "EQUINOX",
+        "RADE[C]?SYS*",
         "LONPOLE",
+        "LONGPOLE",
         "LATPOLE",
+        "EQUINOX",
+        "EPOCH",  # not sure if this is safe to remove
+        "WCS[A-Z]",  # see below
+        "CRDER[0-9]",  # Coord. RanDom ERror (WCS paperI Sect 2.6)
+        "CSYER[0-9]",  # Coord. RanDom ERror (WCS paperI Sect 2.6)
+        # "MJD-OBS",  # I think we can just keep it there...?
+        # Physical
+        "LTM[0-9]_[0-9]",  # for PHYSICAL
+        "LTV[0-9]*",  # for PHYSICAL
+        # Others, usually added by WCS softwares
+        "WCS-ORIG",  # RA/DEC system (frame)  # FOCAS
+        "PIXXMIT",
+        "PIXOFFST",
         "[A,B][P]?_[0-9]_[0-9]",  # astrometry.net
         "[A,B][P]?_ORDER",  # astrometry.net
         "[A,B][P]?_DMAX",  # astrometry.net
-        "WCS[A-Z]",  # see below
         "AST_[A-Z]",  # astrometry.net
         "ASTIRMS[0-9]",  # astrometry.net
         "ASTRRMS[0-9]",  # astrometry.net
@@ -3044,9 +3048,9 @@ def wcsremove(
         "PHOTLINK",  # True if linked to a photometric field
         "SECPIX[0-9]",
     ]
-    # WCS[A-Z] captures, WCS[DIM, RFCAT, IMCAT, MATCH, NREF, TOL, SEP],
-    # but not [IM]WCS, for example. These are likely to have been inserted
-    # by WCS updating tools like astrometry.net or WCSlib/WCSTools. I
+    # WCS[A-Z] captures, e.g., WCS[AXES, DIM, NAME, RFCAT, IMCAT, MATCH, NREF,
+    # TOL, SEP], but not [IM]WCS, for example. These are likely to have been
+    # inserted by WCS updating tools like astrometry.net or WCSlib/WCSTools. I
     # intentionally ignored IMWCS just for future reference.
 
     if additional_keys is not None:
