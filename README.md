@@ -1,4 +1,7 @@
 # ysfitsutilpy
+
+[![DOI](https://zenodo.org/badge/155046626.svg)](https://zenodo.org/badge/latestdoi/155046626)
+
 Convenience utilities made by ysBach especially for dealing FITS files in astronomical sciences.
 
 Please always refer to [GitHub repo](https://github.com/ysBach/ysfitsutilpy) for the most recent updates.
