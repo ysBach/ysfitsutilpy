@@ -3014,7 +3014,7 @@ def wcsremove(
         "WAT[0-9]_[0-9]",  # For TNX and ZPX, e.g., "WAT1_001"
         "C0[0-9]_[0-9]",  # polynomial CD by imwcs
         "P[C,V,S][0-9]_[0-9]",  # coordinate transformation
-        "P[A-Z]?[0-9]?[0-9][0-9][0-9][0-9][0-9][0-9]",  # FOCAS
+        "P[A-Z]?[0-9]?[0-9][0-9][0-9][0-9][0-9][0-9]",  # obsolete PC notation
         "RADE[C]?SYS*",
         "LONPOLE",
         "LONGPOLE",

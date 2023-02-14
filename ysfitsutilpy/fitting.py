@@ -1,9 +1,8 @@
 import numpy as np
-import numpy.polynomial.chebyshev as cheb
-from astropy.modeling.physical_models import NFW, BlackBody, Drude1D, Plummer1D
-from astropy.modeling.fitting import (Fitter, JointFitter, LevMarLSQFitter,
+from astropy.stats import sigma_clip
+from astropy.modeling.fitting import (JointFitter, LevMarLSQFitter,
                                       LinearLSQFitter, SimplexLSQFitter,
-                                      SLSQPLSQFitter)
+                                      SLSQPLSQFitter, FittingWithOutlierRemoval)
 # from astropy.modeling.functional_models import (AiryDisk2D, ArcCosine1D,
 #                                                 ArcSine1D, ArcTangent1D, Box1D,
 #                                                 Box2D, Const1D, Const2D,
@@ -29,12 +28,13 @@ from astropy.modeling.fitting import (Fitter, JointFitter, LevMarLSQFitter,
 #                                         ExponentialCutoffPowerLaw1D,
 #                                         LogParabola1D, PowerLaw1D,
 #                                         SmoothlyBrokenPowerLaw1D)
+import bottleneck as bn
 import astropy.modeling as am
 # At this moment, astropy modeling is used.
 # If possible, better to detache astropy-dependency in the nearest future.
 
 
-__all__ = ["gridding", "get_fitter", "get_model", "fit_model"]
+__all__ = ["gridding", "get_fitter", "get_model", "fit_model", "fit_model_iter"]
 
 ALL_MODELS = []
 for module in (am.functional_models, am.physical_models, am.polynomial, am.powerlaws,):
@@ -159,8 +159,8 @@ def fit_model(
 
     Parameters
     ----------
-    model : `astropy.modeling.Model`
-        The model to fit.
+    model_name : str
+        The model to fit. See `get_model`.
     ndim : int, optional.
         The dimension of the data. If not given, it is inferred from the model.
 
@@ -188,5 +188,70 @@ def fit_model(
     model_fit = fitter(model_init, *grid_1d[::-1], data_1d)
     if full:
         return model_fit, fitter, grid_1d, data_1d
+    else:
+        return model_fit
+
+
+def fit_model_iter(
+        model_name,
+        data,
+        outlier_func=sigma_clip,
+        outlier_kw=dict(sigma=3, maxiters=1, cenfunc="median", stdfunc="std"),
+        maxiters=3,
+        weights=None,
+        mask=None,
+        steps=None,
+        fitter_name="LM",
+        fitter_kw={},
+        full=False,
+        **model_kw
+):
+    """ Fit a model to a data with `FittingWithOutlierRemoval`.
+
+    Parameters
+    ----------
+    model_name : `astropy.modeling.Model`
+        The model to fit. See `get_model`.
+
+    outlier_func : callable
+        A function for outlier removal.
+        If this accepts an ``axis`` parameter like the `numpy` functions, the
+        appropriate value will be supplied automatically when fitting model
+        sets (unless overridden in ``outlier_kwargs``), to find outliers for
+        each model separately; otherwise, the same filtering must be performed
+        in a loop over models, which is almost an order of magnitude slower.
+
+    maxiters : int, optional
+        Maximum number of iterations.
+
+    **kwargs :
+        Keyword arguments for the fitter (name and astropy default values)::
+
+          * `LinearLSQFitter`: `calc_uncertainties=False`
+          * `LevMarLSQFitter`: `calc_uncertainties=False`
+          * `SimplexLSQFitter`, `SLSQPLSQFitter`: N/A
+          * `JointFitter`: `models`, jointparameters`, `initvals` (must be given)
+
+    **model_kw :
+        The paramters to initialize model. It can be ::
+          * degrees for polynomial (e.g., `degree` for `Chebyshev1D`)
+          * initial parameters for others (e.g., `amplitude` for `Gaussian1D`)
+
+    Returns
+    -------
+    model : `astropy.modeling.Model`
+        The fitted model.
+    """
+    fitter = FittingWithOutlierRemoval(
+        get_fitter(fitter_name, **fitter_kw),
+        outlier_func=outlier_func,
+        niter=maxiters,
+        **outlier_kw
+    )
+    model_init = get_model(model_name)(**model_kw)
+    grid_1d, data_1d = gridding(data, mask=mask, steps=steps, force_flat=True, copy=True)
+    model_fit, mask = fitter(model_init, *grid_1d[::-1], data_1d, weights=weights)
+    if full:
+        return model_fit, fitter, grid_1d, data_1d, mask
     else:
         return model_fit

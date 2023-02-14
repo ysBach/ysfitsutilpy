@@ -5,4 +5,4 @@ different names to avoid namespack crash (pimcombine, pimarith, etc).
 from .imcombine import *
 from .imcopy import *
 from .imarith import *
-
+from .imsmooth import *

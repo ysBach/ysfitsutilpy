@@ -1,9 +1,17 @@
 # ysfitsutilpy
 Convenience utilities made by ysBach especially for dealing FITS files in astronomical sciences.
 
+Please always refer to [GitHub repo](https://github.com/ysBach/ysfitsutilpy) for the most recent updates.
+
 **Why "ys"fitsutilpy? The name "fitsutilpy" is too general, and I believe a better package should take that name, so I decided not to occupy the name. I see many useless packages that preoccupy meaningful names...**
 
 Install by
+
+```
+$ pip install ysfitsutilpy
+```
+
+or
 
 ```
 $ cd <where you want to download this package>
