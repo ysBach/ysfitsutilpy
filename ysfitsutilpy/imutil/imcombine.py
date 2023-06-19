@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import bottleneck as bn
+import pandas as pd
 import numpy as np
 from astropy.io.fits.verify import VerifyError
 from astropy.nddata import CCDData
@@ -64,7 +65,8 @@ def group_combine(
     ''' Combine sub-groups of FITS files from the given input.
     Parameters
     ----------
-    inputs : glob pattern, list-like of path-like
+    inputs : DataFrame, glob pattern, list-like of path-like
+        If `DataFrame`, it must be the summary table made by `make_summary`.
         The `~glob` pattern for files (e.g., ``"2020*[012].fits"``) or list of
         files (each element must be path-like or CCDData). Although it is not a
         good idea, a mixed list of CCDData and paths to the files is also
@@ -148,7 +150,11 @@ def group_combine(
 
     _t = Time.now()
 
-    summary = make_summary(inputs, verbose=verbose >= 2)
+    if isinstance(inputs, pd.DataFrame):
+        summary = inputs.copy()
+    else:
+        summary = make_summary(inputs, verbose=verbose >= 2)
+
     gs, gt_key = group_fits(
         summary, type_key=type_key, type_val=type_val, group_key=group_key
     )
