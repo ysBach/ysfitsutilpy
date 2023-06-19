@@ -89,7 +89,7 @@ def crrej(
 
         ..note:
             Originally `pssl`, which stood for "previously subtracted sky
-            level" in ADU (in `astroscrappy` < 1,.1.0 or original L.A.Cosmic).
+            level" in ADU (in `astroscrappy` < 1.1.0 or original L.A.Cosmic).
             Since `astroscrappy` ver > 1.1.0, a 2-D sky level is supported by
             `inbkg` (it was `bkg` in == 1.1.0, which is a hasty bug in argument
             naming).
@@ -1054,45 +1054,176 @@ def illumcor(ccd, ):
 
 # TODO: add overscan
 def ccdred(
-        ccd,
-        output=None,
-        extension=None,
-        mbiaspath=None,
-        mdarkpath=None,
-        mflatpath=None,
-        mfrinpath=None,
-        mbias=None,
-        mdark=None,
-        mflat=None,
-        mfrin=None,
-        fringe_flat_fielded=True,
-        fringe_scale=None,
-        fringe_scale_region=None,
-        fringe_scale_kw={},
-        trimsec=None,
-        gain=1,
-        gain_key="GAIN",
-        gain_unit=u.electron/u.adu,
-        rdnoise=0,
-        rdnoise_key="RDNOISE",
-        rdnoise_unit=u.electron,
-        exptime_key="EXPTIME",
-        exptime_frin=None,
-        exptime_dark=None,
-        exptime_data=None,
-        dark_scale=False,
-        flat_mask=0,
-        flat_fill=1,
-        flat_norm_value=1,
-        do_crrej=False,
-        crrej_kwargs=LACOSMIC_CRREJ,
-        propagate_crmask=False,
-        verbose_crrej=False,
-        verbose_bdf=1,
-        output_verify='fix',
-        overwrite=True,
-        dtype="float32",
+        ccd, output:str=None, extension:int|str=None, trimsec:str=None,
+        mbiaspath:str=None, mdarkpath:str=None, mflatpath:str=None, mfrinpath:str=None,
+        mbias:CCDData=None, mdark:CCDData=None, mflat:CCDData=None, mfrin:CCDData=None,
+        fringe_flat_fielded:bool=True, fringe_scale=None, fringe_scale_region:str=None,
+        fringe_scale_kw:dict={},
+        gain:float|u.Unit=1, gain_key:str="GAIN", gain_unit:u.Unit=u.electron/u.adu,
+        rdnoise:float|u.Unit=0, rdnoise_key:str="RDNOISE", rdnoise_unit:u.Unit=u.electron,
+        exptime_key:str="EXPTIME",
+        exptime_frin:float=None, exptime_dark:float=None, exptime_data:float=None,
+        dark_scale:bool=False, pixel_min:float=None, pixel_min_fill:float=0,
+        pixel_max:float=None, pixel_max_fill:float=65535,
+        flat_mask:float|int=0, flat_fill:float=1, flat_norm_value:float=1,
+        do_crrej:bool=False, crrej_kw:dict=LACOSMIC_CRREJ, propagate_crmask:bool=False,
+        verbose_crrej:bool=False, verbose_bdf:int=1,
+        output_verify:str='fix', overwrite:bool=True, dtype:str="float32",
 ):
+    """ Do basic CCD reduction.
+
+    Parameters
+    ----------
+    ccd : CCDData-like (e.g., PrimaryHDU, ImageHDU, HDUList), ndarray, path-like, or number-like
+        The ccd to be processed.
+
+    output : path-like or None, optional.
+        The path if you want to save the resulting `ccd` object.
+        Default: `None`.
+
+    extension : int, str, or None, optional.
+        The extension of the FITS file to be processed. If `None`, the first
+        extension is used. Default: `None`.
+
+    trimsec: str, optional.
+        Region of `ccd` to be trimmed; see `~ccdproc.subtract_overscan` for
+        details. Default is `None`.
+
+    mbiaspath, mdarkpath, mflatpath, mfringepath : path-like, optional.
+        The path to master bias, dark, flat, and fringe FITS files. If `None`,
+        the corresponding process is not done. These can be provided in
+        addition to `mbias`, `mdark`, `mflat`, and/or `mfringe`.
+
+    mbias, mdark, mflat, mfringe : CCDData, optional.
+        The master bias, dark, and flat in `~astropy.nddata.CCDData`. If this
+        is given, the files provided by `mbiaspath`, `mdarkpath`, `mflatpath`
+        and/or `mfringe` are **not** loaded, but these paths will be used for
+        header (``BIASFRM``, ``DARKFRM``, ``FLATFRM`` and/or ``FRINFRM``). If
+        the paths are not given, ``xxxxFRM`` will be ``<User>``.
+
+    fringe_scale : int, float, ndarry, function object, {"exp", "exposure", "exptime"}, optional.
+        The scale to be applied to the fringe frame. If numeric or ndarray, it
+        will directly be multiplied to the fringe before fringe subtraction. If
+        function object, it will be applied to the fringe before fringe
+        subtraction (using `fringe_scale_section`). If "exp", "exposure", or
+        "exptime", the exposure time of the fringe frame will be used. (using
+        either `fringe_exposure` or `exposure_key`). If `None`, the fringe
+        will be subtracted without modification.
+        Default: `None`.
+
+    fringe_scale_region : ndarray(bool), str, optional.
+        The mask or FITS-convention section of the fringe and object (science)
+        frames to match the fringe pattern before the subtraction. If ndarray,
+        it will be forced to be changed into `bool` array. The scale will be
+        ``fringe_scale(object_frame[fringe_scale_region]) /
+        fringe_scale(fringe_frame[fringe_scale_region])``.
+        default: `None`.
+
+    fringe_scale_kw : dict, optional.
+        The kwargs that can be passed to `fringe_scale` if it is a function.
+
+    fringe_flat_fielded : bool, optional.
+        Whether the fringe frame is flat-fielded. If `True`, fringe is
+        subtracted AFTER flat-fielding the input frame. Otherwise (default),
+        fringe is subtracted BEFORE flat-fielding the input frame.
+
+    calc_err : bool, optional.
+        Whether to calculate the error map based on Poisson and readnoise error
+        propagation.
+
+        ..note::
+            Currently it's encouraged to make error-map manually, as the API is
+            not stable.
+
+    unit : `~astropy.units.Unit` or str, optional.
+        The units of the data.
+        Default is `None`.
+
+    gain, rdnoise : None, float, astropy.Quantity, optional.
+        The gain and readnoise value. These are not used if `do_crrej` is
+        `False`. If `gain` or `readnoise` is specified, they are interpreted
+        with `gain_unit` and `rdnoise_unit`, respectively. If they are not
+        specified, this function will seek for the header with keywords of
+        `gain_key` and `rdnoise_key`, and interprete the header value in the
+        unit of `gain_unit` and `rdnoise_unit`, respectively.
+
+    gain_key, rdnoise_key : str, optional.
+        See `gain`, `rdnoise` explanation above.
+        These are not used if ``do_crrej=False``.
+
+    gain_unit, rdnoise_unit : str, astropy.Unit, optional.
+        See `gain`, `rdnoise` explanation above.
+        These are not used if ``do_crrej=False``.
+
+    dark_exposure, data_exposure : None, float, astropy Quantity, optional.
+        The exposure times of dark and data frame, respectively. They should
+        both be specified or both `None`. These are not used if
+        ``mdarkpath=None``. If both are not specified while `mdarkpath` is
+        given, then the code automatically seeks for header's `exposure_key`.
+        Then interprete the value as the quantity with unit `exposure_unit`. If
+        `mdkarpath` is not `None`, then these are passed to
+        `~ccdproc.subtract_dark`.
+
+    exposure_key : str, optional.
+        The header keyword for exposure time.
+
+    exposure_unit : astropy Unit, optional.
+        The unit of the exposure time.
+        Used in `~ccdproc.subtract_dark`.
+
+    normalize_exposure : bool, optional.
+        Whether to normalize the values by the exposure time of each frame.
+        Maybe useful for long exposure darks to make 1-sec darks.
+        Default is `False`.
+
+    normalize_average, normalize_median : bool, optional.
+        Whether to normalize the values by the average or median value of each
+        frame before combining. Only up to one of these must be True. Maybe
+        useful for flat.
+        Default is `False`.
+
+    flat_min_value : float or None, optional.
+        min_value of `ccdproc.flat_correct`. Minimum value for flat field. The
+        value can either be None and no minimum value is applied to the flat or
+        specified by a float which will replace all values in the flat by the
+        min_value.
+        Default is `None`.
+
+    flat_norm_value : float or None, optional.
+        The norm_value of `ccdproc.flat_correct`. If `None`, the flat is
+        internally normalized by its mean before the flat correction, i.e., the
+        flat correction will be like ``image/flat*mean(flat)``.
+        If not `None`, the flat correction will be like
+        ``image/flat*flat_norm_value``. Default is 1 (**different** from
+        `ccdproc` which uses `None` as default).
+
+    crrej_kwargs : dict or None, optional.
+        If `None` (default), uses some default values (see `crrej`). It is
+        always discouraged to use default except for quick validity-checking,
+        because even the official L.A. Cosmic codes in different versions
+        (IRAF, IDL, Python, etc) have different default parameters, i.e., there
+        is nothing which can be regarded as _the default_. To see all possible
+        keywords, do ``print(astroscrappy.detect_cosmics.__doc__)`` Also refer
+        to
+        https://nbviewer.jupyter.org/github/ysbach/AO2019/blob/master/Notebooks/07-Cosmic_Ray_Rejection.ipynb
+
+    propagate_crmask : bool, optional.
+        Whether to save (propagate) the mask from CR rejection (`astroscrappy`)
+        to the CCD's mask. Default is `False`.
+
+    output_verify : str
+        Output verification option.  Must be one of ``"fix"``, ``"silentfix"``,
+        ``"ignore"``, ``"warn"``, or ``"exception"``. May also be any
+        combination of ``"fix"`` or ``"silentfix"`` with ``"+ignore"``,
+        ``+warn``, or ``+exception" (e.g. ``"fix+warn"``).  See the astropy
+        documentation below:
+        http://docs.astropy.org/en/stable/io/fits/api/verification.html#verify
+
+    dtype : str or `numpy.dtype` or None, optional.
+        Allows user to set dtype. See `numpy.array` `dtype` parameter
+        description. If `None` it uses ``np.float64``.
+        Default is `None`.
+    """
     # This reduction process will ignore `uncertainty` attribute of all
     # input/master calibration frames. This is because (1) speed matters more
     # than such an error calculation for cases when this simple generalized
@@ -1195,8 +1326,8 @@ def ccdred(
 
     # == Do CRREJ ======================================================================== #
     if do_crrej:
-        if crrej_kwargs is None:
-            crrej_kwargs = {}
+        if crrej_kw is None:
+            crrej_kw = {}
             warn("Using defailt CR-rejection paramters.")
 
         _proc = proc.header["PROCESS"]
@@ -1214,13 +1345,17 @@ def ccdred(
             gain=valinhdr(gain, proc.header, gain_key, 1, unit=gain_unit),
             rdnoise=valinhdr(rdnoise, proc.header, rdnoise_key, 0, unit=rdnoise_unit),
             verbose=verbose_crrej,
-            **crrej_kwargs
+            **crrej_kw
         )
 
     # ************************************************************************************ #
     # *                                  PREPARE OUTPUT                                  * #
     # ************************************************************************************ #
     # To avoid ``pssl`` in cr rejection, subtract fringe AFTER the CRREJ.
+    if pixel_min is not None:
+        proc.data[proc.data < pixel_min] = pixel_min_fill
+    if pixel_max is not None:
+        proc.data[proc.data > pixel_max] = pixel_max_fill
     proc = CCDData_astype(proc, dtype=dtype)
     update_tlm(proc.header)
 
@@ -1810,3 +1945,4 @@ def run_reduc_plan(
             ccd.write(outpath, overwrite=True, output_verify="fix")
         if return_ccd:
             ccds.append(ccd)
+
