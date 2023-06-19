@@ -1350,7 +1350,7 @@ def imslice(ccd, trimsec, fill_value=None, order_xyz=True,
         for i in range(ndim):
             for j in range(ndim):
                 if i == j:
-                    hdr[f"LTM_{i+1}_{i+1}"] = hdr.get(f"LTM{i+1}", ltms[i])
+                    hdr[f"LTM{i+1}_{i+1}"] = hdr.get(f"LTM{i+1}", ltms[i])
                 else:
                     hdr.setdefault(f"LTM{i+1}_{j+1}", 0.0)
 
@@ -1411,8 +1411,9 @@ def trim_overlap(inputs, extension=None, coordinate="image"):
     )
 
 
-# FIXME: docstring looks strange
-def cut_ccd(ccd, position, size, mode="trim", fill_value=np.nan):
+# FIXME: docstring looks strange about wcs..
+def cut_ccd(ccd, position, size, mode="trim", fill_value=np.nan, warnings=True,
+            update_header=True, verbose=0):
     """ Converts the Cutout2D object to proper CCDData.
 
     Parameters
@@ -1467,38 +1468,41 @@ def cut_ccd(ccd, position, size, mode="trim", fill_value=np.nan):
         that do not overlap with the input `data`. `fill_value` must have the
         same `dtype` as the input `data` array.
     """
-    hdr_orig = ccd.header
-    w = WCS(hdr_orig)
     cutout = Cutout2D(
         data=ccd.data,
         position=position,
         size=size,
-        wcs=w,
+        wcs=getattr(ccd, "wcs", WCS(ccd.header)),
         mode=mode,
         fill_value=fill_value,
         copy=True,
     )
     # Copy True just to avoid any contamination to the original ccd.
 
-    nccd = CCDData(data=cutout.data, header=hdr_orig, wcs=cutout.wcs, unit=ccd.unit)
+    nccd = CCDData(data=cutout.data, header=ccd.header.copy(),
+                   wcs=cutout.wcs, unit=ccd.unit)
     ny, nx = nccd.data.shape
-    nccd.header["NAXIS1"] = nx
-    nccd.header["NAXIS2"] = ny
+    if update_header:
+        nccd.header["NAXIS1"] = nx
+        nccd.header["NAXIS2"] = ny
+        nccd.header["LTV1"] = nccd.header.get("LTV1", 0) - cutout.origin_original[0]
+        nccd.header["LTV2"] = nccd.header.get("LTV2", 0) - cutout.origin_original[1]
 
-    nonlin = False
-    try:
-        for ctype in ccd.wcs.get_axis_types():
-            if ctype["scale"] != "linear":
-                nonlin = True
-                break
-    except AttributeError:
+    if warnings:
         nonlin = False
+        try:
+            for ctype in ccd.wcs.get_axis_types():
+                if ctype["scale"] != "linear":
+                    nonlin = True
+                    break
+        except AttributeError:
+            nonlin = False
 
-    if nonlin:
-        warn(
-            "Since Cutout2D is for small image crop, astropy do not currently support "
-            + "distortion in WCS. This may result in slightly inaccurate WCS calculation."
-        )
+        if nonlin:
+            warn(
+                "Nonlinear WCS in `ccd.wcs.get_axis_types()`. "
+                + "This may result in slightly inaccurate WCS calculation."
+            )
 
     update_tlm(nccd.header)
 
@@ -3301,3 +3305,4 @@ def give_stats(
                                            f"Upper extreme values (N_extrema={N_extrema})")
         return result, hdr
     return result
+
