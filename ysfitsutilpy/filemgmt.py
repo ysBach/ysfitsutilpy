@@ -7,9 +7,10 @@ Contians convenience funcitons which are
 from pathlib import Path
 from warnings import warn
 
-import ccdproc
+from astro_ndslice import slice_from_string
 import numpy as np
 import pandas as pd
+from astro_ndslice import listify
 from astropy.io import fits
 from astropy.io.fits.verify import VerifyError
 from astropy.nddata import CCDData
@@ -17,7 +18,6 @@ from astropy.time import Time
 
 from .hduutil import (_parse_extension, cut_ccd, inputs2list, key_mapper,
                       key_remover)
-from .misc import listify
 
 __all__ = [
     "mkdir", "load_if_exists", "make_summary", "df_selector",
@@ -800,19 +800,10 @@ def fits_newpath(
     else:
         hdr = header.copy()
 
-    # First make file name without parent path
-    hdrvals = []
-    for k in rename_by:
-        try:
-            hdrvals.append(str(hdr[k]))
-        except KeyError:
-            hdrvals.append(fillnan)
-
     if not fileext.startswith('.'):
         fileext = f".{fileext}"
 
-    newname = delimiter.join(list(hdrvals))  # just in case, re-listify...
-    newname = newname + fileext
+    newname = delimiter.join([str(hdr.get(k, fillnan)) for k in rename_by]) + fileext
     newpath = Path(fpath.parent)
 
     if mkdir_by is not None:
@@ -931,7 +922,7 @@ def fitsrenamer(
     # TODO: Maybe I can put some LTV-like keys to the header, rather
     #   than this crazy code...? (ysBach 2019-05-09)
     if trimsec is not None:
-        slices = ccdproc.utils.slices.slice_from_string(
+        slices = slice_from_string(
             trimsec,
             fits_convention=True
         )

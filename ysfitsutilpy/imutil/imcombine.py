@@ -1,8 +1,10 @@
 from pathlib import Path
 
 import bottleneck as bn
-import pandas as pd
 import numpy as np
+import pandas as pd
+from astro_ndslice import (calc_offset_physical, calc_offset_wcs, is_list_like,
+                           offseted_shape, slicefy)
 from astropy.io.fits.verify import VerifyError
 from astropy.nddata import CCDData
 from astropy.table import Table
@@ -11,11 +13,9 @@ from astropy.wcs import WCS
 
 from ..combutil import group_fits
 from ..filemgmt import make_summary
-from ..hduutil import (_parse_data_header, _parse_extension,
-                       calc_offset_physical, calc_offset_wcs, inputs2list,
-                       load_ccd, slicefy, write2fits)
-from ..misc import (_image_shape, cmt2hdr, get_size, is_list_like, str_now,
-                    update_tlm)
+from ..hduutil import (_parse_data_header, _parse_extension, inputs2list,
+                       load_ccd, write2fits)
+from ..misc import cmt2hdr, get_size, str_now, update_tlm
 from . import docstrings
 from .util_comb import (_set_cenfunc, _set_combfunc, _set_gain_rdns,
                         _set_int_dtype, _set_keeprej, _set_mask,
@@ -151,8 +151,10 @@ def group_combine(
     _t = Time.now()
 
     if isinstance(inputs, pd.DataFrame):
+        load_fits = True
         summary = inputs.copy()
     else:
+        load_fits = False if isinstance(inputs[0], CCDData) else True
         summary = make_summary(inputs, verbose=verbose >= 2)
 
     gs, gt_key = group_fits(
@@ -356,7 +358,8 @@ def imcombine(
     # == check if we should care about memory ============================================ #
     # It usually takes < 1ms for hundreds of files
     # What we get here is the lower bound of the total memory used.
-    # Even if chop_load is False, we later may have to use chopping when combine. See below.
+    # Even if chop_load is False, we later may have to use chopping when
+    # combine. See below.
     # chop_load = False
     item_size_tot = 0
     for item in items:
@@ -372,7 +375,7 @@ def imcombine(
             table_dict['filesize'].append(_item_size)
     # if fsize_tot > memlimit:
     #     chop_load = True
-    # ---------------------------------------------------------------------------------------- #
+    # ------------------------------------------------------------------------------------ #
 
     _, hdr0 = _parse_data_header(items[0], extension=extension, parse_data=False)
     ndim = hdr0['NAXIS']
@@ -422,8 +425,8 @@ def imcombine(
 
     imcmb_val = []
     # iterate over files
-    extract_hdr = (extract_hdr or extract_exptime or extract_gain or extract_rdnoise or extract_snoise
-                   or use_wcs or use_phy)
+    extract_hdr = (extract_hdr or extract_exptime or extract_gain or extract_rdnoise
+                   or extract_snoise or use_wcs or use_phy)
     for i, item in enumerate(items):
         if extract_hdr:
             _, hdr = _parse_data_header(item, extension=extension, copy=False)
@@ -453,15 +456,18 @@ def imcombine(
 
             if hdr['NAXIS'] != ndim:
                 raise ValueError(
-                    "All FITS files must have the identical ndim, though they can have different sizes."
+                    "All FITS files must have the identical ndim, "
+                    + "though they can have different sizes."
                 )
 
             # Update offsets if WCS or Physical should be used
             if use_wcs:
                 # Code if using WCS, which may be much slower (but accurate?)
                 # Find the center's pixel position in w_ref, in nearest integer value.
-                offsets[i, ] = calc_offset_wcs(WCS(hdr), w_ref, intify_offset=True,
-                                               loc_target='center', loc_reference='center', order_xyz=False)
+                offsets[i, ] = calc_offset_wcs(
+                    WCS(hdr), w_ref, intify_offset=True,
+                    loc_target='center', loc_reference='center', order_xyz=False
+                )
                 # For IRAF-like calculation, use
                 #   offsets[i, ] = [hdr[f'CRPIX{i}'] for i in range(ndim, 0, -1)]
             elif use_phy:
@@ -487,13 +493,16 @@ def imcombine(
     # ------------------------------------------------------------------------------------ #
 
     # == Check the size of the temporary array for combination =========================== #
-    offsets, sh_comb = _image_shape(shapes, offsets, method='outer', offset_order_xyz=False, intify_offsets=True)
+    offsets, sh_comb = offseted_shape(
+        shapes, offsets, method='outer', offset_order_xyz=False, intify_offsets=True
+    )
 
     # Size of (N+1)-D array before combining along axis=0
     stacksize = np.prod((ncombine, *sh_comb))*(np.dtype(dtype).itemsize)
-    # size estimated by full-stacked array (1st term) plus combined image (1/ncombine), low and upp
-    # bounds (each 1/ncombine), mask (bool8), niteration (int8), and code(int8).
-    # temp_arr_size = stacksize*(1 + 1/ncombine*4)
+    # size estimated by full-stacked array (1st term) plus combined image
+    # (1/ncombine), low and upp bounds (each 1/ncombine), mask (bool8),
+    # niteration (int8), and code(int8). temp_arr_size = stacksize*(1 +
+    # 1/ncombine*4)
 
     # Copied from ccdproc v 2.0.1
     # https://github.com/astropy/ccdproc/blob/b9ec64dfb59aac1d9ca500ad172c4eb31ec305f8/ccdproc/combiner.py#L710
@@ -538,7 +547,8 @@ def imcombine(
         # print("0: ", process.memory_info().rss/1.e+9)  # in bytes
 
         # -- Set slice ------------------------------------------------------------------- #
-        # yfu.misc._offsets2slice is introduced much later than the code below was written, so not used here..
+        # offsets2slice is introduced much later than the code below was written,
+        # so not used here..
         slices = [i]
         # offset & size at each j-th dimension axis
         for offset_j, shape_j in zip(_offset, _shape):
@@ -663,7 +673,6 @@ def imcombine(
     if full:  # unpack the output
         comb, err, mask_rej, mask_thresh, low, upp, nit, rejcode = comb
         mask_total = mask_full | mask_thresh | mask_rej
-
 
     # == Update header properly ========================================================== #
     # Update WCS or PHYSICAL keywords so that "lock frame wcs", etc, on SAO
@@ -1042,8 +1051,8 @@ def ndcombine(
     # TODO: add "grow" rejection here?
 
     # == 03 - combine ==================================================================== #
-    # Replace rejected / masked pixel to NaN and backup for debugging purpose. This is done to reduce
-    # memory (instead of doing _arr = arr.copy())
+    # Replace rejected / masked pixel to NaN and backup for debugging purpose.
+    # This is done to reduce memory (instead of doing _arr = arr.copy())
     # backup_nan = arr[_mask]
     if verbose:
         print("- Combining")

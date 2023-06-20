@@ -7,7 +7,8 @@ from warnings import warn
 import bottleneck as bn
 import numpy as np
 import pandas as pd
-from astropy import units as u
+from astro_ndslice import (bezel2slice, is_list_like, listify, offseted_shape,
+                           slicefy)
 from astropy.coordinates import SkyCoord
 from astropy.io import fits
 from astropy.nddata import CCDData, Cutout2D
@@ -19,8 +20,7 @@ from astropy.wcs import WCS, Wcsprm
 # from scipy.interpolate import griddata
 from scipy.ndimage import label as ndlabel
 
-from .misc import (_image_shape, bezel2slice, binning, change_to_quantity,
-                   cmt2hdr, is_list_like, listify, slicefy, update_process,
+from .misc import (binning, change_to_quantity, cmt2hdr, update_process,
                    update_tlm)
 
 try:
@@ -56,14 +56,13 @@ __all__ = [
     "fixpix",
     # "make_errormap",
     "errormap",
-    "find_extpix", "find_satpix",
+    "find_extpix", "find_satpix", "convert_bit",
     # ! header update:
     "hedit", "key_remover", "key_mapper", "chk_keyval",
     # ! header accessor:
     "valinhdr", "get_from_header", "get_if_none",
     # ! WCS related:
     "wcs_crota", "midtime_obs", "center_radec",
-    "calc_offset_wcs", "calc_offset_physical",
     "wcsremove", "fov_radius",
     # ! math:
     "give_stats"
@@ -1406,7 +1405,7 @@ def trim_overlap(inputs, extension=None, coordinate="image"):
             calc_offset_physical(ccd, reference, order_xyz=False, ignore_ltm=True)
         )
 
-    offsets, new_shape = _image_shape(
+    offsets, new_shape = offseted_shape(
         shapes, offsets, method="overlap", intify_offsets=False
     )
 
@@ -2706,169 +2705,6 @@ def center_radec(
     return coo
 
 
-def calc_offset_wcs(
-        target,
-        reference,
-        loc_target="center",
-        loc_reference="center",
-        order_xyz=True,
-        intify_offset=False
-):
-    """ The pixel offset of target's location when using WCS in referene.
-
-    Parameters
-    ----------
-
-    target : CCDData, PrimaryHDU, ImageHDU, HDUList, Header, ndarray, number-like, path-like, WCS
-        The object to extract header to calculate the position
-
-    reference : CCDData, PrimaryHDU, ImageHDU, HDUList, Header, ndarray, number-like, path-like, WCS
-        The object to extract reference WCS (or header to extract WCS) to
-        calculate the position *from*.
-
-    loc_target : str (center, origin) or ndarray optional.
-        The location to calculate the position (in pixels and in xyz order).
-        Default is ``'center'`` (half of ``NAXISi`` keys in `target`). The
-        `location`'s world coordinate is calculated from the WCS information in
-        `target`. Then it will be transformed to the image coordinate of
-        `reference`.
-
-    loc_reference : str (center, origin) or ndarray optional.
-        The location of the reference point (in pixels and in xyz order) in
-        `reference`'s coordinate
-        to calculate the offset.
-
-    order_xyz : bool, optional.
-        Whether to return the position in xyz order or not (python order:
-        ``[::-1]`` of the former). Default is `True`.
-    """
-    def _parse_loc(loc, obj):
-        if isinstance(obj, WCS):
-            w = obj
-        else:
-            _, hdr = _parse_data_header(obj, parse_data=False, copy=False)
-            w = WCS(hdr)
-
-        if loc == "center":
-            _loc = np.atleast_1d(w._naxis)/2
-        elif loc == "origin":
-            _loc = [0.]*w.naxis
-        else:
-            _loc = np.atleast_1d(loc)
-
-        return w, _loc
-
-    w_targ, _loc_target = _parse_loc(loc_target, target)
-    w_ref, _loc_ref = _parse_loc(loc_reference, reference)
-
-    _loc_target_coo = w_targ.all_pix2world(*_loc_target, 0)
-    _loc_target_pix_ref = w_ref.all_world2pix(*_loc_target_coo, 0)
-
-    offset = _loc_target_pix_ref - _loc_ref
-
-    if intify_offset:
-        offset = np.around(offset).astype(int)
-
-    if order_xyz:
-        return offset
-    else:
-        return offset[::-1]
-
-
-def calc_offset_physical(
-        target,
-        reference=None,
-        order_xyz=True,
-        ignore_ltm=True,
-        intify_offset=False
-):
-    """ The pixel offset by physical-coordinate information in referene.
-
-    Parameters
-    ----------
-
-    target : CCDData, PrimaryHDU, ImageHDU, HDUList, Header, ndarray, number-like, path-like
-        The object to extract header to calculate the position
-
-    reference : CCDData, PrimaryHDU, ImageHDU, HDUList, Header, ndarray, number-like, path-like
-        The reference to extract header to calculate the position *from*. If
-        `None`, it is basically identical to extract the LTV values from
-        `target`.
-        Default is `None`.
-
-    order_xyz : bool, optional.
-        Whether to return the position in xyz order or not (python order:
-        ``[::-1]`` of the former).
-        Default is `True`.
-
-    ignore_ltm : bool, optional.
-        Whether to assuem the LTM matrix is identity. If it is not and
-        ``ignore_ltm=False``, a `NotImplementedError` will be raised, i.e.,
-        non-identity LTM matrices are not supported.
-
-    Notes
-    -----
-    Similar to `calc_offset_wcs`, but with locations fixed to origin (as
-    non-identity LTM matrix is not supported). Also, input of WCS is not
-    accepted because astropy's wcs module does not parse LTV/LTM from header.
-    """
-
-    def _check_ltm(hdr):
-        ndim = hdr["NAXIS"]
-        for i in range(ndim):
-            for j in range(ndim):
-                try:
-                    assert float(hdr["LTM{i}_{j}"]) == 1.0*(i == j)
-                except (KeyError, IndexError):
-                    continue
-                except (AssertionError):
-                    raise NotImplementedError("Non-identity LTM matrix is not supported.")
-
-            try:  # Sometimes LTM matrix is saved as ``LTMi``, not ``LTMi_j``.
-                assert float(target["LTM{i}"]) == 1.0
-            except (KeyError, IndexError):
-                continue
-            except (AssertionError):
-                raise NotImplementedError("Non-identity LTM matrix is not supported.")
-
-    do_ref = reference is not None
-    _, target = _parse_data_header(target, parse_data=False)
-    if do_ref:
-        _, reference = _parse_data_header(reference, parse_data=False)
-
-    if not ignore_ltm:
-        _check_ltm(target)
-        if do_ref:
-            _check_ltm(reference)
-
-    ndim = target["NAXIS"]
-    ltvs_obj = []
-    for i in range(ndim):
-        try:
-            ltvs_obj.append(target[f"LTV{i + 1}"])
-        except (KeyError, IndexError):
-            ltvs_obj.append(0)
-
-    if do_ref:
-        ltvs_ref = []
-        for i in range(ndim):
-            try:
-                ltvs_ref.append(reference[f"LTV{i + 1}"])
-            except (KeyError, IndexError):
-                ltvs_ref.append(0)
-        offset = np.array(ltvs_obj) - np.array(ltvs_ref)
-    else:
-        offset = np.array(ltvs_obj)
-
-    if intify_offset:
-        offset = np.around(offset).astype(int)
-
-    if order_xyz:
-        return offset  # This is already xyz order!
-    else:
-        return offset[::-1]
-
-
 def fov_radius(header=None, wcs=None, unit=u.deg):
     """ Calculates the rough radius (cone) of the (square) FOV using WCS.
 
@@ -3126,8 +2962,25 @@ def wcsremove(
 #     return np.array(center_coo)
 
 
-def convert_bit(fname, original_bit=12, target_bit=16):
+def convert_bit(ccd, original_bit=12, target_bit=16, dtype="int16", bunit=None, copy=True):
     """ Converts a FIT(S) file's bit.
+
+    Parameters
+    ----------
+    ccd: CCDData
+        The CCDData object to be converted.
+
+    original_bit, target_bit: int
+        The original and target bit of the CCDData object. For example, if
+        these are 12 and 16, respectively, the effect will be dividing the
+        original data by 2^4 = 16.
+
+    dtype: str
+        The data type of the output CCDData object.
+
+    bunit: str
+        The unit of the output CCDData object. Set it to None to keep the
+        original ``"BUNIT"`` in the header.
 
     Notes
     -----
@@ -3136,16 +2989,16 @@ def convert_bit(fname, original_bit=12, target_bit=16):
     example, the pixel values can have 0 and 15, but not any integer between
     these two. So it is better to convert to 16-bit.
     """
-    hdul = fits.open(fname)
+    _t = Time.now()
     dscale = 2**(target_bit - original_bit)
-    hdul[0].data = (hdul[0].data / dscale).astype("int")
-    hdul[0].header["MAXDATA"] = (2**original_bit - 1,
-                                 "maximum valid physical value in raw data")
-    # hdul[0].header['BITPIX'] = target_bit
-    # FITS ``BITPIX`` cannot have, e.g., 12, so the above is redundant line.
-    hdul[0].header["BUNIT"] = "ADU"
-    hdul.close()
-    return hdul
+    _ccd = ccd.copy() if copy else ccd
+    _ccd.data = (_ccd.data / dscale).astype(dtype)
+    _ccd.header["MAXDATA"] = (2**original_bit-1, "maximum valid physical value in raw data")
+    if bunit is not None:
+        _ccd.header["BUNIT"] = bunit
+    cmt2hdr(_ccd.header, "h", t_ref=_t,
+            s="Converted {}-bit to {}-bit".format(original_bit, target_bit))
+    return _ccd
 
 
 # TODO: add sigma-clipped statistics option (hdr key can be using "SIGC", e.g., SIGCAVG.)
@@ -3305,4 +3158,3 @@ def give_stats(
                                            f"Upper extreme values (N_extrema={N_extrema})")
         return result, hdr
     return result
-

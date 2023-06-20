@@ -1,14 +1,14 @@
 from pathlib import Path
 
 import numpy as np
+from astro_ndslice import calc_offset_physical, calc_offset_wcs, offsets2slice
 from astropy.io import fits
 from astropy.nddata import CCDData
 from astropy.time import Time
 
 from ..hduutil import (CCDData_astype, _has_header, _parse_extension,
-                       _parse_image, calc_offset_physical, calc_offset_wcs,
-                       imslice)
-from ..misc import _offsets2slice, cmt2hdr, update_tlm
+                       _parse_image, imslice)
+from ..misc import cmt2hdr, update_tlm
 
 __all__ = ["imarith"]
 
@@ -125,7 +125,7 @@ def _load_im_name_hdr(
         else:
             raise ValueError("offsets not understood.")
 
-        trimsecs = _offsets2slice(shapes, offsets, method='inner', fits_convention=True)
+        trimsecs = offsets2slice(shapes, offsets, method='inner', fits_convention=True)
         if verbose:
             print(f"Using offsets {offsets_name}, trimming happened for im1 and im2:")
 

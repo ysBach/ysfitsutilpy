@@ -1,7 +1,8 @@
 import bottleneck as bn
 import numpy as np
+from astro_ndslice import slice_from_string
 from astropy.stats import sigma_clipped_stats
-from ccdproc.utils.slices import slice_from_string
+
 from .util_lmedian import lmedian, nanlmedian
 
 __all__ = [

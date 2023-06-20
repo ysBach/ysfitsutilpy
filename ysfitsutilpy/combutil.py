@@ -4,6 +4,7 @@ from warnings import warn
 import ccdproc
 import numpy as np
 import pandas as pd
+from astro_ndslice import listify
 from astropy.io import fits
 from astropy.nddata import CCDData, StdDevUncertainty
 from astropy.table import Table
@@ -13,7 +14,6 @@ from ccdproc import combine
 from .filemgmt import load_if_exists, make_summary
 from .hduutil import (CCDData_astype, _parse_extension, chk_keyval, cmt2hdr,
                       imslice, inputs2list, load_ccd)
-from .misc import listify
 
 __all__ = [
     "sstd", "weighted_mean", "group_fits", "select_fits", "stack_FITS",

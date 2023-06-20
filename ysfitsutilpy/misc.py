@@ -14,12 +14,11 @@ from astropy.time import Time
 __all__ = ["MEDCOMB_KEYS_INT", "SUMCOMB_KEYS_INT", "MEDCOMB_KEYS_FLT32",
            "LACOSMIC_KEYS", "LACOSMIC_CRREJ", "parse_crrej_psf",
            "get_size",
-           "slicefy", "bezel2slice", "is_list_like", "listify", "ndfy",
            "cmt2hdr", "update_tlm", "update_process",
            "weighted_avg", "sigclip_dataerr", "circular_mask",
-           "_image_shape", "_offsets2slice",
            "str_now", "change_to_quantity", "binning",
-           "quantile_lh", "quantile_sigma"]
+           "quantile_lh", "quantile_sigma",
+           "min_max_med_1d", "mean_std_1d"]
 
 
 MEDCOMB_KEYS_INT = dict(dtype='int16',
@@ -74,7 +73,7 @@ LACOSMIC_CRREJ = {'sigclip': 4.5,
 
 
 def get_size(obj, seen=None):
-    """Recursively finds size of objects.
+    """ Recursively finds size of objects.
     Directly from
     https://goshippo.com/blog/measure-real-size-any-python-object/
     Returns the size in bytes.
@@ -103,283 +102,6 @@ def get_size(obj, seen=None):
           and not isinstance(obj, (str, bytes, bytearray))):
         size += sum([get_size(i, seen) for i in obj])
     return size
-
-
-# TODO: add `coord` to select whether image/physical. If physical, header is required.
-def slicefy(rule, ndim=2, order_xyz=True):
-    """ Parse the rule by trimsec, bezels, or slices (in this priority).
-
-    Parameters
-    ----------
-    rule : str, int, list of int, list of slice, None, optional
-        It can have several forms::
-
-          * str: The FITS convention section to trim (e.g., IRAF TRIMSEC).
-          * [list of] int: The number of pixels to trim from the edge of the
-            image (bezel)
-          * [list of] slice: The slice of each axis (`slice(start, stop,
-            step)`)
-
-        If a single int/slice is given, it will be applied to all the axes.
-
-    order_xyz : bool, optional
-        Whether the order of rule is in xyz order. Works only if the `rule` is
-        bezel-like (int or list of int). If it is slice-like, `rule` must be in
-        the pythonic order (i.e., ``[slice_for_axis0, slice_for_axis1, ...]``).
-
-    >>> np.eye(5)[slicefy('[1:2,:]')]
-    # array([[1., 0.],
-    #       [0., 1.],
-    #       [0., 0.],
-    #       [0., 0.],
-    #       [0., 0.]])
-    >>> np.eye(5)[slicefy(1)]  # bezel by 1 pix
-    # array([[1., 0., 0.],
-    #    [0., 1., 0.],
-    #    [0., 0., 1.]])
-    >>> np.eye(5)[slicefy((1, 2))]  # bezel by (1, 1), (2, 2) pix (x/y dir)
-    # array([[0., 1., 0.]])
-    >>> np.eye(5)[slicefy(slice(1, -1, 2))]  # data[1:-1:2, 1:-1:2]
-    # array([[1., 0.],
-    #    [0., 1.]])
-    """
-    if rule is None:
-        return tuple([slice(None, None, None) for _ in range(ndim)])
-    elif isinstance(rule, str):
-        fs = np.atleast_1d(rule)
-        sl = [ccdproc.utils.slices.slice_from_string(sect, fits_convention=True)
-              for sect in fs]
-        return sl[0] if len(sl) == 1 else tuple(sl)
-    elif is_list_like(rule):
-        if isinstance(rule[0], slice):
-            return ndfy(rule, ndim)
-        else:  # bezels
-            bezels = ndfy([ndfy(b, 2, default=0) for b in listify(rule)], ndim)
-            return bezel2slice(bezels, order_xyz=order_xyz)
-    elif isinstance(rule, slice):
-        return ndfy(rule, ndim)
-    elif isinstance(rule, int):  # bezels
-        bezels = ndfy([ndfy(b, 2, default=0) for b in listify(rule)], ndim)
-        return bezel2slice(bezels, order_xyz=order_xyz)
-    else:
-        raise TypeError(f"rule must be a string or a list of int/slice. Now {type(rule)=}")
-
-
-def bezel2slice(bezels, order_xyz=True):
-    """ Convert bezels to slice objects
-
-    Parameters
-    ----------
-    bezels : list of list of int, optional.
-        Must be a list of list of int. Each list of int is in the
-        form of ``[lower, upper]``, i.e., the first ``lower`` and last
-        ``upper`` rows/columns are ignored.
-
-    order_xyz : bool, optional.
-        Whether `bezel` in xyz order or not (python order:
-        ``xyz_order[::-1]``). Due to its confusing behavior, it is intended to
-        be `True` most of the time.
-        Default: `True`.
-
-    Notes
-    -----
-    Consider a 100x100 image.
-    1. ``bezels = [[10, 20], [30, 40]], order_xyz=True`` will ignore the first
-       10 columns, the last 20 columns, the **BOTTOM** 30 rows, and the **TOP**
-       40 rows.
-    2. ``bezels = [[10, 20], [30, 40]], order_xyz=False`` will ignore the
-       **BOTTOM** 10 rows (python index of ``[:10]``), the **TOP** 20 columns
-       (python index of ``[-20:]``), the first 30 columns, and the last 40
-       columns.
-    This confusing behavior is due to the (stupid and/or inconsistent?) way
-    our world represents xy-coordinates.
-    """
-    bezels = np.atleast_2d(bezels)
-    bezels = bezels[::-1] if order_xyz else bezels
-    return tuple([slice(b[0], None if b[1] == 0 else -b[1]) for b in bezels])
-
-
-def is_list_like(*objs, allow_sets=True, func=all):
-    ''' Check if inputs are list-like
-
-    Parameters
-    ----------
-    *objs : object
-        Objects to check.
-    allow_sets : bool, optional.
-        If this parameter is `False`, sets will not be considered list-like.
-        Default: `True`
-    func : funtional object, optional.
-        The function to be applied to each element. Useful ones are `all` and
-        `any`.
-        Default: `all`
-
-    Notes
-    -----
-    Direct copy from pandas, with slight modification to accept *args and
-    all/any, etc, functionality by `func`.
-    https://github.com/pandas-dev/pandas/blob/bdb00f2d5a12f813e93bc55cdcd56dcb1aae776e/pandas/_libs/lib.pyx#L1026
-
-    Note that pd.DataFrame also returns True.
-
-    Timing on MBP 14" [2021, macOS 12.2, M1Pro(6P+2E/G16c/N16c/32G)]
-    %timeit yfu.is_list_like("asdfaer.fits")
-    4.32 µs +- 572 ns per loop (mean +- std. dev. of 7 runs, 100000 loops each)
-    '''
-    # I don't think we need speed boost here but...
-    # if `func` is `any`, below can be reorganized by for loop and can return
-    # `True` once it reaches `True` for the first time.
-    return func(
-        isinstance(obj, abc.Iterable)
-        # we do not count strings/unicode/bytes as list-like
-        and not isinstance(obj, (str, bytes))
-        # exclude zero-dimensional numpy arrays, effectively scalars
-        and not (isinstance(obj, np.ndarray) and obj.ndim == 0)
-        # exclude sets if allow_sets is False
-        and not (allow_sets is False and isinstance(obj, abc.Set))
-        for obj in objs
-    )
-
-
-# def listify(obj):
-#     """Make an object into a list.
-
-#     Parameters
-#     ----------
-#     obj : None, str, list-like
-#         Object to be made into a list. If `str`, it will be converted to
-#         ``[obj]``. If `None`, an empty list (`[]`) is returned.
-#     """
-#     if obj is None:
-#         return []
-#     elif is_list_like(obj):
-#         return list(obj)
-#     else:
-#         return [obj]
-
-
-def listify(*objs, scalar2list=True, none2list=False):
-    """Make multiple object into list of same length.
-
-    Parameters
-    ----------
-    objs : None, str, list-like
-        If single object, it will be converted to a list ``[obj]`` or ``obj``,
-        depending on `scalar2list`. Any scalar input will be converted to a
-        list of a target length (largest length among `objs`). If `None`, an
-        empty list (`[]`) or ``[None]`` is returned depending on `none2list`.
-        If multiple objects are given, maximum length of them is used as the
-        target length.
-    scalar2list : bool, optional.
-        If `True`, a single scalar input will be converted to a list of a
-        target length. Otherwise, it will be returned as is.
-
-    none2list : bool, optional.
-        Whether to return an empty list (`[]`). If `True`, ``[None]`` is
-        returned if `objs` is `None`.
-        Default: `False`
-
-    Notes
-    -----
-    If any obj of `None` need to be converted to a length>1 list, it will be
-    made as [None, None, ...], rather than an empty list, regardless of
-    `empty_if_none`.
-
-    Tests
-    -----
-    assert listify(12) == [12]
-    assert listify([1]) == [1]
-    assert listify(12, scalar2list=False) == 12
-    assert listify([1], scalar2list=False) == [1]
-    assert listify(None) == []
-    assert listify(None, none2list=True) == [None]
-    assert listify([1, 2]) == [1, 2]
-    assert listify([1, "a"]) == [1, "a"]
-    with pytest.raises(ValueError):
-        listify([1, 2], "a", [3, 4, 5])
-    # Below are the most important cases `listify` is useful
-    assert listify("ab") == ["ab"]
-    assert listify("ab", scalar2list=False) == "ab"
-    assert listify([1, 2], "a") == [[1, 2], ['a', 'a']]
-    assert listify([1, 2], "a", None) == [[1, 2], ['a', 'a'], [None, None]]
-
-    Timing on MBP 14" [2021, macOS 12.2, M1Pro(6P+2E/G16c/N16c/32G)]:
-    %timeit yfu.listify([12])
-    8.92 µs +- 434 ns per loop (mean +- std. dev. of 7 runs, 100000 loops each)
-    %timeit yfu.listify("asdf")
-    7.08 µs +- 407 ns per loop (mean +- std. dev. of 7 runs, 100000 loops each)
-    %timeit yfu.listify("asdf", scalar2list=False)
-    7.37 µs +- 586 ns per loop (mean +- std. dev. of 7 runs, 100000 loops each)
-
-    """
-    def _listify_single(obj, none2list=True):
-        if obj is None:
-            return [obj] if none2list else []
-        elif is_list_like(obj):
-            return list(obj)
-        else:
-            return [obj] if scalar2list else obj
-
-    if len(objs) == 1:
-        return _listify_single(objs[0], none2list=none2list)
-
-    objlists = [_listify_single(obj, none2list=True) for obj in objs]
-    lengths = [len(obj) for obj in objlists]
-    length = max(lengths)
-    for objl in objlists:
-        if len(objl) not in [1, length]:
-            raise ValueError(f"Each input must be 1 or max(lengths)={length}.")
-
-    return [obj*length if len(obj) == 1 else obj for obj in objlists]
-
-
-def ndfy(item, length=None, default=0):
-    """ Make an item to ndarray of length.
-
-    Parameters
-    ----------
-    item : None, general object, list-like
-        The item to be made into an ndarray. If `None`, `default` is used.
-
-    length : int, optional.
-        The length of the final ndarray. If `None`, the length of the input is
-        used (if `item` is a scalar, a length-1 array is returned).
-
-    default : general object
-        The default value to be used if `item` or any element of `item` is
-        `None`.
-
-    Notes
-    -----
-    Useful for the cases when bezels, sigma, ... are needed. Example case when
-    you want to make ((20, 20), (20, 20)) bezels from given ``bezels = 20``::
-    >>> arr = np.arange(10).reshape(2, 5)  # 2-D array
-    >>> bezels1 = 20
-    >>> bezels2 = (20, 20)
-    >>> bezels3 = ((20, 20), (20, 20))
-    >>> ans = [[20, 20], [20, 20]]
-    >>> assert ndfy([ndfy(b, 2, default=0) for b in listify(bezels1)], arr.ndim) == ans
-    >>> assert ndfy([ndfy(b, 2, default=0) for b in listify(bezels2)], arr.ndim) == ans
-    >>> assert ndfy([ndfy(b, 2, default=0) for b in listify(bezels3)], arr.ndim) == ans
-
-    Note that 2-element bezels is ambiguous: ``[a, b]`` may mean either (1)
-    both bezels in x-axis to be ``a`` and both bezels in y-axis to be ``b`` or
-    (2) both x-/y-axis have bezels ``[a, b]`` for lower/upper regions. `ndfy`
-    uses the first assumption::
-    >>> ndfy([ndfy(b, 2, default=0) for b in listify([(30, 40)])], arr.ndim)
-    >>> # [[30, 30], [40, 40]]
-    Because of this, it will raise ValueError if `arr.ndim != bezels.size`.
-    """
-    item = listify(item)
-    item = [default if i is None else i for i in item]
-
-    if (length is None) or (len(item) == length):
-        return item
-    elif len(item) != 1:
-        raise ValueError(f"Length of item must be 1 or {length=}. Now it is {len(item)}.")
-
-    # Now, len(item) == 1
-    return [item[0] for _ in range(length)]
 
 
 def cmt2hdr(
@@ -776,7 +498,7 @@ def circular_mask(shape, center=None, radius=None, center_xyz=True):
     https://stackoverflow.com/questions/44865023/how-can-i-create-a-circular-mask-for-a-numpy-array
     '''
     if center is None:  # use the middle of the image
-        center = [int(npix/2) for npix in shape[::-1]]
+        center = [npix/2 for npix in shape[::-1]]
 
     if center_xyz:
         center = center[::-1]
@@ -795,224 +517,6 @@ def circular_mask(shape, center=None, radius=None, center_xyz=True):
 
     mask = dist_from_center <= radius
     return mask
-
-
-def _regularize_offsets(offsets, offset_order_xyz=True, intify_offsets=False):
-    """ Makes offsets all non-negative and relative to each other.
-    """
-    _offsets = np.atleast_2d(offsets)
-    if offset_order_xyz:
-        _offsets = np.flip(_offsets, -1)
-
-    # _offsets = np.max(_offsets, axis=0) - _offsets
-    _offsets = _offsets - np.min(_offsets, axis=0)
-    # This is the convention to follow IRAF (i.e., all of offsets > 0.)
-    if intify_offsets:
-        _offsets = np.around(_offsets).astype(int)
-
-    return _offsets
-
-
-def _image_shape(
-        shapes,
-        offsets,
-        method='outer',
-        offset_order_xyz=True,
-        intify_offsets=False,
-        pythonize_offsets=True
-):
-    '''shapes and offsets must be in the order of python/numpy (i.e., z, y, x order).
-
-    Paramters
-    ---------
-    shapes : ndarray
-        The shapes of the arrays to be processed. It must have the shape of
-        ``nimage`` by ``ndim``. The order of shape must be pythonic (i.e.,
-        ``shapes[i] = image[i].shape``, not in the xyz order).
-
-    offsets : ndarray
-        The offsets must be ``(cen_i - cen_ref) + const`` format, i.e., an
-        offset is the position of the target frame (position can be, e.g.,
-        origin or center) in the coordinate of the reference frame, with a
-        possible non-zero constant offset applied. It must have the shape of
-        ``nimage`` by ``ndim``.
-
-    method : str, optional
-        The method to calculate the `shape_out`::
-
-          * ``'outer'``: To combine images, so every pixel in `shape_out` has
-            at least 1 image pixel.
-          * ``'inner'``: To process only where all the images have certain
-            pixel (fully-overlap).
-
-    offset_order_xyz : bool, optional
-        Whether `offsets` are in xyz order. If so, those will be flipped to
-        pythonic order. Default: `True`
-
-    Returns
-    -------
-    _offsets : ndarray
-        The *relative* offsets calculated such that at least one image per each
-        dimension must have offset of 0.
-
-    shape_out : tuple
-        The shape of the array depending on the `method`.
-    '''
-    _offsets = _regularize_offsets(
-        offsets,
-        offset_order_xyz=offset_order_xyz,
-        intify_offsets=intify_offsets
-    )
-
-    if method == 'outer':
-        shape_out = np.around(np.max(np.array(shapes) + _offsets, axis=0)).astype(int)
-        # print(_offsets, shapes, shape_out)
-    # elif method == 'stack':
-    #     shape_out_comb = np.around(
-    #         np.max(np.array(shapes) + _offsets, axis=0)
-    #     ).astype(int)
-    #     shape_out = (len(shapes), *shape_out_comb)
-    elif method == 'inner':
-        lower_bound = np.max(_offsets, axis=0)
-        upper_bound = np.min(_offsets + shapes, axis=0)
-        npix = upper_bound - lower_bound
-        shape_out = np.around(npix).astype(int)
-        if np.any(npix < 0):
-            raise ValueError("There doesn't exist fully-overlapping pixel! "
-                             + f"Naïve output shape={shape_out}.")
-        # print(lower_bound, upper_bound, shape_out)
-    else:
-        raise ValueError("method unacceptable (use one of 'inner', 'outer').")
-
-    if offset_order_xyz and not pythonize_offsets:
-        # reverse _offsets to original xyz order
-        _offsets = np.flip(_offsets, -1)
-
-    return _offsets, tuple(shape_out)
-
-
-def _offsets2slice(
-        shapes,
-        offsets,
-        method='outer',
-        shape_order_xyz=False,
-        offset_order_xyz=True,
-        outer_for_stack=True,
-        fits_convention=False
-):
-    """ Calculates the slices for each image when to extract overlapping parts.
-
-    Parameters
-    ----------
-    shapes, offsets : ndarray
-        The shape and offset of each image. If multiple images are used, it
-        must have shape of ``nimage`` by ``ndim``.
-
-    method : str, optional
-        The method to calculate the `shape_out`::
-
-          * ``'outer'``: To combine images, so every pixel in `shape_out` has
-            at least 1 image pixel.
-          * ``'inner'``: To process only where all the images have certain
-            pixel (fully-overlap).
-
-    shape_order_xyz, offset_order_xyz : bool, optional.
-        Whether the order of the shapes or offsets are in xyz or pythonic.
-        Shapes are usually in pythonic as it is obtained by
-        ``image_data.shape``, but offsets are often in xyz order (e.g., if
-        header ``LTVi`` keywords are loaded in their alpha-numeric order; or
-        you have used `~calc_offset_wcs` or `~calc_offset_physical` with
-        default ``order_xyz=True``). Default is `False` and `True`,
-        respectively.
-
-    outer_for_stack : bool, optional.
-        If `True`(default), the output slice is the slice in tne ``N+1``-D
-        array, which will be constructed before combining them along
-        ``axis=0``. That is, ``comb = np.nan*np.ones(_image_shape(shapes,
-        offsets, method='outer'))`` and ``comb[slices[i]] = images[i]``. Then a
-        median combine, for example, is done by ``np.nanmedian(comb, axis=0)``.
-        If ``stack_outer=False``, ``slices[i]`` will be
-        ``slices_with_stack_outer_True[i][1:]``.
-
-    fits_convention : bool, optional.
-        Whether to return the slices in FITS convention (xyz order, 1-indexing,
-        end index included). If `True` (default), returned list contains str;
-        otherwise, slice objects will be contained.
-
-    Returns
-    -------
-    slices : list of str or list of slice
-        The meaning of it differs depending on `method`::
-
-          * ``'outer'``: the slice of the **output** array where the i-th image
-            should fit in.
-          * ``'inner'``: the slice of the **input** array (image) where the
-            overlapping region resides.
-
-    Example
-    -------
-    >>>
-
-
-    """
-    _shapes = np.atleast_2d(shapes)
-    if shape_order_xyz:
-        _shapes = np.flip(_shapes, -1)
-
-    _offsets = _regularize_offsets(
-        offsets,
-        offset_order_xyz=offset_order_xyz,
-        intify_offsets=True
-    )
-
-    if _shapes.ndim != 2 or _offsets.ndim != 2:
-        raise ValueError("Shapes and offsets must be at most 2-D.")
-
-    if _shapes.shape != _offsets.shape:
-        raise ValueError("shapes and offsets must have the identical shape.")
-
-    if method == 'outer':
-        starts = _offsets
-        stops = _offsets + _shapes
-        if outer_for_stack:
-            def _initial_tmp(i):
-                return [f"{i + 1}:{i + 1}"] if fits_convention else [slice(i, i + 1, None)]
-        else:
-            _initial_tmp = lambda i: []  # initialized empty list regardless of argument
-    elif method == 'inner':
-        offmax = np.max(_offsets, axis=0)
-        if np.any(np.min(_shapes + _offsets, axis=0) <= offmax):
-            raise ValueError(
-                "At least 1 frame has no overlapping pixel with all others. "
-                + "Check if there's any overlapping pixel for images for the given offsets."
-            )
-
-        # 1-D array +/- 2-D array:
-        #   the former 1-D array is broadcast s.t. it is "tile"d along axis=-1.
-        starts = offmax - _offsets
-        stops = np.min(_offsets + _shapes, axis=0) - _offsets
-        _initial_tmp = lambda i: []  # initialized empty list regardless of argument
-    else:
-        raise ValueError("method unacceptable (use one of 'inner', 'outer').")
-
-    slices = []
-    for image_i, (start, stop) in enumerate(zip(starts, stops)):
-        # NOTE: starts/stops are all in pythonic index
-        tmp = _initial_tmp(image_i)
-        # print(tmp)
-        for start_i, stop_i in zip(start, stop):  # i = coordinate, (z y x) order
-            if fits_convention:
-                tmp.append(f"{start_i + 1:d}:{stop_i:d}")
-            else:
-                tmp.append(slice(start_i, stop_i, None))
-            # print(tmp)
-
-        if fits_convention:
-            slices.append('[' + ','.join(tmp[::-1]) + ']')  # order is opposite!
-        else:
-            slices.append(tmp)
-
-    return slices
 
 
 def str_now(
@@ -1341,3 +845,111 @@ def dB2epadu(gain_dB):
 
 def epadu2dB(gain_epadu):
     return 20 * np.log10(5 / gain_epadu)
+
+
+def min_max_med_1d(arr):
+    """ Return minimum, maximum and median of array.
+    Tests
+    -----
+    up to ~ 10 times faster than numpy's min, max, median done separately (MBP
+    14" [2021, macOS 13.1, M1Pro(6P+2E/G16c/N16c/32G)]) ONLY WHEN ARRAY SIZE <~
+    1000:
+
+    t1s, t2s = [], []
+    for size in [10, 100, 200, 300, 500, 800, 1000, 2000, 3000]:
+        a = rnd.normal(size=size)
+        t1 = %timeit -o min_max_med_1d(a)
+        t2 = %timeit -o a.min(), a.max(), np.median(a)
+        t1s.append(t1.average)
+        t2s.append(t2.average)
+
+    [this] 984 ns ± 4.41 ns per loop (mean ± std. dev. of 7 runs, 1,000,000 loops each)
+    [ np ] 9.79 µs ± 47 ns per loop (mean ± std. dev. of 7 runs, 100,000 loops each)
+    [this] 1.57 µs ± 2.2 ns per loop (mean ± std. dev. of 7 runs, 1,000,000 loops each)
+    [ np ] 10.2 µs ± 23.9 ns per loop (mean ± std. dev. of 7 runs, 100,000 loops each)
+    [this] 2.54 µs ± 8.23 ns per loop (mean ± std. dev. of 7 runs, 100,000 loops each)
+    [ np ] 10.6 µs ± 20.1 ns per loop (mean ± std. dev. of 7 runs, 100,000 loops each)
+    [this] 3.45 µs ± 15.4 ns per loop (mean ± std. dev. of 7 runs, 100,000 loops each)
+    [ np ] 11.2 µs ± 34.9 ns per loop (mean ± std. dev. of 7 runs, 100,000 loops each)
+    [this] 5.44 µs ± 34.5 ns per loop (mean ± std. dev. of 7 runs, 100,000 loops each)
+    [ np ] 12 µs ± 46.8 ns per loop (mean ± std. dev. of 7 runs, 100,000 loops each)
+    [this] 8.8 µs ± 32.8 ns per loop (mean ± std. dev. of 7 runs, 100,000 loops each)
+    [ np ] 13 µs ± 32.7 ns per loop (mean ± std. dev. of 7 runs, 100,000 loops each)
+    [this] 11.7 µs ± 17.1 ns per loop (mean ± std. dev. of 7 runs, 100,000 loops each)
+    [ np ] 14.8 µs ± 37.3 ns per loop (mean ± std. dev. of 7 runs, 100,000 loops each)
+    [this] 33.4 µs ± 4.28 µs per loop (mean ± std. dev. of 7 runs, 10,000 loops each)
+    [ np ] 19.6 µs ± 27.4 ns per loop (mean ± std. dev. of 7 runs, 100,000 loops each)
+    [this] 86.3 µs ± 4.78 µs per loop (mean ± std. dev. of 7 runs, 10,000 loops each)
+    [ np ] 25.6 µs ± 143 ns per loop (mean ± std. dev. of 7 runs, 10,000 loops each)
+
+    fig, axs = plt.subplots(1, 1, figsize=(8, 5), sharex=False, sharey=False, gridspec_kw=None)
+
+    #axs[0].
+    axs.plot( [10, 100, 200, 300, 500, 800, 1000, 2000, 3000], t1s)
+    axs.plot( [10, 100, 200, 300, 500, 800, 1000, 2000, 3000], t2s)
+    axs.set(
+        yscale='log',
+        xscale='log',
+        )
+    plt.tight_layout()
+    plt.show();
+
+
+    """
+    if arr.size < 1000:
+        _a = np.sort(arr)
+        return _a[0], _a[-1], 0.5*(_a[_a.size//2] + _a[_a.size//2 - 1])
+    else:
+        return np.min(arr), np.max(arr), np.median(arr)
+
+
+def mean_std_1d(arr, ddof=0, std=True, var=False):
+    """ Return mean and standard deviation of array.
+    Tests
+    -----
+    About 2.5 times faster than numpy's mean and std done separately (MBP 14"
+    [2021, macOS 13.1, M1Pro(6P+2E/G16c/N16c/32G)]):
+
+    rnd = np.random.RandomState(123)
+    a = rnd.normal(size=(100))
+
+    %timeit mean_std_1d(a)
+    4.13 µs ± 15.1 ns per loop (mean ± std. dev. of 7 runs, 100,000 loops each)
+    %timeit np.mean(a), np.std(a)
+    9.15 µs ± 41.2 ns per loop (mean ± std. dev. of 7 runs, 100,000 loops each)
+    print(mean_std_1d(a), "\n", np.mean(a), np.std(a))
+    (0.027109073490359778, 1.1282404704779612)
+     0.027109073490359778  1.128240470477961
+
+    With ddof:
+    %timeit mean_std_1d(a, ddof=1)
+    4.22 µs ± 40.3 ns per loop (mean ± std. dev. of 7 runs, 100,000 loops each)
+    %timeit np.mean(a), np.std(a, ddof=1)
+    9.47 µs ± 74.2 ns per loop (mean ± std. dev. of 7 runs, 100,000 loops each)
+    print(mean_std_1d(a, ddof=1), "\n", np.mean(a), np.std(a, ddof=1))
+    (0.027109073490359778, 1.1339243375361956)
+     0.027109073490359778, 1.1339243375361954
+
+    Larger size:
+    a = rnd.normal(size=(10000))
+    %timeit mean_std_1d(a)
+    9.38 µs ± 34.8 ns per loop (mean ± std. dev. of 7 runs, 100,000 loops each)
+    %timeit np.mean(a), np.std(a)
+    19.2 µs ± 57.7 ns per loop (mean ± std. dev. of 7 runs, 100,000 loops each)
+    """
+    sum_a = np.sum(arr)
+    sqsum = np.sum(arr**2)
+    inv_n = 1.0 / arr.size
+    inv_d = 1.0 / (arr.size - ddof) if ddof > 0 else inv_n
+    mean = sum_a * inv_n
+    var = sqsum*inv_d - mean*sum_a*inv_d
+    if var:
+        if std:
+            return mean, np.sqrt(var), var
+        else:
+            return mean, var
+    else:
+        if std:
+            return mean, np.sqrt(var)
+        else:
+            raise ValueError("At least one of `std` or `var` must be True.")

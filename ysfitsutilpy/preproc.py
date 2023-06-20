@@ -4,6 +4,7 @@ import astroscrappy
 import ccdproc
 import numpy as np
 import pandas as pd
+from astro_ndslice import listify, slicefy
 from astropy import units as u
 from astropy.nddata import CCDData, StdDevUncertainty
 from astropy.stats import sigma_clipped_stats
@@ -12,10 +13,10 @@ from astroscrappy import detect_cosmics
 from ccdproc import flat_correct, subtract_bias, subtract_dark
 
 from .hduutil import (CCDData_astype, _parse_image, errormap, fixpix, imslice,
-                      listify, load_ccd, propagate_ccdmask,
-                      set_ccd_gain_rdnoise, valinhdr)
+                      load_ccd, propagate_ccdmask, set_ccd_gain_rdnoise,
+                      valinhdr)
 from .misc import (LACOSMIC_CRREJ, change_to_quantity, cmt2hdr,
-                   parse_crrej_psf, slicefy, update_process, update_tlm)
+                   parse_crrej_psf, update_process, update_tlm)
 
 __all__ = [
     "crrej", "medfilt_bpm",
@@ -1233,7 +1234,7 @@ def ccdred(
         if path is None and master is None:
             return False, None, None
 
-        if path is not None:
+        if path is not None and master is None:
             master = load_ccd(path, ccddata=False) # beacuse it will be forced to CCDData
 
         do = True
