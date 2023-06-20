@@ -4,10 +4,9 @@ Objects that are
 (2) completely INDEPENDENT of all other modules of this package.
 '''
 import sys
-from collections import abc
 
-import ccdproc
 import numpy as np
+from astro_ndslice import is_list_like, listify
 from astropy import units as u
 from astropy.time import Time
 

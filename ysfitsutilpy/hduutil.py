@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 from astro_ndslice import (bezel2slice, is_list_like, listify, offseted_shape,
                            slicefy)
+from astropy import units as u
 from astropy.coordinates import SkyCoord
 from astropy.io import fits
 from astropy.nddata import CCDData, Cutout2D
