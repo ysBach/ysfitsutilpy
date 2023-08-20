@@ -6,14 +6,16 @@ Don't you think these must be implemented to astropy...?
 from warnings import warn
 
 import numpy as np
+from astropy.io import fits
 from astropy import units as u
 from astropy.coordinates import AltAz, EarthLocation, SkyCoord
 from astropy.io.fits import Card
 from astropy.time import Time
 
-from .hduutil import get_if_none
+from .hduutil import get_if_none, cmt2hdr, update_tlm
+from .misc import change_to_quantity
 
-__all__ = ["calc_airmass", "airmass_obs", "airmass_from_hdr"]
+__all__ = ["calc_airmass", "airmass_obs", "airmass_to_hdr", "airmass_from_hdr"]
 
 
 def calc_airmass(zd_deg=None, cos_zd=None, scale=750.):
@@ -68,7 +70,7 @@ def calc_airmass(zd_deg=None, cos_zd=None, scale=750.):
     return am
 
 
-def airmass_obs(targetcoord, obscoord, ut, exptime, scale=750., full=False):
+def airmass_obs(targetcoord, obscoord, ut, exptime, scale=750., full=False, in_deg=True):
     ''' Calculate airmass by nonrefracting radially symmetric atmosphere model.
 
     Parameters
@@ -89,6 +91,9 @@ def airmass_obs(targetcoord, obscoord, ut, exptime, scale=750., full=False):
         Earth radius divided by the atmospheric height (usually scale height)
         of the atmosphere. In IRAF documentation, it is mistakenly written that
         this `scale` is the "scale height".
+
+    in_deg : bool, optional
+        If True, return alt/az in degrees. Otherwise, return in string with separation ":".
 
     Notes
     -----
@@ -114,25 +119,119 @@ def airmass_obs(targetcoord, obscoord, ut, exptime, scale=750., full=False):
     t_mid = ut + exptime / 2
     t_final = ut + exptime
 
-    alldict = {"alt": [], "az": [], "zd": [], "airmass": []}
+    alldict = {"alt": [], "az": [], "zd": [], "am": []}
     for t in [t_start, t_mid, t_final]:
         C_altaz = AltAz(obstime=t, location=obscoord)
         target = targetcoord.transform_to(C_altaz)
-        alt = target.alt.to_string(unit=u.deg, sep=':')
-        az = target.az.to_string(unit=u.deg, sep=':')
+        if in_deg:
+            alt = target.alt.to_value(unit=u.deg)
+            az = target.az.to_value(unit=u.deg)
+        else:
+            alt = target.alt.to_string(unit=u.deg, sep=':')
+            az = target.az.to_string(unit=u.deg, sep=':')
         zd = target.zen.to(u.deg).value
         am = calc_airmass(zd_deg=zd, scale=scale)
         alldict["alt"].append(alt)
         alldict["az"].append(az)
         alldict["zd"].append(zd)
-        alldict["airmass"].append(am)
+        alldict["am"].append(am)
 
-    am_eff = (alldict["airmass"][0] + 4*alldict["airmass"][1] + alldict["airmass"][2]) / 6
+    am_eff = (alldict["am"][0] + 4*alldict["am"][1] + alldict["am"][2]) / 6
 
     if full:
         return am_eff, alldict
 
     return am_eff
+
+
+def airmass_to_hdr(
+    header: fits.Header,
+    obscoord: EarthLocation,
+    targetcoord: SkyCoord=None,
+    ra: str|float|u.Quantity="RA",
+    dec: str|float|u.Quantity="DEC",
+    time_start: str|Time = "DATE-OBS",
+    time_scale: str = "utc",
+    exptime: str|float|u.Quantity = "EXPTIME",
+    scale=750.,
+    in_deg=True,
+    frame: str = "icrs",
+):
+    """
+    Calculates airmass from a given header and location information
+
+    Parameters
+    ----------
+    header : fits.Header
+        The header of the image to calculate airmass from.
+
+    obscoord : EarthLocation
+        The location of the observatory.
+
+    targetcoord : SkyCoord, optional
+        The coordinate of the target. If not given, it will be calculated from
+        the header.
+
+    ra, dec : str|float|u.Quantity, optional
+        The name of the header keyword or the value of the RA and DEC of the
+        target. If float, it should be in [deg].
+
+    time_start : str|Time, optional
+        The name of the header keyword or the value of the time when the
+        exposure started.
+
+    time_scale : str, optional
+        The scale of the time if it is read from header. Default is "utc".
+
+    exptime : str|float|u.Quantity, optional
+        The name of the header keyword or the value of the exposure time. If
+        given as float, it should be in [sec].
+
+    scale : float, optional
+        Earth radius divided by the atmospheric height (usually scale height)
+        of the atmosphere. In IRAF documentation, it is mistakenly written that
+        this `scale` is the "scale height".
+    in_deg : bool, optional
+        If True, return alt/az in degrees. Otherwise, return in string with separation ":".
+
+    """
+    _t = Time.now()
+    if obscoord is None:
+        ra = change_to_quantity(header.get(ra) if isinstance(ra, str) else ra, u.deg)
+        de = change_to_quantity(header.get(dec) if isinstance(dec, str) else dec, u.deg)
+        obscoord = SkyCoord(ra, de, frame=frame)
+
+    t0 = Time(
+        header[time_start] if isinstance(time_start, str) else time_start,
+        scale=time_scale
+    )
+    expt = change_to_quantity(header[exptime] if isinstance(exptime, str) else exptime, u.s)
+    # if isinstance(time_start, str)
+
+    am_eff, alldict = airmass_obs(
+        targetcoord, obscoord, ut=t0, exptime=expt, scale=scale, full=True, in_deg=in_deg
+    )
+
+    header.set("AIRMASS", am_eff, "Effective airmass (Stetson 1988; see COMMENT)")
+    header.set("AM_STR", alldict["am"][0], "[deg] Airmass (start of exposure)")
+    header.set("ZD_STR", alldict["zd"][0], "[deg] Zenithal distance (start of exposure)")
+    header.set("ALT_STR", alldict["alt"][0], "[deg] Altitude (start of exposure)")
+    header.set("AZ_STR", alldict["az"][0], "[deg] Azimuth (start of exposure)")
+    header.set("AM_MID", alldict["am"][1], "[deg] Airmass (midpoint of exposure)")
+    header.set("ZD_MID", alldict["zd"][1], "[deg] Zenithal distance (midpoint of exposure)")
+    header.set("ALT_MID", alldict["alt"][1], "[deg] Altitude (midpoint of exposure)")
+    header.set("AZ_MID", alldict["az"][1], "[deg] Azimuth (midpoint of exposure)")
+    header.set("AM_END", alldict["am"][2], "[deg] Airmass (end of exposure)")
+    header.set("ZD_END", alldict["zd"][2], "[deg] Zenithal distance (end of exposure)")
+    header.set("ALT_END", alldict["alt"][2], "[deg] Altitude (end of exposure)")
+    header.set("AZ_END", alldict["az"][2], "[deg] Azimuth (end of exposure)")
+    cmt2hdr(
+        header, "c", t_ref=_t,
+        s=("[yfu.airmass] AIRMASS, AM_XXX, ZD_XXX, ALT_XXX, AZ_XXX are calculated. "
+        + "`ysfitsutilpy` uses airmass calculation algorithm identical to IRAF: See "
+        + "'Some Factors Affecting the Accuracy of Stellar Photometry with CCDs', "
+        + "by P. Stetson, DAO preprint, September 1988. "
+    ))
 
 
 # TODO: change key, unit, etc as input dict.
