@@ -4,7 +4,7 @@ import bottleneck as bn
 import numpy as np
 import pandas as pd
 from astro_ndslice import (calc_offset_physical, calc_offset_wcs, is_list_like,
-                           offseted_shape, slicefy)
+                           listify, offseted_shape, slicefy)
 from astropy.io.fits.verify import VerifyError
 from astropy.nddata import CCDData
 from astropy.table import Table
@@ -154,7 +154,9 @@ def group_combine(
         load_fits = True
         summary = inputs.copy()
     else:
+        inputs = listify(inputs)
         load_fits = False if isinstance(inputs[0], CCDData) else True
+        # Assume all are CCDData if the first element is CCDData
         summary = make_summary(inputs, verbose=verbose >= 2)
 
     gs, gt_key = group_fits(
@@ -178,11 +180,13 @@ def group_combine(
         elif len(files) == 1:
             if verbose >= 1:
                 print("Only 1 FITS to combine -- returning it without any modification.")
-            combined[g_val] = load_ccd(files[0])
+            combined[g_val] = load_ccd(files[0]) if load_fits else inputs[0]
             if outdir is not None or fmt is not None:
                 _group_save(combined[g_val], g_val, fmt=fmt, outdir=outdir)
         else:
-            combined[g_val] = imcombine(files, verbose=verbose >= 2, full=False, **kwargs)
+            combined[g_val] = imcombine(
+                files if load_fits else inputs, verbose=verbose >= 2, full=False, **kwargs
+            )
             if outdir is not None or fmt is not None:
                 _group_save(combined[g_val], g_val, fmt=fmt, outdir=outdir)
 
