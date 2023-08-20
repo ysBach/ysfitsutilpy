@@ -256,23 +256,17 @@ def crrej(
 
     _t = Time.now()
 
-    if gain is None:
-        try:
-            gain = ccd.gain
-        except AttributeError:
-            raise ValueError(
-                "Gain must be given or accessible as ``ccd.gain``. "
-                + "Use, e.g., yfu.set_ccd_gain_rdnoise(ccd)."
-            )
+    if isinstance(gain, str):
+        gain = ccd.header.get(gain, None)
 
-    if rdnoise is None:
-        try:
-            rdnoise = ccd.rdnoise
-        except AttributeError:
-            raise ValueError(
-                "Readnoise must be given or accessible as ``ccd.rdnoise``. "
-                + "Use, e.g., yfu.set_ccd_gain_rdnoise(ccd)."
-            )
+    if gain is None:  # If it is still None...
+        gain = getattr(ccd, "gain", 1)
+
+    if isinstance(rdnoise, str):
+        rdnoise = ccd.header.get(rdnoise, None)
+
+    if rdnoise is None:  # If it is still None...
+        rdnoise = getattr(ccd, "rdnoise", 0)
 
     _ccd = ccd.copy()
     if mask is None:
