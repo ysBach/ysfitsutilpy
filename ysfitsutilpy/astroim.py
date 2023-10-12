@@ -17,8 +17,6 @@
 # #     def load_header():
 
 
-
-
 # class AstroImage:
 #     def __init__(self, data=None, header=None, path=None, extension=None,
 #                  keys_attr={"gain": ("GAIN", 1), "rdnoise": ("RDNOISE", 0), "exptime": ("EXPTIME", 1)},
