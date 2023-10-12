@@ -7,8 +7,8 @@ from warnings import warn
 import bottleneck as bn
 import numpy as np
 import pandas as pd
-from astro_ndslice import (bezel2slice, is_list_like, listify, offseted_shape,
-                           slicefy)
+from astro_ndslice import (bezel2slice, calc_offset_physical, is_list_like,
+                           listify, offseted_shape, slicefy)
 from astropy import units as u
 from astropy.coordinates import SkyCoord
 from astropy.io import fits
@@ -956,7 +956,7 @@ def inputs2list(
         type_ref = type(inputs[0])
         outlist = []
         for i, item in enumerate(inputs):
-            if check_coherency and (type(item) != type_ref):
+            if check_coherency and not isinstance(item, type_ref):
                 raise TypeError(
                     f"The 0-th item has {type_ref} while {i}-th has {type(item)}."
                 )
