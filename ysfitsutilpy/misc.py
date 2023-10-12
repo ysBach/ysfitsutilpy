@@ -220,7 +220,7 @@ def update_tlm(header):
             "FITS-TLM",
             value=now,
             comment="UT of last modification of this FITS file",
-            after=f"NAXIS{header['NAXIS']}",
+            after=1,
         )
     except AttributeError:  # If header is OrderedDict
         header["FITS-TLM"] = (now, "UT of last modification of this FITS file")
