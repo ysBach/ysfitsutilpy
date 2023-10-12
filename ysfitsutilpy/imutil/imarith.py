@@ -99,7 +99,8 @@ def _load_im_name_hdr(
     if im1_has_hdr:
         hdr_ref = im1.header
     else:
-        im2, name2, im2_has_hdr = __check_if_has_header(im2, name2, extension2)  # load to HDUList if path-like
+        # load to HDUList if path-like
+        im2, name2, im2_has_hdr = __check_if_has_header(im2, name2, extension2)
         if im2_has_hdr:
             hdr_ref = im2.header
         else:
