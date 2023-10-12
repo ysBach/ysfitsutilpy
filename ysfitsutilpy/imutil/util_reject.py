@@ -256,6 +256,7 @@ sigclip_mask.__doc__ = ''' Finds masks of `arr` by sigma-clipping.
         have the identical shape.
 
     {}
+    {}
 
     Returns
     -------
@@ -345,7 +346,7 @@ minmax_mask.__doc__ = ''' Finds masks of `arr` after rejecting `n_minmax` pixels
         identical shape. It must be in DN, i.e., **not** gain corrected.
 
     {}
-
+    {}
 
     Returns
     -------
@@ -436,6 +437,7 @@ ccdclip_mask.__doc__ = ''' Finds masks of `arr` by CCD noise model.
         The array to be subjected for masking. `arr` and `mask` must have the
         identical shape. It must be in DN, i.e., **not** gain corrected.
 
+    {}
     {}
 
     Returns
