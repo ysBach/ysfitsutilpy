@@ -135,6 +135,8 @@ def get_model(model_name, *args, **kwargs):
     `Gaussian1D`, but sometimes you may want to initialize it with initial
     values: `get_model("gaussian1d", amplitude=1, mean=0, stddev=1)`.
     """
+    if not isinstance(model_name, str):
+        return model_name(*args, **kwargs) if kwargs or args else model_name
     # Try to find the model even if there are typos
     _name = model_name.lower()
     for ch in [" "] + list("!@#$%^&*()_+-=[]{}|;':,./<>?`~\""):
@@ -210,8 +212,9 @@ def fit_model_iter(
 
     Parameters
     ----------
-    model_name : `astropy.modeling.Model`
-        The model to fit. See `get_model`.
+    model_name : str or `astropy.modeling.Model`
+        The model to fit. If already a Model instance, it will be used as is.
+        See `get_model`.
 
     outlier_func : callable
         A function for outlier removal.
@@ -237,6 +240,8 @@ def fit_model_iter(
           * degrees for polynomial (e.g., `degree` for `Chebyshev1D`)
           * initial parameters for others (e.g., `amplitude` for `Gaussian1D`)
 
+        Ignored if `model_name` is already a model instance.
+
     Returns
     -------
     model : `astropy.modeling.Model`
@@ -248,7 +253,10 @@ def fit_model_iter(
         niter=maxiters,
         **outlier_kw
     )
-    model_init = get_model(model_name)(**model_kw)
+    if isinstance(model_name, str):
+        model_init = get_model(model_name)(**model_kw)
+    else:
+        model_init = model_name  # assume already initialized
     grid_1d, data_1d = gridding(data, mask=mask, steps=steps, force_flat=True, copy=True)
     model_fit, mask = fitter(model_init, *grid_1d[::-1], data_1d, weights=weights)
     if full:
