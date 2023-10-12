@@ -867,6 +867,11 @@ def flatcor(
         order) and memory efficient, but the original data may be modified
         unintentionally.
         Default is True.
+
+    flat_norm_value : numeric, optional.
+        The value to normalize the flat frame. If `None`, the flat frame will
+        be normalized by its mean. If numeric, the flat frame will be
+        divided by this value.
     """
     if mflat is None and mflatpath is None:
         return ccd.copy() if copy else ccd
@@ -888,11 +893,11 @@ def flatcor(
     if flat_norm_value is None:
         mflat /= np.mean(mflat)
         cmt2hdr(nccd.header, 'h', verbose=verbose >= 1,
-                s=(f"[yfu.flatcor] Flat normalized by its mean."))
+                s=("[yfu.flatcor] Flat normalized by its mean."))
     elif float(flat_norm_value) != 1.:
-        mflat = flat * float(flat_norm_value)
+        mflat /= float(flat_norm_value)
         cmt2hdr(nccd.header, 'h', verbose=verbose >= 1,
-                s=(f"[yfu.flatcor] Flat normalized by {flat_norm_value = }."))
+                s=(f"[yfu.flatcor] Flat divided by {flat_norm_value = }."))
 
     nccd.data = nccd.data / mflat
     _addfrm(nccd, "FLAT", mflatname)
@@ -1048,22 +1053,24 @@ def illumcor(ccd, ):
 
 
 # TODO: add overscan
+# TODO: add normalization (e.g., `normalize` = {"mean", "median", "mode",
+# "sum", "exptime", })
 def ccdred(
-        ccd, output:str=None, extension:int|str=None, trimsec:str=None,
-        mbiaspath:str=None, mdarkpath:str=None, mflatpath:str=None, mfrinpath:str=None,
-        mbias:CCDData=None, mdark:CCDData=None, mflat:CCDData=None, mfrin:CCDData=None,
-        fringe_flat_fielded:bool=True, fringe_scale=None, fringe_scale_region:str=None,
-        fringe_scale_kw:dict={},
-        gain:float|u.Unit=1, gain_key:str="GAIN", gain_unit:u.Unit=u.electron/u.adu,
-        rdnoise:float|u.Unit=0, rdnoise_key:str="RDNOISE", rdnoise_unit:u.Unit=u.electron,
-        exptime_key:str="EXPTIME",
-        exptime_frin:float=None, exptime_dark:float=None, exptime_data:float=None,
-        dark_scale:bool=False, pixel_min:float=None, pixel_min_fill:float=0,
-        pixel_max:float=None, pixel_max_fill:float=65535,
-        flat_mask:float|int=0, flat_fill:float=1, flat_norm_value:float=1,
-        do_crrej:bool=False, crrej_kw:dict=LACOSMIC_CRREJ, propagate_crmask:bool=False,
-        verbose_crrej:bool=False, verbose_bdf:int=1,
-        output_verify:str='fix', overwrite:bool=True, dtype:str="float32",
+        ccd, output: str = None, extension: int | str = None, trimsec: str = None,
+        mbiaspath: str = None, mdarkpath: str = None, mflatpath: str = None, mfrinpath: str = None,
+        mbias: CCDData = None, mdark: CCDData = None, mflat: CCDData = None, mfrin: CCDData = None,
+        fringe_flat_fielded: bool = True, fringe_scale=None, fringe_scale_region: str = None,
+        fringe_scale_kw: dict = {},
+        gain: float | u.Unit = 1, gain_key: str = "GAIN", gain_unit: u.Unit = u.electron/u.adu,
+        rdnoise: float | u.Unit = 0, rdnoise_key: str = "RDNOISE", rdnoise_unit: u.Unit = u.electron,
+        exptime_key: str = "EXPTIME",
+        exptime_frin: float = None, exptime_dark: float = None, exptime_data: float = None,
+        dark_scale: bool = False, pixel_min: float = None, pixel_min_fill: float = 0,
+        pixel_max: float = None, pixel_max_fill: float = 65535,
+        flat_mask: float | int = 0, flat_fill: float = 1, flat_norm_value: float = 1,
+        do_crrej: bool = False, crrej_kw: dict = LACOSMIC_CRREJ, propagate_crmask: bool = False,
+        verbose_crrej: bool = False, verbose_bdf: int = 1,
+        output_verify: str = 'fix', overwrite: bool = True, dtype: str = "float32",
 ):
     """ Do basic CCD reduction.
 
@@ -1229,7 +1236,7 @@ def ccdred(
             return False, None, None
 
         if path is not None and master is None:
-            master = load_ccd(path, ccddata=False) # beacuse it will be forced to CCDData
+            master = load_ccd(path, ccddata=False)  # beacuse it will be forced to CCDData
 
         do = True
         master, imname, _ = _parse_image(master, name=path, force_ccddata=True)
@@ -1565,6 +1572,7 @@ def bdf_process(
     print(
         "bdf_process is deprecated in favor of ``ccdred``."
     )
+
     def _load_master(path, master, simple=True, unit=None, calc_err=False):
         if path is None and master is None:
             return False, None, None
@@ -1940,4 +1948,3 @@ def run_reduc_plan(
             ccd.write(outpath, overwrite=True, output_verify="fix")
         if return_ccd:
             ccds.append(ccd)
-
