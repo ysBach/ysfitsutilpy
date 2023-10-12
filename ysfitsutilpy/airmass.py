@@ -12,7 +12,7 @@ from astropy.coordinates import AltAz, EarthLocation, SkyCoord
 from astropy.io.fits import Card
 from astropy.time import Time
 
-from .hduutil import get_if_none, cmt2hdr, update_tlm
+from .hduutil import get_if_none, cmt2hdr
 from .misc import change_to_quantity
 
 __all__ = ["calc_airmass", "airmass_obs", "airmass_to_hdr", "airmass_from_hdr"]
@@ -147,12 +147,12 @@ def airmass_obs(targetcoord, obscoord, ut, exptime, scale=750., full=False, in_d
 def airmass_to_hdr(
     header: fits.Header,
     obscoord: EarthLocation,
-    targetcoord: SkyCoord=None,
-    ra: str|float|u.Quantity="RA",
-    dec: str|float|u.Quantity="DEC",
-    time_start: str|Time = "DATE-OBS",
+    targetcoord: SkyCoord = None,
+    ra: str | float | u.Quantity = "RA",
+    dec: str | float | u.Quantity = "DEC",
+    time_start: str | Time = "DATE-OBS",
     time_scale: str = "utc",
-    exptime: str|float|u.Quantity = "EXPTIME",
+    exptime: str | float | u.Quantity = "EXPTIME",
     scale=750.,
     in_deg=True,
     frame: str = "icrs",
@@ -228,10 +228,10 @@ def airmass_to_hdr(
     cmt2hdr(
         header, "c", t_ref=_t,
         s=("[yfu.airmass] AIRMASS, AM_XXX, ZD_XXX, ALT_XXX, AZ_XXX are calculated. "
-        + "`ysfitsutilpy` uses airmass calculation algorithm identical to IRAF: See "
-        + "'Some Factors Affecting the Accuracy of Stellar Photometry with CCDs', "
-        + "by P. Stetson, DAO preprint, September 1988. "
-    ))
+           + "`ysfitsutilpy` uses airmass calculation algorithm identical to IRAF: See "
+           + "'Some Factors Affecting the Accuracy of Stellar Photometry with CCDs', "
+           + "by P. Stetson, DAO preprint, September 1988. "
+           ))
 
 
 # TODO: change key, unit, etc as input dict.
