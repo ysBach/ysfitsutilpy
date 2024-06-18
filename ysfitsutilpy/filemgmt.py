@@ -95,7 +95,8 @@ def make_summary(
         flags=0,
         querystr=None,
         negate_fullmatch=False,
-        verbose=True
+        verbose=True,
+        **kwargs
 ):
     """ Extracts summary from the headers of FITS files.
 
@@ -160,6 +161,12 @@ def make_summary(
     querystr : str, optional
         The query string used for ``summarytab.query(querystr)``. See
         `~pandas.DataFrame.query`.
+
+    verbose : bool, optional
+        Whether to print the progress. Default is `True`.
+
+    **kwargs :
+        The keyword arguments to be passed to `~astropy.io.fits.open`.
 
     Returns
     -------
@@ -230,7 +237,7 @@ def make_summary(
                 raise ValueError(f"fname_option `{fname_option}`not understood.")
             fsize = Path(item).stat().st_size
             # Don't change to MB/GB, which will make it float...
-            hdul = fits.open(item)
+            hdul = fits.open(item, **kwargs)
             if verify_fix:
                 hdul.verify('fix')
             hdr = hdul[extension].header
