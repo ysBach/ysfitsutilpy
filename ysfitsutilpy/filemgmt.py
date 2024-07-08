@@ -95,6 +95,7 @@ def make_summary(
         flags=0,
         querystr=None,
         negate_fullmatch=False,
+        nonunique_keys=False,
         verbose=True,
         **kwargs
 ):
@@ -162,6 +163,12 @@ def make_summary(
         The query string used for ``summarytab.query(querystr)``. See
         `~pandas.DataFrame.query`.
 
+    nonunique_keys : bool, optional
+        Whether to remove the keys that have only one unique value throughout
+        *ALL* input objects. Even if it is unique, keys specified in `keywords`
+        will not be removed.
+        Default is `False`.
+
     verbose : bool, optional
         Whether to print the progress. Default is `True`.
 
@@ -207,6 +214,43 @@ def make_summary(
     """
     if inputs is None:
         return None
+
+    if nonunique_keys:
+        summ = make_summary(
+            inputs=inputs,
+            extension=extension,
+            verify_fix=verify_fix,
+            fname_option=fname_option,
+            output=None,
+            keywords=keywords,
+            example_header=example_header,
+            sort_by=sort_by,
+            sort_map=sort_map,
+            fullmatch=fullmatch,
+            flags=flags,
+            querystr=querystr,
+            negate_fullmatch=negate_fullmatch,
+            nonunique_keys=False,
+            verbose=verbose,
+            **kwargs
+        )
+        _k2del = []
+        if verbose:
+            print("Unique keys that will be removed:")
+        for key in summ.keys():
+            if keywords is not None and key in keywords:
+                continue
+            if len(_uniq := summ[key].unique()) == 1:
+                _k2del.append(key)
+                if verbose:
+                    print(f" * {key:8s}: {_uniq[0]}")
+                summ.pop(key)
+        if output is not None:
+            output = Path(output)
+            if verbose:
+                print(f'Saving the summary to "{str(output)}"')
+            summ.to_csv(output, index=False)
+        return summ
 
     # Although there's no need to sort here because the real "sort" will be
     # done later based on ``sort_by`` column, I did it here because the full
@@ -265,10 +309,10 @@ def make_summary(
     # load ALL keywords for special cases
     if (keywords is None) or (keywords is not None and keywords == '*'):
         fname0, _, hdr0 = _get_fname_fsize_hdr(fitslist[0], 0, extension=extension)
-        N_hkeys = len(hdr0.cards)
+        num_hkeys = len(hdr0.cards)
         keywords = []
 
-        for i in range(N_hkeys):
+        for i in range(num_hkeys):
             try:
                 key_i = hdr0.cards[i][0]
             except VerifyError:
