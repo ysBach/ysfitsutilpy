@@ -234,14 +234,12 @@ def make_summary(
             verbose=verbose,
             **kwargs
         )
-        _k2del = []
         if verbose:
             print("Unique keys that will be removed:")
         for key in summ.keys():
             if keywords is not None and key in keywords:
                 continue
             if len(_uniq := summ[key].unique()) == 1:
-                _k2del.append(key)
                 if verbose:
                     print(f" * {key:8s}: {_uniq[0]}")
                 summ.pop(key)
