@@ -268,6 +268,10 @@ combine: str, optional.
         - median if  ``'med'|'medi'|'median'``
         - average if ``'avg'|'average'|'mean'``
         - lower median if ``'lmed'|'lmd'|'lmedian'``
+        - sum if ``'sum'``
+        - bitwise AND if ``'&'|'&&'|'and'|'bitwise_and'``
+        - bitwise OR if ``'|'|'||'|'or'|'bitwise_or'``
+        - bitwise XOR if ``'^'|'xor'|'bitwise_xor'``
 
     .. note::
         The lower median means the median which takes the lower value when even number of data is left.

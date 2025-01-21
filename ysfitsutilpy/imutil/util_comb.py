@@ -455,6 +455,31 @@ def _set_combfunc(combfunc, shorten=False, nameonly=True, nan=True):
             return 'lmd' if shorten else 'lmedian'
         else:
             return nanlmedian if nan else lmedian
+    elif combfunc in ['min', 'mini', 'minimum']:
+        if nameonly:
+            return 'min' if shorten else 'minimum'
+        else:
+            return bn.nanmin if nan else np.min
+    elif combfunc in ['max', 'maxi', 'maximum']:
+        if nameonly:
+            return 'max' if shorten else 'maximum'
+        else:
+            return bn.nanmax if nan else np.max
+    elif combfunc in ["&", "&&", "and", "bitwise_and"]:
+        if nameonly:
+            return 'and' if shorten else 'bitwise_and'
+        else:
+            return np.bitwise_and.reduce
+    elif combfunc in ["|", "||", "or", "bitwise_or"]:
+        if nameonly:
+            return 'or' if shorten else 'bitwise_or'
+        else:
+            return np.bitwise_or.reduce
+    elif combfunc in ["^", "xor", "bitwise_xor"]:
+        if nameonly:
+            return 'xor' if shorten else 'bitwise_xor'
+        else:
+            return np.bitwise_xor.reduce
     else:
         raise ValueError('combfunc not understood')
 
