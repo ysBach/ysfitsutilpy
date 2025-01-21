@@ -153,6 +153,9 @@ def group_combine(
     if isinstance(inputs, pd.DataFrame):
         load_fits = True
         summary = inputs.copy()
+    elif isinstance(inputs, str):  # glob pattern
+        load_fits = True
+        summary = make_summary(inputs, verbose=verbose >= 2)
     else:
         inputs = listify(inputs)
         load_fits = False if isinstance(inputs[0], CCDData) else True
