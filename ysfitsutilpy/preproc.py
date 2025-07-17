@@ -393,12 +393,13 @@ def medfilt_bpm(
         value of 0.0 in the median filtered image which raises zero-division in
         median ratio (image/|median_filtered|).
 
-    std_model : {"std", "ccd"} optional.
+    std_model : {"std", "ccd"}, ndarray, numeric, optional.
         The model used to calculate the std (standard deviation) map.
 
         - ``"std"``: Simple standard deviation is calculated.
         - ``"ccd"``: Using CCD noise model (``sqrt{(1 + snoise)*med_filt/gain
           + (rdnoise/gain)**2}``)
+        - `ndarray`: A pre-calculated std map to be used as the std map.
 
         For ``'std'``, the arguments `std_section` and `sigclip_kw` are used,
         while if ``'ccd'``, arguments `gain`, `rdnoise`, `snoise` will be used.
@@ -591,6 +592,11 @@ def medfilt_bpm(
         std = std_model
         if update_header:
             hdr['MB_MODEL'] = ("User input array", "Method used for getting stdev map")
+
+    elif isinstance(std_model, (int, float)):
+        std = std_model
+        if update_header:
+            hdr['MB_MODEL'] = ('Constant', "Method used for getting stdev map")
 
     elif std_model is None:
         hdr['MB_MODEL'] = ('None', "Method used for getting stdev map")
