@@ -602,7 +602,7 @@ def circular_mask_2d(
                 "If `radius` is an array-like, it must have the same length as `center`; "
                 f"({center.shape[0] = }) != ({np.size(radius)} = )."
             )
-        apertures = [CircularAperture(c, radius=r) for c, r in zip(center, radius)]
+        apertures = [CircularAperture(c, r=r) for c, r in zip(center, radius)]
         apmasks = [ap.to_mask(method=method, subpixels=subpixels) for ap in apertures]
 
     apmask2d = np.zeros(shape, dtype=bool)
