@@ -9,12 +9,15 @@ import numpy as np
 from astro_ndslice import is_list_like, listify
 from astropy import units as u
 from astropy.time import Time
+import numba as nb
 
 __all__ = ["MEDCOMB_KEYS_INT", "SUMCOMB_KEYS_INT", "MEDCOMB_KEYS_FLT32",
            "LACOSMIC_KEYS", "LACOSMIC_CRREJ", "parse_crrej_psf",
            "get_size",
            "cmt2hdr", "update_tlm", "update_process",
-           "weighted_avg", "sigclip_dataerr", "circular_mask",
+           "weighted_avg", "sigclip_dataerr",
+           "circular_mask", "circular_mask_2d",
+           "enclosing_circle_radius",
            "str_now", "change_to_quantity", "binning",
            "quantile_lh", "quantile_sigma",
            "min_max_med_1d", "mean_std_1d"]
@@ -471,7 +474,7 @@ def sigclip_dataerr(val, err, cenfunc="wvg", sigma=3, maxiters=3):
         deviation = np.abs(val.data - cen)
         mask = (deviation > sigma*err)
 
-    return val,
+    return val, mask
 
 
 def circular_mask(shape, center=None, radius=None, center_xyz=True):
@@ -480,7 +483,7 @@ def circular_mask(shape, center=None, radius=None, center_xyz=True):
     Parameters
     ----------
     shape : tuple
-        The pythonic shape (not xyz order).
+        The pythonic shape, i.e., `arr.shape` (not xyz order).
 
     center : tuple, None, optional.
         The center of the circular mask. If `None` (default), the central
@@ -493,8 +496,13 @@ def circular_mask(shape, center=None, radius=None, center_xyz=True):
     center_xyz : bool, optional.
         Whether the center is in xyz order.
 
+    Notes
+    -----
     Idea copied from
     https://stackoverflow.com/questions/44865023/how-can-i-create-a-circular-mask-for-a-numpy-array
+
+    Note that this is slow due to the "general" N-D nature of the mask.
+    If you need a 2-D mask, use `circular_mask_2d`
     '''
     if center is None:  # use the middle of the image
         center = [npix/2 for npix in shape[::-1]]
@@ -516,6 +524,165 @@ def circular_mask(shape, center=None, radius=None, center_xyz=True):
 
     mask = dist_from_center <= radius
     return mask
+
+
+def circular_mask_2d(
+    shape, center=None, radius=0.5, method="center", subpixels=5, maskmin=0, return_apertures=False
+):
+    """ Creates a 2-D circular mask using photutils CircularAperture.
+
+    Parameters
+    ----------
+    shape : tuple
+        The shape of the 2-D image in *pythonic* order, i.e., `arr.shape`
+        (height, width).
+
+    center : array-like, None, optional.
+        The pixel coordinates of the aperture center(s) in one of the
+        following formats:
+
+        * single ``(x, y)`` pair as a tuple, list, or `~numpy.ndarray`
+        * tuple, list, or `~numpy.ndarray` of ``(x, y)`` pairs
+
+        If `None`, the center is set to the middle of the image, i.e.,
+        ``(shape[0] / 2, shape[1] / 2)``.
+        Default is `None`.
+
+    radius : float, array-like optional.
+        The radius (radii) of the circular mask(s).
+
+    method : {'exact', 'center', 'subpixel'}, optional
+        The method used to determine the overlap of the aperture on the pixel
+        grid. Not all options are available for all aperture types. Note that
+        the more precise methods are generally slower. The following methods
+        are available:
+
+        * ``'exact'`` (default):
+        The exact fractional overlap of the aperture and each pixel is
+        calculated. The aperture weights will contain values between 0 and 1.
+
+        * ``'center'``:
+        A pixel is considered to be entirely in or out of the aperture
+        depending on whether its center is in or out of the aperture. The
+        aperture weights will contain values only of 0 (out) and 1 (in).
+
+        * ``'subpixel'``:
+        A pixel is divided into subpixels (see the ``subpixels`` keyword), each
+        of which are considered to be entirely in or out of the aperture
+        depending on whether its center is in or out of the aperture. If
+        ``subpixels=1``, this method is equivalent to ``'center'``. The
+        aperture weights will contain values between 0 and 1.
+
+    subpixels : int, optional
+        For the ``'subpixel'`` method, resample pixels by this factor in each
+        dimension. That is, each pixel is divided into ``subpixels**2``
+        subpixels. This keyword is ignored unless ``method='subpixel'``.
+
+    maskmin : float, optional
+        The minimum value for the mask. If the aperture weights are greater
+        than this value, the pixel is considered to be in the aperture. This
+        keyword is ignored unless ``method='exact'`` or ``method='subpixel'``.
+
+    return_apertures : bool, optional
+        If `True`, return the `CircularAperture` objects and the masks
+        instead of the 2D mask. This is useful if you want to use the
+    """
+    from photutils.aperture import CircularAperture
+
+    if center is None:  # use the middle of the image
+        center = (shape[0] / 2, shape[1] / 2)
+
+    try:
+        apertures = CircularAperture(center, radius)
+        apmasks = apertures.to_mask(method=method, subpixels=subpixels)
+    except ValueError:
+        # multiple radii and "ValueError: 'r' must be a positive scalar" happens.
+        if center.shape[0] != np.size(radius):
+            raise ValueError(
+                "If `radius` is an array-like, it must have the same length as `center`; "
+                f"({center.shape[0] = }) != ({np.size(radius)} = )."
+            )
+        apertures = [CircularAperture(c, r=r) for c, r in zip(center, radius)]
+        apmasks = [ap.to_mask(method=method, subpixels=subpixels) for ap in apertures]
+
+    apmask2d = np.zeros(shape, dtype=bool)
+
+    if method == "center":
+        # Use the center of the pixel to determine if it is in the aperture
+        for m in apmasks:
+            apmask2d |= m.to_image(shape, dtype=bool)
+
+    elif method == "exact" or method == "subpixel":
+        # Use the exact overlap of the aperture and each pixel
+        for m in apmasks:
+            apmask2d |= (m.to_image(shape, dtype=float) > maskmin)
+    else:
+        raise ValueError(f"Method {method} not supported. Use 'exact', 'center', or 'subpixel'.")
+
+    return apmask2d
+
+
+@nb.njit(fastmath=False, parallel=True)
+def _enclosing_circle_radius(segm, center, segm_id, output):
+
+    for i in nb.prange(len(segm_id)):
+        _segm_id = segm_id[i]
+        mask = segm == _segm_id
+        y, x = np.nonzero(mask)
+
+        # if center is None:
+        #     # Calculate the centroid of the masked region
+        #     center = (np.mean(x), np.mean(y))
+
+        # Calculate the distances from the center to all non-zero pixels
+        rsq_max = np.max((x - center[i][0])**2 + (y - center[i][1])**2)
+        output[i] = np.sqrt(rsq_max)
+
+
+def enclosing_circle_radius(segm, center, segm_id=None):
+    """
+    Calculate the radius of the smallest enclosing circle for a given mask.
+
+    Parameters
+    ----------
+    segm : 2D array-like
+        The input segmentation map (binary image) where non-zero values are
+        considered as the region of interest.
+
+    center : 2-D array, optional
+        The (x, y) coordinates of the center of the circles. If not provided,
+        the center will be calculated as the centroid of the masked region.
+
+    segm_id : list of int, optional
+        The list of segmentation IDs to calculate the radius for. If not provided,
+        it defaults to `[1]`, which is equivalent to `True` for binary masks.
+
+    Returns
+    -------
+    ndarray
+        The radius of the smallest enclosing circle.
+
+    Notes
+    -----
+    Since it calculates distances from the center to the pixel center, one may
+    want to add ~0.5 (or sqrt(2)*0.5) to enclose the full pixel area.
+
+    By using numba, single segmentation radius finding is ~5 times faster than
+    pure numpy, and it is boosted further if `parallel=True` is used.
+    """
+
+    if segm_id is None:
+        segm_id = np.array([1], dtype=segm.dtype)  # same as `True`
+
+    center = np.atleast_2d(center)
+    if center.shape[1] != 2:
+        raise ValueError("Center must be a 2D array with shape (N, 2)")
+
+    radii = np.empty(len(segm_id), dtype=np.float64)
+
+    _enclosing_circle_radius(segm, center, segm_id, radii)
+
+    return radii
 
 
 def str_now(

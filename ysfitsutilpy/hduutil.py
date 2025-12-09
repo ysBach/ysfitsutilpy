@@ -5,6 +5,7 @@ from pathlib import Path, PosixPath, WindowsPath
 from warnings import warn
 
 import bottleneck as bn
+import erfa
 import numpy as np
 import pandas as pd
 from astro_ndslice import (bezel2slice, calc_offset_physical, is_list_like,
@@ -64,7 +65,7 @@ __all__ = [
     "valinhdr", "get_from_header", "get_if_none",
     # ! WCS related:
     "wcs_crota", "midtime_obs", "center_radec",
-    "wcsremove", "fov_radius",
+    "wcsremove", "fov_radius", "pixel_scale",
     # ! math:
     "give_stats"
 ]
@@ -1412,7 +1413,7 @@ def trim_overlap(inputs, extension=None, coordinate="image"):
 
 
 # FIXME: docstring looks strange about wcs..
-def cut_ccd(ccd, position, size, mode="trim", fill_value=np.nan, warnings=True,
+def cut_ccd(ccd, position, size, wcs=None, mode="trim", fill_value=np.nan, warnings=True,
             update_header=True, verbose=0):
     """ Converts the Cutout2D object to proper CCDData.
 
@@ -1472,15 +1473,20 @@ def cut_ccd(ccd, position, size, mode="trim", fill_value=np.nan, warnings=True,
         data=ccd.data,
         position=position,
         size=size,
-        wcs=getattr(ccd, "wcs", WCS(ccd.header)),
+        wcs=wcs or getattr(ccd, "wcs", WCS(ccd.header)),
         mode=mode,
         fill_value=fill_value,
         copy=True,
     )
     # Copy True just to avoid any contamination to the original ccd.
 
-    nccd = CCDData(data=cutout.data, header=ccd.header.copy(),
-                   wcs=cutout.wcs, unit=ccd.unit)
+    # TODO: add mask/flags/uncertainty support
+    nccd = CCDData(
+        data=cutout.data,
+        header=ccd.header.copy(),
+        wcs=cutout.wcs,
+        unit=ccd.unit
+    )
     ny, nx = nccd.data.shape
     if update_header:
         nccd.header["NAXIS1"] = nx
@@ -2961,6 +2967,58 @@ def wcsremove(
 #         return SkyCoord(*center_coo, unit='deg')
 
 #     return np.array(center_coo)
+
+
+def pixel_scale(header=None, wcs=None, unit=u.arcsec, position=None):
+    """ Calculates the rough pixel scale using WCS.
+
+    Parameters
+    ----------
+    header: Header
+        The header to extract WCS information.
+        It is used when `wcs` is `None` or `position` is `"physical"`.
+
+    wcs : WCS
+        The WCS to extract the information. If `None`, it will be extracted
+        from `header`.
+
+    unit : astropy unit
+        The desired output unit. Default is arcsec. If `None`, the output will be
+        in radians.
+
+    position : tuple of float, optional
+        The position (x, y) in pixel coordinates to calculate the pixel scale.
+        If `None` (default), the center of the image will be used.
+        If `"physical"`, the physical center, i.e., the center of the image
+        minus LTV1 and LTV2 will be used.
+
+    Returns
+    -------
+    pscale: `~astropy.Quantity` or float
+        The pixel scale in `unit`/pixel. If `unit` is `None`, it will be in radians.
+    """
+    if wcs is None:
+        w = WCS(header)
+        nx, ny = float(header["NAXIS1"]), float(header["NAXIS2"])
+    else:
+        w = wcs
+        nx, ny = w.array_shape[::-1]  # w.array_shape is (ny, nx)
+
+    if position is None:
+        x, y = nx / 2 - 0.5, ny / 2 - 0.5
+    elif position == "physical":
+        x, y = nx / 2 - 0.5 - float(header.get("LTV1", 0)), ny / 2 - 0.5 - float(header.get("LTV2", 0))
+    else:
+        x, y = position
+
+    # pixel_to_world_values internally uses self._all_pix2world
+    lons, lats = np.deg2rad(w.pixel_to_world_values([x - 0.5, x + 0.5], [y - 0.5, y + 0.5]))
+    pscale = (erfa.seps(lons[0], lats[0], lons[1], lats[1]))
+
+    if unit is None:
+        return pscale
+
+    return (pscale << u.rad).to(unit)
 
 
 def convert_bit(ccd, original_bit=12, target_bit=16, dtype="int16", bunit=None, copy=True):
