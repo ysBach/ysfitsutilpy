@@ -3,8 +3,14 @@ from pathlib import Path
 import bottleneck as bn
 import numpy as np
 import pandas as pd
-from astro_ndslice import (calc_offset_physical, calc_offset_wcs, is_list_like,
-                           listify, offseted_shape, slicefy)
+from astro_ndslice import (
+    calc_offset_physical,
+    calc_offset_wcs,
+    is_list_like,
+    listify,
+    offseted_shape,
+    slicefy,
+)
 from astropy.io.fits.verify import VerifyError
 from astropy.nddata import CCDData
 from astropy.table import Table
@@ -13,19 +19,33 @@ from astropy.wcs import WCS
 
 from ..combutil import group_fits
 from ..filemgmt import make_summary
-from ..hduutil import (_parse_data_header, _parse_extension, inputs2list,
-                       load_ccd, write2fits)
+from ..hduutil import (
+    _parse_data_header,
+    _parse_extension,
+    inputs2list,
+    load_ccd,
+    write2fits,
+)
 from ..misc import cmt2hdr, get_size, str_now, update_tlm
 from . import docstrings
-from .util_comb import (_set_cenfunc, _set_combfunc, _set_gain_rdns,
-                        _set_int_dtype, _set_keeprej, _set_mask,
-                        _set_reject_name, _set_sigma, _set_thresh_mask, do_zs,
-                        get_zsw)
+from .util_comb import (
+    _set_cenfunc,
+    _set_combfunc,
+    _set_gain_rdns,
+    _set_int_dtype,
+    _set_keeprej,
+    _set_mask,
+    _set_reject_name,
+    _set_sigma,
+    _set_thresh_mask,
+    do_zs,
+    get_zsw,
+)
 from .util_reject import ccdclip_mask, minmax_mask, sigclip_mask
 
 __all__ = ["group_combine", "group_save", "imcombine", "ndcombine"]
 
-'''
+"""
 removed : headers, project, masktype, maskvalue, sigscale, grow
 partial removal:
     * combine in ["quadrature", "nmodel"]
@@ -49,20 +69,20 @@ nkeep                  : nkeep & maxrej
                         (IRAF nkeep > 0 && < 0 case, resp.)
 mclip                  : cenfunc
 lsigma    , hsigma     : sigma uple
-'''
+"""
 
 
 def group_combine(
-        inputs,
-        type_key=None,
-        type_val=None,
-        group_key=None,
-        fmt=None,
-        outdir=None,
-        verbose=1,
-        **kwargs
+    inputs,
+    type_key=None,
+    type_val=None,
+    group_key=None,
+    fmt=None,
+    outdir=None,
+    verbose=1,
+    **kwargs,
 ):
-    ''' Combine sub-groups of FITS files from the given input.
+    """Combine sub-groups of FITS files from the given input.
     Parameters
     ----------
     inputs : DataFrame, glob pattern, list-like of path-like
@@ -117,21 +137,25 @@ def group_combine(
         The dict object where keys are the header value of the `group_key` and
         the values are the combined images in CCDData object. If multiple keys
         for `group_key` is given, the key of this dict is a tuple.
-    '''
+    """
+
     def _group_save(ccd, groupname, fmt=None, verbose=1, outdir=None):
-        ''' Saves the results.
-        '''
-        outdir = Path('.') if outdir is None else Path(outdir)
+        """Saves the results."""
+        outdir = Path(".") if outdir is None else Path(outdir)
         if verbose >= 1 and not outdir.exists():
-            print(f"\tOutput directory: '{outdir}' <- does not exist! It will be newly made.")
+            print(
+                f"\tOutput directory: '{outdir}' <- does not exist! It will be newly made."
+            )
 
         outdir.mkdir(exist_ok=True, parents=True)
 
         if fmt is None:
             nk = len(group_key) if is_list_like(group_key) else 1  # 1 if str
-            fmt = "_".join(['{}']*nk)
+            fmt = "_".join(["{}"] * nk)
             if verbose >= 1:
-                print("\tWarning: fmt is not specified! Output file names might be ugly.")
+                print(
+                    "\tWarning: fmt is not specified! Output file names might be ugly."
+                )
 
         if isinstance(groupname, tuple):
             fname = fmt.format(*groupname) + ".fits"
@@ -140,7 +164,7 @@ def group_combine(
 
         fname = fname.replace(".fits.fits", ".fits")
 
-        fpath = outdir/fname
+        fpath = outdir / fname
         if verbose >= 1:
             if fpath.exists():
                 print(f"\t{fpath} will be overridden.")
@@ -182,13 +206,18 @@ def group_combine(
             combined[g_val] = None
         elif len(files) == 1:
             if verbose >= 1:
-                print("Only 1 FITS to combine -- returning it without any modification.")
+                print(
+                    "Only 1 FITS to combine -- returning it without any modification."
+                )
             combined[g_val] = load_ccd(files[0]) if load_fits else inputs[0]
             if outdir is not None or fmt is not None:
                 _group_save(combined[g_val], g_val, fmt=fmt, outdir=outdir)
         else:
             combined[g_val] = imcombine(
-                files if load_fits else inputs, verbose=verbose >= 2, full=False, **kwargs
+                files if load_fits else inputs,
+                verbose=verbose >= 2,
+                full=False,
+                **kwargs,
             )
             if outdir is not None or fmt is not None:
                 _group_save(combined[g_val], g_val, fmt=fmt, outdir=outdir)
@@ -199,21 +228,23 @@ def group_combine(
     return combined
 
 
-def group_save(combined, fmt='', verbose=1, outdir=None):
-    ''' Saves the group_combine results.
+def group_save(combined, fmt="", verbose=1, outdir=None):
+    """Saves the group_combine results.
     Paramters
     ---------
     combined : dict
         The result from `group_combine` function.
-    '''
-    outdir = Path('.') if outdir is None else Path(outdir)
+    """
+    outdir = Path(".") if outdir is None else Path(outdir)
     if verbose and not outdir.exists():
-        print(f"\tOutput directory: '{outdir}' <- does not exist! It will be newly made.")
+        print(
+            f"\tOutput directory: '{outdir}' <- does not exist! It will be newly made."
+        )
 
     outdir.mkdir(exist_ok=True, parents=True)
 
     if not fmt:
-        fmt = "_".join(['{}']*len(list(combined.keys())[0]))
+        fmt = "_".join(["{}"] * len(list(combined.keys())[0]))
         if verbose:
             print("\tWarning: fmt is not specified! Output file names might be ugly.")
 
@@ -222,16 +253,25 @@ def group_save(combined, fmt='', verbose=1, outdir=None):
             fname = fmt.format(*k) + ".fits"
         else:
             fname = fmt.format(k) + ".fits"
-        fpath = outdir/fname
+        fpath = outdir / fname
         if verbose >= 1 and fpath.exists():
             print(f"The pre-existing file {fpath} will be overridden.")
         ccd.write(fpath, overwrite=True)
 
 
-def _update_hdr(header, ncombine, imcmb_key, imcmb_val, offset_mode=None, offsets=None,
-                zeros=None, scales=None, weights=None):
-    """ **Inplace** update of the given header
-    """
+def _update_hdr(
+    header,
+    ncombine,
+    imcmb_key,
+    imcmb_val,
+    offset_mode=None,
+    offsets=None,
+    zeros=None,
+    scales=None,
+    weights=None,
+):
+    """**Inplace** update of the given header"""
+
     def __rm_and_add(hdr, keybase, values):
         for i in range(999):
             if f"{keybase}{i+1:03d}" in hdr:
@@ -245,7 +285,7 @@ def _update_hdr(header, ncombine, imcmb_key, imcmb_val, offset_mode=None, offset
         return
 
     header["NCOMBINE"] = (ncombine, "Number of combined images")
-    if imcmb_key != '':
+    if imcmb_key != "":
         header["IMCMBKEY"] = (imcmb_key, "Key used in IMCMBiii ('$I': filepath)")
         __rm_and_add(header, "IMCMB", imcmb_val)
         # remove header keyword IMCMBiii if it exists:
@@ -259,9 +299,9 @@ def _update_hdr(header, ncombine, imcmb_key, imcmb_val, offset_mode=None, offset
             header[f"IMCMB{i+1:03d}"] = imcmb_val[i]
 
     if offset_mode is not None:
-        header['OFFSTMOD'] = (offset_mode, "Offset method used for combine.")
+        header["OFFSTMOD"] = (offset_mode, "Offset method used for combine.")
         for i in range(min(999, len(imcmb_val))):
-            header[f"OFFST{i:03d}"] = str(offsets[i, ][::-1].tolist())
+            header[f"OFFST{i:03d}"] = str(offsets[i,][::-1].tolist())
 
     if not np.all(zeros == 0):
         __rm_and_add(header, "ZERO", zeros)
@@ -277,70 +317,76 @@ def _update_hdr(header, ncombine, imcmb_key, imcmb_val, offset_mode=None, offset
 
 
 def imcombine(
-        inputs,
-        mask=None,
-        extension=None,
-        extension_uncertainty=None,
-        extension_mask=None,
-        uncertainty_type='stddev',
-        trimsec=None,
-        blank=np.nan,
-        offsets=None,
-        thresholds=[-np.inf, np.inf],
-        zero=None,
-        zero_to_0th=True,
-        zero_section=None,
-        scale=None,
-        scale_to_0th=True,
-        scale_section=None,
-        zero_kw={'cenfunc': 'median', 'stdfunc': 'std', 'std_ddof': 1},
-        scale_kw={'cenfunc': 'median', 'stdfunc': 'std', 'std_ddof': 1},
-        weight=None,
-        reject=None,
-        sigma=[3., 3.],
-        cenfunc='median',
-        maxiters=50,
-        ddof=1,
-        nkeep=1,
-        maxrej=None,
-        n_minmax=[1, 1],
-        rdnoise=0.,
-        gain=1.,
-        snoise=0.,
-        pclip=-0.5,
-        logfile=None,
-        combine='average',
-        dtype='float32',
-        dtype_err='float32',
-        dtype_low=None,
-        dtype_upp=None,
-        irafmode=True,
-        memlimit=2.5e+9,
-        verbose=False,
-        full=False,
-        return_variance=False,
-        imcmb_key='$I',
-        exposure_key="EXPTIME",
-        output=None,
-        output_mask=None,
-        output_nrej=None,
-        output_err=None,
-        output_low=None,
-        output_upp=None,
-        output_rejcode=None,
-        return_dict=False,
-        output_verify='exception',
-        overwrite=False,
-        checksum=False
+    inputs,
+    mask=None,
+    extension=None,
+    extension_uncertainty=None,
+    extension_mask=None,
+    uncertainty_type="stddev",
+    trimsec=None,
+    blank=np.nan,
+    offsets=None,
+    thresholds=[-np.inf, np.inf],
+    zero=None,
+    zero_to_0th=True,
+    zero_section=None,
+    scale=None,
+    scale_to_0th=True,
+    scale_section=None,
+    zero_kw={"cenfunc": "median", "stdfunc": "std", "std_ddof": 1},
+    scale_kw={"cenfunc": "median", "stdfunc": "std", "std_ddof": 1},
+    weight=None,
+    reject=None,
+    sigma=[3.0, 3.0],
+    cenfunc="median",
+    maxiters=50,
+    ddof=1,
+    nkeep=1,
+    maxrej=None,
+    n_minmax=[1, 1],
+    rdnoise=0.0,
+    gain=1.0,
+    snoise=0.0,
+    pclip=-0.5,
+    logfile=None,
+    combine="average",
+    dtype="float32",
+    dtype_err="float32",
+    dtype_low=None,
+    dtype_upp=None,
+    irafmode=True,
+    memlimit=2.5e9,
+    verbose=False,
+    full=False,
+    return_variance=False,
+    imcmb_key="$I",
+    exposure_key="EXPTIME",
+    output=None,
+    output_mask=None,
+    output_nrej=None,
+    output_err=None,
+    output_low=None,
+    output_upp=None,
+    output_rejcode=None,
+    return_dict=False,
+    output_verify="exception",
+    overwrite=False,
+    checksum=False,
 ):
     if verbose:
         _t1 = Time.now()
         print(_t1.iso)
-        print("- Organizing", end='... ')
+        print("- Organizing", end="... ")
 
-    full = (full or output_mask is not None or output_nrej is not None or
-            output_err is not None or output_low is not None or output_upp is not None
-            or output_rejcode is not None)
+    full = (
+        full
+        or output_mask is not None
+        or output_nrej is not None
+        or output_err is not None
+        or output_low is not None
+        or output_upp is not None
+        or output_rejcode is not None
+    )
 
     items = inputs2list(inputs, sort=True, accept_ccdlike=True, check_coherency=True)
     ncombine = len(items)
@@ -348,9 +394,13 @@ def imcombine(
     int_dtype = _set_int_dtype(ncombine)
     extension = _parse_extension(extension)
     # If extensions are given as `None`, don't parse them and leave it as `None`.
-    e_u = None if extension_uncertainty is None else _parse_extension(extension_uncertainty)
+    e_u = (
+        None
+        if extension_uncertainty is None
+        else _parse_extension(extension_uncertainty)
+    )
     e_m = None if extension_mask is None else _parse_extension(extension_mask)
-    extract_hdr = imcmb_key not in [None, '', '$I']
+    extract_hdr = imcmb_key not in [None, "", "$I"]
     slice_load = None if trimsec is None else slicefy(trimsec)
 
     # These must be initialized at the early stage.
@@ -378,14 +428,14 @@ def imcombine(
             _item_size = get_size(item)
         item_size_tot += _item_size
         if logfile is not None:
-            table_dict['file'].append(fpath)
-            table_dict['filesize'].append(_item_size)
+            table_dict["file"].append(fpath)
+            table_dict["filesize"].append(_item_size)
     # if fsize_tot > memlimit:
     #     chop_load = True
     # ------------------------------------------------------------------------------------ #
 
     _, hdr0 = _parse_data_header(items[0], extension=extension, parse_data=False)
-    ndim = hdr0['NAXIS']
+    ndim = hdr0["NAXIS"]
     # N x ndim. sizes[i, :] = images[i].shape
     shapes = np.ones((ncombine, ndim), dtype=int)
 
@@ -394,7 +444,7 @@ def imcombine(
         if scale.lower() in ["exp", "expos", "exposure", "exptime"]:
             extract_exptime = True
 
-    if reject_fullname == 'ccdclip':
+    if reject_fullname == "ccdclip":
         extract_gain, gns = _set_gain_rdns(gain, ncombine, dtype=dtype)
         extract_rdnoise, rds = _set_gain_rdns(rdnoise, ncombine, dtype=dtype)
         extract_snoise, sns = _set_gain_rdns(snoise, ncombine, dtype=dtype)
@@ -410,12 +460,12 @@ def imcombine(
     use_wcs, use_phy = False, False
 
     if isinstance(offsets, str):
-        if offsets.lower() in ['world', 'wcs']:
+        if offsets.lower() in ["world", "wcs"]:
             w_ref = WCS(hdr0)
             use_wcs = True
             offset_mode = "WCS"
             offsets = np.zeros((ncombine, ndim))
-        elif offsets.lower() in ['physical', 'phys', 'phy']:
+        elif offsets.lower() in ["physical", "phys", "phy"]:
             use_phy = True
             offset_mode = "Physical"
             offsets = np.zeros((ncombine, ndim))
@@ -432,12 +482,19 @@ def imcombine(
 
     imcmb_val = []
     # iterate over files
-    extract_hdr = (extract_hdr or extract_exptime or extract_gain or extract_rdnoise
-                   or extract_snoise or use_wcs or use_phy)
+    extract_hdr = (
+        extract_hdr
+        or extract_exptime
+        or extract_gain
+        or extract_rdnoise
+        or extract_snoise
+        or use_wcs
+        or use_phy
+    )
     for i, item in enumerate(items):
         if extract_hdr:
             _, hdr = _parse_data_header(item, extension=extension, copy=False)
-            if imcmb_key not in [None, '']:
+            if imcmb_key not in [None, ""]:
                 if imcmb_key == "$I":
                     try:
                         imcmb_val.append(Path(item).name)
@@ -447,7 +504,7 @@ def imcombine(
                     try:
                         imcmb_val.append(hdr[imcmb_key])
                     except KeyError:
-                        imcmb_val.append('')
+                        imcmb_val.append("")
 
             if extract_exptime:
                 scales[i] = float(hdr[exposure_key])
@@ -461,7 +518,7 @@ def imcombine(
             if extract_snoise:
                 sns[i] = float(hdr[snoise])  # snoise is given as header key
 
-            if hdr['NAXIS'] != ndim:
+            if hdr["NAXIS"] != ndim:
                 raise ValueError(
                     "All FITS files must have the identical ndim, "
                     + "though they can have different sizes."
@@ -471,18 +528,23 @@ def imcombine(
             if use_wcs:
                 # Code if using WCS, which may be much slower (but accurate?)
                 # Find the center's pixel position in w_ref, in nearest integer value.
-                offsets[i, ] = calc_offset_wcs(
-                    WCS(hdr), w_ref, intify_offset=True,
-                    loc_target='center', loc_reference='center', order_xyz=False
+                offsets[i,] = calc_offset_wcs(
+                    WCS(hdr),
+                    w_ref,
+                    intify_offset=True,
+                    loc_target="center",
+                    loc_reference="center",
+                    order_xyz=False,
                 )
                 # For IRAF-like calculation, use
                 #   offsets[i, ] = [hdr[f'CRPIX{i}'] for i in range(ndim, 0, -1)]
             elif use_phy:
-                offsets[i, ] = calc_offset_physical(hdr, None, intify_offset=True,
-                                                    order_xyz=False, ignore_ltm=True)
+                offsets[i,] = calc_offset_physical(
+                    hdr, None, intify_offset=True, order_xyz=False, ignore_ltm=True
+                )
 
             # NOTE: the indexing in python is [z, y, x] order!!
-            shapes[i, ] = [int(hdr[f'NAXIS{i}']) for i in range(ndim, 0, -1)]
+            shapes[i,] = [int(hdr[f"NAXIS{i}"]) for i in range(ndim, 0, -1)]
 
             del hdr
 
@@ -494,18 +556,18 @@ def imcombine(
                     imcmb_val.append(f"User-provided {type(item)}")
             data = _parse_data_header(item, extension=extension, parse_header=False)[0]
             if trimsec is not None:
-                shapes[i, ] = data[slice_load].shape
+                shapes[i,] = data[slice_load].shape
             else:
-                shapes[i, ] = data.shape
+                shapes[i,] = data.shape
     # ------------------------------------------------------------------------------------ #
 
     # == Check the size of the temporary array for combination =========================== #
     offsets, sh_comb = offseted_shape(
-        shapes, offsets, method='outer', offset_order_xyz=False, intify_offsets=True
+        shapes, offsets, method="outer", offset_order_xyz=False, intify_offsets=True
     )
 
     # Size of (N+1)-D array before combining along axis=0
-    stacksize = np.prod((ncombine, *sh_comb))*(np.dtype(dtype).itemsize)
+    stacksize = np.prod((ncombine, *sh_comb)) * (np.dtype(dtype).itemsize)
     # size estimated by full-stacked array (1st term) plus combined image
     # (1/ncombine), low and upp bounds (each 1/ncombine), mask (bool8),
     # niteration (int8), and code(int8). temp_arr_size = stacksize*(1 +
@@ -538,9 +600,9 @@ def imcombine(
         print("- Loading, calculating offsets with zero/scale", end="... ")
 
     if extension_uncertainty is not None:
-        var_full = np.nan*np.zeros(shape=(ncombine, *sh_comb), dtype=dtype)
+        var_full = np.nan * np.zeros(shape=(ncombine, *sh_comb), dtype=dtype)
 
-    arr_full = np.nan*np.zeros(shape=(ncombine, *sh_comb), dtype=dtype)
+    arr_full = np.nan * np.zeros(shape=(ncombine, *sh_comb), dtype=dtype)
     mask_full = np.zeros(shape=(ncombine, *sh_comb), dtype=bool)
 
     _t = Time.now()
@@ -572,7 +634,7 @@ def imcombine(
                 extension=extension,
                 extension_mask=e_m,
                 extension_uncertainty=e_u,
-                full=True
+                full=True,
             )
         except TypeError:
             if isinstance(_item, CCDData):
@@ -586,7 +648,7 @@ def imcombine(
                 raise ValueError("Each item is not path-like or CCDData.")
 
         if mask is not None:
-            _mask |= mask[i, ]
+            _mask |= mask[i,]
 
         # process = psutil.Process(os.getpid())
         # print("2: ", process.memory_info().rss/1.e+9)  # in bytes
@@ -610,10 +672,10 @@ def imcombine(
             weight=weight,
             zero_kw=zero_kw,
             scale_kw=scale_kw,
-            zero_to_0th=False,   # to retain original zero
+            zero_to_0th=False,  # to retain original zero
             scale_to_0th=False,  # to retain original scale
             zero_section=zero_section,
-            scale_section=scale_section
+            scale_section=scale_section,
         )
         zeros[i] = _z[0]
         scales[i] = _s[0]
@@ -629,19 +691,28 @@ def imcombine(
         print("Done.")
         if isinstance(items[0], str):
             print()
-            print("-"*80)
-            print("{:^45s}|{:^9s}|{:^9s}|{:^9s}".format("input", "zero", "scale", "weight"))
-            print("-"*80)
+            print("-" * 80)
+            print(
+                "{:^45s}|{:^9s}|{:^9s}|{:^9s}".format(
+                    "input", "zero", "scale", "weight"
+                )
+            )
+            print("-" * 80)
             for item, z, s, w in zip(items, zeros, scales, weights):
                 print("{:>45s}|{:3e}|{:3e}|{:3e}".format(item[-45:], z, s, w))
-            print("-"*80)
+            print("-" * 80)
             print()
         else:
             pass
     # ------------------------------------------------------------------------------------ #
 
-    cmt2hdr(hdr0, 'h', t_ref=_t, verbose=verbose,
-                  s=f"Loaded {ncombine} FITS, calculated zero, scale, weights")
+    cmt2hdr(
+        hdr0,
+        "h",
+        t_ref=_t,
+        verbose=verbose,
+        s=f"Loaded {ncombine} FITS, calculated zero, scale, weights",
+    )
 
     # == Combine with rejection! ========================================================= #
     _t = Time.now()
@@ -652,8 +723,8 @@ def imcombine(
         copy=False,  # No need to retain arr_full.
         combine=combine,
         reject=reject_fullname,
-        scale=scales,    # it is scales , NOT scale , as it was updated above.
-        zero=zeros,      # it is zeros  , NOT zero  , as it was updated above.
+        scale=scales,  # it is scales , NOT scale , as it was updated above.
+        zero=zeros,  # it is zeros  , NOT zero  , as it was updated above.
         weight=weights,  # it is weights, NOT weight, as it was updated above.
         zero_to_0th=zero_to_0th,
         scale_to_0th=scale_to_0th,
@@ -668,13 +739,13 @@ def imcombine(
         maxiters=maxiters,
         ddof=ddof,
         rdnoise=rds,  # it is rds, not rdnoise, as it was updated above.
-        gain=gns,     # it is gns, not gain   , as it was updated above.
-        snoise=sns,   # it is sns, not snoise , as it was updated above.
+        gain=gns,  # it is gns, not gain   , as it was updated above.
+        snoise=sns,  # it is sns, not snoise , as it was updated above.
         pclip=pclip,
         irafmode=irafmode,
         full=full,
         return_variance=return_variance,
-        verbose=verbose
+        verbose=verbose,
     )
 
     if full:  # unpack the output
@@ -692,16 +763,24 @@ def imcombine(
         for i in range(ndim, 0, -1):
             hdr0[f"LTV{i}"] += offsets[0][ndim - i]
 
-    _update_hdr(hdr0, ncombine, imcmb_key=imcmb_key, imcmb_val=imcmb_val,
-                offset_mode=offset_mode, offsets=offsets, zeros=zeros, scales=scales,
-                weights=weights,)
+    _update_hdr(
+        hdr0,
+        ncombine,
+        imcmb_key=imcmb_key,
+        imcmb_val=imcmb_val,
+        offset_mode=offset_mode,
+        offsets=offsets,
+        zeros=zeros,
+        scales=scales,
+        weights=weights,
+    )
 
     try:
         unit = hdr0["BUNIT"].lower()
     except (KeyError, IndexError):
-        unit = 'adu'
+        unit = "adu"
 
-    cmt2hdr(hdr0, 'h', t_ref=_t, verbose=verbose, s="Rejection and combination done")
+    cmt2hdr(hdr0, "h", t_ref=_t, verbose=verbose, s="Rejection and combination done")
     comb = comb.astype(dtype)
     comb = CCDData(data=comb, header=hdr0, unit=unit)
 
@@ -734,8 +813,9 @@ def imcombine(
 
     if output_mask is not None:  # Do this AFTER output_nrej!!
         # FITS does not accept boolean. We need uint8.
-        write2fits(mask_total.astype(np.uint8),
-                   hdr0, output_mask, return_ccd=False, **write_kw)
+        write2fits(
+            mask_total.astype(np.uint8), hdr0, output_mask, return_ccd=False, **write_kw
+        )
 
     if output_rejcode is not None:
         write2fits(rejcode, hdr0, output_rejcode, return_ccd=False, **write_kw)
@@ -749,19 +829,19 @@ def imcombine(
     # == Write logfile =================================================================== #
     if logfile is not None:
         if verbose:
-            print("\n- Writing summary table", end='...')
+            print("\n- Writing summary table", end="...")
         # Use astropy table rather than import pandas
-        for name in ['scales', 'zeros', 'weights']:
-            table_dict[name] = eval(f'list({name})')
+        for name in ["scales", "zeros", "weights"]:
+            table_dict[name] = eval(f"list({name})")
 
         table = Table(table_dict)
-        table['gains'] = gns
-        table['readnoises'] = rds
-        table['snoises'] = sns
+        table["gains"] = gns
+        table["readnoises"] = rds
+        table["snoises"] = sns
         # NOTE: the indexing in python is [z, y, x] order!!
         for i in range(ndim, 0, -1):
-            table[f'offset{i}'] = offsets[:, ndim - i]
-        table.write(logfile, format='csv')
+            table[f"offset{i}"] = offsets[:, ndim - i]
+        table.write(logfile, format="csv")
         if verbose:
             print("Done.")
 
@@ -773,24 +853,34 @@ def imcombine(
     # == Return ========================================================================== #
     if full:
         if return_dict:
-            return dict(comb=comb,
-                        err=err,
-                        mask_total=mask_total,
-                        mask_rej=mask_rej,
-                        mask_thresh=mask_thresh,
-                        low=low,
-                        upp=upp,
-                        nit=nit,
-                        rejcode=rejcode
-                        )
+            return dict(
+                comb=comb,
+                err=err,
+                mask_total=mask_total,
+                mask_rej=mask_rej,
+                mask_thresh=mask_thresh,
+                low=low,
+                upp=upp,
+                nit=nit,
+                rejcode=rejcode,
+            )
         else:
-            return (comb, err, mask_total, mask_rej, mask_thresh,
-                    low, upp, nit, rejcode)
+            return (
+                comb,
+                err,
+                mask_total,
+                mask_rej,
+                mask_thresh,
+                low,
+                upp,
+                nit,
+                rejcode,
+            )
     else:
         return comb
 
 
-imcombine.__doc__ = '''A helper function for ndcombine to cope with FITS files.
+imcombine.__doc__ = """A helper function for ndcombine to cope with FITS files.
 
     {}
 
@@ -874,49 +964,51 @@ imcombine.__doc__ = '''A helper function for ndcombine to cope with FITS files.
     {}
 
     {}
-    '''.format(docstrings.NDCOMB_NOT_IMPLEMENTED(indent=4),
-               docstrings.OFFSETS_LONG(indent=4),
-               docstrings.NDCOMB_PARAMETERS_COMMON(indent=4),
-               docstrings.NDCOMB_RETURNS_COMMON(indent=4),
-               docstrings.IMCOMBINE_LINK(indent=4))
+    """.format(
+    docstrings.NDCOMB_NOT_IMPLEMENTED(indent=4),
+    docstrings.OFFSETS_LONG(indent=4),
+    docstrings.NDCOMB_PARAMETERS_COMMON(indent=4),
+    docstrings.NDCOMB_RETURNS_COMMON(indent=4),
+    docstrings.IMCOMBINE_LINK(indent=4),
+)
 
 
 # ---------------------------------------------------------------------------------------- #
 def ndcombine(
-        arr,
-        mask=None,
-        copy=True,
-        blank=np.nan,
-        offsets=None,
-        thresholds=[-np.inf, np.inf],
-        zero=None,
-        scale=None,
-        weight=None,
-        zero_kw={'cenfunc': 'median', 'stdfunc': 'std', 'std_ddof': 1},
-        scale_kw={'cenfunc': 'median', 'stdfunc': 'std', 'std_ddof': 1},
-        zero_to_0th=True,
-        scale_to_0th=True,
-        zero_section=None,
-        scale_section=None,
-        reject=None,
-        cenfunc='median',
-        sigma=[3., 3.],
-        maxiters=3,
-        ddof=1,
-        nkeep=1,
-        maxrej=None,
-        n_minmax=[1, 1],
-        rdnoise=0.,
-        gain=1.,
-        snoise=0.,
-        pclip=-0.5,
-        combine='average',
-        dtype='float32',
-        memlimit=2.5e+9,
-        irafmode=True,
-        verbose=False,
-        full=False,
-        return_variance=False
+    arr,
+    mask=None,
+    copy=True,
+    blank=np.nan,
+    offsets=None,
+    thresholds=[-np.inf, np.inf],
+    zero=None,
+    scale=None,
+    weight=None,
+    zero_kw={"cenfunc": "median", "stdfunc": "std", "std_ddof": 1},
+    scale_kw={"cenfunc": "median", "stdfunc": "std", "std_ddof": 1},
+    zero_to_0th=True,
+    scale_to_0th=True,
+    zero_section=None,
+    scale_section=None,
+    reject=None,
+    cenfunc="median",
+    sigma=[3.0, 3.0],
+    maxiters=3,
+    ddof=1,
+    nkeep=1,
+    maxrej=None,
+    n_minmax=[1, 1],
+    rdnoise=0.0,
+    gain=1.0,
+    snoise=0.0,
+    pclip=-0.5,
+    combine="average",
+    dtype="float32",
+    memlimit=2.5e9,
+    irafmode=True,
+    verbose=False,
+    full=False,
+    return_variance=False,
 ):
     if copy:
         arr = arr.copy()
@@ -952,10 +1044,7 @@ def ndcombine(
     # == 01 - Thresholding + Initial masking ============================================= #
     # Updating mask: _mask = _mask | mask_thresh
     mask_thresh = _set_thresh_mask(
-        arr=arr,
-        mask=_mask,
-        thresholds=thresholds,
-        update_mask=True
+        arr=arr, mask=_mask, thresholds=thresholds, update_mask=True
     )
 
     # if safemode:
@@ -980,14 +1069,14 @@ def ndcombine(
         zero_to_0th=zero_to_0th,
         scale_to_0th=scale_to_0th,
         zero_section=zero_section,
-        scale_section=scale_section
+        scale_section=scale_section,
     )
     arr = do_zs(arr, zeros=zeros, scales=scales)
     # ------------------------------------------------------------------------------------ #
 
     # == 02 - Rejection ================================================================== #
     if isinstance(reject_fullname, str):
-        if reject_fullname == 'sigclip':
+        if reject_fullname == "sigclip":
             _mask_rej = sigclip_mask(
                 arr,
                 mask=_mask,
@@ -1000,16 +1089,11 @@ def ndcombine(
                 cenfunc=cenfunc,
                 axis=0,
                 irafmode=irafmode,
-                full=full
+                full=full,
             )
-        elif reject_fullname == 'minmax':
-            _mask_rej = minmax_mask(
-                arr,
-                mask=_mask,
-                n_minmax=n_minmax,
-                full=full
-            )
-        elif reject_fullname == 'ccdclip':
+        elif reject_fullname == "minmax":
+            _mask_rej = minmax_mask(arr, mask=_mask, n_minmax=n_minmax, full=full)
+        elif reject_fullname == "ccdclip":
             _mask_rej = ccdclip_mask(
                 arr,
                 mask=_mask,
@@ -1027,9 +1111,9 @@ def ndcombine(
                 rdnoise=rdnoise,
                 snoise=snoise,
                 irafmode=irafmode,
-                full=full
+                full=full,
             )
-        elif reject_fullname == 'pclip':
+        elif reject_fullname == "pclip":
             pass
         else:
             raise ValueError("reject not understood.")
@@ -1076,7 +1160,7 @@ def ndcombine(
     # arr[mask_thresh] = backup_thresh_inmask
     if full:
         if verbose:
-            print( "- Error calculation")
+            print("- Error calculation")
             print("-- to skip this, use `full=False`")
             print(f"-- return_variance={return_variance}, ddof={ddof}")
         if return_variance:
@@ -1090,7 +1174,7 @@ def ndcombine(
         return comb
 
 
-ndcombine.__doc__ = ''' Combines the given arr assuming no additional offsets.
+ndcombine.__doc__ = """ Combines the given arr assuming no additional offsets.
 
     {}
     #. offsets is not implemented to ndcombine (only to fitscombine).
@@ -1121,9 +1205,10 @@ ndcombine.__doc__ = ''' Combines the given arr assuming no additional offsets.
     {}
 
     {}
-    '''.format(docstrings.NDCOMB_NOT_IMPLEMENTED(indent=4),
-               docstrings.OFFSETS_SHORT(indent=4),
-               docstrings.NDCOMB_PARAMETERS_COMMON(indent=4),
-               docstrings.NDCOMB_RETURNS_COMMON(indent=4),
-               docstrings.IMCOMBINE_LINK(indent=4)
-               )
+    """.format(
+    docstrings.NDCOMB_NOT_IMPLEMENTED(indent=4),
+    docstrings.OFFSETS_SHORT(indent=4),
+    docstrings.NDCOMB_PARAMETERS_COMMON(indent=4),
+    docstrings.NDCOMB_RETURNS_COMMON(indent=4),
+    docstrings.IMCOMBINE_LINK(indent=4),
+)

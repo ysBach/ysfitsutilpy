@@ -4,21 +4,21 @@ from astropy.nddata import CCDData
 from ..hduutil import CCDData_astype, _parse_image, imslice, inputs2list
 from ..misc import update_tlm
 
-__all__ = ['imcopy']
+__all__ = ["imcopy"]
 
 
 # TODO: use fitsio if (outputs is None) and not return_ccd
 def imcopy(
-        inputs,
-        trimsecs=None,
-        outputs=None,
-        extension=None,
-        return_ccd=True,
-        dtype=None,
-        update_header=True,
-        **kwargs
+    inputs,
+    trimsecs=None,
+    outputs=None,
+    extension=None,
+    return_ccd=True,
+    dtype=None,
+    update_header=True,
+    **kwargs,
 ):
-    ''' Similar to IRAF IMCOPY
+    """Similar to IRAF IMCOPY
 
     Parameters
     ----------
@@ -92,7 +92,7 @@ def imcopy(
     >>>
     >>> # multi file multi section
     >>> trims2d = imcopy(pcrfits[:2], trimsecs=sections, outputs=None)
-    '''
+    """
     to_trim = False
     to_save = False
 
@@ -119,7 +119,9 @@ def imcopy(
         if outputs.shape != (m, n):
             raise ValueError(
                 "If outputs is array-like, it's shape must have the shape of (fpaths.size, "
-                + "trimsecs.size)= ({}, {}). Now it's ({}).".format(m, n, *outputs.shape)
+                + "trimsecs.size)= ({}, {}). Now it's ({}).".format(
+                    m, n, *outputs.shape
+                )
             )
 
     if return_ccd:

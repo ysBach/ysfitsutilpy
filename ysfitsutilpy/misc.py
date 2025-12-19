@@ -1,81 +1,106 @@
-'''
+"""
 Objects that are
 (1) too fundamental, so used in various places,
 (2) completely INDEPENDENT of all other modules of this package.
-'''
+"""
+
 import sys
 
+import numba as nb
 import numpy as np
 from astro_ndslice import is_list_like, listify
 from astropy import units as u
 from astropy.time import Time
-import numba as nb
 
-__all__ = ["MEDCOMB_KEYS_INT", "SUMCOMB_KEYS_INT", "MEDCOMB_KEYS_FLT32",
-           "LACOSMIC_KEYS", "LACOSMIC_CRREJ", "parse_crrej_psf",
-           "get_size",
-           "cmt2hdr", "update_tlm", "update_process",
-           "weighted_avg", "sigclip_dataerr",
-           "circular_mask", "circular_mask_2d",
-           "enclosing_circle_radius",
-           "str_now", "change_to_quantity", "binning",
-           "quantile_lh", "quantile_sigma",
-           "min_max_med_1d", "mean_std_1d"]
+__all__ = [
+    "MEDCOMB_KEYS_INT",
+    "SUMCOMB_KEYS_INT",
+    "MEDCOMB_KEYS_FLT32",
+    "LACOSMIC_KEYS",
+    "LACOSMIC_CRREJ",
+    "parse_crrej_psf",
+    "get_size",
+    "cmt2hdr",
+    "update_tlm",
+    "update_process",
+    "weighted_avg",
+    "sigclip_dataerr",
+    "circular_mask",
+    "circular_mask_2d",
+    "enclosing_circle_radius",
+    "str_now",
+    "change_to_quantity",
+    "binning",
+    "quantile_lh",
+    "quantile_sigma",
+    "min_max_med_1d",
+    "mean_std_1d",
+]
 
 
-MEDCOMB_KEYS_INT = dict(dtype='int16',
-                        combine_method='median',
-                        reject_method=None,
-                        unit=u.adu,
-                        combine_uncertainty_function=None)
+MEDCOMB_KEYS_INT = dict(
+    dtype="int16",
+    combine_method="median",
+    reject_method=None,
+    unit=u.adu,
+    combine_uncertainty_function=None,
+)
 
-SUMCOMB_KEYS_INT = dict(dtype='int16',
-                        combine_method='sum',
-                        reject_method=None,
-                        unit=u.adu,
-                        combine_uncertainty_function=None)
+SUMCOMB_KEYS_INT = dict(
+    dtype="int16",
+    combine_method="sum",
+    reject_method=None,
+    unit=u.adu,
+    combine_uncertainty_function=None,
+)
 
-MEDCOMB_KEYS_FLT32 = dict(dtype='float32',
-                          combine_method='median',
-                          reject_method=None,
-                          unit=u.adu,
-                          combine_uncertainty_function=None)
+MEDCOMB_KEYS_FLT32 = dict(
+    dtype="float32",
+    combine_method="median",
+    reject_method=None,
+    unit=u.adu,
+    combine_uncertainty_function=None,
+)
 
 # I skipped two params in IRAF LACOSMIC: gain=2.0, readnoise=6.
-LACOSMIC_KEYS = {'sigclip': 4.5,
-                 'sigfrac': 0.5,
-                 'objlim': 1.0,
-                 'satlevel': np.inf,
-                 'invar': None,
-                 'inbkg': None,
-                 'niter': 4,
-                 'sepmed': False,
-                 'cleantype': 'medmask',
-                 'fsmode': 'median',
-                 'psfmodel': 'gauss',
-                 'psffwhm': 2.5,
-                 'psfsize': 7,
-                 'psfk': None,
-                 'psfbeta': 4.765}
+LACOSMIC_KEYS = {
+    "sigclip": 4.5,
+    "sigfrac": 0.5,
+    "objlim": 1.0,
+    "satlevel": np.inf,
+    "invar": None,
+    "inbkg": None,
+    "niter": 4,
+    "sepmed": False,
+    "cleantype": "medmask",
+    "fsmode": "median",
+    "psfmodel": "gauss",
+    "psffwhm": 2.5,
+    "psfsize": 7,
+    "psfk": None,
+    "psfbeta": 4.765,
+}
 
 # same as above, but simplify `fsmode`, `psfmodel`, and `psfk` into `fs`
-LACOSMIC_CRREJ = {'sigclip': 4.5,
-                  'sigfrac': 0.5,
-                  'objlim': 1.0,
-                  'satlevel': np.inf,
-                  'invar': None,
-                  'inbkg': None,
-                  'niter': 4,
-                  'sepmed': False,
-                  'cleantype': 'medmask',
-                  'fs': 'median',
-                  'psffwhm': 2.5,
-                  'psfsize': 7,
-                  'psfbeta': 4.765}
+LACOSMIC_CRREJ = {
+    "sigclip": 4.5,
+    "sigfrac": 0.5,
+    "objlim": 1.0,
+    "satlevel": np.inf,
+    "invar": None,
+    "inbkg": None,
+    "niter": 4,
+    "sepmed": False,
+    "cleantype": "medmask",
+    "fs": "median",
+    "psffwhm": 2.5,
+    "psfsize": 7,
+    "psfbeta": 4.765,
+}
 
 
 def get_size(obj, seen=None):
-    """ Recursively finds size of objects.
+    """Recursively finds size of objects.
     Directly from
     https://goshippo.com/blog/measure-real-size-any-python-object/
     Returns the size in bytes.
@@ -98,26 +123,25 @@ def get_size(obj, seen=None):
                     size += get_size(v, seen)
         # size += sum([get_size(v, seen) for v in obj.values()])
         # size += sum([get_size(k, seen) for k in obj.keys()])
-    elif hasattr(obj, '__dict__'):
+    elif hasattr(obj, "__dict__"):
         size += get_size(obj.__dict__, seen)
-    elif (hasattr(obj, '__iter__')
-          and not isinstance(obj, (str, bytes, bytearray))):
+    elif hasattr(obj, "__iter__") and not isinstance(obj, (str, bytes, bytearray)):
         size += sum([get_size(i, seen) for i in obj])
     return size
 
 
 def cmt2hdr(
-        header,
-        histcomm,
-        s,
-        precision=3,
-        time_fmt="{:.>72s}",
-        t_ref=None,
-        dt_fmt="(dt = {:.3f} s)",
-        set_kw={"after": -1},
-        verbose=False,
+    header,
+    histcomm,
+    s,
+    precision=3,
+    time_fmt="{:.>72s}",
+    t_ref=None,
+    dt_fmt="(dt = {:.3f} s)",
+    set_kw={"after": -1},
+    verbose=False,
 ):
-    """ Automatically add timestamp as well as HISTORY or COMMENT string
+    """Automatically add timestamp as well as HISTORY or COMMENT string
 
     Parameters
     ----------
@@ -206,7 +230,7 @@ def cmt2hdr(
 
 
 def update_tlm(header):
-    """ Adds the IRAF-like ``FITS-TLM`` right after ``NAXISi``.
+    """Adds the IRAF-like ``FITS-TLM`` right after ``NAXISi``.
 
      Timing on MBP 15" [2018, macOS 11.6, i7-8850H (2.6 GHz; 6-core), RAM 16 GB
     (2400MHz DDR4), Radeon Pro 560X (4GB)]:
@@ -230,14 +254,14 @@ def update_tlm(header):
 
 
 def update_process(
-        header,
-        process=None,
-        key="PROCESS",
-        delimiter="",
-        add_comment=True,
-        additional_comment=dict(),
+    header,
+    process=None,
+    key="PROCESS",
+    delimiter="",
+    add_comment=True,
+    additional_comment=dict(),
 ):
-    """ update the process history keyword in the header.
+    """update the process history keyword in the header.
 
     Parameters
     ----------
@@ -296,76 +320,73 @@ def update_process(
 
 
 def parse_crrej_psf(
-        fs="median",
-        psffwhm=2.5,
-        psfsize=7,
-        psfbeta=4.765,
-        fill_with_none=True
+    fs="median", psffwhm=2.5, psfsize=7, psfbeta=4.765, fill_with_none=True
 ):
     """Return a dict of minimal keyword arguments for
-        `~astroscrappy.detect_cosmics`.
-    fs : str, ndarray, list of such, optional.
-        If it is a list-like of kernels, it must **NOT** be an ndarray of
-        ``N-by-2`` or ``2-by-N``, etc. You may use `list`, `tuple`, or even
-        `~pandas.Series` of ndarrays.
-    fill_with_none : bool, optional.
-        If `True`, the unnecessary keywords will be filled with `None`, rather
-        than default parameter values (IRAF version of LACosmics). Works only
-        if any of the input parmeters is list-like. If all input parameters are
-        scalar (or `fs` is a single ndarray), only minimal dict is returned
-        without filling with `None`.
-    Notes
-    -----
-    assert parse_crrej_psf() == {'fsmode': 'median'}
+            `~astroscrappy.detect_cosmics`.
+        fs : str, ndarray, list of such, optional.
+            If it is a list-like of kernels, it must **NOT** be an ndarray of
+            ``N-by-2`` or ``2-by-N``, etc. You may use `list`, `tuple`, or even
+            `~pandas.Series` of ndarrays.
+        fill_with_none : bool, optional.
+            If `True`, the unnecessary keywords will be filled with `None`, rather
+            than default parameter values (IRAF version of LACosmics). Works only
+            if any of the input parmeters is list-like. If all input parameters are
+            scalar (or `fs` is a single ndarray), only minimal dict is returned
+            without filling with `None`.
+        Notes
+        -----
+        assert parse_crrej_psf() == {'fsmode': 'median'}
 
-    assert (parse_crrej_psf("gauss", psffwhm=2, psfsize=3, psfbeta=1)
-            == {'fsmode': 'convolve', 'psfmodel': 'gauss', 'psffwhm': 2, 'psfsize': 3})
+        assert (parse_crrej_psf("gauss", psffwhm=2, psfsize=3, psfbeta=1)
+                == {'fsmode': 'convolve', 'psfmodel': 'gauss', 'psffwhm': 2, 'psfsize': 3})
 
-    assert (parse_crrej_psf("moffat", psffwhm=2, psfsize=3, psfbeta=1)
-            == {'fsmode': 'convolve', 'psfmodel': 'moffat', 'psffwhm': 2, 'psfsize': 3, 'psfbeta': 1})
+        assert (parse_crrej_psf("moffat", psffwhm=2, psfsize=3, psfbeta=1)
+                == {'fsmode': 'convolve', 'psfmodel': 'moffat', 'psffwhm': 2, 'psfsize': 3, 'psfbeta': 1})
 
-    assert (parse_crrej_psf("moffat", psffwhm=2, psfsize=3, psfbeta=[1, 2])
+        assert (parse_crrej_psf("moffat", psffwhm=2, psfsize=3, psfbeta=[1, 2])
+            == {'fsmode': ['convolve', 'convolve'],
+     'psfmodel': ['moffat', 'moffat'],
+     'psfk': [None, None],
+     'psffwhm': [2, 2],
+     'psfsize': [3, 3],
+     'psfbeta': [1, 2]}
+        )
+
+        assert (parse_crrej_psf([np.eye(3), np.eye(5)])
         == {'fsmode': ['convolve', 'convolve'],
- 'psfmodel': ['moffat', 'moffat'],
- 'psfk': [None, None],
- 'psffwhm': [2, 2],
- 'psfsize': [3, 3],
- 'psfbeta': [1, 2]}
+     'psfmodel': [None, None],
+     'psfk': [np.array([[1., 0., 0.],
+             [0., 1., 0.],
+             [0., 0., 1.]]),
+      np.array([[1., 0., 0., 0., 0.],
+             [0., 1., 0., 0., 0.],
+             [0., 0., 1., 0., 0.],
+             [0., 0., 0., 1., 0.],
+             [0., 0., 0., 0., 1.]])],
+     'psffwhm': [None, None],
+     'psfsize': [None, None],
+     'psfbeta': [None, None]}
     )
 
-    assert (parse_crrej_psf([np.eye(3), np.eye(5)])
-    == {'fsmode': ['convolve', 'convolve'],
- 'psfmodel': [None, None],
- 'psfk': [np.array([[1., 0., 0.],
-         [0., 1., 0.],
-         [0., 0., 1.]]),
-  np.array([[1., 0., 0., 0., 0.],
-         [0., 1., 0., 0., 0.],
-         [0., 0., 1., 0., 0.],
-         [0., 0., 0., 1., 0.],
-         [0., 0., 0., 0., 1.]])],
- 'psffwhm': [None, None],
- 'psfsize': [None, None],
- 'psfbeta': [None, None]}
-)
+        with pytest.raises(ValueError):
+            parse_crrej_psf("moffat", psffwhm=2, psfsize=[3, 3, 3], psfbeta=[1, 2])
 
-    with pytest.raises(ValueError):
-        parse_crrej_psf("moffat", psffwhm=2, psfsize=[3, 3, 3], psfbeta=[1, 2])
+        assert (parse_crrej_psf("gaussx", fill_with_none=False)
+        == {'fsmode': 'convolve', 'psfmodel': 'gaussx', 'psffwhm': 2.5, 'psfsize': 7})
 
-    assert (parse_crrej_psf("gaussx", fill_with_none=False)
-    == {'fsmode': 'convolve', 'psfmodel': 'gaussx', 'psffwhm': 2.5, 'psfsize': 7})
-
-    assert (parse_crrej_psf("moffat", psffwhm=[2, 3, 4], fill_with_none=False)
-    == {'fsmode': ['convolve', 'convolve', 'convolve'],
- 'psfmodel': ['moffat', 'moffat', 'moffat'],
- 'psfk': [None, None, None],
- 'psffwhm': [2, 3, 4],
- 'psfsize': [7, 7, 7],
- 'psfbeta': [4.765, 4.765, 4.765]}
- )
+        assert (parse_crrej_psf("moffat", psffwhm=[2, 3, 4], fill_with_none=False)
+        == {'fsmode': ['convolve', 'convolve', 'convolve'],
+     'psfmodel': ['moffat', 'moffat', 'moffat'],
+     'psfk': [None, None, None],
+     'psffwhm': [2, 3, 4],
+     'psfsize': [7, 7, 7],
+     'psfbeta': [4.765, 4.765, 4.765]}
+     )
     """
-    if (is_list_like(psffwhm, psfsize, psfbeta, func=any)
-            or (is_list_like(fs) and not isinstance(fs, np.ndarray))):
+    if is_list_like(psffwhm, psfsize, psfbeta, func=any) or (
+        is_list_like(fs) and not isinstance(fs, np.ndarray)
+    ):
         fs = listify(fs)
         psffwhm = listify(psffwhm)
         psfsize = listify(psfsize)
@@ -378,10 +399,10 @@ def parse_crrej_psf(
                 f"length 1 or the same length (current maxlength = {length})."
             )
 
-        fs = fs*length if len(fs) == 1 else fs
-        psffwhm = psffwhm*length if len(psffwhm) == 1 else psffwhm
-        psfsize = psfsize*length if len(psfsize) == 1 else psfsize
-        psfbeta = psfbeta*length if len(psfbeta) == 1 else psfbeta
+        fs = fs * length if len(fs) == 1 else fs
+        psffwhm = psffwhm * length if len(psffwhm) == 1 else psffwhm
+        psfsize = psfsize * length if len(psfsize) == 1 else psfsize
+        psfbeta = psfbeta * length if len(psfbeta) == 1 else psfbeta
 
         def _allocate(_fs, _psffwhm, _psfsize, _psfbeta):
             if isinstance(_fs, str):
@@ -436,21 +457,27 @@ def parse_crrej_psf(
         if fs == "median":
             return dict(fsmode=fs)
         elif fs == "moffat":
-            return dict(fsmode="convolve", psfmodel="moffat",
-                        psffwhm=psffwhm, psfsize=psfsize, psfbeta=psfbeta)
+            return dict(
+                fsmode="convolve",
+                psfmodel="moffat",
+                psffwhm=psffwhm,
+                psfsize=psfsize,
+                psfbeta=psfbeta,
+            )
         elif fs in ["gauss", "gaussx", "gaussy"]:
-            return dict(fsmode="convolve", psfmodel=fs,
-                        psffwhm=psffwhm, psfsize=psfsize)
+            return dict(
+                fsmode="convolve", psfmodel=fs, psffwhm=psffwhm, psfsize=psfsize
+            )
     else:
         raise ValueError(f"fs ({fs}) not understood")
 
 
 def weighted_avg(val, err):
     # Weighted mean and standard error
-    w = 1/(err**2)
+    w = 1 / (err**2)
     wsum = np.sum(w)
-    wvg = np.sum(w*val)/wsum
-    wse = 1/np.sqrt(wsum)
+    wvg = np.sum(w * val) / wsum
+    wse = 1 / np.sqrt(wsum)
     return wvg, wse
 
 
@@ -472,13 +499,13 @@ def sigclip_dataerr(val, err, cenfunc="wvg", sigma=3, maxiters=3):
     for i in range(maxiters):
         # calculate deviation for all (even masked) elements:
         deviation = np.abs(val.data - cen)
-        mask = (deviation > sigma*err)
+        mask = deviation > sigma * err
 
     return val, mask
 
 
 def circular_mask(shape, center=None, radius=None, center_xyz=True):
-    ''' Creates an N-D circular (circular, sphereical, ...) mask.
+    """Creates an N-D circular (circular, sphereical, ...) mask.
 
     Parameters
     ----------
@@ -503,9 +530,9 @@ def circular_mask(shape, center=None, radius=None, center_xyz=True):
 
     Note that this is slow due to the "general" N-D nature of the mask.
     If you need a 2-D mask, use `circular_mask_2d`
-    '''
+    """
     if center is None:  # use the middle of the image
-        center = [npix/2 for npix in shape[::-1]]
+        center = [npix / 2 for npix in shape[::-1]]
 
     if center_xyz:
         center = center[::-1]
@@ -519,7 +546,7 @@ def circular_mask(shape, center=None, radius=None, center_xyz=True):
     slices = tuple([slice(None, npix, None) for npix in shape])
 
     zyx = np.ogrid[slices]
-    dist_sq = [((zyx[i] - center[i])**2) for i in range(len(shape))]
+    dist_sq = [((zyx[i] - center[i]) ** 2) for i in range(len(shape))]
     dist_from_center = np.sqrt(np.sum(np.array(dist_sq, dtype=object)))
 
     mask = dist_from_center <= radius
@@ -527,9 +554,15 @@ def circular_mask(shape, center=None, radius=None, center_xyz=True):
 
 
 def circular_mask_2d(
-    shape, center=None, radius=0.5, method="center", subpixels=5, maskmin=0, return_apertures=False
+    shape,
+    center=None,
+    radius=0.5,
+    method="center",
+    subpixels=5,
+    maskmin=0,
+    return_apertures=False,
 ):
-    """ Creates a 2-D circular mask using photutils CircularAperture.
+    """Creates a 2-D circular mask using photutils CircularAperture.
 
     Parameters
     ----------
@@ -615,9 +648,11 @@ def circular_mask_2d(
     elif method == "exact" or method == "subpixel":
         # Use the exact overlap of the aperture and each pixel
         for m in apmasks:
-            apmask2d |= (m.to_image(shape, dtype=float) > maskmin)
+            apmask2d |= m.to_image(shape, dtype=float) > maskmin
     else:
-        raise ValueError(f"Method {method} not supported. Use 'exact', 'center', or 'subpixel'.")
+        raise ValueError(
+            f"Method {method} not supported. Use 'exact', 'center', or 'subpixel'."
+        )
 
     return apmask2d
 
@@ -635,7 +670,7 @@ def _enclosing_circle_radius(segm, center, segm_id, output):
         #     center = (np.mean(x), np.mean(y))
 
         # Calculate the distances from the center to all non-zero pixels
-        rsq_max = np.max((x - center[i][0])**2 + (y - center[i][1])**2)
+        rsq_max = np.max((x - center[i][0]) ** 2 + (y - center[i][1]) ** 2)
         output[i] = np.sqrt(rsq_max)
 
 
@@ -686,13 +721,9 @@ def enclosing_circle_radius(segm, center, segm_id=None):
 
 
 def str_now(
-    precision=3,
-    fmt="{:.>72s}",
-    t_ref=None,
-    dt_fmt="(dt = {:.3f} s)",
-    return_time=False
+    precision=3, fmt="{:.>72s}", t_ref=None, dt_fmt="(dt = {:.3f} s)", return_time=False
 ):
-    ''' Get stringfied time now in UT ISOT format.
+    """Get stringfied time now in UT ISOT format.
 
     Parameters
     ----------
@@ -716,7 +747,7 @@ def str_now(
         Whether to return the time at the start of this function and the delta
         time (`dt`), as well as the time information string. If `t_ref` is
         `None`, `dt` is automatically set to `None`.
-    '''
+    """
     now = Time(Time.now(), precision=precision)
     timestr = now.isot
     if t_ref is not None:
@@ -731,8 +762,8 @@ def str_now(
         return fmt.format(timestr)
 
 
-def change_to_quantity(x, desired='', to_value=False):
-    ''' Change the non-Quantity object to astropy Quantity or vice versa.
+def change_to_quantity(x, desired="", to_value=False):
+    """Change the non-Quantity object to astropy Quantity or vice versa.
 
     Parameters
     ----------
@@ -757,12 +788,14 @@ def change_to_quantity(x, desired='', to_value=False):
     If Quantity, transform to `desired`. If `desired` is `None`, return it as
     is. If not `Quantity`, multiply the `desired`. `desired` is `None`, return
     `x` with dimensionless unscaled unit.
-    '''
+    """
+
     def _copy(xx):
         try:
             xcopy = xx.copy()
         except AttributeError:
             import copy
+
             xcopy = copy.deepcopy(xx)
         return xcopy
 
@@ -776,7 +809,7 @@ def change_to_quantity(x, desired='', to_value=False):
             if isinstance(desired, str):
                 desired = u.Unit(desired)
             try:
-                ux = x*desired
+                ux = x * desired
             except TypeError:
                 ux = _copy(x)
         else:
@@ -793,15 +826,15 @@ def change_to_quantity(x, desired='', to_value=False):
 
 
 def binning(
-        arr,
-        factor_x=None,
-        factor_y=None,
-        factors=None,
-        order_xyz=True,
-        binfunc=np.mean,
-        trim_end=False
+    arr,
+    factor_x=None,
+    factor_y=None,
+    factors=None,
+    order_xyz=True,
+    binfunc=np.mean,
+    trim_end=False,
 ):
-    ''' Bins the given arr frame.
+    """Bins the given arr frame.
 
     Paramters
     ---------
@@ -848,7 +881,7 @@ def binning(
     >>> # some strange chaching happens?
     Tested on MBP 15" [2018, macOS 10.14.6, i7-8850H (2.6 GHz; 6-core), RAM 16
     GB (2400MHz DDR4), Radeon Pro 560X (4GB)]
-    '''
+    """
     # def binning(arr, factor_x=1, factor_y=1, binfunc=np.mean, trim_end=False):
     #     binned = arr.copy()
     #     if trim_end:
@@ -901,14 +934,14 @@ def binning(
 
 
 def quantile_lh(
-        a,
-        lq,
-        hq,
-        axis=None,
-        nanfunc=False,
-        interpolation='linear',
-        linterp=None,
-        hinterp=None
+    a,
+    lq,
+    hq,
+    axis=None,
+    nanfunc=False,
+    interpolation="linear",
+    linterp=None,
+    hinterp=None,
 ):
     """Find quantiles for lower and higher values
     Parameters
@@ -963,14 +996,9 @@ def quantile_lh(
 
 
 def quantile_sigma(
-        a,
-        axis=None,
-        nanfunc=False,
-        interpolation='linear',
-        linterp=None,
-        hinterp=None
+    a, axis=None, nanfunc=False, interpolation="linear", linterp=None, hinterp=None
 ):
-    """ Extract "sigma" (std. dev.) from quantile to avoid bad values.
+    """Extract "sigma" (std. dev.) from quantile to avoid bad values.
 
     Parameters
     ----------
@@ -998,15 +1026,23 @@ def quantile_sigma(
         ``linterp='higher', hinterp='lower'`` to estimate the robust standard
         deviation estimate.
     """
-    low, upp = quantile_lh(a, 0.1587, 0.8413, axis=axis, nanfunc=nanfunc,
-                           interpolation=interpolation, linterp=linterp, hinterp=hinterp)
-    return np.abs(upp - low)/2
+    low, upp = quantile_lh(
+        a,
+        0.1587,
+        0.8413,
+        axis=axis,
+        nanfunc=nanfunc,
+        interpolation=interpolation,
+        linterp=linterp,
+        hinterp=hinterp,
+    )
+    return np.abs(upp - low) / 2
 
 
 # FIXME: I am not sure whether these gain conversions are universal or just
 # for ASI cameras...
 def dB2epadu(gain_dB):
-    return 5 / 10**(gain_dB / 20)
+    return 5 / 10 ** (gain_dB / 20)
 
 
 def epadu2dB(gain_epadu):
@@ -1014,7 +1050,7 @@ def epadu2dB(gain_epadu):
 
 
 def min_max_med_1d(arr):
-    """ Return minimum, maximum and median of array.
+    """Return minimum, maximum and median of array.
     Tests
     -----
     up to ~ 10 times faster than numpy's min, max, median done separately (MBP
@@ -1064,13 +1100,13 @@ def min_max_med_1d(arr):
     """
     if arr.size < 1000:
         _a = np.sort(arr)
-        return _a[0], _a[-1], 0.5*(_a[_a.size//2] + _a[_a.size//2 - 1])
+        return _a[0], _a[-1], 0.5 * (_a[_a.size // 2] + _a[_a.size // 2 - 1])
     else:
         return np.min(arr), np.max(arr), np.median(arr)
 
 
 def mean_std_1d(arr, ddof=0, std=True, var=False):
-    """ Return mean and standard deviation of array.
+    """Return mean and standard deviation of array.
     Tests
     -----
     About 2.5 times faster than numpy's mean and std done separately (MBP 14"
@@ -1108,7 +1144,7 @@ def mean_std_1d(arr, ddof=0, std=True, var=False):
     inv_n = 1.0 / arr.size
     inv_d = 1.0 / (arr.size - ddof) if ddof > 0 else inv_n
     mean = sum_a * inv_n
-    var = sqsum*inv_d - mean*sum_a*inv_d
+    var = sqsum * inv_d - mean * sum_a * inv_d
     if var:
         if std:
             return mean, np.sqrt(var), var

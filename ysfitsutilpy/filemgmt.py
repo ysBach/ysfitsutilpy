@@ -1,41 +1,42 @@
-'''
+"""
 Contians convenience funcitons which are
 (1) more related to the file name or paths rather than the contents or
 (2) related to the non-FITS files.
-'''
+"""
 
 from pathlib import Path
 from warnings import warn
 
-from astro_ndslice import slice_from_string
 import numpy as np
 import pandas as pd
-from astro_ndslice import listify
+from astro_ndslice import listify, slice_from_string
 from astropy.io import fits
 from astropy.io.fits.verify import VerifyError
 from astropy.nddata import CCDData
 from astropy.time import Time
 
-from .hduutil import (_parse_extension, cut_ccd, inputs2list, key_mapper,
-                      key_remover)
+from .hduutil import _parse_extension, cut_ccd, inputs2list, key_mapper, key_remover
 
 __all__ = [
-    "mkdir", "load_if_exists", "make_summary", "df_selector",
+    "mkdir",
+    "load_if_exists",
+    "make_summary",
+    "df_selector",
     "make_reduc_planner",
     # "planner_add_crrej",
-    "fits_newpath", "fitsrenamer"
+    "fits_newpath",
+    "fitsrenamer",
 ]
 
 
 def mkdir(fpath, mode=0o777, exist_ok=True):
-    ''' Convenience function for Path.mkdir()
-    '''
+    """Convenience function for Path.mkdir()"""
     fpath = Path(fpath)
     Path.mkdir(fpath, mode=mode, exist_ok=exist_ok)
 
 
 def load_if_exists(path, loader, if_not=None, verbose=True, **kwargs):
-    ''' Load a file if it exists.
+    """Load a file if it exists.
 
     Parameters
     ----------
@@ -64,12 +65,12 @@ def load_if_exists(path, loader, if_not=None, verbose=True, **kwargs):
     >>>     unit='adu',
     >>>     if_not="print('File not found')"
     >>> )
-    '''
+    """
     path = Path(path)
 
     if path.exists():
         if verbose:
-            print(f'Loading the existing {str(path)}...', end='')
+            print(f"Loading the existing {str(path)}...", end="")
         loaded = loader(path, **kwargs)
         if verbose:
             print(" Done")
@@ -82,24 +83,24 @@ def load_if_exists(path, loader, if_not=None, verbose=True, **kwargs):
 
 
 def make_summary(
-        inputs=None,
-        extension=None,
-        verify_fix=False,
-        fname_option='relative',
-        output=None,
-        keywords=None,
-        example_header=None,
-        sort_by='file',
-        sort_map=None,
-        fullmatch=None,
-        flags=0,
-        querystr=None,
-        negate_fullmatch=False,
-        nonunique_keys=False,
-        verbose=True,
-        **kwargs
+    inputs=None,
+    extension=None,
+    verify_fix=False,
+    fname_option="relative",
+    output=None,
+    keywords=None,
+    example_header=None,
+    sort_by="file",
+    sort_map=None,
+    fullmatch=None,
+    flags=0,
+    querystr=None,
+    negate_fullmatch=False,
+    nonunique_keys=False,
+    verbose=True,
+    **kwargs,
 ):
-    """ Extracts summary from the headers of FITS files.
+    """Extracts summary from the headers of FITS files.
 
     Parameters
     ----------
@@ -232,7 +233,7 @@ def make_summary(
             negate_fullmatch=negate_fullmatch,
             nonunique_keys=False,
             verbose=verbose,
-            **kwargs
+            **kwargs,
         )
         if verbose:
             print("Unique keys that will be removed:")
@@ -254,7 +255,9 @@ def make_summary(
     # done later based on ``sort_by`` column, I did it here because the full
     # header keys will be inferred from the 0-th element (if `keywords` is not
     # given)
-    fitslist = inputs2list(inputs, sort=True, accept_ccdlike=True, check_coherency=False)
+    fitslist = inputs2list(
+        inputs, sort=True, accept_ccdlike=True, check_coherency=False
+    )
 
     if len(fitslist) == 0:
         if verbose:
@@ -269,11 +272,11 @@ def make_summary(
             fsize = None
             hdr = item.header
         else:
-            if fname_option == 'relative':
+            if fname_option == "relative":
                 fname = str(item)
-            elif fname_option == 'absolute':
+            elif fname_option == "absolute":
                 fname = str(item.absolute())
-            elif fname_option == 'name':
+            elif fname_option == "name":
                 fname = item.name
             else:
                 raise ValueError(f"fname_option `{fname_option}`not understood.")
@@ -281,16 +284,16 @@ def make_summary(
             # Don't change to MB/GB, which will make it float...
             hdul = fits.open(item, **kwargs)
             if verify_fix:
-                hdul.verify('fix')
+                hdul.verify("fix")
             hdr = hdul[extension].header
             hdul.close()
 
         return fname, fsize, hdr
 
-    skip_keys = ['COMMENT', 'HISTORY']
+    skip_keys = ["COMMENT", "HISTORY"]
 
     if verbose and keywords is not None:
-        if keywords == '*':
+        if keywords == "*":
             print("Extracting all keywords...")
         else:
             print("Extracting keys: ", keywords)
@@ -305,7 +308,7 @@ def make_summary(
         hdr0.totextfile(example_header, overwrite=True)
 
     # load ALL keywords for special cases
-    if (keywords is None) or (keywords is not None and keywords == '*'):
+    if (keywords is None) or (keywords is not None and keywords == "*"):
         fname0, _, hdr0 = _get_fname_fsize_hdr(fitslist[0], 0, extension=extension)
         num_hkeys = len(hdr0.cards)
         keywords = []
@@ -315,15 +318,17 @@ def make_summary(
                 key_i = hdr0.cards[i][0]
             except VerifyError:
                 raise VerifyError("Use verify_fix=True.")
-            if (key_i in skip_keys):
+            if key_i in skip_keys:
                 continue
-            elif (key_i in keywords):
+            elif key_i in keywords:
                 warn(f"Key {key_i} is duplicated! Only the first one will be saved.")
                 continue
             keywords.append(key_i)
 
         if verbose:
-            print(f"All {len(keywords)} keywords (guessed from {fname0}) will be loaded.")
+            print(
+                f"All {len(keywords)} keywords (guessed from {fname0}) will be loaded."
+            )
 
     # Initialize
     summarytab = dict(file=[], filesize=[])
@@ -340,7 +345,9 @@ def make_summary(
                 summarytab[k].append(hdr[k])
             except KeyError:
                 if verbose:
-                    str_keyerror_fill = "Key {:s} not found for {:s}, filling with None."
+                    str_keyerror_fill = (
+                        "Key {:s} not found for {:s}, filling with None."
+                    )
                     if isinstance(item, CCDData):
                         warn(str_keyerror_fill.format(k, f"fitslist[{i}]"))
                     else:
@@ -348,8 +355,13 @@ def make_summary(
                 summarytab[k].append(None)
 
     summarytab = pd.DataFrame.from_dict(summarytab)
-    summarytab = df_selector(summarytab, fullmatch=fullmatch, flags=flags,
-                             querystr=querystr, negate_fullmatch=negate_fullmatch)
+    summarytab = df_selector(
+        summarytab,
+        fullmatch=fullmatch,
+        flags=flags,
+        querystr=querystr,
+        negate_fullmatch=negate_fullmatch,
+    )
     if sort_by is not None:
         key = None if sort_map is None else lambda x: x.map(sort_map)
         summarytab.sort_values(sort_by, inplace=True, key=key)
@@ -365,14 +377,14 @@ def make_summary(
 
 
 def df_selector(
-        summarytab,
-        fullmatch=None,
-        flags=0,
-        negate_fullmatch=False,
-        querystr=None,
-        columns=None,
-        columns_drop=None,
-        reset_index=True,
+    summarytab,
+    fullmatch=None,
+    flags=0,
+    negate_fullmatch=False,
+    querystr=None,
+    columns=None,
+    columns_drop=None,
+    reset_index=True,
 ):
     """Select rows from a summary table.
 
@@ -434,7 +446,7 @@ def df_selector(
                 select_mask &= df[k].str.fullmatch(v, flags=flags, case=True)
             except AttributeError:
                 try:
-                    select_mask &= (df[k] == v)
+                    select_mask &= df[k] == v
                 except (ValueError, TypeError, AttributeError):
                     raise TypeError(
                         "Both ``summarytab[k].str.fullmatch(v)`` and "
@@ -505,17 +517,17 @@ def df_selector(
 
 
 def make_reduc_planner(
-        summary,
-        cal_summary,
-        newcolname,
-        match_by=None,
-        output=None,
-        cal_column="file",
-        col_remove="REMOVEIT",
-        ifmany="error",
-        timecol="DATE-OBS",
-        timefmt=None,
-        verbose=1
+    summary,
+    cal_summary,
+    newcolname,
+    match_by=None,
+    output=None,
+    cal_column="file",
+    col_remove="REMOVEIT",
+    ifmany="error",
+    timecol="DATE-OBS",
+    timefmt=None,
+    verbose=1,
 ):
     """Make a general purpose reducing plan table.
 
@@ -729,7 +741,7 @@ def make_reduc_planner(
                         raise ValueError(f"{ifmany=} not understood")
                 else:
                     continue
-            except (IndexError):  # no match
+            except IndexError:  # no match
                 continue
 
     if output is not None:
@@ -797,15 +809,15 @@ def make_reduc_planner(
 
 
 def fits_newpath(
-        fpath,
-        rename_by,
-        mkdir_by=None,
-        header=None,
-        delimiter='_',
-        fillnan="",
-        fileext='.fits'
+    fpath,
+    rename_by,
+    mkdir_by=None,
+    header=None,
+    delimiter="_",
+    fillnan="",
+    fileext=".fits",
 ):
-    ''' Gives the new path of the FITS file from header.
+    """Gives the new path of the FITS file from header.
 
     Parameters
     ----------
@@ -842,14 +854,14 @@ def fits_newpath(
     -------
     newpath : path
         The new path.
-    '''
+    """
 
     if header is None:
         hdr = fits.getheader(fpath)
     else:
         hdr = header.copy()
 
-    if not fileext.startswith('.'):
+    if not fileext.startswith("."):
         fileext = f".{fileext}"
 
     newname = delimiter.join([str(hdr.get(k, fillnan)) for k in rename_by]) + fileext
@@ -865,23 +877,23 @@ def fits_newpath(
 
 
 def fitsrenamer(
-        fpath=None,
-        header=None,
-        newtop=None,
-        rename_by=["OBJECT"],
-        mkdir_by=None,
-        delimiter='_',
-        archive_dir=None,
-        keymap=None,
-        key_deprecation=True,
-        remove_keys=None,
-        overwrite=False,
-        fillnan="",
-        trimsec=None,
-        verbose=True,
-        add_header=None
+    fpath=None,
+    header=None,
+    newtop=None,
+    rename_by=["OBJECT"],
+    mkdir_by=None,
+    delimiter="_",
+    archive_dir=None,
+    keymap=None,
+    key_deprecation=True,
+    remove_keys=None,
+    overwrite=False,
+    fillnan="",
+    trimsec=None,
+    verbose=True,
+    add_header=None,
 ):
-    ''' Renames a FITS file by ``rename_by`` with delimiter.
+    """Renames a FITS file by ``rename_by`` with delimiter.
 
     Parameters
     ----------
@@ -939,7 +951,7 @@ def fitsrenamer(
     -----
     MEF(Multi-Extension FITS) currently is not supported.
 
-    '''
+    """
 
     # Load fits file
     hdul = fits.open(fpath)
@@ -952,10 +964,13 @@ def fitsrenamer(
 
     # add keyword
     if add_header is not None:
-        if (not isinstance(add_header, fits.Header)
-                and not isinstance(add_header, fits.header.Card)):
-            warn("add_header is not either Header or Card. "
-                 + "Be careful about possible error.")
+        if not isinstance(add_header, fits.Header) and not isinstance(
+            add_header, fits.header.Card
+        ):
+            warn(
+                "add_header is not either Header or Card. "
+                + "Be careful about possible error."
+            )
         hdr += add_header
 
     # Copy keys based on KEYMAP
@@ -971,13 +986,10 @@ def fitsrenamer(
     # TODO: Maybe I can put some LTV-like keys to the header, rather
     #   than this crazy code...? (ysBach 2019-05-09)
     if trimsec is not None:
-        slices = slice_from_string(
-            trimsec,
-            fits_convention=True
-        )
+        slices = slice_from_string(trimsec, fits_convention=True)
         # initially guess start and stop indices as 0's and from shape in (ny, nx) order
         ny, nx = data[slices].shape
-        starts = np.array([0, 0])   # yx order
+        starts = np.array([0, 0])  # yx order
         stops = np.array([ny, nx])  # yx order
 
         for i in range(2):
@@ -989,7 +1001,7 @@ def fitsrenamer(
         cent = np.flip((stops - starts) / 2)  # xy order
         size = (ny, nx)  # yx order
         # Make CCDData instance as dummy object
-        _ccd = CCDData(data, header=hdr, unit='adu')
+        _ccd = CCDData(data, header=hdr, unit="adu")
         _ccd = cut_ccd(_ccd, cent, size)
         data = _ccd.data
         hdr = _ccd.header
@@ -998,26 +1010,28 @@ def fitsrenamer(
 
     # Set the new path
     if verbose:
-        print("Renaming file by ", end='')
-        form = ''
+        print("Renaming file by ", end="")
+        form = ""
         for rn in rename_by:
             form = form + f"<{rn:s}>{delimiter:s}"
         ndelimiter = len(delimiter)
         print(form[:-ndelimiter])
         if mkdir_by is not None:
-            print("Make by ", end='')
-            form = ''
+            print("Make by ", end="")
+            form = ""
             for md in mkdir_by:
                 form = form + f"<{md:s}>/"
             print(form[:-1])
 
-    newpath = fits_newpath(fpath,
-                           rename_by,
-                           mkdir_by=mkdir_by,
-                           header=hdr,
-                           delimiter=delimiter,
-                           fillnan=fillnan,
-                           fileext='fits')
+    newpath = fits_newpath(
+        fpath,
+        rename_by,
+        mkdir_by=mkdir_by,
+        header=hdr,
+        delimiter=delimiter,
+        fillnan=fillnan,
+        fileext="fits",
+    )
     if newtop is not None:
         newpath = Path(newtop) / newpath.name
 
@@ -1026,7 +1040,7 @@ def fitsrenamer(
     if verbose:
         print(f"Rename {fpath.name} to {newpath}")
 
-    newhdul.writeto(newpath, output_verify='fix', overwrite=overwrite)
+    newhdul.writeto(newpath, output_verify="fix", overwrite=overwrite)
 
     if archive_dir is not None:
         archive_dir = Path(archive_dir)

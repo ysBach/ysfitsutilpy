@@ -1,8 +1,5 @@
-import numpy as np
-from astropy.stats import sigma_clip
-from astropy.modeling.fitting import (JointFitter, LevMarLSQFitter,
-                                      LinearLSQFitter, SimplexLSQFitter,
-                                      SLSQPLSQFitter, FittingWithOutlierRemoval)
+import astropy.modeling as am
+
 # from astropy.modeling.functional_models import (AiryDisk2D, ArcCosine1D,
 #                                                 ArcSine1D, ArcTangent1D, Box1D,
 #                                                 Box2D, Const1D, Const2D,
@@ -29,7 +26,17 @@ from astropy.modeling.fitting import (JointFitter, LevMarLSQFitter,
 #                                         LogParabola1D, PowerLaw1D,
 #                                         SmoothlyBrokenPowerLaw1D)
 import bottleneck as bn
-import astropy.modeling as am
+import numpy as np
+from astropy.modeling.fitting import (
+    FittingWithOutlierRemoval,
+    JointFitter,
+    LevMarLSQFitter,
+    LinearLSQFitter,
+    SimplexLSQFitter,
+    SLSQPLSQFitter,
+)
+from astropy.stats import sigma_clip
+
 # At this moment, astropy modeling is used.
 # If possible, better to detache astropy-dependency in the nearest future.
 
@@ -37,7 +44,12 @@ import astropy.modeling as am
 __all__ = ["gridding", "get_fitter", "get_model", "fit_model", "fit_model_iter"]
 
 ALL_MODELS = []
-for module in (am.functional_models, am.physical_models, am.polynomial, am.powerlaws,):
+for module in (
+    am.functional_models,
+    am.physical_models,
+    am.polynomial,
+    am.powerlaws,
+):
     for name in dir(module):
         obj = getattr(module, name)
         if isinstance(obj, type) and issubclass(obj, am.FittableModel):
@@ -89,7 +101,7 @@ def gridding(data, mask=None, steps=None, copy=True, force_flat=False):
 
 
 def get_fitter(fitter_name="LM", /, **kwargs):
-    """ Returns astropy fitter.
+    """Returns astropy fitter.
 
     Parameters
     ----------
@@ -127,7 +139,7 @@ def get_fitter(fitter_name="LM", /, **kwargs):
 
 
 def get_model(model_name, *args, **kwargs):
-    """ Finds and returns the model with the given name.
+    """Finds and returns the model with the given name.
     For instance, it's customary to put degrees as args/kwargs for polynomial models:
     `get_model("chebyshev2d", 2, 2)` or `get_model("chebyshev2d", x_degree=2,
     y_degree=2)` return `Chebyshev2D(x_degree=2, y_degree=2)`.
@@ -142,22 +154,26 @@ def get_model(model_name, *args, **kwargs):
     for ch in [" "] + list("!@#$%^&*()_+-=[]{}|;':,./<>?`~\""):
         _name = _name.replace(ch, "")
     try:
-        return ALL_MODELS[_name](*args, **kwargs) if kwargs or args else ALL_MODELS[_name]
+        return (
+            ALL_MODELS[_name](*args, **kwargs) if kwargs or args else ALL_MODELS[_name]
+        )
     except KeyError:
-        raise KeyError(f"Unknown model name `{model_name}`. Available: {ALL_MODELS.keys()}")
+        raise KeyError(
+            f"Unknown model name `{model_name}`. Available: {ALL_MODELS.keys()}"
+        )
 
 
 def fit_model(
-        model_name,
-        data,
-        mask=None,
-        steps=None,
-        fitter_name="LM",
-        fitter_kw={},
-        full=False,
-        **model_kw
+    model_name,
+    data,
+    mask=None,
+    steps=None,
+    fitter_name="LM",
+    fitter_kw={},
+    full=False,
+    **model_kw,
 ):
-    """ Fit a model to a data.
+    """Fit a model to a data.
 
     Parameters
     ----------
@@ -186,7 +202,9 @@ def fit_model(
     """
     fitter = get_fitter(fitter_name, **fitter_kw)
     model_init = get_model(model_name)(**model_kw)
-    grid_1d, data_1d = gridding(data, mask=mask, steps=steps, force_flat=True, copy=True)
+    grid_1d, data_1d = gridding(
+        data, mask=mask, steps=steps, force_flat=True, copy=True
+    )
     model_fit = fitter(model_init, *grid_1d[::-1], data_1d)
     if full:
         return model_fit, fitter, grid_1d, data_1d
@@ -195,20 +213,20 @@ def fit_model(
 
 
 def fit_model_iter(
-        model_name,
-        data,
-        outlier_func=sigma_clip,
-        outlier_kw=dict(sigma=3, maxiters=1, cenfunc="median", stdfunc="std"),
-        maxiters=3,
-        weights=None,
-        mask=None,
-        steps=None,
-        fitter_name="LM",
-        fitter_kw={},
-        full=False,
-        **model_kw
+    model_name,
+    data,
+    outlier_func=sigma_clip,
+    outlier_kw=dict(sigma=3, maxiters=1, cenfunc="median", stdfunc="std"),
+    maxiters=3,
+    weights=None,
+    mask=None,
+    steps=None,
+    fitter_name="LM",
+    fitter_kw={},
+    full=False,
+    **model_kw,
 ):
-    """ Fit a model to a data with `FittingWithOutlierRemoval`.
+    """Fit a model to a data with `FittingWithOutlierRemoval`.
 
     Parameters
     ----------
@@ -251,13 +269,15 @@ def fit_model_iter(
         get_fitter(fitter_name, **fitter_kw),
         outlier_func=outlier_func,
         niter=maxiters,
-        **outlier_kw
+        **outlier_kw,
     )
     if isinstance(model_name, str):
         model_init = get_model(model_name)(**model_kw)
     else:
         model_init = model_name  # assume already initialized
-    grid_1d, data_1d = gridding(data, mask=mask, steps=steps, force_flat=True, copy=True)
+    grid_1d, data_1d = gridding(
+        data, mask=mask, steps=steps, force_flat=True, copy=True
+    )
     model_fit, mask = fitter(model_init, *grid_1d[::-1], data_1d, weights=weights)
     if full:
         return model_fit, fitter, grid_1d, data_1d, mask

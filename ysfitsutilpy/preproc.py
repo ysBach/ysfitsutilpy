@@ -12,20 +12,40 @@ from astropy.time import Time
 from astroscrappy import detect_cosmics
 from ccdproc import flat_correct, subtract_bias, subtract_dark
 
-from .hduutil import (CCDData_astype, _parse_image, errormap, fixpix, imslice,
-                      load_ccd, propagate_ccdmask, set_ccd_gain_rdnoise,
-                      valinhdr)
-from .misc import (LACOSMIC_CRREJ, change_to_quantity, cmt2hdr,
-                   parse_crrej_psf, update_process, update_tlm)
+from .hduutil import (
+    CCDData_astype,
+    _parse_image,
+    errormap,
+    fixpix,
+    imslice,
+    load_ccd,
+    propagate_ccdmask,
+    set_ccd_gain_rdnoise,
+    valinhdr,
+)
+from .misc import (
+    LACOSMIC_CRREJ,
+    change_to_quantity,
+    cmt2hdr,
+    parse_crrej_psf,
+    update_process,
+    update_tlm,
+)
 
 __all__ = [
-    "crrej", "medfilt_bpm",
-    "biascor", "darkcor", "flatcor", "frincor",
-    "ccdred", "bdf_process", "run_reduc_plan"
+    "crrej",
+    "medfilt_bpm",
+    "biascor",
+    "darkcor",
+    "flatcor",
+    "frincor",
+    "ccdred",
+    "bdf_process",
+    "run_reduc_plan",
 ]
 
 
-ASTROSCRAPPY_DIVFACTOR = detect_cosmics(np.ones((3, 3)), gain=1., niter=0)[1][0, 0]
+ASTROSCRAPPY_DIVFACTOR = detect_cosmics(np.ones((3, 3)), gain=1.0, niter=0)[1][0, 0]
 # astroscrappy used to return the data in e- unit, but suddenly changed around
 # version 1.1.0.... Jeez...
 # https://github.com/astropy/astroscrappy/issues/73
@@ -44,29 +64,29 @@ def _addfrm(ccd, name, path):
 
 
 def crrej(
-        ccd,
-        mask=None,
-        inbkg=None,
-        invar=None,
-        propagate_crmask=False,
-        update_header=True,
-        add_process=True,
-        gain=None,
-        rdnoise=None,
-        sigclip=4.5,
-        sigfrac=0.5,
-        objlim=1.0,
-        satlevel=np.inf,
-        niter=4,
-        sepmed=False,
-        cleantype='medmask',
-        fs="median",
-        psffwhm=2.5,
-        psfsize=7,
-        psfbeta=4.765,
-        verbose=True
+    ccd,
+    mask=None,
+    inbkg=None,
+    invar=None,
+    propagate_crmask=False,
+    update_header=True,
+    add_process=True,
+    gain=None,
+    rdnoise=None,
+    sigclip=4.5,
+    sigfrac=0.5,
+    objlim=1.0,
+    satlevel=np.inf,
+    niter=4,
+    sepmed=False,
+    cleantype="medmask",
+    fs="median",
+    psffwhm=2.5,
+    psfsize=7,
+    psfbeta=4.765,
+    verbose=True,
 ):
-    """ Do cosmic-ray rejection using L.A.Cosmic default parameters.
+    """Do cosmic-ray rejection using L.A.Cosmic default parameters.
     Parameters
     ----------
     ccd : CCDData
@@ -251,8 +271,10 @@ def crrej(
     if fs is None:
         return ccd.copy(), None
 
-    str_cr = ("Cosmic-Ray rejection (CRNFIX={:d} pixels fixed) by astroscrappy (v {}). "
-              + "Parameters: {}")
+    str_cr = (
+        "Cosmic-Ray rejection (CRNFIX={:d} pixels fixed) by astroscrappy (v {}). "
+        + "Parameters: {}"
+    )
 
     _t = Time.now()
 
@@ -276,7 +298,7 @@ def crrej(
         inmask = propagate_ccdmask(_ccd, additional_mask=inmask)
 
     # The L.A. Cosmic accepts only the gain in e/adu and rdnoise in e.
-    gain = change_to_quantity(gain, u.electron/u.adu, to_value=True)
+    gain = change_to_quantity(gain, u.electron / u.adu, to_value=True)
     rdnoise = change_to_quantity(rdnoise, u.electron, to_value=True)
 
     inbkg = None if inbkg is None else _parse_image(inbkg)[0]
@@ -293,12 +315,7 @@ def crrej(
         niter=niter,
         sepmed=sepmed,
         cleantype=cleantype,
-        **parse_crrej_psf(
-            fs=fs,
-            psffwhm=psffwhm,
-            psfsize=psfsize,
-            psfbeta=psfbeta
-        )
+        **parse_crrej_psf(fs=fs, psffwhm=psffwhm, psfsize=psfsize, psfbeta=psfbeta),
     )
     try:
         crmask, cleanarr = detect_cosmics(
@@ -307,7 +324,7 @@ def crrej(
             inbkg=inbkg,
             invar=invar,
             verbose=verbose,
-            **crrej_kwargs
+            **crrej_kwargs,
         )
     except TypeError:  # astroscrappy < 1.1.1 (Commit on 2021-11-20) Jeez...
         try:
@@ -317,7 +334,7 @@ def crrej(
                 bkg=inbkg,
                 var=invar,
                 verbose=verbose,
-                **crrej_kwargs
+                **crrej_kwargs,
             )
         except TypeError:  # astroscrappy < 1.1.0 (Commit on 2020-11-21) Jeez...
             # Error if inbkg is ndarray
@@ -326,7 +343,7 @@ def crrej(
                 inmask=inmask,
                 pssl=0 if inbkg is None else inbkg,
                 verbose=verbose,
-                **crrej_kwargs
+                **crrej_kwargs,
             )
 
     # create the new ccd data object
@@ -342,8 +359,11 @@ def crrej(
         nrej_cr = np.sum(crmask)
         _ccd.header["CRNFIX"] = (nrej_cr, "Number of cosmic-ray pixels fixed.")
         cmt2hdr(
-            _ccd.header, 'h', verbose=verbose, t_ref=_t,
-            s=str_cr.format(nrej_cr, astroscrappy.__version__, crrej_kwargs)
+            _ccd.header,
+            "h",
+            verbose=verbose,
+            t_ref=_t,
+            s=str_cr.format(nrej_cr, astroscrappy.__version__, crrej_kwargs),
         )
     else:
         if verbose:
@@ -360,29 +380,29 @@ def crrej(
 #   to get std at each pixel by medfilt[<medfilt_min] = 0, and std =
 #   sqrt((1+snoise)*medfilt/gain + rdn**2)
 def medfilt_bpm(
-        ccd,
-        cadd=1.e-10,
-        std_model="std",
-        gain=1.,
-        rdnoise=0.,
-        snoise=0.,
-        size=5,
-        sigclip_kw=dict(sigma=3., maxiters=5, std_ddof=1),
-        std_section=None,
-        footprint=None,
-        mode='reflect',
-        cval=0.0,
-        origin=0,
-        med_sub_clip=None,
-        med_rat_clip=[0.5, 2],
-        std_rat_clip=[-5, 5],
-        dtype='float32',
-        update_header=True,
-        verbose=False,
-        logical='and',
-        full=False
+    ccd,
+    cadd=1.0e-10,
+    std_model="std",
+    gain=1.0,
+    rdnoise=0.0,
+    snoise=0.0,
+    size=5,
+    sigclip_kw=dict(sigma=3.0, maxiters=5, std_ddof=1),
+    std_section=None,
+    footprint=None,
+    mode="reflect",
+    cval=0.0,
+    origin=0,
+    med_sub_clip=None,
+    med_rat_clip=[0.5, 2],
+    std_rat_clip=[-5, 5],
+    dtype="float32",
+    update_header=True,
+    verbose=False,
+    logical="and",
+    full=False,
 ):
-    """ Find bad pixels from median filtering technique (non standard..?)
+    """Find bad pixels from median filtering technique (non standard..?)
     Parameters
     ----------
     ccd : `~astropy.nddata.CCDData`
@@ -485,11 +505,18 @@ def medfilt_bpm(
             clips = np.repeat(clips, 2)
         return clips
 
-    if ((med_sub_clip is None) and (med_rat_clip is None) and (std_rat_clip is None)):
-        warn("No BPM is found because all clips are None.", end=' ')
+    if (med_sub_clip is None) and (med_rat_clip is None) and (std_rat_clip is None):
+        warn("No BPM is found because all clips are None.", end=" ")
         if full:
-            return ccd, dict(posmask=None, negmask=None, med_filt=None,
-                             med_sub=None, med_rat=None, std_rat=None, std=None)
+            return ccd, dict(
+                posmask=None,
+                negmask=None,
+                med_filt=None,
+                med_sub=None,
+                med_rat=None,
+                std_rat=None,
+                std=None,
+            )
         else:
             return ccd
 
@@ -502,8 +529,8 @@ def medfilt_bpm(
     _LOGICAL_AND = []
     _LOGICAL_STR = []
     for i, _logical in enumerate(logical):
-        _logical_and = _logical in ['and', '&']
-        if not _logical_and and _logical not in ['or', '|']:
+        _logical_and = _logical in ["and", "&"]
+        if not _logical_and and _logical not in ["or", "|"]:
             raise ValueError("logical not understood.")
 
         _LOGICAL_AND.append(_logical_and)
@@ -536,70 +563,87 @@ def medfilt_bpm(
     if std_section is not None:
         slices = slicefy(std_section)
     else:
-        slices = [slice(None, None, None)]*arr.ndim
+        slices = [slice(None, None, None)] * arr.ndim
 
-    medfilt_kw = dict(size=size, footprint=footprint, mode=mode, cval=cval, origin=origin)
+    medfilt_kw = dict(
+        size=size, footprint=footprint, mode=mode, cval=cval, origin=origin
+    )
 
     _t = Time.now()
     med_filt = median_filter(arr, **medfilt_kw)
 
     if update_header:
         cmt2hdr(
-            hdr, 'h', verbose=verbose, t_ref=_t,
-            s=f"Median filtered (convolved) frame calculated with {medfilt_kw}"
+            hdr,
+            "h",
+            verbose=verbose,
+            t_ref=_t,
+            s=f"Median filtered (convolved) frame calculated with {medfilt_kw}",
         )
 
-    if std_model == 'ccd':
+    if std_model == "ccd":
         _t = Time.now()
-        gain = change_to_quantity(gain, u.electron/u.adu, to_value=True)
+        gain = change_to_quantity(gain, u.electron / u.adu, to_value=True)
         rdnoise = change_to_quantity(rdnoise, u.electron, to_value=True)
 
-        std = np.sqrt((1 + snoise)*med_filt/gain + (rdnoise/gain)**2)
+        std = np.sqrt((1 + snoise) * med_filt / gain + (rdnoise / gain) ** 2)
         if update_header:
             cmt2hdr(
-                hdr, 'h', verbose=verbose, t_ref=_t,
-                s=("Stdev map is generated from median filtered frame by "
-                   + "sqrt{(1 + snoise)*med_filt/gain + (rdnoise/gain)**2}")
+                hdr,
+                "h",
+                verbose=verbose,
+                t_ref=_t,
+                s=(
+                    "Stdev map is generated from median filtered frame by "
+                    + "sqrt{(1 + snoise)*med_filt/gain + (rdnoise/gain)**2}"
+                ),
             )
-            hdr['MB_MODEL'] = (std_model, "Method used for getting stdev map")
+            hdr["MB_MODEL"] = (std_model, "Method used for getting stdev map")
             hdr["MB_GAIN"] = (gain, "gain used for stdev map in MBPM")
             hdr["MB_RDN"] = (rdnoise, "rdnoise used for stdev map in MBPM")
             hdr["MB_SSN"] = (snoise, "snoise used for stdev map in MBPM")
 
-    elif std_model == 'std':
+    elif std_model == "std":
         _t = Time.now()
         _, _, std = sigma_clipped_stats(arr[tuple(slices)], **sigclip_kw)
 
         if update_header:
             if std_section is None:
-                std_section = '[' + ','.join([':'] * arr.ndim) + ']'
-            hdr['MB_MODEL'] = (std_model,
-                               "Method used for getting stdev map")
-            hdr["MB_SSKY"] = (std,
-                              "Sky stdev for median filter BPM (MBPM)")
-            hdr["MB_SSECT"] = (f"{std_section}",
-                               "Sky stdev calculation section in MBPM")
+                std_section = "[" + ",".join([":"] * arr.ndim) + "]"
+            hdr["MB_MODEL"] = (std_model, "Method used for getting stdev map")
+            hdr["MB_SSKY"] = (std, "Sky stdev for median filter BPM (MBPM)")
+            hdr["MB_SSECT"] = (
+                f"{std_section}",
+                "Sky stdev calculation section in MBPM",
+            )
             cmt2hdr(
-                hdr, 'h', verbose=verbose, t_ref=_t,
-                s=("Sky standard deviation (MB_SSKY) calculated by sigma clipping at "
-                   + f"MB_SSECT with {sigclip_kw}; used for std_ratio map calculation.")
+                hdr,
+                "h",
+                verbose=verbose,
+                t_ref=_t,
+                s=(
+                    "Sky standard deviation (MB_SSKY) calculated by sigma clipping at "
+                    + f"MB_SSECT with {sigclip_kw}; used for std_ratio map calculation."
+                ),
             )
 
     elif isinstance(std_model, np.ndarray):
         if std_model.shape != ccd.data.shape:
-            raise ValueError(f"std_model.shape (= {std_model.shape}) differs from "
-                             + f"ccd.shape ({ccd.data.shape}")
+            raise ValueError(
+                f"std_model.shape (= {std_model.shape}) differs from "
+                + f"ccd.shape ({ccd.data.shape}"
+            )
         std = std_model
         if update_header:
-            hdr['MB_MODEL'] = ("User input array", "Method used for getting stdev map")
+            hdr["MB_MODEL"] = ("User input array", "Method used for getting stdev map")
 
     elif isinstance(std_model, (int, float)):
         std = std_model
         if update_header:
-            hdr['MB_MODEL'] = ('Constant', "Method used for getting stdev map")
+            hdr["MB_MODEL"] = ("Constant", "Method used for getting stdev map")
 
     elif std_model is None:
-        hdr['MB_MODEL'] = ('None', "Method used for getting stdev map")
+        hdr["MB_MODEL"] = ("None", "Method used for getting stdev map")
         std = 1  # so that med_ratio is nothing but med_sub itself below.
         std_rat_clip = None  # turn off clipping using std_ratio
 
@@ -613,13 +657,13 @@ def medfilt_bpm(
     _t = Time.now()
     npmask = []
     for msc, mrc, src in zip(med_sub_clip, med_rat_clip, std_rat_clip):
-        if (isinstance(msc, bool) and isinstance(mrc, bool) and isinstance(src, bool)):
+        if isinstance(msc, bool) and isinstance(mrc, bool) and isinstance(src, bool):
             npmask.append(np.zeros_like(arr, dtype=bool))
 
-    med_ratio = arr/np.abs(med_filt)
+    med_ratio = arr / np.abs(med_filt)
     # Above is identical to sign(arr)*abs(arr/med_filt)
     med_sub = arr - med_filt
-    std_ratio = med_sub/std
+    std_ratio = med_sub / std
 
     # mask in the order of negative and positive cases
     mask_ms = _set_masks(med_sub, med_sub_clip)
@@ -628,7 +672,7 @@ def medfilt_bpm(
 
     masks = []
     for i, (ms, mr, sr) in enumerate(zip(mask_ms, mask_mr, mask_sr)):
-        if (isinstance(ms, bool) and isinstance(mr, bool) and isinstance(sr, bool)):
+        if isinstance(ms, bool) and isinstance(mr, bool) and isinstance(sr, bool):
             # i.e., if all of neg or pos were None
             masks.append(np.zeros_like(arr, dtype=bool))  # all False
 
@@ -642,26 +686,33 @@ def medfilt_bpm(
     arr[replace_mask] = med_filt[replace_mask]
 
     if update_header:
-        hdr["MB_NLOGI"] = (_LOGICAL_STR[0],
-                           "The logic used for negative MBPM masks (and/or)")
-        hdr["MB_PLOGI"] = (_LOGICAL_STR[1],
-                           "The logic used for positive MBPM masks (and/or)")
-        hdr["MB_RAT_U"] = (med_rat_clip[1],
-                           "Upper clip of (data/|medfilt|) map (MBPM)")
-        hdr["MB_RAT_L"] = (med_rat_clip[0],
-                           "Lower clip of (data/|medfilt|) map (MBPM)")
-        hdr["MB_SUB_U"] = (med_sub_clip[1],
-                           "Upper clip of (data-medfilt) map (MBPM)")
-        hdr["MB_SUB_L"] = (med_sub_clip[0],
-                           "Lower clip of (data-medfilt) map (MBPM)")
-        hdr["MB_STD_U"] = (std_rat_clip[1],
-                           "Upper clip of (data-medfilt)/std map (MBPM)")
-        hdr["MB_STD_L"] = (std_rat_clip[0],
-                           "Lower clip of (data-medfilt)/std map (MBPM)")
+        hdr["MB_NLOGI"] = (
+            _LOGICAL_STR[0],
+            "The logic used for negative MBPM masks (and/or)",
+        )
+        hdr["MB_PLOGI"] = (
+            _LOGICAL_STR[1],
+            "The logic used for positive MBPM masks (and/or)",
+        )
+        hdr["MB_RAT_U"] = (med_rat_clip[1], "Upper clip of (data/|medfilt|) map (MBPM)")
+        hdr["MB_RAT_L"] = (med_rat_clip[0], "Lower clip of (data/|medfilt|) map (MBPM)")
+        hdr["MB_SUB_U"] = (med_sub_clip[1], "Upper clip of (data-medfilt) map (MBPM)")
+        hdr["MB_SUB_L"] = (med_sub_clip[0], "Lower clip of (data-medfilt) map (MBPM)")
+        hdr["MB_STD_U"] = (
+            std_rat_clip[1],
+            "Upper clip of (data-medfilt)/std map (MBPM)",
+        )
+        hdr["MB_STD_L"] = (
+            std_rat_clip[0],
+            "Lower clip of (data-medfilt)/std map (MBPM)",
+        )
 
         cmt2hdr(
-            hdr, 'h', verbose=verbose, t_ref=_t,
-            s="[medfilt_bpm] Median-filter based Bad-Pixel Masking (MBPM) applied."
+            hdr,
+            "h",
+            verbose=verbose,
+            t_ref=_t,
+            s="[medfilt_bpm] Median-filter based Bad-Pixel Masking (MBPM) applied.",
         )
         # cmt2hdr(
         #     hdr, 'h', verbose=verbose, t_ref=_t,
@@ -677,23 +728,29 @@ def medfilt_bpm(
     nccd = CCDData(data=arr - cadd, header=hdr, unit=nccd.unit)
 
     if full:
-        return nccd, dict(negmask=masks[0], posmask=masks[1],
-                          med_filt=med_filt, med_sub=med_sub, med_rat=med_ratio,
-                          std_rat=std_ratio, std=std)
+        return nccd, dict(
+            negmask=masks[0],
+            posmask=masks[1],
+            med_filt=med_filt,
+            med_sub=med_sub,
+            med_rat=med_ratio,
+            std_rat=std_ratio,
+            std=std,
+        )
     else:
         return nccd
 
 
 def scancor(
-        ccd,
-        overscan=None,
-        scansec=None,
-        scanax=0,
-        fit_func="legendre",
-        fit_order=1,
-        fit_kw=dict(sigma=(3, 3), maxiters=1, grow=0),
+    ccd,
+    overscan=None,
+    scansec=None,
+    scanax=0,
+    fit_func="legendre",
+    fit_order=1,
+    fit_kw=dict(sigma=(3, 3), maxiters=1, grow=0),
 ):
-    """ Do overscan correction
+    """Do overscan correction
 
     Parameters
     ----------
@@ -723,7 +780,7 @@ def scancor(
 
 
 def biascor(ccd, mbias=None, mbiaspath=None, copy=True, verbose=1):
-    """ Do bias correction (purpose: helper function of ccdred)
+    """Do bias correction (purpose: helper function of ccdred)
 
     Parameters
     ----------
@@ -752,24 +809,29 @@ def biascor(ccd, mbias=None, mbiaspath=None, copy=True, verbose=1):
     # For BIAS, header information is not needed at all... I guess?
     nccd.data = nccd.data - mbias
     _addfrm(nccd, "BIAS", mbiasname)
-    cmt2hdr(nccd.header, 'h', verbose=verbose >= 1, t_ref=_t,
-            s=f"[yfu.biascor] Bias subtracted (BIASFRM = {mbiasname})")
+    cmt2hdr(
+        nccd.header,
+        "h",
+        verbose=verbose >= 1,
+        t_ref=_t,
+        s=f"[yfu.biascor] Bias subtracted (BIASFRM = {mbiasname})",
+    )
     update_process(nccd.header, "B")
     return nccd
 
 
 def darkcor(
-        ccd,
-        mdark=None,
-        mdarkpath=None,
-        exptime_key="EXPTIME",
-        exptime_data=None,
-        exptime_dark=None,
-        dark_scale=False,
-        copy=True,
-        verbose=1
+    ccd,
+    mdark=None,
+    mdarkpath=None,
+    exptime_key="EXPTIME",
+    exptime_data=None,
+    exptime_dark=None,
+    dark_scale=False,
+    copy=True,
+    verbose=1,
 ):
-    """ Do dark correction (purpose: helper function of ccdred)
+    """Do dark correction (purpose: helper function of ccdred)
 
     Parameters
     ----------
@@ -811,42 +873,55 @@ def darkcor(
 
     _t = Time.now()
     nccd = ccd.copy() if copy else ccd
-    use_ccddata = (dark_scale and exptime_dark is None)
+    use_ccddata = dark_scale and exptime_dark is None
     mdark, mdarkname, _ = _parse_image(mdark, name=mdarkpath, force_ccddata=use_ccddata)
 
     if dark_scale:
         exptime_data = exptime_data or ccd.header.get(exptime_key, None)
         exptime_dark = exptime_dark or mdark.header.get(exptime_key, None)
         if exptime_data is None or exptime_dark is None:
-            warn(f"exptime_data={exptime_data}, exptime_dark={exptime_dark}. Fix scale=1.")
+            warn(
+                f"exptime_data={exptime_data}, exptime_dark={exptime_dark}. Fix scale=1."
+            )
             scale = 1
         else:
             scale = exptime_data / exptime_dark
-        mdark = mdark.data*scale if use_ccddata else mdark*scale
+        mdark = mdark.data * scale if use_ccddata else mdark * scale
         # ^ mdark is now ndarray regardless of use_ccddata
-        cmt2hdr(ccd.header, 'h', verbose=verbose >= 1,
-                s=("[yfu.darkcor] Dark scaled by exptime: (t_data/t_dark) = "
-                   + f"({exptime_data:.3f}/{exptime_dark:.3f}) = {scale:.3f}"))
+        cmt2hdr(
+            ccd.header,
+            "h",
+            verbose=verbose >= 1,
+            s=(
+                "[yfu.darkcor] Dark scaled by exptime: (t_data/t_dark) = "
+                + f"({exptime_data:.3f}/{exptime_dark:.3f}) = {scale:.3f}"
+            ),
+        )
     nccd.data = nccd.data - mdark
     _addfrm(nccd, "DARK", mdarkname)
-    cmt2hdr(nccd.header, 'h', verbose=verbose >= 1, t_ref=_t,
-            s=f"[yfu.darkcor] Dark subtracted (DARKFRM = {mdarkname})")
+    cmt2hdr(
+        nccd.header,
+        "h",
+        verbose=verbose >= 1,
+        t_ref=_t,
+        s=f"[yfu.darkcor] Dark subtracted (DARKFRM = {mdarkname})",
+    )
     update_process(nccd.header, "D")
     return nccd
 
 
 # add flat_norm_value
 def flatcor(
-        ccd,
-        mflat=None,
-        mflatpath=None,
-        flat_mask=0,
-        flat_fill=1,
-        copy=True,
-        flat_norm_value=1,
-        verbose=1
+    ccd,
+    mflat=None,
+    mflatpath=None,
+    flat_mask=0,
+    flat_fill=1,
+    copy=True,
+    flat_norm_value=1,
+    verbose=1,
 ):
-    """ Do flat correction (purpose: helper function of ccdred)
+    """Do flat correction (purpose: helper function of ccdred)
 
     Parameters
     ----------
@@ -891,43 +966,60 @@ def flatcor(
             maskstr = "Flat pixels with `value < flat_mask (User-provided ndarray)`"
         else:
             maskstr = f"Flat pixels with `value < {flat_mask = }`"
-            flat_mask = (mflat < flat_mask)
+            flat_mask = mflat < flat_mask
         mflat[flat_mask] = flat_fill
-        cmt2hdr(nccd.header, 'h', verbose=verbose >= 1,
-                s=(f"[yfu.flatcor] {maskstr} are replaced by `{flat_fill = }`."))
+        cmt2hdr(
+            nccd.header,
+            "h",
+            verbose=verbose >= 1,
+            s=(f"[yfu.flatcor] {maskstr} are replaced by `{flat_fill = }`."),
+        )
 
     if flat_norm_value is None:
         mflat /= np.mean(mflat)
-        cmt2hdr(nccd.header, 'h', verbose=verbose >= 1,
-                s=("[yfu.flatcor] Flat normalized by its mean."))
-    elif float(flat_norm_value) != 1.:
+        cmt2hdr(
+            nccd.header,
+            "h",
+            verbose=verbose >= 1,
+            s=("[yfu.flatcor] Flat normalized by its mean."),
+        )
+    elif float(flat_norm_value) != 1.0:
         mflat /= float(flat_norm_value)
-        cmt2hdr(nccd.header, 'h', verbose=verbose >= 1,
-                s=(f"[yfu.flatcor] Flat divided by {flat_norm_value = }."))
+        cmt2hdr(
+            nccd.header,
+            "h",
+            verbose=verbose >= 1,
+            s=(f"[yfu.flatcor] Flat divided by {flat_norm_value = }."),
+        )
 
     nccd.data = nccd.data / mflat
     _addfrm(nccd, "FLAT", mflatname)
-    cmt2hdr(nccd.header, 'h', verbose=verbose >= 1, t_ref=_t,
-            s=f"[yfu.flatcor] Flat corrected (FLATFRM = {mflatname})")
+    cmt2hdr(
+        nccd.header,
+        "h",
+        verbose=verbose >= 1,
+        t_ref=_t,
+        s=f"[yfu.flatcor] Flat corrected (FLATFRM = {mflatname})",
+    )
     update_process(nccd.header, "F")
 
     return nccd
 
 
 def frincor(
-        ccd,
-        mfrin,
-        mfrinpath=None,
-        fringe_scale=None,
-        fringe_scale_region=None,
-        fringe_scale_kw={},
-        exptime_key="EXPTIME",
-        exptime_data=None,
-        exptime_frin=None,
-        copy=True,
-        verbose=1
+    ccd,
+    mfrin,
+    mfrinpath=None,
+    fringe_scale=None,
+    fringe_scale_region=None,
+    fringe_scale_kw={},
+    exptime_key="EXPTIME",
+    exptime_data=None,
+    exptime_frin=None,
+    copy=True,
+    verbose=1,
 ):
-    """ Subtract fringe frame
+    """Subtract fringe frame
     Parameters
     ----------
     ccd : CCDData
@@ -1016,20 +1108,24 @@ def frincor(
         nccd.data -= mfrin.data
         infostr = _str(nccd, mfrinname)
     elif isinstance(fringe_scale, (int, float)):
-        nccd.data -= fringe_scale*mfrin.data
-        infostr = _str(nccd, mfrinname, fun=type(fringe_scale).__name__, scal=fringe_scale)
+        nccd.data -= fringe_scale * mfrin.data
+        infostr = _str(
+            nccd, mfrinname, fun=type(fringe_scale).__name__, scal=fringe_scale
+        )
     elif isinstance(fringe_scale, np.ndarray):
-        nccd.data -= fringe_scale*mfrin.data
+        nccd.data -= fringe_scale * mfrin.data
         infostr = _str(nccd, mfrinname, fun=f"{type(fringe_scale).__name__}")
     elif isinstance(fringe_scale, str):
         if fringe_scale.lower() in ["exp", "exposure", "exptime"]:
             exptime_data = exptime_data or nccd.header.get(exptime_key, 1)
             exptime_frin = exptime_frin or mfrin.header.get(exptime_key, 1)
             scale = exptime_data / exptime_frin
-            nccd.data -= scale*mfrin.data
+            nccd.data -= scale * mfrin.data
             infostr = _str(nccd, mfrinname, fun="EXPTIME", scal=scale)
         else:
-            raise ValueError(f'`{fringe_scale=}` not in {{"exp", "exposure", "exptime"}}.')
+            raise ValueError(
+                f'`{fringe_scale=}` not in {{"exp", "exposure", "exptime"}}.'
+            )
     else:  # Function
         if isinstance(fringe_scale_region, str):
             reg = slicefy(fringe_scale_region)
@@ -1040,21 +1136,27 @@ def frincor(
         else:
             reg = None  # All
             sec = None
-        scale = fringe_scale(ccd.data[reg]/mfrin.data[reg], **fringe_scale_kw)
-        nccd.data -= scale*mfrin.data
-        infostr = _str(nccd, mfrinname,
-                       fun=f"{fringe_scale.__name__} with {fringe_scale_kw}",
-                       sec=sec, scal=scale)
+        scale = fringe_scale(ccd.data[reg] / mfrin.data[reg], **fringe_scale_kw)
+        nccd.data -= scale * mfrin.data
+        infostr = _str(
+            nccd,
+            mfrinname,
+            fun=f"{fringe_scale.__name__} with {fringe_scale_kw}",
+            sec=sec,
+            scal=scale,
+        )
 
     # FRINSCAL=FRINFUNC(FRINFRM[FRINSECT])
     _addfrm(nccd, "FRIN", mfrinname)
-    cmt2hdr(ccd.header, 'h', verbose=verbose, t_ref=_t, s=infostr)
+    cmt2hdr(ccd.header, "h", verbose=verbose, t_ref=_t, s=infostr)
     update_process(nccd.header, "R")
 
     return nccd
 
 
-def illumcor(ccd, ):
+def illumcor(
+    ccd,
+):
     pass
 
 
@@ -1062,23 +1164,50 @@ def illumcor(ccd, ):
 # TODO: add normalization (e.g., `normalize` = {"mean", "median", "mode",
 # "sum", "exptime", })
 def ccdred(
-        ccd, output: str = None, extension: int | str = None, trimsec: str = None,
-        mbiaspath: str = None, mdarkpath: str = None, mflatpath: str = None, mfrinpath: str = None,
-        mbias: CCDData = None, mdark: CCDData = None, mflat: CCDData = None, mfrin: CCDData = None,
-        fringe_flat_fielded: bool = True, fringe_scale=None, fringe_scale_region: str = None,
-        fringe_scale_kw: dict = {},
-        gain: float | u.Unit = 1, gain_key: str = "GAIN", gain_unit: u.Unit = u.electron/u.adu,
-        rdnoise: float | u.Unit = 0, rdnoise_key: str = "RDNOISE", rdnoise_unit: u.Unit = u.electron,
-        exptime_key: str = "EXPTIME",
-        exptime_frin: float = None, exptime_dark: float = None, exptime_data: float = None,
-        dark_scale: bool = False, pixel_min: float = None, pixel_min_fill: float = 0,
-        pixel_max: float = None, pixel_max_fill: float = 65535,
-        flat_mask: float | int = 0, flat_fill: float = 1, flat_norm_value: float = 1,
-        do_crrej: bool = False, crrej_kw: dict = LACOSMIC_CRREJ, propagate_crmask: bool = False,
-        verbose_crrej: bool = False, verbose_bdf: int = 1,
-        output_verify: str = 'fix', overwrite: bool = True, dtype: str = "float32",
+    ccd,
+    output: str = None,
+    extension: int | str = None,
+    trimsec: str = None,
+    mbiaspath: str = None,
+    mdarkpath: str = None,
+    mflatpath: str = None,
+    mfrinpath: str = None,
+    mbias: CCDData = None,
+    mdark: CCDData = None,
+    mflat: CCDData = None,
+    mfrin: CCDData = None,
+    fringe_flat_fielded: bool = True,
+    fringe_scale=None,
+    fringe_scale_region: str = None,
+    fringe_scale_kw: dict = {},
+    gain: float | u.Unit = 1,
+    gain_key: str = "GAIN",
+    gain_unit: u.Unit = u.electron / u.adu,
+    rdnoise: float | u.Unit = 0,
+    rdnoise_key: str = "RDNOISE",
+    rdnoise_unit: u.Unit = u.electron,
+    exptime_key: str = "EXPTIME",
+    exptime_frin: float = None,
+    exptime_dark: float = None,
+    exptime_data: float = None,
+    dark_scale: bool = False,
+    pixel_min: float = None,
+    pixel_min_fill: float = 0,
+    pixel_max: float = None,
+    pixel_max_fill: float = 65535,
+    flat_mask: float | int = 0,
+    flat_fill: float = 1,
+    flat_norm_value: float = 1,
+    do_crrej: bool = False,
+    crrej_kw: dict = LACOSMIC_CRREJ,
+    propagate_crmask: bool = False,
+    verbose_crrej: bool = False,
+    verbose_bdf: int = 1,
+    output_verify: str = "fix",
+    overwrite: bool = True,
+    dtype: str = "float32",
 ):
-    """ Do basic CCD reduction.
+    """Do basic CCD reduction.
 
     Parameters
     ----------
@@ -1232,6 +1361,7 @@ def ccdred(
         description. If `None` it uses ``np.float64``.
         Default is `None`.
     """
+
     # This reduction process will ignore `uncertainty` attribute of all
     # input/master calibration frames. This is because (1) speed matters more
     # than such an error calculation for cases when this simple generalized
@@ -1242,7 +1372,9 @@ def ccdred(
             return False, None, None
 
         if path is not None and master is None:
-            master = load_ccd(path, ccddata=False)  # beacuse it will be forced to CCDData
+            master = load_ccd(
+                path, ccddata=False
+            )  # beacuse it will be forced to CCDData
 
         do = True
         master, imname, _ = _parse_image(master, name=path, force_ccddata=True)
@@ -1287,7 +1419,7 @@ def ccdred(
             exptime_data=exptime_data,
             exptime_dark=exptime_dark,
             dark_scale=dark_scale,
-            **prockw
+            **prockw,
         )
 
     # == Do FRINGE **before** flat if not `fringe_flat_fielded` ========================== #
@@ -1302,7 +1434,7 @@ def ccdred(
             exptime_key=exptime_key,
             exptime_data=exptime_data,
             exptime_frin=exptime_frin,
-            **prockw
+            **prockw,
         )
 
     # == Do FLAT ========================================================================= #
@@ -1314,7 +1446,7 @@ def ccdred(
             flat_mask=flat_mask,
             flat_fill=flat_fill,
             flat_norm_value=flat_norm_value,
-            **prockw
+            **prockw,
         )
 
     # == Do FRINGE **after** flat if `fringe_flat_fielded` =============================== #
@@ -1329,7 +1461,7 @@ def ccdred(
             exptime_key=exptime_key,
             exptime_data=exptime_data,
             exptime_frin=exptime_frin,
-            **prockw
+            **prockw,
         )
 
     # == Do CRREJ ======================================================================== #
@@ -1353,7 +1485,7 @@ def ccdred(
             gain=valinhdr(gain, proc.header, gain_key, 1, unit=gain_unit),
             rdnoise=valinhdr(rdnoise, proc.header, rdnoise_key, 0, unit=rdnoise_unit),
             verbose=verbose_crrej,
-            **crrej_kw
+            **crrej_kw,
         )
 
     # ************************************************************************************ #
@@ -1369,7 +1501,7 @@ def ccdred(
 
     if output is not None:
         if verbose_bdf:
-            print(f"Writing FITS to {output}... ", end='')
+            print(f"Writing FITS to {output}... ", end="")
         proc.write(output, output_verify=output_verify, overwrite=overwrite)
         if verbose_bdf:
             print("Saved.")
@@ -1379,52 +1511,52 @@ def ccdred(
 # NOTE: crrej should be done AFTER bias/dark and flat correction:
 # http://www.astro.yale.edu/dokkum/lacosmic/notes.html
 def bdf_process(
-        ccd,
-        output=None,
-        extension=None,
-        mbiaspath=None,
-        mdarkpath=None,
-        mflatpath=None,
-        mfringepath=None,
-        mbias=None,
-        mdark=None,
-        mflat=None,
-        mfringe=None,
-        fringe_flat_fielded=True,
-        fringe_scale=None,
-        fringe_scale_region=None,
-        fringe_scale_kw={},
-        trimsec=None,
-        calc_err=False,
-        unit=None,
-        gain=None,
-        gain_key="GAIN",
-        gain_unit=u.electron/u.adu,
-        rdnoise=None,
-        rdnoise_key="RDNOISE",
-        rdnoise_unit=u.electron,
-        exposure_key="EXPTIME",
-        exposure_unit=u.s,
-        fringe_exposure=None,
-        dark_exposure=None,
-        data_exposure=None,
-        dark_scale=False,
-        normalize_exposure=False,
-        normalize_average=False,
-        normalize_median=False,
-        flat_min_value=None,
-        flat_norm_value=1.,
-        do_crrej=False,
-        crrej_kwargs=None,
-        propagate_crmask=False,
-        verbose_crrej=False,
-        verbose_bdf=True,
-        output_verify='fix',
-        overwrite=True,
-        dtype="float32",
-        uncertainty_dtype="float32"
+    ccd,
+    output=None,
+    extension=None,
+    mbiaspath=None,
+    mdarkpath=None,
+    mflatpath=None,
+    mfringepath=None,
+    mbias=None,
+    mdark=None,
+    mflat=None,
+    mfringe=None,
+    fringe_flat_fielded=True,
+    fringe_scale=None,
+    fringe_scale_region=None,
+    fringe_scale_kw={},
+    trimsec=None,
+    calc_err=False,
+    unit=None,
+    gain=None,
+    gain_key="GAIN",
+    gain_unit=u.electron / u.adu,
+    rdnoise=None,
+    rdnoise_key="RDNOISE",
+    rdnoise_unit=u.electron,
+    exposure_key="EXPTIME",
+    exposure_unit=u.s,
+    fringe_exposure=None,
+    dark_exposure=None,
+    data_exposure=None,
+    dark_scale=False,
+    normalize_exposure=False,
+    normalize_average=False,
+    normalize_median=False,
+    flat_min_value=None,
+    flat_norm_value=1.0,
+    do_crrej=False,
+    crrej_kwargs=None,
+    propagate_crmask=False,
+    verbose_crrej=False,
+    verbose_bdf=True,
+    output_verify="fix",
+    overwrite=True,
+    dtype="float32",
+    uncertainty_dtype="float32",
 ):
-    """ Do bias, dark and flat process.
+    """Do bias, dark and flat process.
     Parameters
     ----------
     ccd : CCDData-like (e.g., PrimaryHDU, ImageHDU, HDUList), ndarray, path-like, or number-like
@@ -1575,9 +1707,7 @@ def bdf_process(
         description. If `None` it uses ``np.float64``.
         Default is `None`.
     """
-    print(
-        "bdf_process is deprecated in favor of ``ccdred``."
-    )
+    print("bdf_process is deprecated in favor of ``ccdred``.")
 
     def _load_master(path, master, simple=True, unit=None, calc_err=False):
         if path is None and master is None:
@@ -1624,15 +1754,24 @@ def bdf_process(
     # == Log the CCDPROC version ========================================================== #
     if "CCDPROCV" in proc.header:
         if str(proc.header["CCDPROCV"]) != str(ccdproc.__version__):
-            cmt2hdr(proc.header, "h",
-                    ("The ccdproc version prior to this modification was "
-                     + f"{proc.header['CCDPROCV']}."))
-            proc.header["CCDPROCV"] = (ccdproc.__version__,
-                                       "ccdproc version used for processing.")
+            cmt2hdr(
+                proc.header,
+                "h",
+                (
+                    "The ccdproc version prior to this modification was "
+                    + f"{proc.header['CCDPROCV']}."
+                ),
+            )
+            proc.header["CCDPROCV"] = (
+                ccdproc.__version__,
+                "ccdproc version used for processing.",
+            )
         # else (no version change): do nothing.
     else:
-        proc.header["CCDPROCV"] = (ccdproc.__version__,
-                                   "ccdproc version used for processing.")
+        proc.header["CCDPROCV"] = (
+            ccdproc.__version__,
+            "ccdproc version used for processing.",
+        )
 
     # == Set for BIAS ==================================================================== #
     do_bias, mbias, mbiaspath = _load_master(mbiaspath, mbias)
@@ -1649,15 +1788,19 @@ def bdf_process(
 
         if dark_scale:
             # TODO: what if dark_exposure, data_exposure are given explicitly?
-            cmt2hdr(proc.header, 'h', str_dscale.format(exposure_key), verbose=verbose_bdf)
+            cmt2hdr(
+                proc.header, "h", str_dscale.format(exposure_key), verbose=verbose_bdf
+            )
 
     # == Set for FLAT ==================================================================== #
     do_flat, mflat, mflatpath = _load_master(mflatpath, mflat)
     if do_flat:
         PROCESS.append("F")
         _addfrm(proc, "FLAT", mflatpath)
-        proc.header["FLATNORM"] = (flat_norm_value,
-                                   "flat_norm_value (none = mean of input flat)")
+        proc.header["FLATNORM"] = (
+            flat_norm_value,
+            "flat_norm_value (none = mean of input flat)",
+        )
 
     # == Set for FRINGE ================================================================== #
     do_fringe, mfringe, mfringepath = _load_master(mfringepath, mfringe)
@@ -1667,16 +1810,17 @@ def bdf_process(
 
     # == Set gain and rdnoise if at least one of calc_err and do_crrej is True. ========== #
     if calc_err or do_crrej:
-        set_ccd_gain_rdnoise(proc,
-                             gain=gain,
-                             gain_key=gain_key,
-                             gain_unit=gain_unit,
-                             rdnoise=rdnoise,
-                             rdnoise_key=rdnoise_key,
-                             rdnoise_unit=rdnoise_unit,
-                             verbose=verbose_bdf,
-                             update_header=True
-                             )
+        set_ccd_gain_rdnoise(
+            proc,
+            gain=gain,
+            gain_key=gain_key,
+            gain_unit=gain_unit,
+            rdnoise=rdnoise,
+            rdnoise_key=rdnoise_key,
+            rdnoise_unit=rdnoise_unit,
+            verbose=verbose_bdf,
+            update_header=True,
+        )
         gain_Q = proc.gain
         rdnoise_Q = proc.rdnoise
 
@@ -1694,14 +1838,17 @@ def bdf_process(
         mfringe = imslice(mfringe, **sect) if do_fringe else None
         PROCESS.append("T")
 
-        cmt2hdr(proc.header, 'h', str_trim.format(trimsec),
-                verbose=verbose_bdf, t_ref=_t)
+        cmt2hdr(
+            proc.header, "h", str_trim.format(trimsec), verbose=verbose_bdf, t_ref=_t
+        )
 
     # == Do BIAS ========================================================================= #
     if do_bias:
         _t = Time.now()
         proc = subtract_bias(proc, mbias)
-        cmt2hdr(proc.header, 'h', str_bias.format(mbiaspath), verbose=verbose_bdf, t_ref=_t)
+        cmt2hdr(
+            proc.header, "h", str_bias.format(mbiaspath), verbose=verbose_bdf, t_ref=_t
+        )
 
     # == Do DARK ========================================================================= #
     if do_dark:
@@ -1711,15 +1858,21 @@ def bdf_process(
             data_exposure = valinhdr(data_exposure, proc.header, **kw)
             dark_exposure = valinhdr(dark_exposure, mdark.header, **kw)
         if dark_exposure is not None and data_exposure is not None:
-            exposure_key = None  # ccdproc strangely gives error if exposure_key is given.
-        proc = subtract_dark(proc,
-                             mdark,
-                             dark_exposure=dark_exposure,
-                             data_exposure=data_exposure,
-                             exposure_time=exposure_key,
-                             exposure_unit=exposure_unit,
-                             scale=dark_scale)
-        cmt2hdr(proc.header, 'h', str_dark.format(mdarkpath), verbose=verbose_bdf, t_ref=_t)
+            exposure_key = (
+                None  # ccdproc strangely gives error if exposure_key is given.
+            )
+        proc = subtract_dark(
+            proc,
+            mdark,
+            dark_exposure=dark_exposure,
+            data_exposure=data_exposure,
+            exposure_time=exposure_key,
+            exposure_unit=exposure_unit,
+            scale=dark_scale,
+        )
+        cmt2hdr(
+            proc.header, "h", str_dark.format(mdarkpath), verbose=verbose_bdf, t_ref=_t
+        )
 
     # == Set for uncertainty ============================================================= #
     # Make UNCERT extension before doing FLAT and FRINGE
@@ -1733,73 +1886,78 @@ def bdf_process(
         s = [str_e0]
         if do_dark:
             s.append(str_ed)
-        cmt2hdr(proc.header, 'h', s, verbose=verbose_bdf, t_ref=_t)
+        cmt2hdr(proc.header, "h", s, verbose=verbose_bdf, t_ref=_t)
 
     # == Do FRINGE **before** flat if not `fringe_flat_fielded` ========================== #
     if do_fringe and not fringe_flat_fielded:
-        proc = frincor(proc,
-                       mfringe,
-                       fringe_scale=fringe_scale,
-                       fringe_scale_region=fringe_scale_region,
-                       fringe_scale_kw=fringe_scale_kw,
-                       exptime_key=exposure_key,
-                       exptime_data=data_exposure,
-                       exptime_frin=fringe_exposure,
-                       verbose=verbose_bdf)
+        proc = frincor(
+            proc,
+            mfringe,
+            fringe_scale=fringe_scale,
+            fringe_scale_region=fringe_scale_region,
+            fringe_scale_kw=fringe_scale_kw,
+            exptime_key=exposure_key,
+            exptime_data=data_exposure,
+            exptime_frin=fringe_exposure,
+            verbose=verbose_bdf,
+        )
 
     # == Do FLAT ========================================================================= #
     if do_flat:
         # Flat error propagation is done automatically by
         # ``ccdproc.flat_correct``if it has the uncertainty attribute.
         _t = Time.now()
-        proc = flat_correct(proc,
-                            mflat,
-                            min_value=flat_min_value,
-                            norm_value=flat_norm_value)
+        proc = flat_correct(
+            proc, mflat, min_value=flat_min_value, norm_value=flat_norm_value
+        )
         s = [str_flat.format(mflatpath)]
         if calc_err and mflat.uncertainty is not None:
             s.append(str_ef)
 
-        cmt2hdr(proc.header, 'h', s, verbose=verbose_bdf, t_ref=_t)
+        cmt2hdr(proc.header, "h", s, verbose=verbose_bdf, t_ref=_t)
 
     # == Do FRINGE **after** flat if `fringe_flat_fielded` =============================== #
     if do_fringe and fringe_flat_fielded:
-        proc = frincor(proc,
-                       mfringe,
-                       fringe_scale=fringe_scale,
-                       fringe_scale_region=fringe_scale_region,
-                       fringe_scale_kw=fringe_scale_kw,
-                       exptime_key=exposure_key,
-                       exptime_data=data_exposure,
-                       exptime_frin=fringe_exposure,
-                       verbose=verbose_bdf)
+        proc = frincor(
+            proc,
+            mfringe,
+            fringe_scale=fringe_scale,
+            fringe_scale_region=fringe_scale_region,
+            fringe_scale_kw=fringe_scale_kw,
+            exptime_key=exposure_key,
+            exptime_data=data_exposure,
+            exptime_frin=fringe_exposure,
+            verbose=verbose_bdf,
+        )
 
     # == Normalization =================================================================== #
     if normalize_exposure:
         _t = Time.now()
         if data_exposure is None:
             data_exposure = proc.header[exposure_key]
-        proc.data = proc.data/data_exposure  # uncertainty will also be..
-        cmt2hdr(proc.header, 'h', str_nexp, verbose=verbose_bdf, t_ref=_t)
+        proc.data = proc.data / data_exposure  # uncertainty will also be..
+        cmt2hdr(proc.header, "h", str_nexp, verbose=verbose_bdf, t_ref=_t)
 
     if normalize_average:
         _t = Time.now()
         avg = np.mean(proc.data)
-        proc.data = proc.data/avg
-        cmt2hdr(proc.header, 'h', str_navg, verbose=verbose_bdf, t_ref=_t)
+        proc.data = proc.data / avg
+        cmt2hdr(proc.header, "h", str_navg, verbose=verbose_bdf, t_ref=_t)
 
     if normalize_median:
         _t = Time.now()
         med = np.median(proc.data)
-        proc.data = proc.data/med
-        cmt2hdr(proc.header, 'h', str_nmed, verbose=verbose_bdf, t_ref=_t)
+        proc.data = proc.data / med
+        cmt2hdr(proc.header, "h", str_nmed, verbose=verbose_bdf, t_ref=_t)
 
     # == Do CRREJ ======================================================================== #
     if do_crrej:
         if crrej_kwargs is None:
             crrej_kwargs = {}
-            warn("You are not specifying CR-rejection parameters! It can be"
-                 + " dangerous to use defaults blindly.")
+            warn(
+                "You are not specifying CR-rejection parameters! It can be"
+                + " dangerous to use defaults blindly."
+            )
 
         _proc = proc.header["PROCESS"]
         if (("B" in _proc) + ("D" in _proc) + ("F" in _proc)) < 2:
@@ -1813,22 +1971,23 @@ def bdf_process(
             proc,
             propagate_crmask=propagate_crmask,
             update_header=True,
-            gain=gain_Q,        # already parsed from local variables above
+            gain=gain_Q,  # already parsed from local variables above
             rdnoise=rdnoise_Q,  # already parsed from local variables above
             verbose=verbose_crrej,
-            **crrej_kwargs)
+            **crrej_kwargs,
+        )
 
     # ************************************************************************************ #
     # *                                  PREPARE OUTPUT                                  * #
     # ************************************************************************************ #
     # To avoid ``pssl`` in cr rejection, subtract fringe AFTER the CRREJ.
     proc = CCDData_astype(proc, dtype=dtype, uncertainty_dtype=uncertainty_dtype)
-    update_process(proc.header, PROCESS, key="PROCESS", delimiter='-')
+    update_process(proc.header, PROCESS, key="PROCESS", delimiter="-")
     update_tlm(proc.header)
 
     if output is not None:
         if verbose_bdf:
-            print(f"Writing FITS to {output}... ", end='')
+            print(f"Writing FITS to {output}... ", end="")
         proc.write(output, output_verify=output_verify, overwrite=overwrite)
         if verbose_bdf:
             print("Saved.")
@@ -1836,20 +1995,20 @@ def bdf_process(
 
 
 def run_reduc_plan(
-        plan,
-        output=None,
-        extension=None,
-        col_file="file",
-        col_bias="BIASFRM",
-        col_dark="DARKFRM",
-        col_flat="FLATFRM",
-        col_mask="MASKFILE",
-        col_fringe="FRINFRM",
-        fixpix_kw=dict(priority=None, verbose=False),
-        do_crrej=False,
-        preload_cals=False,
-        return_ccd=False,
-        verbose=False,
+    plan,
+    output=None,
+    extension=None,
+    col_file="file",
+    col_bias="BIASFRM",
+    col_dark="DARKFRM",
+    col_flat="FLATFRM",
+    col_mask="MASKFILE",
+    col_fringe="FRINFRM",
+    fixpix_kw=dict(priority=None, verbose=False),
+    do_crrej=False,
+    preload_cals=False,
+    return_ccd=False,
+    verbose=False,
 ):
     """Run reduction(preprocessing) based on the planner.
 
@@ -1873,6 +2032,7 @@ def run_reduc_plan(
     verbose_bdf : bool, optional
         [description], by default True
     """
+
     def _get_frms(df, col):
         if col not in df:
             return {}
@@ -1885,10 +2045,12 @@ def run_reduc_plan(
         raise TypeError("plan must be a pandas.DataFrame.")
 
     if output is None and not return_ccd:
-        raise ValueError("No output file and return_ccd is False. "
-                         + "Nothing will be saved and nothing will be returned.")
+        raise ValueError(
+            "No output file and return_ccd is False. "
+            + "Nothing will be saved and nothing will be returned."
+        )
 
-    output = [None]*len(plan) if output is None else listify(output)
+    output = [None] * len(plan) if output is None else listify(output)
 
     if len(output) != len(plan):
         raise ValueError("output must have the same length as the plan.")
@@ -1927,7 +2089,7 @@ def run_reduc_plan(
             ccd,
             mmasks.get(maskpath),  # = None if not preload_cals or mmaskpath=None
             maskpath=maskpath,
-            **fixpix_kw
+            **fixpix_kw,
         )
 
         if do_crrej:
@@ -1947,7 +2109,7 @@ def run_reduc_plan(
                 psffwhm=row.get("psffwhm", LACOSMIC_CRREJ.get("psffwhm")),
                 psfsize=row.get("psfsize", LACOSMIC_CRREJ.get("psfsize")),
                 psfbeta=row.get("psfbeta", LACOSMIC_CRREJ.get("psfbeta")),
-                verbose=verbose
+                verbose=verbose,
             )
 
         if outpath is not None:

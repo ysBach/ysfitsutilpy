@@ -2,15 +2,24 @@ import bottleneck as bn
 import numpy as np
 
 from . import docstrings
-from .util_comb import (_get_dtype_limits, _set_cenfunc, _set_gain_rdns,
-                        _set_keeprej, _set_mask, _set_minmax, _set_sigma,
-                        _setup_reject, do_zs)
+from .util_comb import (
+    _get_dtype_limits,
+    _set_cenfunc,
+    _set_gain_rdns,
+    _set_keeprej,
+    _set_mask,
+    _set_minmax,
+    _set_sigma,
+    _setup_reject,
+    do_zs,
+)
 
 __all__ = ["sigclip_mask", "ccdclip_mask", "minmax_mask"]
 
 
 try:
     import numexpr as ne
+
     HAS_NE = True
     NEVAL = ne.evaluate  # "n"umerical "eval"uator
     NPSTR = ""
@@ -21,23 +30,23 @@ except ImportError:
 
 
 def _iter_rej(
-        arr,
-        mask=None,
-        sigma_lower=3.,
-        sigma_upper=3.,
-        maxiters=5,
-        ddof=0,
-        nkeep=3,
-        maxrej=None,
-        cenfunc='median',
-        ccdclip=False,
-        irafmode=True,
-        rdnoise_ref=0.,
-        snoise_ref=0.,
-        scale_ref=1,
-        zero_ref=0
+    arr,
+    mask=None,
+    sigma_lower=3.0,
+    sigma_upper=3.0,
+    maxiters=5,
+    ddof=0,
+    nkeep=3,
+    maxrej=None,
+    cenfunc="median",
+    ccdclip=False,
+    irafmode=True,
+    rdnoise_ref=0.0,
+    snoise_ref=0.0,
+    scale_ref=1,
+    zero_ref=0,
 ):
-    """ The common function for iterative rejection algorithms.
+    """The common function for iterative rejection algorithms.
 
     Parameters
     ----------
@@ -53,6 +62,7 @@ def _iter_rej(
         The representative scaling and zeroing value to estimate the error-bar
         for ``ccdclip=True``.
     """
+
     def __calc_censtd(_arr):
         # most are defined in upper _iter_rej function
         cen = cenfunc(_arr, axis=0)
@@ -83,8 +93,8 @@ def _iter_rej(
         # no need to check mask_pix iteratively
         while k < maxiters:
             cen, std = __calc_censtd(_arr=_arr)
-            low_new[~mask_pix] = (cen - sigma_lower*std)[~mask_pix]
-            upp_new[~mask_pix] = (cen + sigma_upper*std)[~mask_pix]
+            low_new[~mask_pix] = (cen - sigma_lower * std)[~mask_pix]
+            upp_new[~mask_pix] = (cen + sigma_upper * std)[~mask_pix]
 
             # In numpy, > or < automatically applies along axis=0!!
             mask_bound = (_arr < low_new) | (_arr > upp_new) | ~np.isfinite(_arr)
@@ -94,7 +104,7 @@ def _iter_rej(
             n_change = n_finite_old - n_finite_new
             total_change = np.sum(n_change)
 
-            mask_nochange = (n_change == 0)  # identical to say "max-iter reached"
+            mask_nochange = n_change == 0  # identical to say "max-iter reached"
 
             # no need to backup
             if total_change == 0:
@@ -118,8 +128,8 @@ def _iter_rej(
     else:
         while k < maxiters:
             cen, std = __calc_censtd(_arr=_arr)
-            low_new[~mask_pix] = (cen - sigma_lower*std)[~mask_pix]
-            upp_new[~mask_pix] = (cen + sigma_upper*std)[~mask_pix]
+            low_new[~mask_pix] = (cen - sigma_lower * std)[~mask_pix]
+            upp_new[~mask_pix] = (cen + sigma_upper * std)[~mask_pix]
 
             # In numpy, > or < automatically applies along axis=0!!
             mask_bound = (_arr < low_new) | (_arr > upp_new) | ~np.isfinite(_arr)
@@ -129,9 +139,9 @@ def _iter_rej(
             n_change = n_finite_old - n_finite_new
             total_change = np.sum(n_change)
 
-            mask_nochange = (n_change == 0)  # identical to say "max-iter reached"
-            mask_nkeep = ((ncombine - nrej) < nkeep)
-            mask_maxrej = (nrej > maxrej)
+            mask_nochange = n_change == 0  # identical to say "max-iter reached"
+            mask_nkeep = (ncombine - nrej) < nkeep
+            mask_maxrej = nrej > maxrej
 
             # mask pixel position if any of these happened. Including
             # mask_nochange here will not change results but only spend more
@@ -171,10 +181,10 @@ def _iter_rej(
     mask = mask_nan | (arr < low_new) | (arr > upp_new)
 
     code = np.zeros(_arr.shape[1:], dtype=np.uint8)
-    if (maxiters == 0):
+    if maxiters == 0:
         code += 1
     else:
-        code += (2*mask_nochange + 4*mask_nkeep + 8*mask_maxrej).astype(np.uint8)
+        code += (2 * mask_nochange + 4 * mask_nkeep + 8 * mask_maxrej).astype(np.uint8)
 
     if irafmode:
         n_minimum = max(nkeep, ncombine - maxrej)
@@ -188,7 +198,9 @@ def _iter_rej(
             # ^ replace with max of dtype
             # after this, resid is guaranteed to have **NO** NaN values.
 
-            resid_cut = np.max(bn.partition(resid, n_minimum, axis=0)[:n_minimum, ], axis=0)
+            resid_cut = np.max(
+                bn.partition(resid, n_minimum, axis=0)[:n_minimum,], axis=0
+            )
             mask[resid <= resid_cut] = False
 
     # Note the mask returned here is mask from rejection PROPAGATED with the
@@ -204,19 +216,19 @@ def _iter_rej(
 # *                                    SIGMA-CLIPPING                                    * #
 # **************************************************************************************** #
 def sigclip_mask(
-        arr,
-        mask=None,
-        sigma=3.,
-        sigma_lower=None,
-        sigma_upper=None,
-        maxiters=5,
-        ddof=0,
-        nkeep=3,
-        maxrej=None,
-        cenfunc='median',
-        irafmode=False,
-        axis=0,
-        full=True
+    arr,
+    mask=None,
+    sigma=3.0,
+    sigma_lower=None,
+    sigma_upper=None,
+    maxiters=5,
+    ddof=0,
+    nkeep=3,
+    maxrej=None,
+    cenfunc="median",
+    irafmode=False,
+    axis=0,
+    full=True,
 ):
     if axis != 0:
         raise ValueError("Currently only axis=0 is supported")
@@ -239,7 +251,7 @@ def sigclip_mask(
         maxrej=maxrej,
         cenfunc=cenfunc,
         ccdclip=False,
-        irafmode=irafmode
+        irafmode=irafmode,
     )
     if full:
         return o_mask, o_low, o_upp, o_nit, o_code
@@ -247,7 +259,7 @@ def sigclip_mask(
         return o_mask
 
 
-sigclip_mask.__doc__ = ''' Finds masks of `arr` by sigma-clipping.
+sigclip_mask.__doc__ = """ Finds masks of `arr` by sigma-clipping.
 
     Parameters
     ----------
@@ -262,16 +274,17 @@ sigclip_mask.__doc__ = ''' Finds masks of `arr` by sigma-clipping.
     -------
     {}
 
-    '''.format(docstrings.REJECT_PARAMETERS_COMMON(indent=4),
-               docstrings.REJECT_PARAMETERS_SIGMA(indent=4),
-               docstrings.REJECT_RETURNS_SIGMA(indent=4))
+    """.format(
+    docstrings.REJECT_PARAMETERS_COMMON(indent=4),
+    docstrings.REJECT_PARAMETERS_SIGMA(indent=4),
+    docstrings.REJECT_RETURNS_SIGMA(indent=4),
+)
 
 
 # **************************************************************************************** #
 # *                                    MINMAX CLIPPING                                   * #
 # **************************************************************************************** #
-def _minmax(arr, mask=None, q_low=0, q_upp=0,
-            calc_low=True, calc_upp=True):
+def _minmax(arr, mask=None, q_low=0, q_upp=0, calc_low=True, calc_upp=True):
     # General setup (nkeep and maxrej as dummy)
     _arr, _masks, _, _, _nvals, _lowupp = _setup_reject(
         arr=arr, mask=mask, nkeep=1, maxrej=None, cenfunc=None
@@ -293,7 +306,7 @@ def _minmax(arr, mask=None, q_low=0, q_upp=0,
     # get lower value map
     if n_low != 0:
         _arr[mask] = np.inf  # replace with largest value
-        lowidx = np.argpartition(_arr, kth=n_low, axis=0)[:n_low, ]
+        lowidx = np.argpartition(_arr, kth=n_low, axis=0)[:n_low,]
         np.put_along_axis(mask, lowidx, True, axis=0)
         if calc_low:
             low = np.min(_arr, axis=0)
@@ -302,7 +315,7 @@ def _minmax(arr, mask=None, q_low=0, q_upp=0,
     # remove upper values
     if n_upp != 0:
         _arr[mask] = -np.inf  # replace with lowest values
-        uppidx = np.argpartition(_arr, kth=-n_upp, axis=0)[-n_upp:, ]
+        uppidx = np.argpartition(_arr, kth=-n_upp, axis=0)[-n_upp:,]
         np.put_along_axis(mask, uppidx, True, axis=0)
         if calc_upp:
             upp = np.max(_arr, axis=0)
@@ -310,26 +323,16 @@ def _minmax(arr, mask=None, q_low=0, q_upp=0,
 
     code = np.zeros(_arr.shape[1:], dtype=np.uint8)
     no_rej = (n_rej_low == 0) | (n_rej_upp == 0)
-    code += (1*no_rej).astype(np.uint8)
+    code += (1 * no_rej).astype(np.uint8)
 
     return (mask, low, upp, 1, code)
 
 
-def minmax_mask(
-        arr,
-        mask=None,
-        n_minmax=[1, 1],
-        full=True
-):
+def minmax_mask(arr, mask=None, n_minmax=[1, 1], full=True):
     mask = _set_mask(arr, mask)
     q_low, q_upp = _set_minmax(arr, n_minmax, axis=0)
     o_mask, o_low, o_upp, o_nit, o_code = _minmax(
-        arr,
-        mask=mask,
-        q_low=q_low,
-        q_upp=q_upp,
-        calc_low=full,
-        calc_upp=full
+        arr, mask=mask, q_low=q_low, q_upp=q_upp, calc_low=full, calc_upp=full
     )
     if full:
         return o_mask, o_low, o_upp, o_nit, o_code
@@ -337,7 +340,7 @@ def minmax_mask(
         return o_mask
 
 
-minmax_mask.__doc__ = ''' Finds masks of `arr` after rejecting `n_minmax` pixels.
+minmax_mask.__doc__ = """ Finds masks of `arr` after rejecting `n_minmax` pixels.
 
     Parameters
     ----------
@@ -352,9 +355,11 @@ minmax_mask.__doc__ = ''' Finds masks of `arr` after rejecting `n_minmax` pixels
     -------
     {}
 
-    '''.format(docstrings.REJECT_PARAMETERS_COMMON(indent=4),
-               docstrings.REJECT_PARAMETERS_SIGMA(indent=4),
-               docstrings.REJECT_RETURNS_SIGMA(indent=4))
+    """.format(
+    docstrings.REJECT_PARAMETERS_COMMON(indent=4),
+    docstrings.REJECT_PARAMETERS_SIGMA(indent=4),
+    docstrings.REJECT_RETURNS_SIGMA(indent=4),
+)
 
 # **************************************************************************************** #
 # *                              PERCENTILE CLIPPING (PCLIP)                             * #
@@ -365,25 +370,25 @@ minmax_mask.__doc__ = ''' Finds masks of `arr` after rejecting `n_minmax` pixels
 # *                          CCD NOISE MODEL CLIPPING (CCDCLIP)                          * #
 # **************************************************************************************** #
 def ccdclip_mask(
-        arr,
-        mask=None,
-        sigma=3.,
-        sigma_lower=None,
-        sigma_upper=None,
-        maxiters=5,
-        ddof=0,
-        nkeep=3,
-        maxrej=None,
-        cenfunc='median',
-        irafmode=False,
-        axis=0,
-        gain=1.,
-        rdnoise=0.,
-        snoise=0.,
-        scale_ref=1,
-        zero_ref=0,
-        dtype='float32',
-        full=True
+    arr,
+    mask=None,
+    sigma=3.0,
+    sigma_lower=None,
+    sigma_upper=None,
+    maxiters=5,
+    ddof=0,
+    nkeep=3,
+    maxrej=None,
+    cenfunc="median",
+    irafmode=False,
+    axis=0,
+    gain=1.0,
+    rdnoise=0.0,
+    snoise=0.0,
+    scale_ref=1,
+    zero_ref=0,
+    dtype="float32",
+    full=True,
 ):
     if axis != 0:
         raise ValueError("Currently only axis=0 is supported")
@@ -400,7 +405,7 @@ def ccdclip_mask(
     _, sns = _set_gain_rdns(snoise, ncombine, dtype=dtype)
 
     # Convert to gain-corrected
-    arr = do_zs(arr, zeros=None, scales=1/gns)
+    arr = do_zs(arr, zeros=None, scales=1 / gns)
 
     o_mask, o_low, o_upp, o_nit, o_code = _iter_rej(
         arr=arr,
@@ -416,8 +421,8 @@ def ccdclip_mask(
         cenfunc=cenfunc,
         ccdclip=True,
         rdnoise_ref=np.mean(rds),  # Use mean as the representative value
-        snoise_ref=np.mean(sns),   # Use mean as the representative value
-        irafmode=irafmode
+        snoise_ref=np.mean(sns),  # Use mean as the representative value
+        irafmode=irafmode,
     )
 
     # Revert to ADU (DN)
@@ -429,7 +434,7 @@ def ccdclip_mask(
         return o_mask
 
 
-ccdclip_mask.__doc__ = ''' Finds masks of `arr` by CCD noise model.
+ccdclip_mask.__doc__ = """ Finds masks of `arr` by CCD noise model.
 
     Parameters
     ----------
@@ -444,6 +449,8 @@ ccdclip_mask.__doc__ = ''' Finds masks of `arr` by CCD noise model.
     -------
     {}
 
-    '''.format(docstrings.REJECT_PARAMETERS_COMMON(indent=4),
-               docstrings.REJECT_PARAMETERS_SIGMA(indent=4),
-               docstrings.REJECT_RETURNS_SIGMA(indent=4))
+    """.format(
+    docstrings.REJECT_PARAMETERS_COMMON(indent=4),
+    docstrings.REJECT_PARAMETERS_SIGMA(indent=4),
+    docstrings.REJECT_RETURNS_SIGMA(indent=4),
+)

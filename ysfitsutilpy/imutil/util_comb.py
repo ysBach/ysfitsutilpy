@@ -6,10 +6,20 @@ from astropy.stats import sigma_clipped_stats
 from .util_lmedian import lmedian, nanlmedian
 
 __all__ = [
-    'do_zs', 'get_zsw', '_set_int_dtype', '_get_dtype_limits',
-    '_setup_reject', '_set_reject_name',
-    '_set_mask', '_set_sigma', '_set_keeprej', '_set_minmax', '_set_thresh_mask',
-    '_set_gain_rdns', '_set_cenfunc', '_set_combfunc'
+    "do_zs",
+    "get_zsw",
+    "_set_int_dtype",
+    "_get_dtype_limits",
+    "_setup_reject",
+    "_set_reject_name",
+    "_set_mask",
+    "_set_sigma",
+    "_set_keeprej",
+    "_set_minmax",
+    "_set_thresh_mask",
+    "_set_gain_rdns",
+    "_set_cenfunc",
+    "_set_combfunc",
 ]
 
 
@@ -21,13 +31,13 @@ def do_zs(arr, zeros, scales, copy=False):
     all1 = np.all(scales == 1) or scales is None
     if not all0 and not all1:  # both zero and scale
         for i in range(arr.shape[0]):
-            arr[i, ] = (arr[i, ] - zeros[i])/scales[i]
+            arr[i,] = (arr[i,] - zeros[i]) / scales[i]
     elif not all0 and all1:  # zero only
         for i in range(arr.shape[0]):
-            arr[i, ] = arr[i, ] - zeros[i]
+            arr[i,] = arr[i,] - zeros[i]
     elif all0 and not all1:  # scale only
         for i in range(arr.shape[0]):
-            arr[i, ] = arr[i, ]/scales[i]
+            arr[i,] = arr[i,] / scales[i]
     # Times:
     #   (np.random.normal(size=(1000,1000)) - 0)/1   21.6 ms +- 730 us
     #   np.random.normal(size=(1000,1000))           20.1 ms +- 197 us
@@ -41,30 +51,31 @@ def do_zs(arr, zeros, scales, copy=False):
 
 
 def get_zsw(
-        arr,
-        zero,
-        scale,
-        weight,
-        zero_kw,
-        scale_kw,
-        zero_to_0th,
-        scale_to_0th,
-        zero_section,
-        scale_section
+    arr,
+    zero,
+    scale,
+    weight,
+    zero_kw,
+    scale_kw,
+    zero_to_0th,
+    scale_to_0th,
+    zero_section,
+    scale_section,
 ):
-    '''
+    """
     Originally this was designed to get zero/scale values for (N+1)-D stacked
     array for N-D images. However, imcombine uses it only for one image at a
     time.
-    '''
+    """
+
     # TODO: add sigma-clipped mean, med, std as scale, zero, or weight.
     def _nanfun2nonnan(fun):
-        '''
+        """
         Returns
         -------
         nonnan_function: The function without NaN policy
         check_isfinite: Whether the `isfinite` must be tested.
-        '''
+        """
         if fun == bn.nanmean:
             return np.mean
         elif fun == bn.nanmedian:
@@ -80,29 +91,33 @@ def get_zsw(
             zswstr = zero_scale_weight.lower()
             calc_zsw = True
             zsw = []
-            if zswstr in ['avg', 'average', 'mean']:
+            if zswstr in ["avg", "average", "mean"]:
                 calcfun = bn.nanmean
-            elif zswstr in ['med', 'medi', 'median']:
+            elif zswstr in ["med", "medi", "median"]:
                 calcfun = bn.nanmedian
             # sigclip calcfun's below have dummy `axis` parameter because if
             # not, the ``zsw = fun_simple(data, axis=None)`` code below raises
             # unwanted TypeError, so that `redo` is always `True`.
-            elif zswstr in ['avg_sc', 'average_sc', 'mean_sc']:
-                _ = zsw_kw.pop('axis', None)  # if exist `axis`, remove it.
+            elif zswstr in ["avg_sc", "average_sc", "mean_sc"]:
+                _ = zsw_kw.pop("axis", None)  # if exist `axis`, remove it.
                 calcfun = lambda x, axis: sigma_clipped_stats(x, axis=None, **zsw_kw)[0]
-            elif zswstr in ['med_sc', 'medi_sc', 'median_sc']:
-                _ = zsw_kw.pop('axis', None)  # if exist `axis`, remove it.
+            elif zswstr in ["med_sc", "medi_sc", "median_sc"]:
+                _ = zsw_kw.pop("axis", None)  # if exist `axis`, remove it.
                 calcfun = lambda x, axis: sigma_clipped_stats(x, axis=None, **zsw_kw)[1]
             else:
-                raise ValueError(f"zero/scale/weight ({zero_scale_weight}) not understood")
+                raise ValueError(
+                    f"zero/scale/weight ({zero_scale_weight}) not understood"
+                )
 
         else:
             zsw = np.array(zero_scale_weight)
             if zsw.size == arr.shape[0]:
                 zsw = zsw.flatten()
             else:
-                raise ValueError("If scale/zero/weight are array-like, they must be of "
-                                 + "size = arr.shape[0] (number of images to combine).")
+                raise ValueError(
+                    "If scale/zero/weight are array-like, they must be of "
+                    + "size = arr.shape[0] (number of images to combine)."
+                )
             calc_zsw = False
             zsw = np.array(zero_scale_weight).ravel()  # to make 0-D to 1-D
             calcfun = None
@@ -116,17 +131,20 @@ def get_zsw(
             except (AttributeError, ValueError):  # i.e., int-convertible
                 sl = int(section)
         else:
-            sl = [slice(None)]*(arr.ndim - 1)
+            sl = [slice(None)] * (arr.ndim - 1)
 
         # TODO: There must be a better way to do this "redo" strategy...
         try:
             # If converted to numpy, this must work without error:
             if isinstance(sl, int):
-                zsw = [fun_simple(arr[i].ravel()[::sl], axis=None)
-                       for i in range(arr.shape[0])]
+                zsw = [
+                    fun_simple(arr[i].ravel()[::sl], axis=None)
+                    for i in range(arr.shape[0])
+                ]
             else:
-                zsw = fun_simple(arr[(slice(None), *sl)],
-                                 axis=tuple(np.arange(arr.ndim)[1:]))
+                zsw = fun_simple(
+                    arr[(slice(None), *sl)], axis=tuple(np.arange(arr.ndim)[1:])
+                )
             redo = ~np.all(np.isfinite(zsw))
         except TypeError:  # does not accept tuple axis
             redo = True
@@ -135,11 +153,12 @@ def get_zsw(
             zsw = []
             if isinstance(sl, int):
                 try:
-                    zsw = [(fun(arr[i].ravel()[::sl], axis=None))
-                           for i in range(arr.shape[0])]
+                    zsw = [
+                        (fun(arr[i].ravel()[::sl], axis=None))
+                        for i in range(arr.shape[0])
+                    ]
                 except TypeError:  # original fun has no `axis` parameter
-                    zsw = [(fun(arr[i].ravel()[::sl]))
-                           for i in range(arr.shape[0])]
+                    zsw = [(fun(arr[i].ravel()[::sl])) for i in range(arr.shape[0])]
             else:
                 try:
                     zsw = [(fun(arr[(i, *sl)], axis=None)) for i in range(arr.shape[0])]
@@ -196,8 +215,7 @@ def get_zsw(
 
 
 def _setup_reject(arr, mask, nkeep, maxrej, cenfunc):
-    ''' Does the common default setting for all rejection algorithms.
-    '''
+    """Does the common default setting for all rejection algorithms."""
     _arr = arr.copy()
     # NOTE: mask_nan is propagation of input mask && nonfinite(arr)
     _arr[_set_mask(_arr, mask)] = np.nan
@@ -228,29 +246,30 @@ def _setup_reject(arr, mask, nkeep, maxrej, cenfunc):
         mask_maxrej = np.zeros(_arr.shape[1:], dtype=bool)
         mask_pix = np.zeros(_arr.shape[1:], dtype=bool)
     elif not no_nkeep and no_maxrej:
-        mask_nkeep = ((ncombine - numnan) < nkeep)
+        mask_nkeep = (ncombine - numnan) < nkeep
         mask_maxrej = np.zeros(_arr.shape[1:], dtype=bool)
         mask_pix = mask_nkeep.copy()
     elif not no_maxrej and no_nkeep:
         mask_nkeep = np.zeros(_arr.shape[1:], dtype=bool)
-        mask_maxrej = (n_nan > maxrej)
+        mask_maxrej = n_nan > maxrej
         mask_pix = mask_maxrej.copy()
     else:
-        mask_nkeep = ((ncombine - numnan) < nkeep)
-        mask_maxrej = (n_nan > maxrej)
+        mask_nkeep = (ncombine - numnan) < nkeep
+        mask_maxrej = n_nan > maxrej
         mask_pix = mask_nkeep | mask_maxrej
 
-    return (_arr,
-            [mask_nan, mask_nkeep, mask_maxrej, mask_pix],
-            [nkeep, maxrej],
-            cenfunc,
-            [nit, ncombine, n_finite_old],
-            [low, upp, low_new, upp_new]
-            )
+    return (
+        _arr,
+        [mask_nan, mask_nkeep, mask_maxrej, mask_pix],
+        [nkeep, maxrej],
+        cenfunc,
+        [nit, ncombine, n_finite_old],
+        [low, upp, low_new, upp_new],
+    )
 
 
 def _calculate_step_sizes(x_size, y_size, num_chunks):
-    """ Calculate the strides in x and y.
+    """Calculate the strides in x and y.
     Notes
     -----
     Calculate the strides in x and y to achieve at least the
@@ -305,8 +324,10 @@ def _set_mask(arr, mask):
         mask = np.array(mask, dtype=bool)
 
     if arr.shape != mask.shape:
-        raise ValueError("The input array and mask must have the identical shape. "
-                         + f"Now arr.shape = {arr.shape} and mask.shape = {mask.shape}.")
+        raise ValueError(
+            "The input array and mask must have the identical shape. "
+            + f"Now arr.shape = {arr.shape} and mask.shape = {mask.shape}."
+        )
     return mask
 
 
@@ -331,12 +352,12 @@ def _set_keeprej(arr, nkeep, maxrej, axis):
     if nkeep is None:
         nkeep = 0
     elif nkeep < 1:
-        nkeep = np.around(nkeep*arr.shape[axis])
+        nkeep = np.around(nkeep * arr.shape[axis])
 
     if maxrej is None:
         maxrej = arr.shape[axis]
     elif maxrej < 1:
-        maxrej = np.around(maxrej*arr.shape[axis])
+        maxrej = np.around(maxrej * arr.shape[axis])
 
     return int(nkeep), int(maxrej)
 
@@ -355,11 +376,11 @@ def _set_minmax(arr, n_minmax, axis):
     nimages = arr.shape[axis]
 
     if q_low >= 1:  # if given as number of pixels
-        q_low = q_low/nimages
+        q_low = q_low / nimages
     # else: already given as fraction
 
     if q_upp >= 1:  # if given as number of pixels
-        q_upp = q_upp/nimages
+        q_upp = q_upp / nimages
     # else: already given as fraction
 
     if q_low + q_upp > 1:
@@ -373,22 +394,22 @@ def _set_thresh_mask(arr, mask, thresholds, update_mask=True):
         mask_thresh = (arr < thresholds[0]) | (arr > thresholds[1])
         if update_mask:
             mask |= mask_thresh
-    elif (thresholds[0] == -np.inf):
-        mask_thresh = (arr > thresholds[1])
+    elif thresholds[0] == -np.inf:
+        mask_thresh = arr > thresholds[1]
         if update_mask:
             mask |= mask_thresh
-    elif (thresholds[1] == np.inf):
-        mask_thresh = (arr < thresholds[0])
+    elif thresholds[1] == np.inf:
+        mask_thresh = arr < thresholds[0]
         if update_mask:
             mask |= mask_thresh
-    else :
+    else:
         mask_thresh = np.zeros(arr.shape).astype(bool)
         # no need to update _mask
 
     return mask_thresh
 
 
-def _set_gain_rdns(gain_or_rdnoise, ncombine, dtype='float32'):
+def _set_gain_rdns(gain_or_rdnoise, ncombine, dtype="float32"):
     extract = False
     if isinstance(gain_or_rdnoise, str):
         extract = True
@@ -402,7 +423,7 @@ def _set_gain_rdns(gain_or_rdnoise, ncombine, dtype='float32'):
         elif arr.size == 1:
             if not np.isfinite(arr):
                 raise ValueError("ccdclip parameters contains NaN")
-            arr = arr*np.ones(ncombine, dtype=dtype)
+            arr = arr * np.ones(ncombine, dtype=dtype)
         else:
             raise ValueError("ccdclip parameters size not equal to ncombine.")
     return extract, arr
@@ -411,77 +432,76 @@ def _set_gain_rdns(gain_or_rdnoise, ncombine, dtype='float32'):
 def _set_cenfunc(cenfunc, shorten=False, nameonly=True, nan=True):
     if cenfunc is None:
         return None
-    elif cenfunc in ['med', 'medi', 'median']:
+    elif cenfunc in ["med", "medi", "median"]:
         if nameonly:
-            return 'med' if shorten else 'median'
+            return "med" if shorten else "median"
         else:
             return bn.nanmedian if nan else bn.median
-    elif cenfunc in ['avg', 'average', 'mean']:
+    elif cenfunc in ["avg", "average", "mean"]:
         if nameonly:
-            return 'avg' if shorten else 'average'
+            return "avg" if shorten else "average"
         else:
             return bn.nanmean if nan else np.mean
-    elif cenfunc in ['lmed', 'lmd', 'lmedian']:
+    elif cenfunc in ["lmed", "lmd", "lmedian"]:
         if nameonly:
-            return 'lmd' if shorten else 'lmedian'
+            return "lmd" if shorten else "lmedian"
         else:
             return nanlmedian if nan else lmedian
     else:
-        raise ValueError('cenfunc not understood')
+        raise ValueError("cenfunc not understood")
 
 
 def _set_combfunc(combfunc, shorten=False, nameonly=True, nan=True):
-    ''' Identical to _set_cenfunc, except 'sum' is allowed.
-    '''
+    """Identical to _set_cenfunc, except 'sum' is allowed."""
     if combfunc is None:
         return None
-    elif combfunc in ['med', 'medi', 'median']:
+    elif combfunc in ["med", "medi", "median"]:
         if nameonly:
-            return 'med' if shorten else 'median'
+            return "med" if shorten else "median"
         else:
             return bn.nanmedian if nan else bn.median
-    elif combfunc in ['avg', 'average', 'mean']:
+    elif combfunc in ["avg", "average", "mean"]:
         if nameonly:
-            return 'avg' if shorten else 'average'
+            return "avg" if shorten else "average"
         else:
             return bn.nanmean if nan else np.mean
-    elif combfunc in ['sum']:
+    elif combfunc in ["sum"]:
         if nameonly:
-            return 'sum'
+            return "sum"
         else:
             return bn.nansum if nan else np.sum
-    elif combfunc in ['lmed', 'lmd', 'lmedian']:
+    elif combfunc in ["lmed", "lmd", "lmedian"]:
         if nameonly:
-            return 'lmd' if shorten else 'lmedian'
+            return "lmd" if shorten else "lmedian"
         else:
             return nanlmedian if nan else lmedian
-    elif combfunc in ['min', 'mini', 'minimum']:
+    elif combfunc in ["min", "mini", "minimum"]:
         if nameonly:
-            return 'min' if shorten else 'minimum'
+            return "min" if shorten else "minimum"
         else:
             return bn.nanmin if nan else np.min
-    elif combfunc in ['max', 'maxi', 'maximum']:
+    elif combfunc in ["max", "maxi", "maximum"]:
         if nameonly:
-            return 'max' if shorten else 'maximum'
+            return "max" if shorten else "maximum"
         else:
             return bn.nanmax if nan else np.max
     elif combfunc in ["&", "&&", "and", "bitwise_and"]:
         if nameonly:
-            return 'and' if shorten else 'bitwise_and'
+            return "and" if shorten else "bitwise_and"
         else:
             return np.bitwise_and.reduce
     elif combfunc in ["|", "||", "or", "bitwise_or"]:
         if nameonly:
-            return 'or' if shorten else 'bitwise_or'
+            return "or" if shorten else "bitwise_or"
         else:
             return np.bitwise_or.reduce
     elif combfunc in ["^", "xor", "bitwise_xor"]:
         if nameonly:
-            return 'xor' if shorten else 'bitwise_xor'
+            return "xor" if shorten else "bitwise_xor"
         else:
             return np.bitwise_xor.reduce
     else:
-        raise ValueError('combfunc not understood')
+        raise ValueError("combfunc not understood")
 
 
 def _set_reject_name(reject):
@@ -489,11 +509,11 @@ def _set_reject_name(reject):
         return reject
 
     rej = reject.lower()
-    if rej in ['sig', 'sc', 'sigclip', 'sigma', 'sigma clip', 'sigmaclip']:
-        return 'sigclip'
-    elif rej in ['mm', 'minmax']:
-        return 'minmax'
-    elif rej in ['ccd', 'ccdclip', 'ccdc']:
-        return 'ccdclip'
-    elif rej in ['pclip', 'pc', 'percentile']:
-        return 'pclip'
+    if rej in ["sig", "sc", "sigclip", "sigma", "sigma clip", "sigmaclip"]:
+        return "sigclip"
+    elif rej in ["mm", "minmax"]:
+        return "minmax"
+    elif rej in ["ccd", "ccdclip", "ccdc"]:
+        return "ccdclip"
+    elif rej in ["pclip", "pc", "percentile"]:
+        return "pclip"
