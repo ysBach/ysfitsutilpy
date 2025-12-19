@@ -3013,7 +3013,7 @@ def pixel_scale(header=None, wcs=None, unit=u.arcsec, position=None):
 
     # pixel_to_world_values internally uses self._all_pix2world
     lons, lats = np.deg2rad(w.pixel_to_world_values([x - 0.5, x + 0.5], [y - 0.5, y + 0.5]))
-    pscale = (erfa.seps(lons[0], lats[0], lons[1], lats[1]))
+    pscale = (erfa.seps(lons[0], lats[0], lons[1], lats[1])) / np.sqrt(2)
 
     if unit is None:
         return pscale
