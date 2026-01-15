@@ -12,24 +12,35 @@ from astropy.time import Time
 from ccdproc import combine
 
 from .filemgmt import load_if_exists, make_summary
-from .hduutil import (CCDData_astype, _parse_extension, chk_keyval, cmt2hdr,
-                      imslice, inputs2list, load_ccd)
+from .hduutil import (
+    CCDData_astype,
+    _parse_extension,
+    chk_keyval,
+    cmt2hdr,
+    imslice,
+    inputs2list,
+    load_ccd,
+)
 
 __all__ = [
-    "sstd", "weighted_mean", "group_fits", "select_fits", "stack_FITS",
-    "combine_ccd"
+    "sstd",
+    "weighted_mean",
+    "group_fits",
+    "select_fits",
+    "stack_FITS",
+    "combine_ccd",
 ]
 
 
 def sstd(a, **kwargs):
-    ''' Sample standard deviation function
-    '''
+    """Sample standard deviation function"""
     return np.std(a, ddof=1, **kwargs)
+
 
 # FIXME: Add this to Ccdproc esp. for mem_limit
 
 
-def weighted_mean(ccds, unit='adu'):
+def weighted_mean(ccds, unit="adu"):
     datas = []
     ws = []  # weights = 1 / sigma**2
     for ccd in ccds:
@@ -43,14 +54,14 @@ def weighted_mean(ccds, unit='adu'):
 
 
 def group_fits(
-        summary_table,
-        type_key=None,
-        type_val=None,
-        group_key=None,
-        table_filecol="file",
-        verbose=False
+    summary_table,
+    type_key=None,
+    type_val=None,
+    group_key=None,
+    table_filecol="file",
+    verbose=False,
 ):
-    ''' Organize the group_by and type_key for stack_FITS
+    """Organize the group_by and type_key for stack_FITS
 
     Parameters
     ----------
@@ -93,7 +104,7 @@ def group_fits(
     >>>     _ = combine_ccd(group["file"],
     ...                     type_key=g_key,
     ...                     type_val=g_val)
-    '''
+    """
     if isinstance(summary_table, Table):
         st = summary_table.copy().to_pandas()
     elif isinstance(summary_table, pd.DataFrame):
@@ -104,8 +115,9 @@ def group_fits(
             + f"It's now {type(summary_table)}."
         )
 
-    type_key, type_val, group_key = chk_keyval(type_key=type_key, type_val=type_val,
-                                               group_key=group_key)
+    type_key, type_val, group_key = chk_keyval(
+        type_key=type_key, type_val=type_val, group_key=group_key
+    )
 
     if len(group_key + type_key) == 0:
         raise ValueError("At least one of type_key and group_key should not be empty!")
@@ -119,7 +131,7 @@ def group_fits(
             type_key=type_key,
             type_val=type_val,
             verbose=verbose,
-            path_to_text=True
+            path_to_text=True,
         )
         st = st[st[table_filecol].isin(fpaths)]
     group_type_key = type_key + group_key
@@ -129,18 +141,18 @@ def group_fits(
 
 
 def select_fits(
-        inputs,
-        extension=None,
-        unit=None,
-        trimsec=None,
-        table_filecol="file",
-        prefer_ccddata=False,
-        type_key=None,
-        type_val=None,
-        path_to_text=False,
-        verbose=True
+    inputs,
+    extension=None,
+    unit=None,
+    trimsec=None,
+    table_filecol="file",
+    prefer_ccddata=False,
+    type_key=None,
+    type_val=None,
+    path_to_text=False,
+    verbose=True,
 ):
-    ''' Stacks the FITS files specified in fitslist
+    """Stacks the FITS files specified in fitslist
 
     Parameters
     ----------
@@ -188,10 +200,11 @@ def select_fits(
         it is a list containing loaded CCDData after loading the files. If
         `ccdlist` is given a priori, list of CCDData will be returned
         regardless of `prefer_ccddata`.
-    '''
+    """
+
     def _parse_val(value):
         val = str(value)
-        if val.lstrip('+-').isdigit():  # if int
+        if val.lstrip("+-").isdigit():  # if int
             result = int(val)
         else:
             try:
@@ -205,13 +218,15 @@ def select_fits(
         for k, v in zip(keys, values):
             hdr_val = _parse_val(row[k])
             parse_v = _parse_val(v)
-            if (hdr_val != parse_v):
+            if hdr_val != parse_v:
                 mismatch = True
                 break
         return mismatch
 
     # Check for type_key and type_val
-    type_key, type_val, _ = chk_keyval(type_key=type_key, type_val=type_val, group_key=None)
+    type_key, type_val, _ = chk_keyval(
+        type_key=type_key, type_val=type_val, group_key=None
+    )
     # I made this but think it is unnecessary as all string type_val must be subject to
     # regex.. I am leaving it here just in case in the future I find it necessary.
     #   YPBach 2021-01-08 17:36:53 (KST: GMT+09:00)
@@ -240,7 +255,7 @@ def select_fits(
     selecting = True if len(type_key) > 0 else False
 
     if verbose:
-        print("Analyzing FITS... ", end='')
+        print("Analyzing FITS... ", end="")
 
     if isinstance(inputs, Table):
         summary_table = inputs.to_pandas()
@@ -250,15 +265,20 @@ def select_fits(
         fitslist = summary_table[table_filecol].to_list()
     else:
         # No need to sort here because the real "sort" will be done later in make_summary
-        fitslist = inputs2list(inputs, sort=False, accept_ccdlike=True,
-                               check_coherency=False, path_to_text=path_to_text)
+        fitslist = inputs2list(
+            inputs,
+            sort=False,
+            accept_ccdlike=True,
+            check_coherency=False,
+            path_to_text=path_to_text,
+        )
         if selecting:
             summary_table = make_summary(
                 fitslist,
                 extension=extension,
                 # extension will be parsed within make_summary (no need to care here)
                 verbose=verbose,
-                fname_option='relative',
+                fname_option="relative",
                 keywords=type_key,
                 sort_by=None,
             )
@@ -361,10 +381,12 @@ def select_fits(
     # ************************************************************************************ #
     if len(matched) == 0:
         if selecting:
-            warn(f'No FITS file had "{str(type_key)} = {str(type_val)}". '
-                 + 'Maybe int/float/str confusing?')
+            warn(
+                f'No FITS file had "{str(type_key)} = {str(type_val)}". '
+                + "Maybe int/float/str confusing?"
+            )
         else:
-            warn('No FITS file found')
+            warn("No FITS file found")
     else:
         if selecting:
             N = len(matched)
@@ -377,26 +399,26 @@ def select_fits(
                     print(f'{N} FITS files with "{ks} = {vs}" are selected.')
         else:
             if verbose and prefer_ccddata:
-                print('{:d} FITS files are loaded.'.format(len(matched)))
+                print("{:d} FITS files are loaded.".format(len(matched)))
 
     return matched
 
 
 # !FIXME: Remove in the future
 def stack_FITS(
-        fitslist=None,
-        summary_table=None,
-        extension=None,
-        unit=None,
-        table_filecol="file",
-        trimsec=None,
-        ccddata=True,
-        asccd=True,
-        type_key=None,
-        type_val=None,
-        verbose=True
+    fitslist=None,
+    summary_table=None,
+    extension=None,
+    unit=None,
+    table_filecol="file",
+    trimsec=None,
+    ccddata=True,
+    asccd=True,
+    type_key=None,
+    type_val=None,
+    verbose=True,
 ):
-    ''' Stacks the FITS files specified in fitslist
+    """Stacks the FITS files specified in fitslist
 
     Parameters
     ----------
@@ -457,12 +479,12 @@ def stack_FITS(
         a list containing loaded CCDData after loading the files. If `ccdlist`
         is given a priori, list of CCDData will be returned regardless of
         `ccddata`.
-    '''
+    """
     warn("stack_FITS is deprecated; use select_fits.", DeprecationWarning)
 
     def _parse_val(value):
         val = str(value)
-        if val.lstrip('+-').isdigit():  # if int
+        if val.lstrip("+-").isdigit():  # if int
             result = int(val)
         else:
             try:
@@ -476,22 +498,26 @@ def stack_FITS(
         for k, v in zip(type_key, type_val):
             hdr_val = _parse_val(row[k])
             parse_v = _parse_val(v)
-            if (hdr_val != parse_v):
+            if hdr_val != parse_v:
                 mismatch = True
                 break
         return mismatch
 
-    if ((fitslist is not None) + (summary_table is not None) != 1):
-        raise ValueError("One and only one of fitslist or summary_table must be not None.")
+    if (fitslist is not None) + (summary_table is not None) != 1:
+        raise ValueError(
+            "One and only one of fitslist or summary_table must be not None."
+        )
 
     # Check for type_key and type_val
-    type_key, type_val, _ = chk_keyval(type_key=type_key, type_val=type_val, group_key=None)
+    type_key, type_val, _ = chk_keyval(
+        type_key=type_key, type_val=type_val, group_key=None
+    )
 
     # Setting whether we have to select a subset from the list
     selecting = True if len(type_key) > 0 else False
 
     if verbose:
-        print("Analyzing FITS... ", end='')
+        print("Analyzing FITS... ", end="")
 
     # ************************************************************************************ #
     # *                            MAKE FITSLIST AND SUMMARY_TABLE                       * #
@@ -506,7 +532,7 @@ def stack_FITS(
                 extension=extension,
                 # extension will be parsed within make_summary (no need to care here)
                 verbose=verbose,
-                fname_option='relative',
+                fname_option="relative",
                 keywords=type_key,
                 sort_by=None,
             )
@@ -517,8 +543,10 @@ def stack_FITS(
         if isinstance(summary_table, Table):
             summary_table = summary_table.to_pandas()
         elif not isinstance(summary_table, pd.DataFrame):
-            raise TypeError("summary_table must be an astropy Table or Pandas DataFrame. "
-                            + f"It's now {type(summary_table)}.")
+            raise TypeError(
+                "summary_table must be an astropy Table or Pandas DataFrame. "
+                + f"It's now {type(summary_table)}."
+            )
         else:
             try:
                 summary_table.reset_index(inplace=True)
@@ -527,7 +555,7 @@ def stack_FITS(
         fitslist = summary_table[table_filecol].tolist()
 
     if verbose:
-        print("Done", end='')
+        print("Done", end="")
         if ccddata:
             print(" and loading FITS... ")
         else:
@@ -600,10 +628,12 @@ def stack_FITS(
     # ************************************************************************************ #
     if len(matched) == 0:
         if selecting:
-            warn(f'No FITS file had "{str(type_key)} = {str(type_val)}"'
-                 + 'Maybe int/float/str confusing?')
+            warn(
+                f'No FITS file had "{str(type_key)} = {str(type_val)}"'
+                + "Maybe int/float/str confusing?"
+            )
         else:
-            warn('No FITS file found')
+            warn("No FITS file found")
     else:
         if selecting:
             N = len(matched)
@@ -616,39 +646,39 @@ def stack_FITS(
                     print(f'{N} FITS files with "{ks} = {vs}" are selected.')
         else:
             if verbose and ccddata:
-                print('{:d} FITS files are loaded.'.format(len(matched)))
+                print("{:d} FITS files are loaded.".format(len(matched)))
 
     return matched
 
 
 # TODO: accept the input like ``sigma_clip_func='median'``, etc.
 def combine_ccd(
-        fitslist=None,
-        summary_table=None,
-        table_filecol="file",
-        trimsec=None,
-        output=None,
-        unit=None,
-        subtract_frame=None,
-        combine_method='median',
-        reject_method=None,
-        normalize_exposure=False,
-        normalize_average=False,
-        normalize_median=False,
-        exposure_key='EXPTIME',
-        mem_limit=2e9,
-        combine_uncertainty_function=None,
-        extension=None,
-        type_key=None,
-        type_val=None,
-        dtype="float32",
-        uncertainty_dtype="float32",
-        output_verify='fix',
-        overwrite=False,
-        verbose=True,
-        **kwargs
+    fitslist=None,
+    summary_table=None,
+    table_filecol="file",
+    trimsec=None,
+    output=None,
+    unit=None,
+    subtract_frame=None,
+    combine_method="median",
+    reject_method=None,
+    normalize_exposure=False,
+    normalize_average=False,
+    normalize_median=False,
+    exposure_key="EXPTIME",
+    mem_limit=2e9,
+    combine_uncertainty_function=None,
+    extension=None,
+    type_key=None,
+    type_val=None,
+    dtype="float32",
+    uncertainty_dtype="float32",
+    output_verify="fix",
+    overwrite=False,
+    verbose=True,
+    **kwargs,
 ):
-    ''' Combining images -- slight variant from ccdproc.
+    """Combining images -- slight variant from ccdproc.
 
     Parameters
     ----------
@@ -779,7 +809,7 @@ def combine_ccd(
     -------
     master: astropy.nddata.CCDData
         Resulting combined ccd.
-    '''
+    """
     # def _normalize_exptime(ccdlist, exposure_key):
     #     _ccdlist = ccdlist.copy()
     #     exptimes = []
@@ -796,18 +826,17 @@ def combine_ccd(
     #     return _ccdlist
 
     def _set_reject_method(reject_method):
-        ''' Convenience function for ccdproc.combine reject switches
-        '''
+        """Convenience function for ccdproc.combine reject switches"""
         clip_extrema, minmax_clip, sigma_clip = False, False, False
 
-        if reject_method in ['extrema', 'ext']:
+        if reject_method in ["extrema", "ext"]:
             clip_extrema = True
-        elif reject_method in ['minmax']:
+        elif reject_method in ["minmax"]:
             minmax_clip = True
-        elif reject_method in ['sigma_clip', 'sigclip']:
+        elif reject_method in ["sigma_clip", "sigclip"]:
             sigma_clip = True
         else:
-            if reject_method not in [None, 'no']:
+            if reject_method not in [None, "no"]:
                 raise KeyError(
                     "reject must be one of "
                     + "[None, 'minmax', sigclip'=='sigma_clip', 'extrema'=='ext']"
@@ -831,7 +860,7 @@ def combine_ccd(
             print(s)
 
     # Give only one
-    if ((fitslist is not None) + (summary_table is not None) != 1):
+    if (fitslist is not None) + (summary_table is not None) != 1:
         raise ValueError("One and only one of [fitslist, summary_table] must be given.")
 
     # If fitslist
@@ -854,15 +883,16 @@ def combine_ccd(
 
     # If summary_table
     if summary_table is not None:
-        if ((not isinstance(summary_table, Table))
-                and (not isinstance(summary_table, pd.DataFrame))):
+        if (not isinstance(summary_table, Table)) and (
+            not isinstance(summary_table, pd.DataFrame)
+        ):
             raise TypeError(
                 "summary_table must be an astropy Table or Pandas DataFrame. "
                 + f"It's now {type(summary_table)}."
             )
 
     # Check for type_key and type_val
-    if ((type_key is None) ^ (type_val is None)):
+    if (type_key is None) ^ (type_val is None):
         raise ValueError("type_key and type_val must be both specified or both None.")
 
     if (output is not None) and (Path(output).exists()):
@@ -877,22 +907,24 @@ def combine_ccd(
     # Do we really need to accept all three of normalize & scale?
     # if scale is None:
     #     scale = np.ones(len(ccdlist))
-    if (((normalize_average) + (normalize_exposure) + (normalize_median)) > 1):
+    if ((normalize_average) + (normalize_exposure) + (normalize_median)) > 1:
         raise ValueError(
             "Only up to one of [normalize_average, normalize_exposure, normalize_median] "
             + "is acceptable."
         )
 
     # Set history messages
-    str_history = ('{:d} images with {:s} = {:s} are "{:s}" combined '
-                   + 'using "{:s}" rejection (additional kwargs: {})')
+    str_history = (
+        '{:d} images with {:s} = {:s} are "{:s}" combined '
+        + 'using "{:s}" rejection (additional kwargs: {})'
+    )
     str_nexp = "Each frame will be normalized by exposure time before combine."
     str_navg = "Each frame will be normalized by average before combine."
     str_nmed = "Each frame will be normalized by median before combine."
     str_subt = "Subtracted a user-provided frame"
 
     if reject_method is None:
-        reject_method = 'no'
+        reject_method = "no"
 
     extension = _parse_extension(extension)
 
@@ -907,7 +939,7 @@ def combine_ccd(
         type_key=type_key,
         type_val=type_val,
         ccddata=False,
-        verbose=verbose
+        verbose=verbose,
     )
     #  trimsec=trimsec,
     # ccddata=False: Loading CCD here may cause memory blast...
@@ -930,27 +962,30 @@ def combine_ccd(
     # Normalize by exposure
     # TODO: Let it accept summary table as well as fitslist
     if normalize_exposure:
-        tmp = make_summary(fitslist=fitslist,
-                           keywords=[exposure_key],
-                           verbose=False,
-                           sort_by=None)
+        tmp = make_summary(
+            fitslist=fitslist, keywords=[exposure_key], verbose=False, sort_by=None
+        )
         exptimes = tmp[exposure_key].tolist()
         scale = 1 / np.array(exptimes)
-        cmt2hdr(header, 'h', str_nexp, verbose=verbose)
+        cmt2hdr(header, "h", str_nexp, verbose=verbose)
 
     # Normalize by pixel average
     if normalize_average:
+
         def invavg(a):
             return 1 / np.mean(a)
+
         scale = invavg
-        cmt2hdr(header, 'h', str_navg, verbose=verbose)
+        cmt2hdr(header, "h", str_navg, verbose=verbose)
 
     # Normalize by pixel median
     if normalize_median:
+
         def invmed(a):
             return 1 / np.median(a)
+
         scale = invmed
-        cmt2hdr(header, 'h', str_nmed, verbose=verbose)
+        cmt2hdr(header, "h", str_nmed, verbose=verbose)
 
     # Set rejection switches
     clip_extrema, minmax_clip, sigma_clip = _set_reject_method(reject_method)
@@ -974,23 +1009,24 @@ def combine_ccd(
             hdu=extension,
             scale=scale,
             dtype=dtype,
-            **kwargs
+            **kwargs,
         )
 
-    header["COMBVER"] = (ccdproc.__version__,
-                         "ccdproc version used for combine.")
+    header["COMBVER"] = (ccdproc.__version__, "ccdproc version used for combine.")
     # NCOMBINE from ccdproc has no comment so I duplicate this...
     ncombine = len(ccdlist)
     header["NCOMBINE"] = (ncombine, "Number of combined images")
     header["COMBMETH"] = (combine_method, "Combining method")
 
-    s = str_history.format(ncombine,
-                           str(type_key),
-                           str(type_val),
-                           str(combine_method),
-                           str(reject_method),
-                           kwargs)
-    cmt2hdr(header, 'h', s, verbose=verbose, t_ref=_t)
+    s = str_history.format(
+        ncombine,
+        str(type_key),
+        str(type_val),
+        str(combine_method),
+        str(reject_method),
+        kwargs,
+    )
+    cmt2hdr(header, "h", s, verbose=verbose, t_ref=_t)
     # header.add_history(str_history.format(ncombine,
     #                                       str(type_key),
     #                                       str(type_val),
@@ -1002,19 +1038,18 @@ def combine_ccd(
         _t = Time.now()
         subtract = CCDData(subtract_frame.copy())
         master.data = master.subtract(subtract).data
-        cmt2hdr(header, 'h', str_subt, header, verbose=verbose, t_ref=_t)
+        cmt2hdr(header, "h", str_subt, header, verbose=verbose, t_ref=_t)
 
     if trimsec is not None:
         master = imslice(master, trimsec, verbose=verbose)
 
     master.header = header
-    master = CCDData_astype(master, dtype=dtype,
-                            uncertainty_dtype=uncertainty_dtype)
+    master = CCDData_astype(master, dtype=dtype, uncertainty_dtype=uncertainty_dtype)
     # update_tlm is done incide CCDData_astype
 
     if output is not None:
         if verbose:
-            print(f"Writing FITS to {output}... ", end='')
+            print(f"Writing FITS to {output}... ", end="")
         master.write(output, output_verify=output_verify, overwrite=overwrite)
         if verbose:
             print("Saved.")
