@@ -138,7 +138,7 @@ def cmt2hdr(
     time_fmt="{:.>72s}",
     t_ref=None,
     dt_fmt="(dt = {:.3f} s)",
-    set_kw={"after": -1},
+    set_kw=None,
     verbose=False,
 ):
     """Automatically add timestamp as well as HISTORY or COMMENT string
@@ -164,7 +164,7 @@ def cmt2hdr(
         Examples::
           * ``"{:s}"``: plain time ``2020-01-01T01:01:01.23``
           * ``"({:s})"``: plain time in ``()``. ``(2020-01-01T01:01:01.23)``
-          * ``"{:_^72s}"``: center align, filling with gain_key="GAIN", ``_``.
+          * ``"{:_^72s}"``: center align, filling with ``_``.
 
     t_ref : Time
         The reference time. If not `None`, delta time is calculated.
@@ -175,9 +175,6 @@ def cmt2hdr(
     verbose : bool, optional.
         Whether to print the same information on the output terminal.
 
-    verbose_fmt : str, optional.
-        The Python 3 format string to format the time in the terminal.
-
     set_kw : dict, optional.
         The keyword arguments added to `Header.set()`. Default is
         ``{'after':-1}``, i.e., the history or comment will be appended to the
@@ -185,7 +182,7 @@ def cmt2hdr(
 
     Notes
     -----
-    The timming benchmark for a reasonably long header (len(ccd.header.cards) =
+    The timing benchmark for a reasonably long header (len(ccd.header.cards) =
     197) shows dt ~ 0.2-0.3 ms on MBP 15" [2018, macOS 11.6, i7-8850H (2.6 GHz;
     6-core), RAM 16 GB (2400MHz DDR4), Radeon Pro 560X (4GB)]:
 
@@ -198,34 +195,38 @@ def cmt2hdr(
     %timeit yfu.cmt2hdr(ccd.header.copy(), 'histORy', 'test')
     1.95 ms +/- 146 µs per loop (mean +/- std. dev. of 7 runs, 100 loops each)
     """
-    pall = locals()
-    if histcomm.lower() in ["h", "hist"]:
-        pall["histcomm"] = "HISTORY"
-        return cmt2hdr(**pall)
-    elif histcomm.lower() in ["c", "com", "comm"]:
-        pall["histcomm"] = "COMMENT"
-        return cmt2hdr(**pall)
-    # The "elif not in raise" gives large bottleneck if, e.g., ``histcomm="ComMent"``...
-    # elif histcomm.lower() not in ['history', 'comment']:
-    #     raise ValueError("Only HISTORY or COMMENT are supported now.")
+    if set_kw is None:
+        set_kw = {"after": -1}
+
+    # Normalize histcomm to canonical form
+    _hc = histcomm.lower()
+    if _hc in ["h", "hist", "history"]:
+        histcomm = "HISTORY"
+    elif _hc in ["c", "com", "comm", "comment"]:
+        histcomm = "COMMENT"
+    else:
+        raise ValueError(
+            f"histcomm must be one of 'h', 'hist', 'history', 'c', 'com', 'comm', 'comment'; "
+            f"got {histcomm!r}"
+        )
 
     def _add_content(header, content):
         try:
             header.set(histcomm, content, **set_kw)
         except AttributeError:
-            # For a CCDData that has just initialized, header is in OrderdDict, not Header
+            # For a CCDData that has just initialized, header is in OrderedDict, not Header
             header[histcomm] = content
 
     for _s in listify(s):
         _add_content(header, _s)
         if verbose:
-            print(f"{histcomm.upper():<8s} {_s}")
+            print(f"{histcomm:<8s} {_s}")
 
     if time_fmt is not None:
         timestr = str_now(precision=precision, fmt=time_fmt, t_ref=t_ref, dt_fmt=dt_fmt)
         _add_content(header, timestr)
         if verbose:
-            print(f"{histcomm.upper():<8s} {timestr}")
+            print(f"{histcomm:<8s} {timestr}")
     update_tlm(header)
 
 
@@ -259,13 +260,13 @@ def update_process(
     key="PROCESS",
     delimiter="",
     add_comment=True,
-    additional_comment=dict(),
+    additional_comment=None,
 ):
-    """update the process history keyword in the header.
+    """Update the process history keyword in the header.
 
     Parameters
     ----------
-    header : header
+    header : Header
         The header to update the ``PROCESS`` (tunable by `key` parameter)
         keyword.
 
@@ -290,6 +291,8 @@ def update_process(
         reads "User added items for `key`: v=vertical pattern, f=fourier
         pattern."
     """
+    if additional_comment is None:
+        additional_comment = {}
     process = listify(process)
 
     if key in header:
