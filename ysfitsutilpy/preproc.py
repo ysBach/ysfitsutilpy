@@ -387,7 +387,7 @@ def medfilt_bpm(
     rdnoise=0.0,
     snoise=0.0,
     size=5,
-    sigclip_kw=dict(sigma=3.0, maxiters=5, std_ddof=1),
+    sigclip_kw=None,
     std_section=None,
     footprint=None,
     mode="reflect",
@@ -429,11 +429,12 @@ def medfilt_bpm(
         `~scipy.ndimage.median_filter`.
 
     sigclip_kw : dict, optional.
-        The paramters used for `~astropy.stats.sigma_clipped_stats` when
+        The parameters used for `~astropy.stats.sigma_clipped_stats` when
         estimating the sky standard deviation at `std_section`. This is
         **ignored** if ``std_model='ccd'``.
+        Default is ``dict(sigma=3.0, maxiters=5, std_ddof=1)``.
 
-    std_section : str, optinal.
+    std_section : str, optional.
         The region in FITS standard (1-indexing, end-inclusive, xyz order) to
         estimate the sky standard deviation to obtain the `std_ratio`. If
         `None` (default), the full region of the given array is used, which is
@@ -499,6 +500,9 @@ def medfilt_bpm(
     """
     from scipy.ndimage import median_filter
 
+    if sigclip_kw is None:
+        sigclip_kw = dict(sigma=3.0, maxiters=5, std_ddof=1)
+
     def _sanitize_clips(clips):
         clips = np.atleast_1d(clips)
         if clips.size == 1:
@@ -552,9 +556,10 @@ def medfilt_bpm(
     if not isinstance(ccd, CCDData):
         raise TypeError("ccd should be CCDData")
 
-    nccd = ccd.copy()
-    arr = nccd.data.astype(dtype)
-    hdr = nccd.header
+    # Work with a copy of the data, converted to the target dtype
+    # Use copy=False in astype to avoid redundant copy when dtype already matches
+    arr = ccd.data.astype(dtype, copy=False).copy()  # single copy
+    hdr = ccd.header.copy()
 
     # add very small const to avoid resulting value of 0.0 in med_filt
     # which results in zero-division in med_ratio below.
@@ -725,7 +730,7 @@ def medfilt_bpm(
         #        + "filtered frame."
         #        ))
 
-    nccd = CCDData(data=arr - cadd, header=hdr, unit=nccd.unit)
+    nccd = CCDData(data=arr - cadd, header=hdr, unit=ccd.unit)
 
     if full:
         return nccd, dict(
@@ -748,7 +753,7 @@ def scancor(
     scanax=0,
     fit_func="legendre",
     fit_order=1,
-    fit_kw=dict(sigma=(3, 3), maxiters=1, grow=0),
+    fit_kw=None,
 ):
     """Do overscan correction
 
@@ -774,8 +779,22 @@ def scancor(
         If overscan_axis is explicitly set to None, the axis is set to
         the shortest dimension of the overscan section (or 1 in case
         of a square overscan).
+        Default is ``0``.
+
+    fit_func : str, optional.
+        The fitting function to use for overscan fitting.
+        Default is ``"legendre"``.
+
+    fit_order : int, optional.
+        The order of the fitting polynomial.
         Default is ``1``.
+
+    fit_kw : dict, optional.
+        Keyword arguments passed to the fitting function.
+        Default is ``dict(sigma=(3, 3), maxiters=1, grow=0)``.
     """
+    if fit_kw is None:
+        fit_kw = dict(sigma=(3, 3), maxiters=1, grow=0)
     pass
 
 
