@@ -21,12 +21,8 @@ try:
     import numexpr as ne
 
     HAS_NE = True
-    NEVAL = ne.evaluate  # "n"umerical "eval"uator
-    NPSTR = ""
 except ImportError:
     HAS_NE = False
-    NEVAL = eval  # "n"umerical "eval"uator
-    NPSTR = "np."
 
 
 def _iter_rej(
@@ -67,10 +63,15 @@ def _iter_rej(
         # most are defined in upper _iter_rej function
         cen = cenfunc(_arr, axis=0)
         if ccdclip:  # use abs(pix value) to avoid NaN from negative pixels.
-            _evalstr = f"{NPSTR}abs(cen + zero_ref)*scale_ref"
-            # restore zeroing & scaling ; then add rdnoise
-            _evalstr = f"(1 + snoise_ref)*{_evalstr} + rdnoise_ref**2"
-            std = NEVAL(f"{NPSTR}sqrt({_evalstr})")
+            # Calculate: sqrt((1 + snoise_ref) * abs(cen + zero_ref) * scale_ref + rdnoise_ref**2)
+            if HAS_NE:
+                std = ne.evaluate(
+                    "sqrt((1 + snoise_ref) * abs(cen + zero_ref) * scale_ref + rdnoise_ref**2)"
+                )
+            else:
+                std = np.sqrt(
+                    (1 + snoise_ref) * np.abs(cen + zero_ref) * scale_ref + rdnoise_ref**2
+                )
         else:
             std = bn.nanstd(_arr, axis=0, ddof=ddof)
 
