@@ -42,12 +42,8 @@ try:
     import numexpr as ne
 
     HAS_NE = True
-    NEVAL = ne.evaluate  # "n"umerical "eval"uator
-    NPSTR = ""
 except ImportError:
     HAS_NE = False
-    NEVAL = eval  # "n"umerical "eval"uator
-    NPSTR = "np."
 
 
 __all__ = [
@@ -2202,17 +2198,28 @@ def errormap(
 
     # Calculate the full variance map
     # restore dark for Poisson term calculation
-    eval_str = (
-        "(data + subtracted_dark)/(gain_epadu*flat**2)"
-        + "+ (dark_std/flat)**2"
-        + "+ data**2*(flat_err/flat)**2"
-        + "+ (rdnoise_electron/(gain_epadu*flat))**2"
-    )
-
-    if return_variance:
-        return NEVAL(eval_str)
-    else:  # Sqrt is the most time-consuming part...
-        return NEVAL(f"{NPSTR}sqrt({eval_str})")
+    if HAS_NE:
+        eval_str = (
+            "(data + subtracted_dark)/(gain_epadu*flat**2)"
+            "+ (dark_std/flat)**2"
+            "+ data**2*(flat_err/flat)**2"
+            "+ (rdnoise_electron/(gain_epadu*flat))**2"
+        )
+        if return_variance:
+            return ne.evaluate(eval_str)
+        else:  # Sqrt is the most time-consuming part...
+            return ne.evaluate(f"sqrt({eval_str})")
+    else:
+        variance = (
+            (data + subtracted_dark) / (gain_epadu * flat**2)
+            + (dark_std / flat)**2
+            + data**2 * (flat_err / flat)**2
+            + (rdnoise_electron / (gain_epadu * flat))**2
+        )
+        if return_variance:
+            return variance
+        else:
+            return np.sqrt(variance)
 
     # var_pois = data / (gain_epadu * flat**2)
     # var_rdn = (rdnoise_electron/(gain_epadu*flat))**2
