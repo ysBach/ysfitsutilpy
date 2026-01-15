@@ -1,5 +1,45 @@
 [build-system]
-requires = [
-    "setuptools"
-]
+requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "ysfitsutilpy"
+version = "0.2"
+description = "Convenience utilities made by ysBach especially for dealing FITS files in astronomical sciences."
+readme = "README.md"
+requires-python = ">=3.8"
+license = {file = "LICENSE"}
+authors = [
+  {name = "Yoonsoo P. Bach", email = "ysbach93@gmail.com"}
+]
+keywords = ["astronomy", "data reduction", "image analysis"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Education",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: BSD License",
+  "Natural Language :: English",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Topic :: Education",
+  "Topic :: Scientific/Engineering :: Astronomy",
+  "Topic :: Scientific/Engineering :: Image Processing",
+]
+dependencies = [
+  "numpy >= 1.20",
+  "scipy >= 1.5",
+  "astropy >= 5.0",
+  "ccdproc >= 2.0",
+  "numba",
+  "bottleneck",
+  "astroscrappy",
+]
+
+[project.urls]
+"Source" = "https://github.com/ysBach/ysfitsutilpy"
+"Tracker" = "https://github.com/ysBach/ysfitsutilpy/issues"
+
+[tool.setuptools]
+packages = ["ysfitsutilpy"]
