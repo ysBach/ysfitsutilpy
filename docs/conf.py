@@ -12,6 +12,7 @@ author = "Yoonsoo P. Bach"
 release = "0.2"
 
 # -- General configuration ---------------------------------------------------
+extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
@@ -53,7 +54,6 @@ intersphinx_mapping = {
 # Default role for backticks
 default_role = "obj"
 
-# -- Options for HTML output -------------------------------------------------
 # -- Options for HTML output -------------------------------------------------
 html_theme = "sphinx_rtd_theme"
 html_static_path = ["_static"]
