@@ -230,7 +230,7 @@ def group_combine(
 
 def group_save(combined, fmt="", verbose=1, outdir=None):
     """Saves the group_combine results.
-    Paramters
+    Parameters
     ---------
     combined : dict
         The result from `group_combine` function.

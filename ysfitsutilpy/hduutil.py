@@ -138,7 +138,7 @@ def _parse_data_header(
 ):
     """Parses data and header and return them separately after copy.
 
-    Paramters
+    Parameters
     ---------
     ccdlike : CCDData, PrimaryHDU, ImageHDU, HDUList, Header, ndarray, number-like, path-like, None
         The object to be parsed into data and header.
@@ -426,7 +426,7 @@ def _parse_image(
 def _has_header(ccdlike, extension=None, open_if_file=True):
     """Checks if the object has header; similar to _parse_data_header.
 
-    Paramters
+    Parameters
     ---------
     ccdlike : CCDData, PrimaryHDU, ImageHDU, HDUList, ndarray, number-like, path-like
         The object to be parsed into data and header.
@@ -596,7 +596,7 @@ def load_ccd(
 ):
     """Loads FITS file of CCD image data (not table, etc).
 
-    Paramters
+    Parameters
     ---------
     path : path-like
         The path to the FITS file to load.
@@ -1029,7 +1029,7 @@ def load_ccds(
 ):
     """Simple recursion of load_ccd
 
-    Paramters
+    Parameters
     ---------
     paths : [list of] path-like
         The path, glob pattern, or list of such, e.g., ``"a.fits"``,
@@ -1081,7 +1081,7 @@ def CCDData_astype(ccd, dtype="float32", uncertainty_dtype=None, copy=True):
         The dtype to be applied to the uncertainty. Be default, use the same
         dtype as data (``uncertainty_dtype=dtype``).
 
-    Example
+    Examples
     -------
     >>> from astropy.nddata import CCDData
     >>> import numpy as np
@@ -1157,7 +1157,7 @@ def set_ccd_attribute(
     wrapper_kw : dict, optional.
         The keyword argument to `wrapper`.
 
-    Example
+    Examples
     -------
     >>> set_ccd_attribute(ccd, 'gain', value=2, unit='electron/adu')
     >>> set_ccd_attribute(ccd, 'ra', key='RA', unit=u.deg, default=0)
@@ -1311,7 +1311,7 @@ def imslice(
 ):
     """Slice the CCDData using one of trimsec, bezels, or slices.
 
-    Paramters
+    Parameters
     ---------
     ccd : CCDData, ndarray
         The ccd to be sliced. If ndarray, it will be converted to CCDData with
@@ -1564,7 +1564,7 @@ def bin_ccd(
 ):
     """Bins the given ccd.
 
-    Paramters
+    Parameters
     ---------
     ccd : CCDData
         The ccd to be binned
@@ -1907,7 +1907,7 @@ def find_extpix(
 ):
     """Finds the N extrema pixel values excluding masked pixels.
 
-    Paramters
+    Parameters
     ---------
     ccd : CCDData
         The ccd to find extreme values
@@ -2013,7 +2013,7 @@ def find_satpix(
 ):
     """Finds saturated pixel values excluding masked pixels.
 
-    Paramters
+    Parameters
     ---------
     ccd : CCDData, ndarray
         The ccd to find extreme values. If `ndarray`, `update_header` will
@@ -2167,7 +2167,7 @@ def errormap(
         square-rooted standard deviation map. It's better to use variance for
         large image size (computation speed issue).
 
-    Example
+    Examples
     -------
     >>> from astropy.nddata import CCDData, StdDevUncertainty
     >>> ccd = CCDData.read("obj001.fits", 0)
@@ -2866,7 +2866,7 @@ def wcsremove(
 ):
     """Remove most WCS related keywords from the header.
 
-    Paramters
+    Parameters
     ---------
     path_or_header : str, `~astropy.io.fits.Header`
         The path to the FITS file, or the header to be modified. If it is
@@ -2915,7 +2915,7 @@ def wcsremove(
         If `True`, adds both ``DATASUM`` and ``CHECKSUM`` cards to the headers
         of all HDU's written to the file.
 
-    Note
+    Notes
     ----
     For ``yfu.wcsremove("test.fit")`` with a simple 33.6MB FITS file (71
     keywords, 20 WCS-related keywords, 5 COMMENTs) on MBP 14" [2021, macOS
@@ -3247,7 +3247,7 @@ def give_stats(
     If you have bottleneck package, the functions from bottleneck will be used.
     Otherwise, numpy is used.
 
-    Example
+    Examples
     -------
     >>> bias = CCDData.read("bias_bin11.fits")
     >>> dark = CCDData.read("pdark_300s_27C_bin11.fits")

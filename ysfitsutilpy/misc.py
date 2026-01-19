@@ -839,7 +839,7 @@ def binning(
 ):
     """Bins the given arr frame.
 
-    Paramters
+    Parameters
     ---------
     arr: 2d array
         The array to be binned

@@ -25,6 +25,3 @@ def smooth_med(
     """
     return median_filter(ccd.data.copy() + cadd, size=size, footprint=footprint,
                          mode=mode, cval=cval, origin=origin)
-
-
-

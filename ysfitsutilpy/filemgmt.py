@@ -55,7 +55,7 @@ def load_if_exists(path, loader, if_not=None, verbose=True, **kwargs):
     loaded:
         The loaded file. If the file does not exist, `None` is returned.
 
-    Example
+    Examples
     -------
     >>> from astropy.nddata import CCDData
     >>> from pathlib import Path
@@ -185,7 +185,7 @@ def make_summary(
     I want to use ccdproc.ImageFileCollection instead of this, but it is about
     4 times slower than my make_summary, so I cannot use it yet.
 
-    Example
+    Examples
     -------
     >>> from pathlib import Path
     >>> import ysfitsutilpy as yfu

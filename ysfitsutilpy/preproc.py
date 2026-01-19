@@ -265,7 +265,7 @@ def crrej(
     >>> import astroscrappy
     >>> astroscrappy.detect_cosmics?
 
-    Example
+    Examples
     -------
     """
     if fs is None:
