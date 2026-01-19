@@ -32,6 +32,7 @@ dependencies = [
   "scipy >= 1.5",
   "astropy >= 5.0",
   "ccdproc >= 2.0",
+  "astrondslice",
   "numba",
   "bottleneck",
   "astroscrappy",
