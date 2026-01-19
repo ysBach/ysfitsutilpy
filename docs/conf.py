@@ -58,3 +58,13 @@ html_theme_options = {
 
 # Suppress warnings for missing references in external packages
 nitpicky = False
+
+# Mock imports for modules that might not be available or hard to build
+autodoc_mock_imports = [
+    "astro_ndslice",
+    "astroscrappy",
+    "bottleneck",
+    "numba",
+    "ccdproc",
+    "pandas",
+]
