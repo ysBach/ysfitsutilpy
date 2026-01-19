@@ -145,7 +145,7 @@ def cmt2hdr(
 
     Parameters
     ----------
-    header : Header
+    header : ~astropy.io.fits.Header
         The header.
 
     histcomm : str in ['h', 'hist', 'history', 'c', 'comm', 'comment']
@@ -166,7 +166,7 @@ def cmt2hdr(
           * ``"({:s})"``: plain time in ``()``. ``(2020-01-01T01:01:01.23)``
           * ``"{:_^72s}"``: center align, filling with ``_``.
 
-    t_ref : Time
+    t_ref : ~astropy.time.Time
         The reference time. If not `None`, delta time is calculated.
 
     dt_fmt : str, optional.
@@ -176,7 +176,7 @@ def cmt2hdr(
         Whether to print the same information on the output terminal.
 
     set_kw : dict, optional.
-        The keyword arguments added to `Header.set()`. Default is
+        The keyword arguments added to `~astropy.io.fits.Header.set()`. Default is
         ``{'after':-1}``, i.e., the history or comment will be appended to the
         very last part of the header.
 
@@ -266,7 +266,7 @@ def update_process(
 
     Parameters
     ----------
-    header : Header
+    header : ~astropy.io.fits.Header
         The header to update the ``PROCESS`` (tunable by `key` parameter)
         keyword.
 
@@ -742,7 +742,7 @@ def str_now(
           * ``"({:s})"``: plain time in parentheses ``(2020-01-01T01:01:01.23)``
           * ``"{:_^72s}"``: center align, filling with ``_``.
 
-    t_ref : Time, optional.
+    t_ref : ~astropy.time.Time, optional.
         The reference time. If not `None`, delta time is calculated.
 
     dt_fmt : str, optional.
@@ -870,19 +870,33 @@ def binning(
     This kind of binning is ~ 20-30 to upto 10^5 times faster than
     astropy.nddata's block_reduce:
 
+
     >>> from astropy.nddata.blocks import block_reduce
+
     >>> import ysfitsutilpy as yfu
+
     >>> from astropy.nddata import CCDData
+
     >>> import numpy as np
+
     >>> ccd = CCDData(data=np.arange(1000).reshape(20, 50), unit='adu')
+
     >>> kw = dict(factor_x=5, factor_y=5, binfunc=np.sum, trim_end=True)
+
     >>> %timeit yfu.binning(ccd.data, **kw)
+
     >>> # 10.9 +- 0.216 us (7 runs, 100000 loops each)
+
     >>> %timeit yfu.bin_ccd(ccd, **kw, update_header=False)
+
     >>> # 32.9 µs +- 878 ns per loop (7 runs, 10000 loops each)
+
     >>> %timeit -r 1 -n 1 block_reduce(ccd, block_size=5)
+
     >>> # 518 ms, 2.13 ms, 250 us, 252 us, 257 us, 267 us
+
     >>> # 5.e+5   ...      ...     ...     ...     27  -- times slower
+
     >>> # some strange chaching happens?
     Tested on MBP 15" [2018, macOS 10.14.6, i7-8850H (2.6 GHz; 6-core), RAM 16
     GB (2400MHz DDR4), Radeon Pro 560X (4GB)]

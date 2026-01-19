@@ -113,7 +113,7 @@ def write2fits(data, header, output, return_ccd=False, **kwargs):
         The output file path
 
     return_ccd : bool, optional.
-        Whether to return the generated CCDData.
+        Whether to return the generated ~astropy.nddata.CCDData.
 
     **kwargs :
         The keyword arguements to write FITS file by
@@ -140,7 +140,7 @@ def _parse_data_header(
 
     Parameters
     ---------
-    ccdlike : CCDData, PrimaryHDU, ImageHDU, HDUList, Header, ndarray, number-like, path-like, None
+    ccdlike : ~astropy.nddata.CCDData, ~astropy.io.fits.PrimaryHDU, ~astropy.io.fits.ImageHDU, ~astropy.io.fits.HDUList, ~astropy.io.fits.Header, ndarray, number-like, path-like, None
         The object to be parsed into data and header.
 
     extension: int, str, (str, int)
@@ -160,7 +160,7 @@ def _parse_data_header(
         The data part of the input `ccdlike`. If `ccdlike` is ``''`` or `None`,
         `None` is returned.
 
-    hdr : Header, None
+    hdr : ~astropy.io.fits.Header, None
         The header if header exists; otherwise, `None` is returned.
 
     Notes
@@ -168,7 +168,7 @@ def _parse_data_header(
     _parse_data_header and _parse_image have different purposes:
     _parse_data_header is to get a quick copy of the data and/or header,
     especially to CHECK if it has header, while _parse_image is to deal mainly
-    with the data (and has options to return as CCDData).
+    with the data (and has options to return as ~astropy.nddata.CCDData).
     """
     if ccdlike is None or (isinstance(ccdlike, str) and ccdlike == ""):
         data = None
@@ -264,10 +264,10 @@ def _parse_image(
     prefer_ccddata=False,
     copy=True,
 ):
-    """Parse and return input image as desired format (ndarray or CCDData)
+    """Parse and return input image as desired format (ndarray or ~astropy.nddata.CCDData)
     Parameters
     ----------
-    ccdlike : CCDData-like (e.g., PrimaryHDU, ImageHDU, HDUList), ndarray, path-like, or number-like
+    ccdlike : ~astropy.nddata.CCDData-like (e.g., ~astropy.io.fits.PrimaryHDU, ~astropy.io.fits.ImageHDU, ~astropy.io.fits.HDUList), ndarray, path-like, or number-like
         The "image" that will be parsed. A string that can be converted to
         float (``float(im)``) will be interpreted as numbers; if not, it will
         be interpreted as a path to the FITS file.
@@ -292,7 +292,7 @@ def _parse_image(
 
     Returns
     -------
-    new_im : ndarray or CCDData
+    new_im : ndarray or ~astropy.nddata.CCDData
         Depending on the options `force_ccddata` and `prefer_ccddata`.
 
     imname : str
@@ -306,17 +306,25 @@ def _parse_image(
     _parse_data_header and _parse_image have different purposes:
     _parse_data_header is to get a quick copy of the data and/or header,
     especially to CHECK if it has header, while _parse_image is to deal mainly
-    with the data (and has options to return as CCDData).
+    with the data (and has options to return as ~astropy.nddata.CCDData).
 
     Timing on MBP 14" [2021, macOS 12.2.1, M1Pro(6P+2E/G16c/N16c/32G)]:
 
+
     >>> np.random.RandomState(123)
+
     >>> data = np.random.normal(size=(100,100))
+
     >>> ccd = CCDData(data, unit='adu')
+
     >>> fpath = "img/0001.fits"  # doctest: +SKIP
+
     >>> %timeit yfu._parse_image(data, name="test", force_ccddata=True)
+
     >>> %timeit yfu._parse_image(ccd, name="test", force_ccddata=True)
+
     >>> %timeit yfu._parse_image(fpath, name="test", force_ccddata=True) # doctest: +SKIP
+
     >>> %timeit yfu._parse_image(fpath, name="test", force_ccddata=False)[0]*1.0 # doctest: +SKIP
     # 14.2 µs +- 208 ns per loop (mean +- std. dev. of 7 runs, 100000 loops each)
     # 16.6 µs +- 298 ns per loop (mean +- std. dev. of 7 runs, 100000 loops each)
@@ -429,14 +437,14 @@ def _has_header(ccdlike, extension=None, open_if_file=True):
 
     Parameters
     ---------
-    ccdlike : CCDData, PrimaryHDU, ImageHDU, HDUList, ndarray, number-like, path-like
+    ccdlike : ~astropy.nddata.CCDData, ~astropy.io.fits.PrimaryHDU, ~astropy.io.fits.ImageHDU, ~astropy.io.fits.HDUList, ndarray, number-like, path-like
         The object to be parsed into data and header.
 
     extension: int, str, (str, int)
         The extension of FITS to be used. It can be given as integer
         (0-indexing) of the extension, ``EXTNAME`` (single str), or a tuple of
         str and int: ``(EXTNAME, EXTVER)``. If `None` (default), the *first
-        extension with data* will be used. Used only if `ccdlike` is HDUList or
+        extension with data* will be used. Used only if `ccdlike` is ~astropy.io.fits.HDUList or
         path-like.
 
     open_if_file : bool, optional.
@@ -447,7 +455,7 @@ def _has_header(ccdlike, extension=None, open_if_file=True):
 
     Notes
     -----
-    It first checks if the input is one of ``(CCDData, fits.PrimaryHDU,
+    It first checks if the input is one of ``(~astropy.nddata.CCDData, fits.PrimaryHDU,
     fits.ImageHDU)``, then if `fits.HDUList`, then if `np.ndarray`, then if
     number-like, and then finally if path-like. Although this has a bit of
     disadvantage considering we may use file-path for most of the time, the
@@ -490,12 +498,12 @@ def _has_header(ccdlike, extension=None, open_if_file=True):
 
 def _parse_extension(*args, ext=None, extname=None, extver=None):
     """
-    Open the input file, return the `HDUList` and the extension.
+    Open the input file, return the `~astropy.io.fits.HDUList` and the extension.
 
     This supports several different styles of extension selection.  See the
     :func:`getdata()` documentation for the different possibilities.
 
-    Direct copy from astropy, but removing "opening HDUList" part
+    Direct copy from astropy, but removing "opening ~astropy.io.fits.HDUList" part
     https://github.com/astropy/astropy/blob/master/astropy/io/fits/convenience.py#L988
 
     This is essential for fits_ccddata_reader, because it only has `hdu`, not
@@ -622,9 +630,9 @@ def load_ccd(
         Deprecated. (identical to `ccddata`)
 
     use_wcs : bool, optional.
-        Whether to load WCS by `fits.getheader`, **not** by
+        Whether to load ~astropy.wcs.WCS by `fits.getheader`, **not** by
         `~astropy.nddata.fits_ccdddata_reader`. This is necessary as of now
-        because TPV WCS is not properly understood by the latter. It can
+        because TPV ~astropy.wcs.WCS is not properly understood by the latter. It can
         degrade the performance, so if the user is sure the file is **not** in
         TPV, it is recommended to set it to `False`.
         Default : `True`.
@@ -633,9 +641,9 @@ def load_ccd(
         ..warning::
             `~astropy.nddata.fits_ccdddata_reader` uses
             ``_generate_wcs_and_update_header``, which **removes** all
-            WCS-specific keywords from the header and extract information and
+            ~astropy.wcs.WCS-specific keywords from the header and extract information and
             save it into the attribute, `ccd.wcs`. Following this rule,
-            `load_ccd` will save WCS information in `ccd.wcs`, and the
+            `load_ccd` will save ~astropy.wcs.WCS information in `ccd.wcs`, and the
             corresponding keywords will not present in `ccd.header`. They will
             correctly be saved when writing it into a file (N.B. `ccd.write` is
             a combination of `ccd.to_hdu(wcs_relax=True)` & `hdu.writeto`.
@@ -643,8 +651,8 @@ def load_ccd(
             `header.extend(ccd.wcs.to_header())`)
 
         ..warning::
-            Use ``ccd.wcs``, but not ``WCS(ccd.header)``. astropy often parses
-            WCS erroneously for some non-standard ones.
+            Use ``ccd.wcs``, but not ``~astropy.wcs.WCS(ccd.header)``. astropy often parses
+            ~astropy.wcs.WCS erroneously for some non-standard ones.
 
     unit : `~astropy.units.Unit`, optional
         Units of the image data. If this argument is provided and there is a
@@ -706,7 +714,7 @@ def load_ccd(
 
     Returns
     -------
-    CCDData (``ccddata=True``) or ndarray (``ccddata=False``). For the latter
+    ~astropy.nddata.CCDData (``ccddata=True``) or ndarray (``ccddata=False``). For the latter
     case, if ``load_primary_only_fitsio=False``, the uncertainty and mask
     extensions, as well as flags (not supported, so just `None`) will be
     returned as well as the one specified by `extension`.
@@ -722,12 +730,12 @@ def load_ccd(
     and
     https://github.com/astropy/astropy/blob/master/astropy/io/fits/convenience.py#L120).
 
-    CCDData.read cannot read TPV WCS:
+    ~astropy.nddata.CCDData.read cannot read TPV ~astropy.wcs.WCS:
     https://github.com/astropy/astropy/issues/7650
     Also memory map must be set False to avoid memory problem
     https://github.com/astropy/astropy/issues/9096
-    Plus, WCS info from astrometry.net solve-field sometimes not understood by
-    CCDData.read.... 2020-05-31 16:39:51 (KST: GMT+09:00) ysBach
+    Plus, ~astropy.wcs.WCS info from astrometry.net solve-field sometimes not understood by
+    ~astropy.nddata.CCDData.read.... 2020-05-31 16:39:51 (KST: GMT+09:00) ysBach
     Why the name of the argument is different (`hdu`) in
     fits_ccddata_reader...;;
 
@@ -743,41 +751,41 @@ def load_ccd(
         !fitsinfo test.fits
         Filename: test.fits
         No.    Name      Ver    Type      Cards   Dimensions   Format
-          0  PRIMARY       1 PrimaryHDU       6   (1,)   int64
-          1  a             1 ImageHDU         7   (1,)   int64
-          2  a             1 ImageHDU         7   (1,)   int64
-          3  a             2 ImageHDU         8   (1,)   int64
+          0  PRIMARY       1 ~astropy.io.fits.PrimaryHDU       6   (1,)   int64
+          1  a             1 ~astropy.io.fits.ImageHDU         7   (1,)   int64
+          2  a             1 ~astropy.io.fits.ImageHDU         7   (1,)   int64
+          3  a             2 ~astropy.io.fits.ImageHDU         8   (1,)   int64
 
         %timeit fitsio.FITS("test.fits")["a", 2].read()
         %timeit fitsio.FITS("test.fits")[0].read()
         118 µs +/- 564 ns per loop (mean +/- std. dev. of 7 runs, 10000 loops each)
         117 µs +/- 944 ns per loop (mean +/- std. dev. of 7 runs, 10000 loops each)
 
-        %timeit CCDData.read("test.fits")
-        %timeit CCDData.read("test.fits", hdu=("a", 2), unit='adu')
+        %timeit ~astropy.nddata.CCDData.read("test.fits")
+        %timeit ~astropy.nddata.CCDData.read("test.fits", hdu=("a", 2), unit='adu')
         10.7 ms +/- 113 µs per loop (mean +/- std. dev. of 7 runs, 100 loops each)
         11 ms +/- 114 µs per loop (mean +/- std. dev. of 7 runs, 100 loops each)
     ```
     For a 1k by 1k image, it's ~ 6 times faster
     ```
         np.random.seed(123)
-        ccd = CCDData(data=np.random.normal(
+        ccd = ~astropy.nddata.CCDData(data=np.random.normal(
             size=(1000, 1000)).astype('float32'), unit='adu'
         )
         ccd.write("test1k_32bit.fits")
         %timeit fitsio.FITS("test10k_32bit.fits")[0].read()
         1.49 ms +/- 91.1 µs per loop (mean +/- std. dev. of 7 runs, 1000 loops each)
-        %timeit CCDData.read("test10k_32bit.fits")
+        %timeit ~astropy.nddata.CCDData.read("test10k_32bit.fits")
         8.9 ms +/- 97.6 µs per loop (mean +/- std. dev. of 7 runs, 100 loops each)
     ```
     For a 10k by 10k image, it's still ~ 6 times faster
     ```
-        ccd = CCDData(data=np.random.normal(
+        ccd = ~astropy.nddata.CCDData(data=np.random.normal(
             size=(10000, 10000)).astype('float32'), unit='adu'
         )
         %timeit fitsio.FITS("test10k_32bit.fits")[0].read()
         1.4 ms +/- 123 µs per loop (mean +/- std. dev. of 7 runs, 1000 loops each)
-        %timeit CCDData.read("test10k_32bit.fits")
+        %timeit ~astropy.nddata.CCDData.read("test10k_32bit.fits")
         9.42 ms +/- 391 µs per loop (mean +/- std. dev. of 7 runs, 100 loops each)
     ```
     """
@@ -924,7 +932,7 @@ def inputs2list(
 
     Parameters
     ----------
-    inputs : str, path-like, CCDData, fits.PrimaryHDU, fits.ImageHDU, DataFrame-convertable.
+    inputs : str, path-like, ~astropy.nddata.CCDData, fits.PrimaryHDU, fits.ImageHDU, DataFrame-convertable.
         If DataFrame-convertable, e.g., dict, `~pandas.DataFrame` or
         `~astropy.table.Table`, it must have column named ``"file"``, such that
         ``outlist = list(inputs["file"])`` is possible. Otherwise, please use,
@@ -1068,11 +1076,11 @@ def load_ccds(
 
 
 def CCDData_astype(ccd, dtype="float32", uncertainty_dtype=None, copy=True):
-    """Assign dtype to the CCDData object (numpy uses float64 default).
+    """Assign dtype to the ~astropy.nddata.CCDData object (numpy uses float64 default).
 
     Parameters
     ----------
-    ccd : CCDData
+    ccd : ~astropy.nddata.CCDData
         The ccd to be astyped.
 
     dtype : dtype-like
@@ -1084,10 +1092,15 @@ def CCDData_astype(ccd, dtype="float32", uncertainty_dtype=None, copy=True):
 
     Examples
     -------
+
     >>> from astropy.nddata import CCDData
+
     >>> import numpy as np
+
     >>> ccd = CCDData.read("image_unitygain001.fits", 0)
+
     >>> ccd.uncertainty = np.sqrt(ccd.data)
+
     >>> ccd = yfu.CCDData_astype(ccd, dtype='int16', uncertainty_dtype='float32')
     """
     if copy:
@@ -1128,7 +1141,7 @@ def set_ccd_attribute(
 
     Parameters
     ----------
-    ccd : CCDData
+    ccd : ~astropy.nddata.CCDData
         The ccd to add attribute.
 
     value : Any, optional.
@@ -1160,7 +1173,9 @@ def set_ccd_attribute(
 
     Examples
     -------
+
     >>> set_ccd_attribute(ccd, 'gain', value=2, unit='electron/adu')
+
     >>> set_ccd_attribute(ccd, 'ra', key='RA', unit=u.deg, default=0)
 
     Notes
@@ -1278,11 +1293,11 @@ def set_ccd_gain_rdnoise(
 # *                                   CCD MANIPULATIONS                                  * #
 # **************************************************************************************** #
 def propagate_ccdmask(ccd, additional_mask=None):
-    """Propagate the CCDData's mask and additional mask.
+    """Propagate the ~astropy.nddata.CCDData's mask and additional mask.
 
     Parameters
     ----------
-    ccd : CCDData, ndarray
+    ccd : ~astropy.nddata.CCDData, ndarray
         The ccd to extract mask. If ndarray, it will only return a copy of
         `additional_mask`.
 
@@ -1292,6 +1307,7 @@ def propagate_ccdmask(ccd, additional_mask=None):
     Notes
     -----
     The original ``ccd.mask`` is not modified. To do so,
+
     >>> ccd.mask = propagate_ccdmask(ccd, additional_mask=mask2)
     """
     if additional_mask is None:
@@ -1310,12 +1326,12 @@ def propagate_ccdmask(ccd, additional_mask=None):
 def imslice(
     ccd, trimsec, fill_value=None, order_xyz=True, update_header=True, verbose=False
 ):
-    """Slice the CCDData using one of trimsec, bezels, or slices.
+    """Slice the ~astropy.nddata.CCDData using one of trimsec, bezels, or slices.
 
     Parameters
     ---------
-    ccd : CCDData, ndarray
-        The ccd to be sliced. If ndarray, it will be converted to CCDData with
+    ccd : ~astropy.nddata.CCDData, ndarray
+        The ccd to be sliced. If ndarray, it will be converted to ~astropy.nddata.CCDData with
         dummy unit ("ADU").
 
     trimsec : str, int, list of int, list of slice, None, optional
@@ -1420,7 +1436,7 @@ def trim_overlap(inputs, extension=None, coordinate="image"):
 
     Notes
     -----
-    WCS is not acceptable because no rotation/scaling is supported.
+    ~astropy.wcs.WCS is not acceptable because no rotation/scaling is supported.
     """
     items = inputs2list(inputs, sort=False, accept_ccdlike=True, check_coherency=False)
     if len(items) < 2:
@@ -1457,11 +1473,11 @@ def cut_ccd(
     update_header=True,
     verbose=0,
 ):
-    """Converts the Cutout2D object to proper CCDData.
+    """Converts the Cutout2D object to proper ~astropy.nddata.CCDData.
 
     Parameters
     ----------
-    ccd: CCDData
+    ccd: ~astropy.nddata.CCDData
         The ccd to be trimmed.
 
     position : tuple or `~astropy.coordinates.SkyCoord`
@@ -1489,9 +1505,9 @@ def cut_ccd(
             are not taken into account.
 
     wcs : `~astropy.wcs.WCS`, optional
-        A WCS object associated with the input `data` array.  If `wcs` is not
+        A ~astropy.wcs.WCS object associated with the input `data` array.  If `wcs` is not
         `None`, then the returned cutout object will contain a copy of the
-        updated WCS for the cutout data array.
+        updated ~astropy.wcs.WCS for the cutout data array.
 
     mode : {'trim', 'partial', 'strict'}, optional
         The mode used for creating the cutout data array.  For the
@@ -1567,7 +1583,7 @@ def bin_ccd(
 
     Parameters
     ---------
-    ccd : CCDData
+    ccd : ~astropy.nddata.CCDData
         The ccd to be binned
 
     factor_x, factor_y : int, optional.
@@ -1588,19 +1604,33 @@ def bin_ccd(
     -----
     This is ~ 20-30 to upto 10^5 times faster than astropy.nddata's
     block_reduce:
+
     >>> from astropy.nddata.blocks import block_reduce
+
     >>> import ysfitsutilpy as yfu
+
     >>> from astropy.nddata import CCDData
+
     >>> import numpy as np
+
     >>> ccd = CCDData(data=np.arange(1000).reshape(20, 50), unit='adu')
+
     >>> kw = dict(factor_x=5, factor_y=5, binfunc=np.sum, trim_end=True)
+
     >>> %timeit yfu.binning(ccd.data, **kw)
+
     >>> # 10.9 +- 0.216 us (7 runs, 100000 loops each)
+
     >>> %timeit yfu.bin_ccd(ccd, **kw, update_header=False)
+
     >>> # 32.9 µs +- 878 ns per loop (7 runs, 10000 loops each)
+
     >>> %timeit -r 1 -n 1 block_reduce(ccd, block_size=5)
+
     >>> # 518 ms, 2.13 ms, 250 us, 252 us, 257 us, 267 us
+
     >>> # 5.e+5   ...      ...     ...     ...     27  -- times slower
+
     >>> # some strange chaching happens?
     Tested on  MBP 15" [2018, macOS 10.14.6, i7-8850H (2.6 GHz; 6-core), RAM 16
     GB (2400MHz DDR4), Radeon Pro 560X (4GB)]
@@ -1659,10 +1689,10 @@ def fixpix(
     """Interpolate the masked location (N-D generalization of IRAF PROTO.FIXPIX)
     Parameters
     ----------
-    ccd : CCDData-like (e.g., PrimaryHDU, ImageHDU, HDUList), ndarray, path-like, or number-like
+    ccd : ~astropy.nddata.CCDData-like (e.g., ~astropy.io.fits.PrimaryHDU, ~astropy.io.fits.ImageHDU, ~astropy.io.fits.HDUList), ndarray, path-like, or number-like
         The CCD data to be "fixed".
 
-    mask : CCDData-like (e.g., PrimaryHDU, ImageHDU, HDUList), ndarray, path-like
+    mask : ~astropy.nddata.CCDData-like (e.g., ~astropy.io.fits.PrimaryHDU, ~astropy.io.fits.ImageHDU, ~astropy.io.fits.HDUList), ndarray, path-like
         The mask to be used for fixing pixels (pixels to be fixed are where
         `mask` is `True`). If `None`, nothing will happen and `ccd` is
         returned.
@@ -1688,12 +1718,18 @@ def fixpix(
     Timing test: MBP 15" [2018, macOS 11.4, i7-8850H (2.6 GHz; 6-core), RAM 16
     GB (2400MHz DDR4), Radeon Pro 560X (4GB)], 2021-11-05 11:14:04 (KST:
     GMT+09:00)
+
     >>> np.random.RandomState(123)  # RandomState(MT19937) at 0x7FAECA768D40
+
     >>> data = np.random.normal(size=(1000, 1000))
+
     >>> mask = np.zeros_like(data).astype(bool)
+
     >>> mask[10, 10] = True
+
     >>> %timeit yfu.fixpix(data, mask)
     19.7 ms +- 1.53 ms per loop (mean +- std. dev. of 7 runs, 100 loops each)
+
     >>> print(data[9:12, 9:12], yfu.fixpix(data, mask)[9:12, 9:12])
     # [[ 1.64164502 -1.00385046 -1.24748504]
     #  [-1.31877621  1.37965928  0.66008966]
@@ -1910,10 +1946,10 @@ def find_extpix(
 
     Parameters
     ---------
-    ccd : CCDData
+    ccd : ~astropy.nddata.CCDData
         The ccd to find extreme values
 
-    mask : CCDData-like (e.g., PrimaryHDU, ImageHDU, HDUList), ndarray, path-like, or number-like
+    mask : ~astropy.nddata.CCDData-like (e.g., ~astropy.io.fits.PrimaryHDU, ~astropy.io.fits.ImageHDU, ~astropy.io.fits.HDUList), ndarray, path-like, or number-like
         The mask to be used. To reduce file I/O time, better to provide
         ndarray.
 
@@ -2016,11 +2052,11 @@ def find_satpix(
 
     Parameters
     ---------
-    ccd : CCDData, ndarray
+    ccd : ~astropy.nddata.CCDData, ndarray
         The ccd to find extreme values. If `ndarray`, `update_header` will
         automatically be set to `False`.
 
-    mask : CCDData-like (e.g., PrimaryHDU, ImageHDU, HDUList), ndarray, path-like, or number-like
+    mask : ~astropy.nddata.CCDData-like (e.g., ~astropy.io.fits.PrimaryHDU, ~astropy.io.fits.ImageHDU, ~astropy.io.fits.HDUList), ndarray, path-like, or number-like
         The mask to be used. To reduce file I/O time, better to provide
         ndarray.
 
@@ -2121,7 +2157,7 @@ def errormap(
 
     Parameters
     ----------
-    ccd : CCDData, PrimaryHDU, ImageHDU, ndarray.
+    ccd : ~astropy.nddata.CCDData, ~astropy.io.fits.PrimaryHDU, ~astropy.io.fits.ImageHDU, ndarray.
         The ccd data which will be used to generate error map. It must be
         **bias subtracted**. If dark is subtracted, give `subtracted_dark`.
         This array will be added to ``ccd.data`` and used to calculate the
@@ -2170,12 +2206,19 @@ def errormap(
 
     Examples
     -------
+
     >>> from astropy.nddata import CCDData, StdDevUncertainty
+
     >>> ccd = CCDData.read("obj001.fits", 0)
+
     >>> hdr = ccd.header
+
     >>> dark = CCDData.read("master_dark.fits", 0)
+
     >>> params = dict(gain_epadu=hdr["GAIN"], rdnoise_electron=hdr["RDNOISE"],
+
     >>>               subtracted_dark=dark.data)
+
     >>> ccd.uncertainty = StdDevUncertainty(errormap(ccd, **params))
 
     """
@@ -2248,8 +2291,8 @@ def hedit(
 
     Parameters
     ----------
-    item : `astropy` header, path-like, CCDData-like
-        The FITS file or header to edit. If `Header`, it is updated
+    item : `astropy` header, path-like, ~astropy.nddata.CCDData-like
+        The FITS file or header to edit. If `~astropy.io.fits.Header`, it is updated
         **inplace**.
 
     keys : str, list-like of str
@@ -2280,8 +2323,8 @@ def hedit(
 
     Returns
     -------
-    ccd : CCDData
-        The header-updated CCDData. `None` if `item` was pure Header.
+    ccd : ~astropy.nddata.CCDData
+        The header-updated ~astropy.nddata.CCDData. `None` if `item` was pure ~astropy.io.fits.Header.
     """
 
     def _add_key(header, key, val, infostr, cmt=None, before=None, after=None):
@@ -2340,7 +2383,7 @@ def key_remover(header, remove_keys, deepremove=True):
 
     Parameters
     ----------
-    header : Header
+    header : ~astropy.io.fits.Header
         The header to be modified
 
     remove_keys : list of str
@@ -2378,7 +2421,7 @@ def key_mapper(header, keymap=None, deprecation=False, remove=False):
 
     Parameters
     ----------
-    header : Header
+    header : ~astropy.io.fits.Header
         The header to be modified
 
     keymap : dict
@@ -2400,7 +2443,7 @@ def key_mapper(header, keymap=None, deprecation=False, remove=False):
 
     Returns
     -------
-    newhdr: Header
+    newhdr: ~astropy.io.fits.Header
         The updated (key-mapped) header.
 
     Notes
@@ -2536,7 +2579,7 @@ def valinhdr(val=None, header=None, key=None, default=None, unit=None):
         useful if the API wants to override the header value by the
         user-provided one.
 
-    header : Header, optional.
+    header : ~astropy.io.fits.Header, optional.
         The header to extract the value if `value` is `None`.
 
     key : str, optional.
@@ -2576,7 +2619,7 @@ def valinhdr(val=None, header=None, key=None, default=None, unit=None):
     assert valinhdr(test_v, hdr, "EXPTIxx", default=0, unit='s') == test_q  # ~ 11 us
     assert valinhdr(test_q, hdr, "EXPTIxx", default=0, unit='s') == test_q  # ~ 15 us
 
-    For a test CCDData, the following timing gave ~ 0.5 ms on MBP 15" [2018,
+    For a test ~astropy.nddata.CCDData, the following timing gave ~ 0.5 ms on MBP 15" [2018,
     macOS 11.6, i7-8850H (2.6 GHz; 6-core), RAM 16 GB (2400MHz DDR4), Radeon
     Pro 560X (4GB)]
     %timeit ((yfu.valinhdr(None, ccd.header, "EXPTIME", unit=u.s)
@@ -2750,7 +2793,7 @@ def center_radec(
     verbose=True,
     plain=False,
 ):
-    """Returns the central ra/dec from header or WCS.
+    """Returns the central ra/dec from header or ~astropy.wcs.WCS.
 
     Notes
     -----
@@ -2759,11 +2802,11 @@ def center_radec(
 
     Parameters
     ----------
-    ccd_or_header : CCD-like, Header
-        The ccd or header to extract the central RA/DEC from keywords or WCS.
+    ccd_or_header : CCD-like, ~astropy.io.fits.Header
+        The ccd or header to extract the central RA/DEC from keywords or ~astropy.wcs.WCS.
 
     center_of_image : bool, optional
-        If `True`, WCS information will be extracted from the ccd or header,
+        If `True`, ~astropy.wcs.WCS information will be extracted from the ccd or header,
         rather than relying on the `ra_key` and `dec_key` keywords directly. If
         `False`, `ra_key` and `dec_key` from the header will be understood as
         the "center" and the RA, DEC of that location will be returned.
@@ -2781,7 +2824,7 @@ def center_radec(
 
     mode : 'all' or 'wcs', optional
         Whether to do the transformation including distortions (``'all'``) or
-        only including only the core WCS transformation (``'wcs'``). Important
+        only including only the core ~astropy.wcs.WCS transformation (``'wcs'``). Important
         only if ``usewcs=True``.
 
     plain : bool
@@ -2820,15 +2863,15 @@ def center_radec(
 
 
 def fov_radius(header=None, wcs=None, unit=u.deg):
-    """Calculates the rough radius (cone) of the (square) FOV using WCS.
+    """Calculates the rough radius (cone) of the (square) FOV using ~astropy.wcs.WCS.
 
     Parameters
     ----------
-    header: Header
-        The header to extract WCS information.
+    header: ~astropy.io.fits.Header
+        The header to extract ~astropy.wcs.WCS information.
 
-    wcs : WCS
-        The WCS to extract the information. If `None`, it will be extracted
+    wcs : ~astropy.wcs.WCS
+        The ~astropy.wcs.WCS to extract the information. If `None`, it will be extracted
         from `header`.
 
     Returns
@@ -2865,7 +2908,7 @@ def wcsremove(
     checksum=False,
     verbose=True,
 ):
-    """Remove most WCS related keywords from the header.
+    """Remove most ~astropy.wcs.WCS related keywords from the header.
 
     Parameters
     ---------
@@ -2884,12 +2927,12 @@ def wcsremove(
         `extension`.
 
         ..note::
-            If there is no need to use the returned `CCDData`, it is better to
+            If there is no need to use the returned `~astropy.nddata.CCDData`, it is better to
             set `ccddata=False` to improve the performance.
 
         ..warning::
-            The returned `CCDData` will have `ccd.wcs` as `None`, while if the
-            saved `output` is read by `CCDData.read(filename)`, it will have
+            The returned `~astropy.nddata.CCDData` will have `ccd.wcs` as `None`, while if the
+            saved `output` is read by `~astropy.nddata.CCDData.read(filename)`, it will have
             the proper `ccd.wcs`.
 
     extension: int, str, (str, int)
@@ -2919,7 +2962,7 @@ def wcsremove(
     Notes
     ----
     For ``yfu.wcsremove("test.fit")`` with a simple 33.6MB FITS file (71
-    keywords, 20 WCS-related keywords, 5 COMMENTs) on MBP 14" [2021, macOS
+    keywords, 20 ~astropy.wcs.WCS-related keywords, 5 COMMENTs) on MBP 14" [2021, macOS
     13.1, M1Pro(6P+2E/G16c/N16c/32G)]:
 
         V A C
@@ -2938,7 +2981,7 @@ def wcsremove(
         O O O = 11.2 ± 0.4 ms
         X O O = 10.6 ± 0.2 ms
 
-    Return PrimaryHDU without converting to CCDData (almost 5x faster):
+    Return ~astropy.io.fits.PrimaryHDU without converting to ~astropy.nddata.CCDData (almost 5x faster):
         V A C
         X X X =  1.9 ± 0.0 ms
         X O X =  2.1 ± 0.0 ms
@@ -3084,16 +3127,16 @@ def wcsremove(
 
 
 def pixel_scale(header=None, wcs=None, unit=u.arcsec, position=None):
-    """Calculates the rough pixel scale using WCS.
+    """Calculates the rough pixel scale using ~astropy.wcs.WCS.
 
     Parameters
     ----------
-    header: Header
-        The header to extract WCS information.
+    header: ~astropy.io.fits.Header
+        The header to extract ~astropy.wcs.WCS information.
         It is used when `wcs` is `None` or `position` is `"physical"`.
 
-    wcs : WCS
-        The WCS to extract the information. If `None`, it will be extracted
+    wcs : ~astropy.wcs.WCS
+        The ~astropy.wcs.WCS to extract the information. If `None`, it will be extracted
         from `header`.
 
     unit : astropy unit
@@ -3146,19 +3189,19 @@ def convert_bit(
 
     Parameters
     ----------
-    ccd: CCDData
-        The CCDData object to be converted.
+    ccd: ~astropy.nddata.CCDData
+        The ~astropy.nddata.CCDData object to be converted.
 
     original_bit, target_bit: int
-        The original and target bit of the CCDData object. For example, if
+        The original and target bit of the ~astropy.nddata.CCDData object. For example, if
         these are 12 and 16, respectively, the effect will be dividing the
         original data by 2^4 = 16.
 
     dtype: str
-        The data type of the output CCDData object.
+        The data type of the output ~astropy.nddata.CCDData object.
 
     bunit: str
-        The unit of the output CCDData object. Set it to None to keep the
+        The unit of the output ~astropy.nddata.CCDData object. Set it to None to keep the
         original ``"BUNIT"`` in the header.
 
     Notes
@@ -3201,7 +3244,7 @@ def give_stats(
 
     Parameters
     ----------
-    item: array-like, CCDData, HDUList, PrimaryHDU, ImageHDU, or path-like
+    item: array-like, ~astropy.nddata.CCDData, ~astropy.io.fits.HDUList, ~astropy.io.fits.PrimaryHDU, ~astropy.io.fits.ImageHDU, or path-like
         The data or path to a FITS file to be analyzed.
 
     mask : array-like, optional
@@ -3238,7 +3281,7 @@ def give_stats(
     result : dict
         The dict which contains all the statistics.
 
-    hdr : Header
+    hdr : ~astropy.io.fits.Header
         The updated header. Returned only if `update_header` is `True` and
         `item` is FITS file path or has `header` attribute (e.g.,
         `~astropy.nddata.CCDData` or `hdu`)
@@ -3250,16 +3293,25 @@ def give_stats(
 
     Examples
     -------
+
     >>> bias = CCDData.read("bias_bin11.fits")
+
     >>> dark = CCDData.read("pdark_300s_27C_bin11.fits")
+
     >>> percentiles = [0.1, 1, 5, 95, 99, 99.9]
+
     >>> give_stats(bias, percentiles=percentiles, N_extrema=5)
+
     >>> give_stats(dark, percentiles=percentiles, N_extrema=5)
     Or just simply
+
     >>> give_stats("bias_bin11.fits", percentiles=percentiles, N_extrema=5)
     To update the header
+
     >>> ccd = CCDData.read("bias_bin11.fits", unit='adu')
+
     >>> _, hdr = (ccd, N_extrema=10, update_header=True)
+
     >>> ccd.header = hdr
     # To read the stringfied list into python list (e.g., percentiles):
     # >>> import json

@@ -91,16 +91,24 @@ def group_fits(
 
     Examples
     --------
+
     >>> allfits = list(Path('.').glob("*.fits"))
+
     >>> summary_table = make_summary(allfits)
+
     >>> type_key = ["OBJECT"]
+
     >>> type_val = ["dark"]
+
     >>> group_key = ["EXPTIME"]
+
     >>> gs, g_key = group_fits(summary_table,
     ...                        type_key,
     ...                        type_val,
     ...                        group_key)
+
     >>> for g_val, group in gs:
+
     >>>     _ = combine_ccd(group["file"],
     ...                     type_key=g_key,
     ...                     type_val=g_val)
@@ -156,7 +164,7 @@ def select_fits(
 
     Parameters
     ----------
-    inputs : path-like, CCDData, fits.PrimaryHDU, fits.ImageHDU,pandas.DataFrame or astropy.table.Table
+    inputs : path-like, ~astropy.nddata.CCDData, fits.PrimaryHDU, fits.ImageHDU,pandas.DataFrame or astropy.table.Table
         If it is path-like, it must contain FITS files to extract header. If
         CCD-like, the header information will be used for selecting elements to
         select.
@@ -184,10 +192,10 @@ def select_fits(
         FITS files. Ignored if `inputs` is CCD-like.
 
     prefer_ccddata: bool, optional
-        Whether to prefer to return CCDData objects if possible. If `True`,
-        path-like, ndarray, or table-like input will return a list of CCDData.
+        Whether to prefer to return ~astropy.nddata.CCDData objects if possible. If `True`,
+        path-like, ndarray, or table-like input will return a list of ~astropy.nddata.CCDData.
         If `False` (default), only the paths will be returned unless the
-        `inputs` is consist of CCDData. Ignored if `inputs` is already
+        `inputs` is consist of ~astropy.nddata.CCDData. Ignored if `inputs` is already
         CCD-like.
 
     type_key, type_val: str, list of str
@@ -195,10 +203,10 @@ def select_fits(
 
     Returns
     -------
-    matched: list of Path or list of CCDData
+    matched: list of Path or list of ~astropy.nddata.CCDData
         list containing Path to files if `prefer_ccddata` is `False`. Otherwise
-        it is a list containing loaded CCDData after loading the files. If
-        `ccdlist` is given a priori, list of CCDData will be returned
+        it is a list containing loaded ~astropy.nddata.CCDData after loading the files. If
+        `ccdlist` is given a priori, list of ~astropy.nddata.CCDData will be returned
         regardless of `prefer_ccddata`.
     """
 
@@ -422,13 +430,13 @@ def stack_FITS(
 
     Parameters
     ----------
-    fitslist: None, [list of] path-like, or [list of] CCDData
-        The list of path to FITS files or the list of CCDData to be stacked. It
-        is useful to give list of CCDData if you have already stacked/loaded
+    fitslist: None, [list of] path-like, or [list of] ~astropy.nddata.CCDData
+        The list of path to FITS files or the list of ~astropy.nddata.CCDData to be stacked. It
+        is useful to give list of ~astropy.nddata.CCDData if you have already stacked/loaded
         FITS file into a list by your own criteria. If `None` (default), you
         must give `fitslist` or `summary_table`. If it is not `None`, this
         function will do very similar job to that of `ccdproc.combine`.
-        Although it is not a good idea, a mixed list of CCDData and paths to
+        Although it is not a good idea, a mixed list of ~astropy.nddata.CCDData and paths to
         the files is also acceptable.
 
     summary_table: None, pandas.DataFrame or astropy.table.Table
@@ -459,7 +467,7 @@ def stack_FITS(
         Default is `None`.
 
     ccddata: bool, optional
-        Whether to return file paths or loaded CCDData. If `False`, it is a
+        Whether to return file paths or loaded ~astropy.nddata.CCDData. If `False`, it is a
         function to select FITS files using `type_key` and `type_val` without
         using much memory.
         This is ignored if `fitslist` is given and composed of
@@ -474,10 +482,10 @@ def stack_FITS(
 
     Returns
     -------
-    matched: list of Path or list of CCDData
+    matched: list of Path or list of ~astropy.nddata.CCDData
         list containing Path to files if `ccddata` is `False`. Otherwise it is
-        a list containing loaded CCDData after loading the files. If `ccdlist`
-        is given a priori, list of CCDData will be returned regardless of
+        a list containing loaded ~astropy.nddata.CCDData after loading the files. If `ccdlist`
+        is given a priori, list of ~astropy.nddata.CCDData will be returned regardless of
         `ccddata`.
     """
     warn("stack_FITS is deprecated; use select_fits.", DeprecationWarning)
@@ -682,13 +690,13 @@ def combine_ccd(
 
     Parameters
     ----------
-    fitslist: path-like, list of path-like, or list of CCDData
-        The list of path to FITS files or the list of CCDData to be stacked. It
-        is useful to give list of CCDData if you have already stacked/loaded
+    fitslist: path-like, list of path-like, or list of ~astropy.nddata.CCDData
+        The list of path to FITS files or the list of ~astropy.nddata.CCDData to be stacked. It
+        is useful to give list of ~astropy.nddata.CCDData if you have already stacked/loaded
         FITS file into a list by your own criteria. If `None` (default), you
         must give `fitslist` or `summary_table`. If it is not `None`, this
         function will do very similar job to that of `ccdproc.combine`.
-        Although it is not a good idea, a mixed list of CCDData and paths to
+        Although it is not a good idea, a mixed list of ~astropy.nddata.CCDData and paths to
         the files is also acceptable.
 
     summary_table: pandas.DataFrame or astropy.table.Table

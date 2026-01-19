@@ -22,10 +22,10 @@ def imcopy(
 
     Parameters
     ----------
-    inputs : glob pattern, list-like of path-like, list-like of CCDData
+    inputs : glob pattern, list-like of path-like, list-like of ~astropy.nddata.CCDData
         The `~glob` pattern for files (e.g., ``"2020*[012].fits"``) or list of
-        files (each element must be path-like or CCDData). Although it is not a
-        good idea, a mixed list of CCDData and paths to the files is also
+        files (each element must be path-like or ~astropy.nddata.CCDData). Although it is not a
+        good idea, a mixed list of ~astropy.nddata.CCDData and paths to the files is also
         acceptable. For the purpose of imcombine function, the best use is to
         use the `~glob` pattern or list of paths.
 
@@ -54,11 +54,11 @@ def imcopy(
         don't change anything.
 
     kwargs : optionals
-        The keyword arguments for ``CCDData.write``.
+        The keyword arguments for ``~astropy.nddata.CCDData.write``.
 
     Returns
     -------
-    results: CCDData or list of CCDData
+    results: ~astropy.nddata.CCDData or list of ~astropy.nddata.CCDData
         Only if `return_ccd` is set `True`. A sinlge `~astropy.nddata.CCDData
         will be returned if only one was input. Otherwise, the same number of
         `~astropy.nddata.CCDData will be gathered as a list and returned.
@@ -73,24 +73,38 @@ def imcopy(
 
     Examples
     -------
+
     >>> from ysfitsutilpy import imcopy
+
     >>> from pathlib import Path
+
     >>>
     >>> datapath = Path("./data")
+
     >>> files = datapath.glob("*.pcr.fits")
+
     >>> sections = ["[50:100, 50:100]", "[50:100, 50:150]"]
+
     >>> outputs = [datapath/"test1.fits", datapath/"test2.fits"]
+
     >>>
     >>> # single file, single section
+
     >>> trim = imcopy(pcrfits[0], sections[0])
+
     >>>
     >>> # single file, multi sections
+
     >>> trims = imcopy(pcrfits[0], sections)
+
     >>>
     >>> # Save with overwrite option
+
     >>> imcopy(pcrfits[0], sections, outputs=outputs, overwrite=True)
+
     >>>
     >>> # multi file multi section
+
     >>> trims2d = imcopy(pcrfits[:2], trimsecs=sections, outputs=None)
     """
     to_trim = False

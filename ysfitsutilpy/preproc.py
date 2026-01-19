@@ -89,7 +89,7 @@ def crrej(
     """Do cosmic-ray rejection using L.A.Cosmic default parameters.
     Parameters
     ----------
-    ccd : CCDData
+    ccd : ~astropy.nddata.CCDData
         The ccd to be processed. The data must be in ADU, not electrons.
 
     propagate_crmask : bool, optional.
@@ -216,8 +216,8 @@ def crrej(
 
     Returns
     -------
-    _ccd : CCDData
-        The cosmic-ray cleaned CCDData in ADU. `~astroscrappy` automatically
+    _ccd : ~astropy.nddata.CCDData
+        The cosmic-ray cleaned ~astropy.nddata.CCDData in ADU. `~astroscrappy` automatically
         does a gain correction, so I divided the `~astroscrappy` result by
         gain to restore to ADU (not to surprise the users).
 
@@ -262,7 +262,10 @@ def crrej(
     parameters of L.A. Cosmic differ from version to version, so I took the
     IRAF version written by van Dokkum.)
     See the docstring of astroscrappy by
+
+
     >>> import astroscrappy
+
     >>> astroscrappy.detect_cosmics?
 
     Examples
@@ -473,7 +476,7 @@ def medfilt_bpm(
 
     Returns
     -------
-    ccd : CCDData
+    ccd : ~astropy.nddata.CCDData
         The badpixel removed result.
 
     The followings are returned as dict only if ``full=True``.
@@ -760,7 +763,7 @@ def scancor(
     Parameters
     ----------
     ccd : `~astropy.nddata.CCDData`
-        The CCDData to be corrected.
+        The ~astropy.nddata.CCDData to be corrected.
 
     overscan : ndarray, optional.
         The overscan region in ndarray, e.g., ``ccd.data[:, :overscan]``. One
@@ -804,7 +807,7 @@ def biascor(ccd, mbias=None, mbiaspath=None, copy=True, verbose=1):
     Parameters
     ----------
     ccd : `~astropy.nddata.CCDData`
-        The CCDData to be corrected.
+        The ~astropy.nddata.CCDData to be corrected.
 
     mbias : `~astropy.nddata.CCDData`, ndarray
         The master calibration (bias) frame.
@@ -855,7 +858,7 @@ def darkcor(
     Parameters
     ----------
     ccd : `~astropy.nddata.CCDData`
-        The CCDData to be corrected.
+        The ~astropy.nddata.CCDData to be corrected.
 
     mdark : `~astropy.nddata.CCDData`, ndarray
         The master calibration (dark) frame.
@@ -947,7 +950,7 @@ def flatcor(
     Parameters
     ----------
     ccd : `~astropy.nddata.CCDData`
-        The CCDData to be corrected.
+        The ~astropy.nddata.CCDData to be corrected.
 
     mflat : `~astropy.nddata.CCDData`, ndarray
         The master calibration (flat) frame.
@@ -1043,10 +1046,10 @@ def frincor(
     """Subtract fringe frame
     Parameters
     ----------
-    ccd : CCDData
+    ccd : ~astropy.nddata.CCDData
         The ccd to processed.
 
-    mfringe : CCDData
+    mfringe : ~astropy.nddata.CCDData
         The fringe frame.
 
     fringe_scale : int, float, ndarry, function object, {"exp", "exposure", "exptime"}, optional.
@@ -1232,7 +1235,7 @@ def ccdred(
 
     Parameters
     ----------
-    ccd : CCDData-like (e.g., PrimaryHDU, ImageHDU, HDUList), ndarray, path-like, or number-like
+    ccd : ~astropy.nddata.CCDData-like (e.g., ~astropy.io.fits.PrimaryHDU, ~astropy.io.fits.ImageHDU, ~astropy.io.fits.HDUList), ndarray, path-like, or number-like
         The ccd to be processed.
 
     output : path-like or None, optional.
@@ -1252,7 +1255,7 @@ def ccdred(
         the corresponding process is not done. These can be provided in
         addition to `mbias`, `mdark`, `mflat`, and/or `mfringe`.
 
-    mbias, mdark, mflat, mfringe : CCDData, optional.
+    mbias, mdark, mflat, mfringe : ~astropy.nddata.CCDData, optional.
         The master bias, dark, and flat in `~astropy.nddata.CCDData`. If this
         is given, the files provided by `mbiaspath`, `mdarkpath`, `mflatpath`
         and/or `mfringe` are **not** loaded, but these paths will be used for
@@ -1580,7 +1583,7 @@ def bdf_process(
     """Do bias, dark and flat process.
     Parameters
     ----------
-    ccd : CCDData-like (e.g., PrimaryHDU, ImageHDU, HDUList), ndarray, path-like, or number-like
+    ccd : ~astropy.nddata.CCDData-like (e.g., ~astropy.io.fits.PrimaryHDU, ~astropy.io.fits.ImageHDU, ~astropy.io.fits.HDUList), ndarray, path-like, or number-like
         The ccd to be processed.
 
     output : path-like or None, optional.
@@ -1592,7 +1595,7 @@ def bdf_process(
         the corresponding process is not done. These can be provided in
         addition to `mbias`, `mdark`, `mflat`, and/or `mfringe`.
 
-    mbias, mdark, mflat, mfringe : CCDData, optional.
+    mbias, mdark, mflat, mfringe : ~astropy.nddata.CCDData, optional.
         The master bias, dark, and flat in `~astropy.nddata.CCDData`. If this
         is given, the files provided by `mbiaspath`, `mdarkpath`, `mflatpath`
         and/or `mfringe` are **not** loaded, but these paths will be used for

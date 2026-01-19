@@ -83,12 +83,12 @@ def _load_im_name_hdr(
     force_ccddata=False,
     verbose=False,
 ):
-    """Prepare images as ndarray unless FORCING to become CCDData.
+    """Prepare images as ndarray unless FORCING to become ~astropy.nddata.CCDData.
     It, however, *tries* to find at least one image with header for logging.
     """
 
     def __check_if_has_header(im, name, extension):
-        """Checks if has header && convert to HDUList if path-like."""
+        """Checks if has header && convert to ~astropy.io.fits.HDUList if path-like."""
         try:  # if path-like, assume it has hdr. It's ~ 100x faster than opening the file by _has_header.
             fpath = Path(im)
             im = fits.open(fpath)[_parse_extension(extension)]  # turn it into HDUList
@@ -240,7 +240,7 @@ def imarith(
             ``"EXPTIME"`` to sum the exposure time if two images are combined.
 
     dtype : str, dtype, optional.
-        The data type of the output CCDData and/or file.
+        The data type of the output ~astropy.nddata.CCDData and/or file.
 
     error_calc : bool, optional.
         If `True`, the uncertainties are propagated by `~astropy.nddata`
@@ -278,7 +278,7 @@ def imarith(
     multiply used file** and give that HDU or `~astropy.nddata.CCDData` to
     `imarith`. This will reduce the time spent for file I/O.
 
-    Converting an array to CCDData takes only ~ 10 us regardless on the array
+    Converting an array to ~astropy.nddata.CCDData takes only ~ 10 us regardless on the array
     size on MBP 15"*; this is because most time is spent on metadata
     generation. Note, however, that *reading* a FITS file takes ~ 10 ms, i.e.,
     1000 times slower.
@@ -287,7 +287,7 @@ def imarith(
     GB (2400MHz DDR4), Radeon Pro 560X (4GB)] 2020-11-02 21:50:07 (KST:
     GMT+09:00) - ysBach
 
-    The type checking ``isinstance(im, CCDData)`` takes only ~ 0.1 us.
+    The type checking ``isinstance(im, ~astropy.nddata.CCDData)`` takes only ~ 0.1 us.
     """
 
     _t = Time.now()

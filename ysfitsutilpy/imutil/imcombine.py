@@ -88,8 +88,8 @@ def group_combine(
     inputs : DataFrame, glob pattern, list-like of path-like
         If `DataFrame`, it must be the summary table made by `make_summary`.
         The `~glob` pattern for files (e.g., ``"2020*[012].fits"``) or list of
-        files (each element must be path-like or CCDData). Although it is not a
-        good idea, a mixed list of CCDData and paths to the files is also
+        files (each element must be path-like or ~astropy.nddata.CCDData). Although it is not a
+        good idea, a mixed list of ~astropy.nddata.CCDData and paths to the files is also
         acceptable. For the purpose of imcombine function, the best use is to
         use the `~glob` pattern or list of paths.
 
@@ -133,9 +133,9 @@ def group_combine(
 
     Returns
     -------
-    combined : dict of CCDData
+    combined : dict of ~astropy.nddata.CCDData
         The dict object where keys are the header value of the `group_key` and
-        the values are the combined images in CCDData object. If multiple keys
+        the values are the combined images in ~astropy.nddata.CCDData object. If multiple keys
         for `group_key` is given, the key of this dict is a tuple.
     """
 
@@ -887,10 +887,10 @@ imcombine.__doc__ = """A helper function for ndcombine to cope with FITS files.
     Parameters
     ----------
 
-    inputs : glob pattern, list-like of path-like, list-like of CCDData-like
+    inputs : glob pattern, list-like of path-like, list-like of ~astropy.nddata.CCDData-like
         The `~glob` pattern for files (e.g., ``"2020*[012].fits"``) or list of
-        files (each element must be path-like or CCDData). Although it is not a
-        good idea, a mixed list of CCDData and paths to the files is also
+        files (each element must be path-like or ~astropy.nddata.CCDData). Although it is not a
+        good idea, a mixed list of ~astropy.nddata.CCDData and paths to the files is also
         acceptable. For the purpose of imcombine function, the best use is to
         use the `~glob` pattern or list of paths.
 

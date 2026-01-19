@@ -179,7 +179,7 @@ def airmass_to_hdr(
         The name of the header keyword or the value of the RA and DEC of the
         target. If float, it should be in [deg].
 
-    time_start : str|Time, optional
+    time_start : str|~astropy.time.Time, optional
         The name of the header keyword or the value of the time when the
         exposure started.
 
@@ -293,10 +293,10 @@ def airmass_from_hdr(
         The RA and DEC of the target. If not specified, it tries to find them
         in the header using ``ra_key`` and ``dec_key``.
 
-    ut: str or Time, optional
+    ut: str or ~astropy.time.Time, optional
         The *starting* time of the observation in UT.
 
-    exptime: float or Time, optional
+    exptime: float or ~astropy.time.Time, optional
         The exposure time.
 
     lon, lat, height: str, float, or Quantity
@@ -317,7 +317,7 @@ def airmass_from_hdr(
         The unit of ``XX``
 
     ut_format, ut_scale: str, optional
-        The `format` and `scale` for Time.
+        The `format` and `scale` for ~astropy.time.Time.
 
     return_header: bool, optional
         Whether to return the updated header.

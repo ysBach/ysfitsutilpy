@@ -3,7 +3,7 @@ Test configuration and fixtures for ysfitsutilpy tests.
 
 This module provides common fixtures and utilities for testing, including:
 - Sample FITS data generation
-- CCDData objects with known values
+- ~astropy.nddata.CCDData objects with known values
 - Temporary directory management
 """
 
@@ -59,7 +59,7 @@ def sample_header():
 
 @pytest.fixture
 def sample_ccddata(sample_data_2d, sample_header):
-    """CCDData object with sample data and header."""
+    """~astropy.nddata.CCDData object with sample data and header."""
     return CCDData(data=sample_data_2d, header=sample_header, unit=u.adu)
 
 

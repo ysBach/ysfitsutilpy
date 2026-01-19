@@ -44,7 +44,7 @@ def load_if_exists(path, loader, if_not=None, verbose=True, **kwargs):
         The path to be searched.
 
     loader : a function
-        The loader to load `path`. Can be ``CCDData.read``, ``np.loadtxt``,
+        The loader to load `path`. Can be ``~astropy.nddata.CCDData.read``, ``np.loadtxt``,
         etc.
 
     if_not : str
@@ -57,13 +57,21 @@ def load_if_exists(path, loader, if_not=None, verbose=True, **kwargs):
 
     Examples
     -------
+
     >>> from astropy.nddata import CCDData
+
     >>> from pathlib import Path
+
     >>> ccd = load_if_exists(
+
     >>>     Path(".", "test.fits"),
+
     >>>     loader=CCDData.read,
+
     >>>     unit='adu',
+
     >>>     if_not="print('File not found')"
+
     >>> )
     """
     path = Path(path)
@@ -104,10 +112,10 @@ def make_summary(
 
     Parameters
     ----------
-    inputs : glob pattern, list-like of path-like, list-like of CCDData, `~pandas.DataFrame` convertible
+    inputs : glob pattern, list-like of path-like, list-like of ~astropy.nddata.CCDData, `~pandas.DataFrame` convertible
         The `~glob` pattern for files (e.g., ``"2020*[012].fits"``) or list of
-        files (each element must be path-like or CCDData). Although it is not a
-        good idea, a mixed list of CCDData and paths to the files is also
+        files (each element must be path-like or ~astropy.nddata.CCDData). Although it is not a
+        good idea, a mixed list of ~astropy.nddata.CCDData and paths to the files is also
         acceptable. If a `~pandas.DataFrame` or convertible (especially
         `~astropy.table.Table`) is given, it finds the ``"file"`` column and
         use it as the input files, make a summary table from the headers of
@@ -187,30 +195,51 @@ def make_summary(
 
     Examples
     -------
+
     >>> from pathlib import Path
+
     >>> import ysfitsutilpy as yfu
+
     >>> keys = ["OBS-TIME", "FILTER", "OBJECT"]
+
     >>> # actually it is case-insensitive
+
     >>> # The keywords you want to extract
+
     >>> # (from the headers of FITS files)
+
     >>> TOPPATH = Path(".", "observation_2018-01-01")
+
     >>> # The toppath
+
     >>> savepath = TOPPATH / "summary_20180101.csv"
+
     >>> # list of all the fits files in TOPPATH/rawdata:
+
     >>> summary = yfu.make_summary(
+
     >>>     TOPPATH/"rawdata/*.fits",
+
     >>>     keywords=keys,
+
     >>>     fname_option='name',
+
     >>>     pandas=True,
+
     >>>     sort_by="DATE-OBS",
+
     >>>     output=savepath
+
     >>> )
 
     Select all rows with ``OBJECT`` starts with "DA":
+
     >>> # fullmatch = {"OBJECT": "DA.*"}
     Select all rows with ``OBJECT`` starts with "Ves", ``FILTER`` is "J", and
     ``EXPTIME`` is 2 or 3:
+
     >>> # fullmatch = {"OBJECT": "Ves.*", "FILTER": "J"},
+
     >>> # querystr="EXPTIME in [2, 3]
     """
     if inputs is None:
@@ -427,10 +456,13 @@ def df_selector(
     Examples
     --------
     Select all rows with ``OBJECT`` starts with "DA":
+
     >>> # fullmatch = {"OBJECT": "DA.*"}
     Select all rows with ``OBJECT`` starts with "Ves", ``FILTER`` is "J", and
     ``EXPTIME`` is 2 or 3:
+
     >>> # fullmatch = {"OBJECT": "Ves.*", "FILTER": "J"},
+
     >>> # querystr="EXPTIME in [2, 3]"
 
     """
@@ -585,6 +617,7 @@ def make_reduc_planner(
         The format of the time in `timecol`. **Used only if `ifmany` is
         ``"time"``**. Usually ``"isot"`` or ``"jd"``. All possible formats are::
 
+
           >>> list(Time.FORMATS)
           ['jd', 'mjd', 'decimalyear', 'unix', 'unix_tai', 'cxcsec', 'gps', 'plot_date',
            'stardate', 'datetime', 'ymdhms', 'iso', 'isot', 'yday', 'datetime64',
@@ -597,79 +630,132 @@ def make_reduc_planner(
     `df1` contains all the files to be reduced. `df2` and `df3` contains all
     the dark and flat frames, respectively, and the file path is in ``"FRM"``
     column:
+
     >>> df1  # OBJECTS file  EXPTIME FILTER 0    h0001.fits     20.0      H 1
+
     >>>            h0002.fits     20.0      H
+
     >>> ..            ...      ...    ...
+
     >>> 238  k0079.fits     20.0      K 239  k0080.fits     20.0      K [240
+
     >>> rows x 3 columns]
 
+
     >>> df2  # DARKS
+
     >>> #   FILTER  EXPTIME FRM
+
     >>> # 0      J       20   a.fits
+
     >>> # 1      J       30   b.fits
+
     >>> # 2      H       20   c.fits
+
     >>> # 3      H       30   d.fits
+
     >>> # 4      K       20   e.fits
+
     >>> # 5      K       30   f.fits
 
+
     >>> df3  # FLATS
+
     >>> #   FILTER  EXPTIME FRM
+
     >>> # 0      J       30   A.fits
+
     >>> # 1      H       30   B.fits
+
     >>> # 2      K       30   C.fits
 
     (1) While preparing for making master calibration frames:
+
     >>> df_flat = make_reduc_planner( df3, cal_summary=df2,
+
     >>>     newcolname="DARKFRM", match_by=[["FILTER", "EXPTIME"]],
+
     >>>     cal_column="FRM"
+
     >>> )
+
     >>> #   FILTER  EXPTIME FRM  REMOVEIT DARKFRM
+
     >>> # 0      J       30   A         0       b
+
     >>> # 1      H       30   B         0       d
+
     >>> # 2      K       30   C         0       f
     After this, one may make the master flat frame by
 
 
     (1) We want to add ``"FLATFRM"`` column to `df1`, fill with the
     corresponding calibration frame's path, by using (matching by) "FILTER":
+
     >>> df1_d = make_reduc_planner( df1, cal_summary=df3, newcolname="FLATFRM",
+
     >>>     match_by="FILTER",  # also possible: [["FILTER"]] cal_column="FRM"
+
     >>> )
 
     (2) Then add ``"DARKFRM"`` column to `df1_d`, fill with the corresponding
     calibration frame's path, by using (matching by) "EXPTIME", and "FILTER":
+
     >>> df1_df = make_reduc_planner( df1_d, cal_summary=df2,
+
     >>>     newcolname="DARKFRM", match_by=[["EXPTIME", "FILTER"]],  # Note:
+
     >>>     list of list to avoid length mismatch cal_column="FRM"
+
     >>> )
 
     (3) The above two steps can be combined into one step:
+
     >>> df1_df_onestep = make_reduc_planner( df1, cal_summary=[df3, df2],
+
     >>>     newcolname=["FLATFRM", "DARKFRM"], match_by=["FILTER", ["EXPTIME",
+
     >>>     "FILTER"]], cal_column="FRM"  # also possible: ["FRM", "FRM"]
+
     >>> )
 
+
     >>> df1_df_onestep
+
     >>> #            file  EXPTIME FILTER REMOVEIT FLATFRM DARKFRM
+
     >>> # 0    h0001.fits     20.0      H        0 B.fits  c.fits
+
     >>> # 1    h0002.fits     20.0      H        0 B.fits  c.fits
+
     >>> # ..          ...      ...    ...      ...    ...     ...
+
     >>> # 238  k0079.fits     20.0      K        0 C.fits  e.fits
+
     >>> # 239  k0080.fits     20.0      K        0 C.fits  e.fits
+
     >>> # [240 rows x 5 columns]
 
+
     >>> np.all(df1_df == df1_df_onestep)
+
     >>> # True
 
     Notes
     -----
     In the above case, ~ 0.4s on MBP 16" [2021, macOS 12.0.1, M1Pro, 8P+2E
     core, GPU 16-core, RAM 16GB]
+
     >>> %%timeit df1_df_onestep = make_reduc_planner( df1, cal_summary=[df3,
+
     >>> df2], newcolname=["FLATFRM", "DARKFRM"], match_by=["FILTER",
+
     >>> ["EXPTIME", "FILTER"]], cal_column="FRM"  # also possible: ["FRM",
+
     >>> "FRM"]
+
     >>> )
+
     >>> # 403 ms +- 11.2 ms per loop (mean +- std. dev. of 7 runs, 1 loop each)
     """
     df = summary.copy()
@@ -832,7 +918,7 @@ def fits_newpath(
         If given, subdirectories will be made with the header value of the
         keys.
 
-    header : Header object, optional
+    header : ~astropy.io.fits.Header object, optional
         The header to extract `rename_by` and `mkdir_by`. If `None`, the
         function will do ``header = fits.getheader(fpath)``.
 
@@ -900,7 +986,7 @@ def fitsrenamer(
     fpath : path-like
         The path to the target FITS file.
 
-    header : Header, optional
+    header : ~astropy.io.fits.Header, optional
         The header of the fits file, especially if you want to just overwrite
         the header with this.
 
@@ -934,7 +1020,7 @@ def fitsrenamer(
         become ``Deprecated. See <standard_key>.``.
 
     trimsec : str or None, optional
-        Region of ``CCDData`` from which the overscan is extracted; see
+        Region of ``~astropy.nddata.CCDData`` from which the overscan is extracted; see
         `~ccdproc.subtract_overscan` for details. Default is `None`.
 
     fillnan : str, optional

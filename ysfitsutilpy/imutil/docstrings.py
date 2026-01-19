@@ -343,7 +343,7 @@ offsets : str or (n, m)-d array
 
     For both wcs or physical cases, the raw offsets for *each* frame is nothing but an ``m``-D tuple
     consists of ``offset_raw[i] = CRPIX{m-i}`` or ``LTV{m-i}[_{m-i}]``. The reason to subtract ``i`` is
-    because python has ``z, y, x`` order of indexing while WCS information is in ``x, y, z`` order. If
+    because python has ``z, y, x`` order of indexing while ~astropy.wcs.WCS information is in ``x, y, z`` order. If
     it is a ``j``-th image, ``offsets[j, :] = offset_raw``, and `offsets` has shape of ``(n, m)``.
 
     This raw `offsets` are then modified such that the minimum offsets in each axis becomes zero (in
@@ -353,7 +353,7 @@ offsets : str or (n, m)-d array
     .. note::
         Though IRAF `IMCOMBINE`_ says it calculates offsets from the 0-th image center if
         ``offsets="wcs"``, it seems it acutally uses ``CRPIX`` from the header... I couldn't find how
-        IRAF does offset calculation for WCS, it's not reproducible using rounding. Even using WCS info
+        IRAF does offset calculation for ~astropy.wcs.WCS, it's not reproducible using rounding. Even using ~astropy.wcs.WCS info
         correctly, it's not reproducible. Also, if we only use ``CRPIX``, the offset calculations are
         completely wrong if ``CRPIX`` is not centered at the identical world coordinate (e.g., RA/DEC).
         **IRAF indeed wrongly combines images** if this happens.
