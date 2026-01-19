@@ -294,49 +294,61 @@ def query_nova(server=Client.default_url, apikey=None, upload=None,
     ----------
     server: `str`, optional
         Set server base URL (e.g., ``Client.default_url``).
+        Default: ``Client.default_url``.
 
     apikey: `str`, optional
         API key for Astrometry.net web service;
         if not given will check AN_API_KEY environment variable
+        Default: `None`.
 
     upload: path-like, optional
         Upload a file (The destination path)
+        Default: `None`.
 
     upload_xy: path-like, optional
         Upload a FITS x,y table as JSON
+        Default: `None`.
 
     wait: `bool`, optional
         After submitting, monitor job status
+        Default: `True`.
 
     wcs: path-like, optional
         Download resulting wcs.fits file, saving to given filename.
         Implies ``wait=True`` if ``urlupload`` or ``upload`` is not `None`.
+        Default: `None`.
 
     newfits: path-like, optional
         Download resulting new-image.fits file, saving to given filename.
         Implies ``wait=True`` if ``urlupload`` or ``upload`` is not `None`.
+        Default: `None`.
 
     kmz: path-like, optional
         Download resulting kmz file, saving to given filename;
         Implies ``wait=True`` if ``urlupload`` or ``upload`` is not `None`.
+        Default: `None`.
 
     annotate: path-like, optional
         Store information about annotations in give file, JSON format;
         Implies ``wait=True`` if ``urlupload`` or ``upload`` is not `None`.
+        Default: `None`.
 
     upload_url: `str`, optional
         Upload a file at specified url.
+        Default: `None`.
 
-    scale_units: `str` in ['arcsecperpix', 'arcminwidth', 'degwidth', 'focalmm']
+    scale_units : `str` in ['arcsecperpix', 'arcminwidth', 'degwidth', 'focalmm'], optional.
         Units for scale estimate.
 
     scale_lower, scale_upper: `float`, optional
         The lower and upper bounds for the size of the image scale. The unit
         is specified by ``scale_units``.
+        Default: `None`.
 
     scale_est: `float`, optional
         Estimate of the size of the image scale. The unit is specified by
         ``scale_units``.
+        Default: `None`.
 
     scale_err: `float`, optional
         Scale estimate error (in PERCENT), e.g., 10 if you estimate can be off
@@ -344,58 +356,73 @@ def query_nova(server=Client.default_url, apikey=None, upload=None,
 
     center_ra, center_dec: `float`, optional
         RA center and DEC center in the units of degree.
+        Default: `None`.
 
     radius: `float`, optional
         Search radius around RA, Dec center in the units of degree.
+        Default: `None`.
 
     downsample_factor: `int`, optional
         Downsample image by this factor.
+        Default: `None`.
 
     parity: `str` or `int` in [0, 1, '0', '1'], optional
         Parity (flip) of image.
+        Default: `None`.
 
     tweak_order: `int`, optional
         SIP distortion order (if `None`, defaults to 2).
+        Default: `None`.
 
     crpix_center: `bool`, optional
         Set reference point to center of image?
+        Default: `None`.
 
     sdss_wcs: `list` of two `str`, optional
         Plot SDSS image for the given `~astropy.wcs.WCS` file; write plot to given PNG filename
+        Default: `None`.
 
     galex_wcs: `list` of two `str`, optional
         Plot GALEX image for the given `~astropy.wcs.WCS` file; write plot to given PNG filename
+        Default: `None`.
 
     solved_id: `int`, optional
         retrieve result for jobId instead of submitting new image
 
     sub_id, job_id: `str`, optional
         Get status of a submission or job
+        Default: `None`.
 
     myjobs: `bool`, optional
         Get all my jobs
+        Default: `True`.
 
     jobs_by_exact_tab: `bool`, optional
         Get a `list` of jobs associated with a given tag--exact match
 
     jobs_by_tag: `bool`, optional
         Get a `list` of jobs associated with a given tag
+        Default: `None`.
 
     public: `str`, optional
         Hide this submission from other users. If `None` (default), code
         ``'y'`` is used, i.e., it is a public submission. Otherwise, code
         ``'n'`` is used, i.e., private submission, and the input value (which
         is not necessarily ``'n'``) will be added to a `list` called ``args``.
+        Default: `None`.
 
     allow_mod: `str`, optional
         Select license to allow derivative works of submission, but only if
         shared under same conditions of original license
+        Default: `None`.
 
     allow_commercial: `str` in ['n', 'd'], optional
         Select license to disallow commercial use of submission
+        Default: `None`.
 
     sleep_interval: `int` or `float`, optional
         How long to wait for printing the information.
+        Default: ``5``.
     '''
 
     def _change(param, typefunc, initial=None):

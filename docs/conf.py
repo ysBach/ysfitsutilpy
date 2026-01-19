@@ -32,7 +32,7 @@ autodoc_member_order = "bysource"
 # Napoleon settings (NumPy-style docstrings)
 napoleon_google_docstring = False
 napoleon_numpy_docstring = True
-napoleon_use_param = True
+napoleon_use_param = False
 napoleon_use_rtype = True
 
 # Numpydoc settings

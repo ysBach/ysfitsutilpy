@@ -29,29 +29,34 @@ def imcopy(
         acceptable. For the purpose of `~ysfitsutilpy.imutil.imcombine` function, the best use is to
         use the `~glob` pattern or `list` of paths.
 
-    extension : `int`, `str`, (`str`, `int`)
+    extension : `int`, `str`, (`str`, `int`), optional.
         The extension of FITS to be used. It can be given as integer
         (0-indexing) of the extension, ``EXTNAME`` (single `str`), or a `tuple` of
         `str` and `int`: ``(EXTNAME, EXTVER)``. If `None` (default), the *first
         extension with data* will be used.
+        Default: `None`.
 
     trimsecs : `str` or array-like of such, optional.
         The section specified by FITS convention, i.e., bracket embraced, comma
         separated, XY order, 1-indexing, and including the end index. If given
         as array-like format of length ``N``, all such sections in all FITS
         files will be extracted.
+        Default: `None`.
 
     outputs : path-like or array-like of such, optional.
         The output paths of each FITS file to be copied. If array-like, it must
         have the shape of ``(M, N)`` where ``M`` and ``N`` are the sizes of
         `fpaths` and `trimsecs`, respectively.
+        Default: `None`.
 
     return_ccd : `bool`, optional.
         Whether to load the FITS files as `~astropy.nddata.CCDData` and return it.
+        Default: `True`.
 
     dtype : dtype, optional.
         The dtype for the `outputs` or returning ccds. If `None` (default),
         don't change anything.
+        Default: `None`.
 
     kwargs : optionals
         The keyword arguments for ``~astropy.nddata.CCDData.write``.

@@ -27,8 +27,7 @@ axis : `int`, optional.
     The axis to combine the image.
 
 full : `bool`, optional.
-    Whether to return full results. See Return.
-"""
+    Whether to return full results. See Return."""
 )
 
 
@@ -73,7 +72,6 @@ cenfunc : `str`, optional.
 
 irafmode : `bool`, optional.
         Whether to use IRAF-like pixel restoration scheme. Default is `True`.
-
 """, indent)
 
 
@@ -99,8 +97,7 @@ o_code : `~numpy.ndarray` of uint8
         * 4-th (8): rejected ndata > maxrej reached
 
     The code of 10 is, for example, 1010 in binary, so the iteration finished before `maxiters`
-    (2-th flag) because pixels more than `maxrej` are rejected (4-th flag).
-""", indent)
+    (2-th flag) because pixels more than `maxrej` are rejected (4-th flag).""", indent)
 
 
 def NDCOMB_NOT_IMPLEMENTED(indent=0):
@@ -115,8 +112,7 @@ def NDCOMB_NOT_IMPLEMENTED(indent=0):
         #. weight
         #. scale_sample, zero_sample
         #. ``"mode"`` for scale, zero, weight
-        #. memlimit behaviour
-''', indent)
+        #. memlimit behaviour''', indent)
 
 
 def NDCOMB_PARAMETERS_COMMON(indent=0):
@@ -279,8 +275,7 @@ combine: `str`, optional.
         Currently there is no lmedian-alternative in bottleneck or numpy, so a custom-made version is
         used (in numpy_util.py), which is nothing but a simple modification to the original numpy
         source codes, and this is much slower than bottleneck's median. I think it must be
-        re-implemented in the future.
-''', indent)
+        re-implemented in the future.''', indent)
 
 
 def NDCOMB_RETURNS_COMMON(indent=0):
@@ -309,8 +304,7 @@ nit : `~numpy.ndarray` (dtype uint8)
     than 100, so set the dtype to ``uint8`` to reduce memory and filesize.
 
 rejcode : `~numpy.ndarray` (dtype uint8)
-    The exit code from rejection (``N``-D). See each rejection's docstring.
-""", indent)
+    The exit code from rejection (``N``-D). See each rejection's docstring.""", indent)
 
 
 def OFFSETS_SHORT(indent=0):
@@ -322,8 +316,7 @@ offsets : (n, m)-d array
 
     The raw offsets are then modified such that the minimum offsets in each axis becomes zero (in
     pythonic way, ``np.max(offsets, axis=0) - offsets``). The offsets are used to determine the final
-    output image's shape.
-''', indent)
+    output image's shape.''', indent)
 
 
 def OFFSETS_LONG(indent=0):
@@ -356,11 +349,9 @@ offsets : `str` or (n, m)-d array
         IRAF does offset calculation for astropy.wcs.WCS, it's not reproducible using rounding. Even using astropy.wcs.WCS info
         correctly, it's not reproducible. Also, if we only use CRPIX, the offset calculations are
         completely wrong if CRPIX is not centered at the identical world coordinate (e.g., RA/DEC).
-        **IRAF indeed wrongly combines images** if this happens.
-''', indent)
+        **IRAF indeed wrongly combines images** if this happens.''', indent)
 
 
 def IMCOMBINE_LINK(indent=0):
     return _fix("""
-.. _IMCOMBINE: https://iraf.net/irafhelp.php?val=`~ysfitsutilpy.imutil.imcombine`&help=Help+Page
-""", indent)
+.. _IMCOMBINE: https://iraf.net/irafhelp.php?val=`~ysfitsutilpy.imutil.imcombine`&help=Help+Page""", indent)

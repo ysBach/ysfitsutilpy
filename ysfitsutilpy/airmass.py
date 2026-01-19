@@ -26,14 +26,17 @@ def calc_airmass(zd_deg=None, cos_zd=None, scale=750.0):
     ----------
     zd_deg : `float`, optional
         The zenithal distance in degrees
+        Default: `None`.
 
     cos_zd : `float`, optional
         The cosine of zenithal distance. If given, ``zd_deg`` is not used.
+        Default: `None`.
 
     scale : `float`, optional
         Earth radius divided by the atmospheric height (usually scale height)
         of the atmosphere. In IRAF documentation, it is mistakenly written that
         this ``scale`` is the "scale height".
+        Default: ``750.0``.
 
     Notes
     -----
@@ -94,9 +97,11 @@ def airmass_obs(
         Earth radius divided by the atmospheric height (usually scale height)
         of the atmosphere. In IRAF documentation, it is mistakenly written that
         this `scale` is the "scale height".
+        Default: ``750.0``.
 
     in_deg : `bool`, optional
         If `True`, return alt/az in degrees. Otherwise, return in string with separation ":".
+        Default: `True`.
 
     Notes
     -----
@@ -178,10 +183,12 @@ def airmass_to_hdr(
     ra, dec : `str`|`float`|u.`~astropy.units.Quantity`, optional
         The name of the header keyword or the value of the RA and DEC of the
         target. If `float`, it should be in [deg].
+        Default: `None`.
 
     time_start : `str`|`~astropy.time.Time`, optional
         The name of the header keyword or the value of the time when the
         exposure started.
+        Default: ``'DATE-OBS'``.
 
     time_scale : `str`, optional
         The scale of the time if it is read from header. Default is "utc".
@@ -189,13 +196,16 @@ def airmass_to_hdr(
     exptime : `str`|`float`|u.`~astropy.units.Quantity`, optional
         The name of the header keyword or the value of the exposure time. If
         given as `float`, it should be in [sec].
+        Default: ``'EXPTIME'``.
 
     scale : `float`, optional
         Earth radius divided by the atmospheric height (usually scale height)
         of the atmosphere. In IRAF documentation, it is mistakenly written that
         this `scale` is the "scale height".
+        Default: ``750.0``.
     in_deg : `bool`, optional
         If `True`, return alt/az in degrees. Otherwise, return in string with separation ":".
+        Default: `True`.
 
     """
     _t = Time.now()

@@ -103,15 +103,17 @@ def group_combine(
         have selected from `type_key` and `type_val`. If `None` (default), no
         grouping will occur, but it will return the `~pandas.DataFrameGroupBy`
         object will be returned for the sake of consistency.
+        Default: `None`.
 
-    verbose : `int`
+    verbose : `int`, optional.
         Larger number means it becomes more verbose::
 
           * 0: print nothing
           * 1: Only very essential things from this function
           * 2: + verbose from each ysfitsutilpy.imutil.imcombine
+        Default: ``1``.
 
-    fmt : `str`, optinal.
+    fmt : `str`, optinal, optional.
         The f-string for the output file names.
 
         ..example:: If `group_key="EXPTIME"` and we had two groups of
@@ -126,12 +128,14 @@ def group_combine(
 
           * ``"flat_{2:04.1f}_{1:s}"`` --> ``"flat_02.0_B.fits"`` and
             ``"flat_12.0_V.fits"``
+        Default: `None`.
 
-    outdir : path-like, optinal.
+    outdir : path-like, optinal, optional.
         The directory where the output fits files will be saved.
 
     **kwargs :
         The keyword arguments for `imcombine`.
+        Default: `None`.
 
     Returns
     -------

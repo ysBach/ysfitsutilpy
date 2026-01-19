@@ -234,13 +234,14 @@ def fit_model_iter(
         The model to fit. If already a Model instance, it will be used as is.
         See `get_model`.
 
-    outlier_func : callable
+    outlier_func : callable, optional.
         A function for outlier removal.
         If this accepts an ``axis`` parameter like the `numpy` functions, the
         appropriate value will be supplied automatically when fitting model
         sets (unless overridden in ``outlier_kwargs``), to find outliers for
         each model separately; otherwise, the same filtering must be performed
         in a loop over models, which is almost an order of magnitude slower.
+        Default: ``sigma_clip``.
 
     maxiters : `int`, optional
         Maximum number of iterations.
@@ -259,6 +260,7 @@ def fit_model_iter(
           * initial parameters for others (e.g., amplitude for Gaussian1D)
 
         Ignored if `model_name` is already a model instance.
+        Default: ``3``.
 
     Returns
     -------

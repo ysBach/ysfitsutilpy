@@ -222,6 +222,7 @@ def imarith(
         name for it: the number (if `im` is number-like), the path (if `im` is
         path-like), or explanatory strings (if `im` is either `~numpy.ndarray` or
         `~astropy.nddata.CCDData`)
+        Default: `None`.
 
     replace : np.nan, `float`-like, optional.
         The value to replace pixels where the value is NaN or Inf (i.e.,
@@ -240,9 +241,11 @@ def imarith(
             The behavior is different from IRAF. In IRAF, hparams is used
             to propagate the header keyword. This is used mainly for
             ``"EXPTIME"`` to sum the exposure time if two images are combined.
+        Default: `None`.
 
     dtype : `str`, dtype, optional.
         The data type of the output `~astropy.nddata.CCDData` and/or file.
+        Default: ``'float32'``.
 
     error_calc : `bool`, optional.
         If `True`, the uncertainties are propagated by `~astropy.nddata`
@@ -251,6 +254,7 @@ def imarith(
         iterated through hundreds of files), and hence the cfitsio-like
         `fitsio` is used. Error calculation is done only if
         ``ignore_header=False`` at the moment.
+        Default: `False`.
 
     ignore_header : `bool`, optional.
         Whether to ignore all the header informations of `im1` and `im2`. This
@@ -263,6 +267,7 @@ def imarith(
         impossible at this moment, because there is no way to infer the
         extension for the uncertainty and its type (wheter variance or standard
         deviation, etc.)
+        Default: `False`.
 
     Returns
     -------

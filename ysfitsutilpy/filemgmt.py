@@ -48,8 +48,9 @@ def load_if_exists(path, loader, if_not=None, verbose=True, **kwargs):
         The loader to load `path`. Can be ``~astropy.nddata.CCDData.read``, ``np.loadtxt``,
         etc.
 
-    if_not : `str`
+    if_not : `str`, optional.
         Give a python code as a `str` to be run if the loading failed.
+        Default: `None`.
 
     Returns
     -------
@@ -106,7 +107,7 @@ def make_summary(
 
     Parameters
     ----------
-    inputs : glob pattern, `list`-like of path-like, `list`-like of `~astropy.nddata.CCDData`, `~pandas.DataFrame` convertible
+    inputs : glob pattern, `list`-like of path-like, `list`-like of `~astropy.nddata.CCDData`, `~pandas.DataFrame` convertible, optional.
         The `~glob` pattern for files (e.g., ``"2020*[012].fits"``) or `list` of
         files (each element must be path-like or `~astropy.nddata.CCDData`). Although it is not a
         good idea, a mixed `list` of `~astropy.nddata.CCDData` and paths to the files is also
@@ -115,12 +116,14 @@ def make_summary(
         use it as the input files, make a summary table from the headers of
         those files.
         If `inputs` is `None`, any `output` is ignored and `None` is returned.
+        Default: `None`.
 
-    extension: `int`, `str`, (`str`, `int`)
+    extension : `int`, `str`, (`str`, `int`), optional.
         The extension of FITS to be used. It can be given as integer
         (0-indexing) of the extension, ``EXTNAME`` (single `str`), or a `tuple` of
         `str` and `int`: ``(EXTNAME, EXTVER)``. If `None` (default), the *first
         extension with data* will be used.
+        Default: `None`.
 
     verify_fix : `bool`, optional.
         Whether to do ``.verify('fix')`` to all FITS files to avoid
@@ -128,27 +131,33 @@ def make_summary(
 
     fname_option : `str` ``{'absolute', 'relative', 'name'}``, optional
         Whether to save full absolute/relative path or only the filename.
+        Default: ``'relative'``.
 
     output : `str` or path-like, optional
         The directory and file name of the output summary file.
+        Default: `None`.
 
     keywords : `list` or `str`(``"*"``), optional
         The `list` of the keywords to extract (keywords should be in `str`).
+        Default: `None`.
 
     example_header : `None` or path-like, optional
         The path including the filename of the output summary text file. If
         specified, the header of the 0-th element of `inputs` will be extracted
         (if glob-pattern is given, the 0-th element is random, so be careful)
         and saved to `example_header`. Use `None` (default) to skip this.
+        Default: `None`.
 
     sort_by : `str`, optional
         The column name to sort the results. It can be any element of
         `keywords` or `'file'`, which sorts the table by the file name.
+        Default: ``'file'``.
 
     sort_map: `dict`, optional
         A subset of `key` parameter in `pandas.DataFrame.sort_values()`. If a
         `dict` is given, then ``key = lambda x: x.map(sort_map)`` is passed into
         `.sort_values()`.
+        Default: `None`.
 
     fullmatch : `dict`, optional
         The ``{column: regex}`` style `dict` to be used for selecting rows by
@@ -158,6 +167,7 @@ def make_summary(
     negate_fullmatch: `bool`, optional.
         Whether to negate the mask by `fullmatch`, in case the user does not
         want to think much about regex to negate it.
+        Default: `False`.
 
     flags: `int`, optional.
         Regex module flags, e.g. re.IGNORECASE. Default: 0
@@ -165,6 +175,7 @@ def make_summary(
     querystr : `str`, optional
         The query string used for ``summarytab.query(querystr)``. See
         `~pandas.DataFrame.query`.
+        Default: `None`.
 
     nonunique_keys : `bool`, optional
         Whether to remove the keys that have only one unique value throughout
@@ -407,6 +418,7 @@ def df_selector(
     negate_fullmatch: `bool`, optional.
         Whether to negate the mask by `fullmatch`, in case the user does not
         want to think much about regex to negate it.
+        Default: `False`.
     flags: `int`, optional.
         Regex module flags, e.g. re.IGNORECASE. Default: 0
     querystr : `str`, optional
@@ -415,6 +427,7 @@ def df_selector(
     columns, columns_drop: `str`, `list`, optional.
         The `list` of columns to be returned/dropped after selection. No need to
         setup both, but no Error will be raised even the user does so.
+        Default: `None`.
 
     Returns
     -------
@@ -583,10 +596,12 @@ def make_reduc_planner(
         If multiple frames are found for the closest time, the 0-th frame is
         used among them (the default behavior of `~numpy.argmin`). `timecol`
         must be specified if `ifmany` is ``"time"``.
+        Default: ``'error'``.
 
     timecol : `str`, optional.
         The column contains the time of the observation. The FITS standard is
         `"DATE-OBS"`. **Used only if `ifmany` is ``"time"``**.
+        Default: ``'DATE-OBS'``.
 
     timefmt : `str`, optional
         The format of the time in `timecol`. **Used only if `ifmany` is
@@ -849,17 +864,21 @@ def fits_newpath(
         The keys which will be used to make subdirectories to classify files.
         If given, subdirectories will be made with the header value of the
         keys.
+        Default: `None`.
 
     header : `~astropy.io.fits.Header` object, optional
         The header to extract `rename_by` and `mkdir_by`. If `None`, the
         function will do ``header = fits.getheader(fpath)``.
+        Default: `None`.
 
     delimiter : `str`, optional
         The delimiter for the renaming.
+        Default: ``'_'``.
 
     fillnan : `str`, optional
         The string that will be inserted if the keyword is not found from the
         header.
+        Default: ``''``.
 
     fileext : `str`, optional
         The extension of the file name to be returned. Normally it should be
@@ -867,6 +886,7 @@ def fits_newpath(
         e.g., ``'.fit'`` for some reason. If `fileext` does not start with a
         period (``"."``), it is automatically added to the final file name in
         front of the ``fileext``.
+        Default: ``'.fits'``.
 
     Returns
     -------
@@ -915,41 +935,50 @@ def fitsrenamer(
 
     Parameters
     ----------
-    fpath : path-like
+    fpath : path-like, optional.
         The path to the target FITS file.
+        Default: `None`.
 
     header : `~astropy.io.fits.Header`, optional
         The header of the fits file, especially if you want to just overwrite
         the header with this.
+        Default: `None`.
 
-    newtop : path-like
+    newtop : path-like, optional.
         The top path for the new FITS file. If `None`, the new path will share
         the parent path with `fpath`.
+        Default: `None`.
 
     rename_by : `list` of `str`, optional
         The keywords of the FITS header to rename by.
+        Default: ``['OBJECT']``.
 
     mkdir_by : `list` of `str`, optional
         The keys which will be used to make subdirectories to classify files.
         If given, subdirectories will be made with the header value of the
         keys.
+        Default: `None`.
 
     delimiter : `str`, optional
         The delimiter for the renaming.
+        Default: ``'_'``.
 
     archive_dir : path-like or `None`, optional
         Where to move the original FITS file. If `None`, the original file will
         remain there. Deleting original FITS is dangerous so it is only
         supported to move the files. You may delete files manually if needed.
+        Default: `None`.
 
     keymap : `dict` or `None`, optional
         If not `None`, the keymapping is done by using the `dict` of `keymap` in
         the format of ``{<standard_key>:<original_key>}``.
+        Default: `None`.
 
     key_deprecation : `bool`, optional
         Whether to change the original keywords' comments to contain
         deprecation warning. If `True`, the original keywords' comments will
         become ``Deprecated. See <standard_key>.``.
+        Default: `True`.
 
     trimsec : `str` or `None`, optional
         Region of ``~astropy.nddata.CCDData`` from which the overscan is extracted; see
@@ -958,12 +987,15 @@ def fitsrenamer(
     fillnan : `str`, optional
         The string that will be inserted if the keyword is not found from the
         header.
+        Default: ``''``.
 
-    remove_keys : `list` of `str`
+    remove_keys : `list` of `str`, optional.
         The header keywords to be removed.
+        Default: `None`.
 
-    add_header : header or Card object
+    add_header : header or Card object, optional.
         The header keyword, value (and comment) to add after the renaming.
+        Default: `None`.
 
     Notes
     -----

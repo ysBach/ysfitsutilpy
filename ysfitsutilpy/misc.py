@@ -158,6 +158,7 @@ def cmt2hdr(
 
     precision : `int`, optional.
         The precision of the isot format time.
+        Default: ``3``.
 
     time_fmt : `str`, `None`, optional.
         The Python 3 format string to format the time in the header. If `None`,
@@ -167,15 +168,19 @@ def cmt2hdr(
           * ``"{:s}"``: plain time ``2020-01-01T01:01:01.23``
           * ``"({:s})"``: plain time in ``()``. ``(2020-01-01T01:01:01.23)``
           * ``"{:_^72s}"``: center align, filling with _.
+        Default: ``'{:.>72s}'``.
 
-    t_ref : `~astropy.time.Time`
+    t_ref : `~astropy.time.Time`, optional.
         The reference time. If not `None`, delta time is calculated.
+        Default: `None`.
 
     dt_fmt : `str`, optional.
         The Python 3 format string to format the delta time in the header.
+        Default: ``'(dt = {:.3f} s)'``.
 
     verbose : `bool`, optional.
         Whether to print the same information on the output terminal.
+        Default: `False`.
 
     set_kw : `dict`, optional.
         The keyword arguments added to `~astropy.io.fits.Header.set()`. Default is
@@ -272,26 +277,31 @@ def update_process(
         The header to update the ``PROCESS`` (tunable by `key` parameter)
         keyword.
 
-    process : `str` or `list`-like of `str`
+    process : `str` or `list`-like of `str`, optional.
         The additional process keys to add to the header.
+        Default: `None`.
 
     key : `str`, optional.
         The key for the process-related header keyword.
+        Default: ``'PROCESS'``.
 
     delimiter : `str`, optional.
         The delimiter for each process. It can be null string (``''``). The
         best is to match it with the pre-existing delimiter of the
         ``header[key]``.
+        Default: ``''``.
 
     add_comment : `bool`, optional.
         Whether to add a comment to the header if there was no `key`
         (``"PROCESS"`` by default) in the header.
+        Default: `True`.
 
     additional_comment : `dict`, optional.
         The additional comment to add. For instance, ``dict(v="vertical
         pattern", f="fourier pattern")`` will add a new line of comment which
         reads "User added items for `key`: v=vertical pattern, f=fourier
         pattern."
+        Default: `None`.
     """
     if additional_comment is None:
         additional_comment = {}
@@ -521,13 +531,16 @@ def circular_mask(shape, center=None, radius=None, center_xyz=True):
     center : `tuple`, `None`, optional.
         The center of the circular mask. If `None` (default), the central
         position is used.
+        Default: `None`.
 
     radius : `float`, `None`, optional.
         The radius of the mask. If `None`, the distance to the closest edge of
         the image is used.
+        Default: `None`.
 
     center_xyz : `bool`, optional.
         Whether the center is in xyz order.
+        Default: `True`.
 
     Notes
     -----
@@ -589,6 +602,7 @@ def circular_mask_2d(
 
     radius : `float`, array-like optional.
         The radius (radii) of the circular mask(s).
+        Default: ``0.5``.
 
     method : ``{'exact', 'center', 'subpixel'}``, optional
         The method used to determine the overlap of the aperture on the pixel
@@ -611,20 +625,24 @@ def circular_mask_2d(
         depending on whether its center is in or out of the aperture. If
         ``subpixels=1``, this method is equivalent to ``'center'``. The
         aperture weights will contain values between 0 and 1.
+        Default: ``'center'``.
 
     subpixels : `int`, optional
         For the ``'subpixel'`` method, resample pixels by this factor in each
         dimension. That is, each pixel is divided into ``subpixels**2``
         subpixels. This keyword is ignored unless ``method='subpixel'``.
+        Default: ``5``.
 
     maskmin : `float`, optional
         The minimum value for the mask. If the aperture weights are greater
         than this value, the pixel is considered to be in the aperture. This
         keyword is ignored unless ``method='exact'`` or ``method='subpixel'``.
+        Default: ``0``.
 
     return_apertures : `bool`, optional
         If `True`, return the `CircularAperture` objects and the masks
         instead of the 2D mask. This is useful if you want to use the
+        Default: `False`.
     """
     from photutils.aperture import CircularAperture
 
@@ -699,6 +717,7 @@ def enclosing_circle_radius(segm, center, segm_id=None):
     segm_id : `list` of `int`, optional
         The `list` of segmentation IDs to calculate the radius for. If not provided,
         it defaults to `[1]`, which is equivalent to `True` for binary masks.
+        Default: `None`.
 
     Returns
     -------
@@ -737,6 +756,7 @@ def str_now(
     ----------
     precision : `int`, optional.
         The precision of the isot format time.
+        Default: ``3``.
 
     fmt : `str`, optional.
         The Python 3 format string to format the time. Examples::
@@ -744,17 +764,21 @@ def str_now(
           * ``"{:s}"``: plain time ``2020-01-01T01:01:01.23``
           * ``"({:s})"``: plain time in parentheses ``(2020-01-01T01:01:01.23)``
           * ``"{:_^72s}"``: center align, filling with _.
+        Default: ``'{:.>72s}'``.
 
     t_ref : `~astropy.time.Time`, optional.
         The reference time. If not `None`, delta time is calculated.
+        Default: `None`.
 
     dt_fmt : `str`, optional.
         The Python 3 format string to format the delta time.
+        Default: ``'(dt = {:.3f} s)'``.
 
     return_time : `bool`, optional.
         Whether to return the time at the start of this function and the delta
         time (`dt`), as well as the time information string. If `t_ref` is
         `None`, `dt` is automatically set to `None`.
+        Default: `False`.
     """
     now = Time(Time.now(), precision=precision)
     timestr = now.isot
@@ -779,13 +803,15 @@ def change_to_quantity(x, desired="", to_value=False):
         The input to be changed to a `~astropy.units.Quantity`. If a `~astropy.units.Quantity` is given, `x` is
         changed to the `desired`, i.e., ``x.to(desired)``.
 
-    desired : `str` or astropy `~astropy.units.Unit`
+    desired : `str` or astropy `~astropy.units.Unit`, optional.
         The desired unit for `x`. If `''` (default), it will be interpreted as
         `Unit(dimensionless)`.
+        Default: ``''``.
 
     to_value : `bool`, optional.
         Whether to return as scalar value. If `True`, just the value(s) of the
         `desired` unit will be returned after conversion.
+        Default: `False`.
 
     Returns
     -------
@@ -859,14 +885,17 @@ def binning(
         order (``order_xyz=True``). If any of the `tuple` is `None`, that will be
         replaced by the size of the array along that axis, i.e., collapse along
         that axis.
+        Default: `None`.
 
-    binfunc : funciton object
+    binfunc : funciton object, optional.
         The function to be applied for binning, such as ``np.sum``,
         ``np.mean``, and ``np.median``.
+        Default: ``np.mean``.
 
-    trim_end: `bool`
+    trim_end : `bool`, optional.
         Whether to trim the end of x, y axes such that binning is done without
         error.
+        Default: `False`.
 
     Notes
     -----

@@ -770,11 +770,13 @@ def scancor(
     overscan : `~numpy.ndarray`, optional.
         The overscan region in `~numpy.ndarray`, e.g., ``ccd.data[:, :overscan]``. One
         and only one of `overscan` or `scansec` should be given.
+        Default: `None`.
 
     scansec : `str`, optional.
         The section of the overscan region to be used for correction, e.g.,
         "[1:10, :]" in FITS section format. One and only one of `overscan` or
         `scansec` should be given.
+        Default: `None`.
 
     scanax : `int`, `None`, optional.
         Axis along which overscan should combined with mean or median. Axis
@@ -811,11 +813,13 @@ def biascor(ccd, mbias=None, mbiaspath=None, copy=True, verbose=1):
     ccd : `~astropy.nddata.CCDData`
         The `~astropy.nddata.CCDData` to be corrected.
 
-    mbias : `~astropy.nddata.CCDData`, `~numpy.ndarray`
+    mbias : `~astropy.nddata.CCDData`, `~numpy.ndarray`, optional.
         The master calibration (bias) frame.
+        Default: `None`.
 
-    mbiaspath : path-like
+    mbiaspath : path-like, optional.
         The path to the master calibration (bias) frame.
+        Default: `None`.
 
     copy : `bool`, optional
         Whether to return a copy of the data (`True`) or a reference to the
@@ -862,13 +866,15 @@ def darkcor(
     ccd : `~astropy.nddata.CCDData`
         The `~astropy.nddata.CCDData` to be corrected.
 
-    mdark : `~astropy.nddata.CCDData`, `~numpy.ndarray`
+    mdark : `~astropy.nddata.CCDData`, `~numpy.ndarray`, optional.
         The master calibration (dark) frame.
+        Default: `None`.
 
-    mdarkpath : path-like
+    mdarkpath : path-like, optional.
         The path to the master calibration (dark) frame.
+        Default: `None`.
 
-    exptime_key : `str`
+    exptime_key : `str`, optional.
         The keyword of the exposure time in the header. Used only if
         `dark_scale` is `True`.
 
@@ -954,11 +960,13 @@ def flatcor(
     ccd : `~astropy.nddata.CCDData`
         The `~astropy.nddata.CCDData` to be corrected.
 
-    mflat : `~astropy.nddata.CCDData`, `~numpy.ndarray`
+    mflat : `~astropy.nddata.CCDData`, `~numpy.ndarray`, optional.
         The master calibration (flat) frame.
+        Default: `None`.
 
-    mflatpath : path-like
+    mflatpath : path-like, optional.
         The path to the master calibration (dark) frame.
+        Default: `None`.
 
     flat_mask : numeric, `~numpy.ndarray`, `None`, optional.
         Mask to replace bad flat pixels by ``mflat[flat_mask] = flat_fill``. If
@@ -967,6 +975,7 @@ def flatcor(
 
     flat_fill : numeric, optional.
         The value to fill the masked pixels.
+        Default: ``1``.
 
     copy : `bool`, optional
         Whether to return a copy of the data (`True`) or a reference to the
@@ -979,6 +988,7 @@ def flatcor(
         The value to normalize the flat frame. If `None`, the flat frame will
         be normalized by its mean. If numeric, the flat frame will be
         divided by this value.
+        Default: ``1``.
     """
     if mflat is None and mflatpath is None:
         return ccd.copy() if copy else ccd
@@ -1075,8 +1085,9 @@ def frincor(
 
     fringe_scale_kw : `dict`, optional.
         The kwargs that can be passed to `fringe_scale` if it is a function.
+        Default: ``{}``.
 
-    exptime_key : `str`
+    exptime_key : `str`, optional.
         The header keyword for exposure time. Used only if `fringe_scale` is in
         ``{"exp", "exposure", "exptime"}``.
 
@@ -2053,6 +2064,7 @@ def run_reduc_plan(
 
     verbose : `bool`, optional
         [description], by default `False`
+        Default: `False`.
     verbose_bdf : `bool`, optional
         [description], by default `True`
     """
