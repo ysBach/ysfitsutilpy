@@ -85,7 +85,7 @@ def group_combine(
     """Combine sub-groups of FITS files from the given input.
     Parameters
     ----------
-    inputs : ~pandas.DataFrame, glob pattern, list-like of path-like
+    inputs : `~pandas.DataFrame`, glob pattern, list-like of path-like
         If `DataFrame`, it must be the summary table made by `make_summary`.
         The `~glob` pattern for files (e.g., ``"2020*[012].fits"``) or list of
         files (each element must be path-like or `~astropy.nddata.CCDData`). Although it is not a
@@ -133,7 +133,7 @@ def group_combine(
 
     Returns
     -------
-    combined : dict of ~astropy.nddata.CCDData
+    combined : dict of `~astropy.nddata.CCDData`
         The dict object where keys are the header value of the `group_key` and
         the values are the combined images in `~astropy.nddata.CCDData` object. If multiple keys
         for `group_key` is given, the key of this dict is a tuple.
@@ -887,14 +887,14 @@ imcombine.__doc__ = """A helper function for `~ysfitsutilpy.imutil.ndcombine` to
     Parameters
     ----------
 
-    inputs : glob pattern, list-like of path-like, list-like of ~astropy.nddata.CCDData-like
+    inputs : glob pattern, list-like of path-like, list-like of `~astropy.nddata.CCDData`-like
         The `~glob` pattern for files (e.g., ``"2020*[012].fits"``) or list of
         files (each element must be path-like or `~astropy.nddata.CCDData`). Although it is not a
         good idea, a mixed list of `~astropy.nddata.CCDData` and paths to the files is also
         acceptable. For the purpose of `~ysfitsutilpy.imutil.imcombine` function, the best use is to
         use the `~glob` pattern or list of paths.
 
-    mask : ~numpy.ndarray, optional.
+    mask : `~numpy.ndarray`, optional.
         The mask of bad pixels. If given, it must satisfy
         ``mask.shape[0]`` identical to the number of images.
 
@@ -1181,10 +1181,10 @@ ndcombine.__doc__ = """ Combines the given arr assuming no additional offsets.
 
     Parameters
     ----------
-    arr : ~numpy.ndarray
+    arr : `~numpy.ndarray`
         The array to be combined along axis 0.
 
-    mask : ~numpy.ndarray, optional.
+    mask : `~numpy.ndarray`, optional.
         The mask of bad pixels. If given, it must satisfy ``mask.shape[0]``
         identical to the number of images.
 
@@ -1199,7 +1199,7 @@ ndcombine.__doc__ = """ Combines the given arr assuming no additional offsets.
 
     Returns
     -------
-    comb : ~numpy.ndarray
+    comb : `~numpy.ndarray`
         The combined array.
 
     {}

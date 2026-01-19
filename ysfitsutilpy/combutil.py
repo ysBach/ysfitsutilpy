@@ -65,7 +65,7 @@ def group_fits(
 
     Parameters
     ----------
-    summary_table: ~pandas.DataFrame or ~astropy.table.Table
+    summary_table: `~pandas.DataFrame` or `~astropy.table.Table`
         The table which contains the metadata (header) of files. If it is in
         the astropy table format, it will be converted to `~pandas.DataFrame`
         object.
@@ -81,7 +81,7 @@ def group_fits(
 
     Returns
     -------
-    grouped : ~pandas.DataFrameGroupBy
+    grouped : `~pandas.DataFrameGroupBy`
         The table after the grouping process.
 
     group_type_key : list of str
@@ -164,7 +164,7 @@ def select_fits(
 
     Parameters
     ----------
-    inputs : path-like, ~astropy.nddata.CCDData, ~astropy.io.fits.PrimaryHDU, ~astropy.io.fits.ImageHDU, ~pandas.DataFrame or ~astropy.table.Table
+    inputs : path-like, `~astropy.nddata.CCDData`, `~astropy.io.fits.PrimaryHDU`, `~astropy.io.fits.ImageHDU`, `~pandas.DataFrame` or `~astropy.table.Table`
         If it is path-like, it must contain FITS files to extract header. If
         CCD-like, the header information will be used for selecting elements to
         select.
@@ -439,7 +439,7 @@ def stack_FITS(
         Although it is not a good idea, a mixed list of `~astropy.nddata.CCDData` and paths to
         the files is also acceptable.
 
-    summary_table: `None`, ~pandas.DataFrame or ~astropy.table.Table
+    summary_table: `None`, `~pandas.DataFrame` or `~astropy.table.Table`
         The table which contains the metadata of files. If there are many FITS
         files and you want to use stacking many times, it is better to make a
         summary table by `filemgmt.make_summary` and use that instead of
@@ -699,7 +699,7 @@ def combine_ccd(
         Although it is not a good idea, a mixed list of `~astropy.nddata.CCDData` and paths to
         the files is also acceptable.
 
-    summary_table: ~pandas.DataFrame or ~astropy.table.Table
+    summary_table: `~pandas.DataFrame` or `~astropy.table.Table`
         The table which contains the metadata of files. If there are many FITS
         files and you want to use stacking many times, it is better to make a
         summary table by `filemgmt.make_summary` and use that instead of

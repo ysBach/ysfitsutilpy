@@ -194,7 +194,7 @@ def imarith(
     """Similar to IRAF IMARITH
     Parameters
     ----------
-    im1, im2 : `~astropy.nddata.CCDData`, ~numpy.ndarray, number-like, path-like
+    im1, im2 : `~astropy.nddata.CCDData`, `~numpy.ndarray`, number-like, path-like
         The images to be operated. A string that can be converted to float
         (``float(im)``) will be interpreted as numbers; if not, it will be
         interpreted as a path to the FITS file.

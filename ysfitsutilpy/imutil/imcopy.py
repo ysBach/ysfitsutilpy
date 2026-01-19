@@ -22,7 +22,7 @@ def imcopy(
 
     Parameters
     ----------
-    inputs : glob pattern, list-like of path-like, list-like of ~astropy.nddata.CCDData
+    inputs : glob pattern, list-like of path-like, list-like of `~astropy.nddata.CCDData`
         The `~glob` pattern for files (e.g., ``"2020*[012].fits"``) or list of
         files (each element must be path-like or `~astropy.nddata.CCDData`). Although it is not a
         good idea, a mixed list of `~astropy.nddata.CCDData` and paths to the files is also

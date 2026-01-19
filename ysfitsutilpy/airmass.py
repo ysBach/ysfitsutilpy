@@ -165,7 +165,7 @@ def airmass_to_hdr(
 
     Parameters
     ----------
-    header : ~astropy.io.fits.Header
+    header : `~astropy.io.fits.Header`
         The header of the image to calculate airmass from.
 
     obscoord : EarthLocation
@@ -179,7 +179,7 @@ def airmass_to_hdr(
         The name of the header keyword or the value of the RA and DEC of the
         target. If float, it should be in [deg].
 
-    time_start : str|~astropy.time.Time, optional
+    time_start : str|`~astropy.time.Time`, optional
         The name of the header keyword or the value of the time when the
         exposure started.
 

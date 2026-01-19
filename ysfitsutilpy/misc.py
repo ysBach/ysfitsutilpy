@@ -145,7 +145,7 @@ def cmt2hdr(
 
     Parameters
     ----------
-    header : ~astropy.io.fits.Header
+    header : `~astropy.io.fits.Header`
         The header.
 
     histcomm : str in ['h', 'hist', 'history', 'c', 'comm', 'comment']
@@ -166,7 +166,7 @@ def cmt2hdr(
           * ``"({:s})"``: plain time in ``()``. ``(2020-01-01T01:01:01.23)``
           * ``"{:_^72s}"``: center align, filling with ``_``.
 
-    t_ref : ~astropy.time.Time
+    t_ref : `~astropy.time.Time`
         The reference time. If not `None`, delta time is calculated.
 
     dt_fmt : str, optional.
@@ -266,7 +266,7 @@ def update_process(
 
     Parameters
     ----------
-    header : ~astropy.io.fits.Header
+    header : `~astropy.io.fits.Header`
         The header to update the ``PROCESS`` (tunable by `key` parameter)
         keyword.
 
@@ -327,7 +327,7 @@ def parse_crrej_psf(
 ):
     """Return a dict of minimal keyword arguments for
             `~astroscrappy.detect_cosmics`.
-        fs : str, ~numpy.ndarray, list of such, optional.
+        fs : str, `~numpy.ndarray`, list of such, optional.
             If it is a list-like of kernels, it must **NOT** be an `~numpy.ndarray` of
             ``N-by-2`` or ``2-by-N``, etc. You may use `list`, `tuple`, or even
             `~pandas.Series` of ndarrays.
@@ -742,7 +742,7 @@ def str_now(
           * ``"({:s})"``: plain time in parentheses ``(2020-01-01T01:01:01.23)``
           * ``"{:_^72s}"``: center align, filling with ``_``.
 
-    t_ref : ~astropy.time.Time, optional.
+    t_ref : `~astropy.time.Time`, optional.
         The reference time. If not `None`, delta time is calculated.
 
     dt_fmt : str, optional.
@@ -965,7 +965,7 @@ def quantile_lh(
     """Find quantiles for lower and higher values
     Parameters
     ----------
-    a : ~numpy.ndarray
+    a : `~numpy.ndarray`
 
     lq, hq : array_like of float
         Quantile or sequence of quantiles to compute, which must be between 0
@@ -1021,7 +1021,7 @@ def quantile_sigma(
 
     Parameters
     ----------
-    a : ~numpy.ndarray
+    a : `~numpy.ndarray`
 
     axis : {int, tuple of int, `None`}, optional
         Axis or axes along which the quantiles are computed. The default is to

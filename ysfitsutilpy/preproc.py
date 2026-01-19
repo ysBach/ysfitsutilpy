@@ -89,14 +89,14 @@ def crrej(
     """Do cosmic-ray rejection using L.A.Cosmic default parameters.
     Parameters
     ----------
-    ccd : ~astropy.nddata.CCDData
+    ccd : `~astropy.nddata.CCDData`
         The ccd to be processed. The data must be in ADU, not electrons.
 
     propagate_crmask : bool, optional.
         Whether to save (propagate) the mask from CR rejection
         (`~astroscrappy`) to the CCD's mask. Default is `False`.
 
-    inbkg : float, ~numpy.ndarray, path-like to FITS, optional
+    inbkg : float, `~numpy.ndarray`, path-like to FITS, optional
         A pre-determined background image, to be subtracted from `ccd` before
         running the main detection algorithm. This is used primarily with
         spectroscopic data, to remove sky lines and the cross-section of an
@@ -172,7 +172,7 @@ def crrej(
 
         Default: ``"medmask"``.
 
-    fs : {'median', 'gauss', 'gaussx', 'gaussy', 'moffat'}, ~numpy.ndarray, `None`, optional.
+    fs : {'median', 'gauss', 'gaussx', 'gaussy', 'moffat'}, `~numpy.ndarray`, `None`, optional.
         Method to generate the fine structure. Combination of `fsmode`,
         `psfmodel`, `psfk` of `astroscrappy`.
 
@@ -216,12 +216,12 @@ def crrej(
 
     Returns
     -------
-    _ccd : ~astropy.nddata.CCDData
+    _ccd : `~astropy.nddata.CCDData`
         The cosmic-ray cleaned `~astropy.nddata.CCDData` in ADU. `~astroscrappy` automatically
         does a gain correction, so I divided the `~astroscrappy` result by
         gain to restore to ADU (not to surprise the users).
 
-    crmask : ~numpy.ndarray (mask)
+    crmask : `~numpy.ndarray` (mask)
         The cosmic-ray mask from `~astroscrappy`, propagated by the original
         mask of the ccd (if ``ccd.mask`` is not `None`) and `mask` given by
         the user.
@@ -416,7 +416,7 @@ def medfilt_bpm(
         value of 0.0 in the median filtered image which raises zero-division in
         median ratio (image/|median_filtered|).
 
-    std_model : {"std", "ccd"}, ~numpy.ndarray, numeric, optional.
+    std_model : {"std", "ccd"}, `~numpy.ndarray`, numeric, optional.
         The model used to calculate the std (standard deviation) map.
 
         - ``"std"``: Simple standard deviation is calculated.
@@ -476,7 +476,7 @@ def medfilt_bpm(
 
     Returns
     -------
-    ccd : ~astropy.nddata.CCDData
+    ccd : `~astropy.nddata.CCDData`
         The badpixel removed result.
 
     The followings are returned as dict only if ``full=True``.
@@ -765,7 +765,7 @@ def scancor(
     ccd : `~astropy.nddata.CCDData`
         The `~astropy.nddata.CCDData` to be corrected.
 
-    overscan : ~numpy.ndarray, optional.
+    overscan : `~numpy.ndarray`, optional.
         The overscan region in `~numpy.ndarray`, e.g., ``ccd.data[:, :overscan]``. One
         and only one of `overscan` or `scansec` should be given.
 
@@ -809,7 +809,7 @@ def biascor(ccd, mbias=None, mbiaspath=None, copy=True, verbose=1):
     ccd : `~astropy.nddata.CCDData`
         The `~astropy.nddata.CCDData` to be corrected.
 
-    mbias : `~astropy.nddata.CCDData`, ~numpy.ndarray
+    mbias : `~astropy.nddata.CCDData`, `~numpy.ndarray`
         The master calibration (bias) frame.
 
     mbiaspath : path-like
@@ -860,7 +860,7 @@ def darkcor(
     ccd : `~astropy.nddata.CCDData`
         The `~astropy.nddata.CCDData` to be corrected.
 
-    mdark : `~astropy.nddata.CCDData`, ~numpy.ndarray
+    mdark : `~astropy.nddata.CCDData`, `~numpy.ndarray`
         The master calibration (dark) frame.
 
     mdarkpath : path-like
@@ -952,13 +952,13 @@ def flatcor(
     ccd : `~astropy.nddata.CCDData`
         The `~astropy.nddata.CCDData` to be corrected.
 
-    mflat : `~astropy.nddata.CCDData`, ~numpy.ndarray
+    mflat : `~astropy.nddata.CCDData`, `~numpy.ndarray`
         The master calibration (flat) frame.
 
     mflatpath : path-like
         The path to the master calibration (dark) frame.
 
-    flat_mask : numeric, ~numpy.ndarray, `None`, optional.
+    flat_mask : numeric, `~numpy.ndarray`, `None`, optional.
         Mask to replace bad flat pixels by ``mflat[flat_mask] = flat_fill``. If
         numeric, ``mflat[mflat < flat_mask] = flat_fill``. Skipped if `None`.
         Default: ``0``
@@ -1046,10 +1046,10 @@ def frincor(
     """Subtract fringe frame
     Parameters
     ----------
-    ccd : ~astropy.nddata.CCDData
+    ccd : `~astropy.nddata.CCDData`
         The ccd to processed.
 
-    mfringe : ~astropy.nddata.CCDData
+    mfringe : `~astropy.nddata.CCDData`
         The fringe frame.
 
     fringe_scale : int, float, ndarry, function object, {"exp", "exposure", "exptime"}, optional.
@@ -1062,7 +1062,7 @@ def frincor(
         will be subtracted without modification.
         Default: `None`.
 
-    fringe_scale_region : ~numpy.ndarray(bool), str, [list of] int, [list of] slice, optional.
+    fringe_scale_region : `~numpy.ndarray`(bool), str, [list of] int, [list of] slice, optional.
         The mask or FITS-convention section of the fringe and object (science)
         frames to match the fringe pattern before the subtraction. If `~numpy.ndarray`,
         it will be forced to be changed into `bool` array. The scale will be
@@ -1235,7 +1235,7 @@ def ccdred(
 
     Parameters
     ----------
-    ccd : ~astropy.nddata.CCDData-like (e.g., ~astropy.io.fits.PrimaryHDU, ~astropy.io.fits.ImageHDU, ~astropy.io.fits.HDUList), ~numpy.ndarray, path-like, or number-like
+    ccd : `~astropy.nddata.CCDData`-like (e.g., `~astropy.io.fits.PrimaryHDU`, `~astropy.io.fits.ImageHDU`, `~astropy.io.fits.HDUList`), `~numpy.ndarray`, path-like, or number-like
         The ccd to be processed.
 
     output : path-like or `None`, optional.
@@ -1255,7 +1255,7 @@ def ccdred(
         the corresponding process is not done. These can be provided in
         addition to `mbias`, `mdark`, `mflat`, and/or `mfringe`.
 
-    mbias, mdark, mflat, mfringe : ~astropy.nddata.CCDData, optional.
+    mbias, mdark, mflat, mfringe : `~astropy.nddata.CCDData`, optional.
         The master bias, dark, and flat in `~astropy.nddata.CCDData`. If this
         is given, the files provided by `mbiaspath`, `mdarkpath`, `mflatpath`
         and/or `mfringe` are **not** loaded, but these paths will be used for
@@ -1272,7 +1272,7 @@ def ccdred(
         will be subtracted without modification.
         Default: `None`.
 
-    fringe_scale_region : ~numpy.ndarray(bool), str, optional.
+    fringe_scale_region : `~numpy.ndarray`(bool), str, optional.
         The mask or FITS-convention section of the fringe and object (science)
         frames to match the fringe pattern before the subtraction. If `~numpy.ndarray`,
         it will be forced to be changed into `bool` array. The scale will be
@@ -1583,7 +1583,7 @@ def bdf_process(
     """Do bias, dark and flat process.
     Parameters
     ----------
-    ccd : ~astropy.nddata.CCDData-like (e.g., ~astropy.io.fits.PrimaryHDU, ~astropy.io.fits.ImageHDU, ~astropy.io.fits.HDUList), ~numpy.ndarray, path-like, or number-like
+    ccd : `~astropy.nddata.CCDData`-like (e.g., `~astropy.io.fits.PrimaryHDU`, `~astropy.io.fits.ImageHDU`, `~astropy.io.fits.HDUList`), `~numpy.ndarray`, path-like, or number-like
         The ccd to be processed.
 
     output : path-like or `None`, optional.
@@ -1595,7 +1595,7 @@ def bdf_process(
         the corresponding process is not done. These can be provided in
         addition to `mbias`, `mdark`, `mflat`, and/or `mfringe`.
 
-    mbias, mdark, mflat, mfringe : ~astropy.nddata.CCDData, optional.
+    mbias, mdark, mflat, mfringe : `~astropy.nddata.CCDData`, optional.
         The master bias, dark, and flat in `~astropy.nddata.CCDData`. If this
         is given, the files provided by `mbiaspath`, `mdarkpath`, `mflatpath`
         and/or `mfringe` are **not** loaded, but these paths will be used for
@@ -1612,7 +1612,7 @@ def bdf_process(
         will be subtracted without modification.
         Default: `None`.
 
-    fringe_scale_region : ~numpy.ndarray(bool), str, optional.
+    fringe_scale_region : `~numpy.ndarray`(bool), str, optional.
         The mask or FITS-convention section of the fringe and object (science)
         frames to match the fringe pattern before the subtraction. If `~numpy.ndarray`,
         it will be forced to be changed into `bool` array. The scale will be

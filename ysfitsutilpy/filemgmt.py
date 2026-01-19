@@ -40,7 +40,7 @@ def load_if_exists(path, loader, if_not=None, verbose=True, **kwargs):
 
     Parameters
     ----------
-    path : ~pathlib.Path of ~pathlib.Path-like str
+    path : `~pathlib.Path` of `~pathlib.Path`-like str
         The path to be searched.
 
     loader : a function
@@ -112,7 +112,7 @@ def make_summary(
 
     Parameters
     ----------
-    inputs : glob pattern, list-like of path-like, list-like of ~astropy.nddata.CCDData, `~pandas.DataFrame` convertible
+    inputs : glob pattern, list-like of path-like, list-like of `~astropy.nddata.CCDData`, `~pandas.DataFrame` convertible
         The `~glob` pattern for files (e.g., ``"2020*[012].fits"``) or list of
         files (each element must be path-like or `~astropy.nddata.CCDData`). Although it is not a
         good idea, a mixed list of `~astropy.nddata.CCDData` and paths to the files is also
@@ -918,7 +918,7 @@ def fits_newpath(
         If given, subdirectories will be made with the header value of the
         keys.
 
-    header : ~astropy.io.fits.Header object, optional
+    header : `~astropy.io.fits.Header` object, optional
         The header to extract `rename_by` and `mkdir_by`. If `None`, the
         function will do ``header = fits.getheader(fpath)``.
 
@@ -986,7 +986,7 @@ def fitsrenamer(
     fpath : path-like
         The path to the target FITS file.
 
-    header : ~astropy.io.fits.Header, optional
+    header : `~astropy.io.fits.Header`, optional
         The header of the fits file, especially if you want to just overwrite
         the header with this.
 
