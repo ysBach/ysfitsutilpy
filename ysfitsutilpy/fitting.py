@@ -109,19 +109,19 @@ def get_fitter(fitter_name="LM", /, **kwargs):
         The name of the fitter. Only the first 2-3 letters are used for
         determining the fitter (case-insensitive)::
 
-          * starts with "lev" or "lm": Levenberg-Marquardt (`LevMarLSQFitter`)
-          * starts with "lin": Linear (`LinearLSQFitter`)
-          * starts with "sim": Simplex (`SimplexLSQFitter`)
-          * starts with "sl": SLSQP (`SLSQPLSQFitter`)
-          * starts with "jo": Joint (`JointFitter`)
+          * starts with "lev" or "lm": Levenberg-Marquardt (LevMarLSQFitter)
+          * starts with "lin": Linear (LinearLSQFitter)
+          * starts with "sim": Simplex (SimplexLSQFitter)
+          * starts with "sl": SLSQP (SLSQPLSQFitter)
+          * starts with "jo": Joint (JointFitter)
 
     **kwargs :
         Keyword arguments for the fitter (name and astropy default values)::
 
-          * `LinearLSQFitter`: `calc_uncertainties=False`
-          * `LevMarLSQFitter`: `calc_uncertainties=False`
-          * `SimplexLSQFitter`, `SLSQPLSQFitter`: N/A
-          * `JointFitter`: `models`, jointparameters`, `initvals` (must be given)
+          * LinearLSQFitter: `calc_uncertainties=False`
+          * LevMarLSQFitter: `calc_uncertainties=False`
+          * SimplexLSQFitter, SLSQPLSQFitter: N/A
+          * JointFitter: models, jointparameters`, initvals (must be given)
     """
     if fitter_name.lower().startswith("lev") or fitter_name.lower().startswith("lm"):
         return LevMarLSQFitter(**kwargs)
@@ -185,15 +185,15 @@ def fit_model(
     **kwargs :
         Keyword arguments for the fitter (name and astropy default values)::
 
-          * `LinearLSQFitter`: `calc_uncertainties=False`
-          * `LevMarLSQFitter`: `calc_uncertainties=False`
-          * `SimplexLSQFitter`, `SLSQPLSQFitter`: N/A
-          * `JointFitter`: `models`, jointparameters`, `initvals` (must be given)
+          * LinearLSQFitter: `calc_uncertainties=False`
+          * LevMarLSQFitter: `calc_uncertainties=False`
+          * SimplexLSQFitter, SLSQPLSQFitter: N/A
+          * JointFitter: models, jointparameters`, initvals (must be given)
 
     **model_kw :
         The paramters to initialize model. It can be ::
-          * degrees for polynomial (e.g., `degree` for `Chebyshev1D`)
-          * initial parameters for others (e.g., `amplitude` for `Gaussian1D`)
+          * degrees for polynomial (e.g., degree for Chebyshev1D)
+          * initial parameters for others (e.g., amplitude for Gaussian1D)
 
     Returns
     -------
@@ -248,15 +248,15 @@ def fit_model_iter(
     **kwargs :
         Keyword arguments for the fitter (name and astropy default values)::
 
-          * `LinearLSQFitter`: `calc_uncertainties=False`
-          * `LevMarLSQFitter`: `calc_uncertainties=False`
-          * `SimplexLSQFitter`, `SLSQPLSQFitter`: N/A
-          * `JointFitter`: `models`, jointparameters`, `initvals` (must be given)
+          * LinearLSQFitter: `calc_uncertainties=False`
+          * LevMarLSQFitter: `calc_uncertainties=False`
+          * SimplexLSQFitter, SLSQPLSQFitter: N/A
+          * JointFitter: models, jointparameters`, initvals (must be given)
 
     **model_kw :
         The paramters to initialize model. It can be ::
-          * degrees for polynomial (e.g., `degree` for `Chebyshev1D`)
-          * initial parameters for others (e.g., `amplitude` for `Gaussian1D`)
+          * degrees for polynomial (e.g., degree for Chebyshev1D)
+          * initial parameters for others (e.g., amplitude for Gaussian1D)
 
         Ignored if `model_name` is already a model instance.
 

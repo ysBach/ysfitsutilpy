@@ -109,18 +109,18 @@ def NDCOMB_NOT_IMPLEMENTED(indent=0):
 .. warning::
     Few functionalities are not implemented yet:
 
-        #. ``blank`` option
-        #. ``logfile``
-        #. ``statsec`` with input, output, overlap
-        #. ``weight``
-        #. ``scale_sample``, ``zero_sample``
-        #. ``"mode"`` for ``scale``, ``zero``, ``weight``
-        #. ``memlimit`` behaviour
+        #. blank option
+        #. logfile
+        #. statsec with input, output, overlap
+        #. weight
+        #. scale_sample, zero_sample
+        #. ``"mode"`` for scale, zero, weight
+        #. memlimit behaviour
 ''', indent)
 
 
 def NDCOMB_PARAMETERS_COMMON(indent=0):
-    return _fix('''
+    return _fix(r'''
 thresholds : 2-`float` `list`-like, optional.
     The thresholds ``(lower, upper)`` applied to all images before any rejection/combination. Default
     is no thresholding, ``(-np.inf, +np.inf)``. One possible usage is to replace bad pixel to very
@@ -141,7 +141,7 @@ zero : `str` or 1-d array
     For options for sigma-clipped statistics, see `zero_kw`.
 
     .. note::
-        By using `zero` of ``"med_sc"``, the user can crudely subtract sky value from each frame before
+        By using zero of ``"med_sc"``, the user can crudely subtract sky value from each frame before
         combining.
 
 scale : `str` or 1-d array
@@ -185,10 +185,10 @@ zero_kw, scale_kw : `dict`
     ``std_ddof=0``.)
 
     .. note::
-        #. If `axis` is specified, it will be ignored.
+        #. If axis is specified, it will be ignored.
 
         #. Sigma-clipping in astropy has *cumulative rejection* algorithm by default. This may give
-           unwanted results especially when `sigma` in this `zero_kw` or `scale_kw` is small
+           unwanted results especially when sigma in this zero_kw or scale_kw is small
            (around 1), but this is not likely a problem since both zero and scale will be determined
            from all the pixels, which is usually more than an order of a million.
 
@@ -275,9 +275,9 @@ combine: `str`, optional.
 
     .. note::
         The lower median means the median which takes the lower value when even number of data is left.
-        This is suggested to be robust against cosmic-ray hit according to IRAF `IMCOMBINE`_ manual.
+        This is suggested to be robust against cosmic-ray hit according to IRAF IMCOMBINE_ manual.
         Currently there is no lmedian-alternative in bottleneck or numpy, so a custom-made version is
-        used (in ``numpy_util.py``), which is nothing but a simple modification to the original numpy
+        used (in numpy_util.py), which is nothing but a simple modification to the original numpy
         source codes, and this is much slower than bottleneck's median. I think it must be
         re-implemented in the future.
 ''', indent)
@@ -337,8 +337,8 @@ offsets : `str` or (n, m)-d array
         - ``LTV`` values in the header if ``"physical"|"phys"|"phy"``
 
     .. warning::
-        The physical coordinate system is defined by the IRAF-like ``LTM``/``LTV`` keywords define the
-        offsets. Currently, only the cases when ``LTMi_j`` is 0 or 1 can be managed. Otherwise, we
+        The physical coordinate system is defined by the IRAF-like LTM/LTV keywords define the
+        offsets. Currently, only the cases when LTMi_j is 0 or 1 can be managed. Otherwise, we
         need scaling and it is not supported now.
 
     For both wcs or physical cases, the raw offsets for *each* frame is nothing but an ``m``-D `tuple`
@@ -351,11 +351,11 @@ offsets : `str` or (n, m)-d array
     output image's shape.
 
     .. note::
-        Though IRAF `IMCOMBINE`_ says it calculates offsets from the 0-th image center if
-        ``offsets="wcs"``, it seems it acutally uses ``CRPIX`` from the header... I couldn't find how
-        IRAF does offset calculation for `~astropy.wcs.WCS`, it's not reproducible using rounding. Even using `~astropy.wcs.WCS` info
-        correctly, it's not reproducible. Also, if we only use ``CRPIX``, the offset calculations are
-        completely wrong if ``CRPIX`` is not centered at the identical world coordinate (e.g., RA/DEC).
+        Though IRAF IMCOMBINE_ says it calculates offsets from the 0-th image center if
+        ``offsets="wcs"``, it seems it acutally uses CRPIX from the header... I couldn't find how
+        IRAF does offset calculation for astropy.wcs.WCS, it's not reproducible using rounding. Even using astropy.wcs.WCS info
+        correctly, it's not reproducible. Also, if we only use CRPIX, the offset calculations are
+        completely wrong if CRPIX is not centered at the identical world coordinate (e.g., RA/DEC).
         **IRAF indeed wrongly combines images** if this happens.
 ''', indent)
 

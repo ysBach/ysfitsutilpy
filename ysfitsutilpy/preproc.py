@@ -110,10 +110,10 @@ def crrej(
         Default: `None`.
 
         .. note::
-            Originally `pssl`, which stood for "previously subtracted sky
-            level" in ADU (in `astroscrappy` < 1.1.0 or original L.A.Cosmic).
-            Since `astroscrappy` ver > 1.1.0, a 2-D sky level is supported by
-            `inbkg` (it was `bkg` in == 1.1.0, which is a hasty bug in argument
+            Originally pssl, which stood for "previously subtracted sky
+            level" in ADU (in astroscrappy < 1.1.0 or original L.A.Cosmic).
+            Since astroscrappy ver > 1.1.0, a 2-D sky level is supported by
+            inbkg (it was bkg in == 1.1.0, which is a hasty bug in argument
             naming).
 
     invar : `float` numpy array, path-like to FITS, optional
@@ -163,7 +163,7 @@ def crrej(
         significantly faster and still detects cosmic rays well.
         Default: `True`
 
-    cleantype : {'median', 'medmask', 'meanmask', 'idw'}, optional
+    cleantype : ``{'median', 'medmask', 'meanmask', 'idw'}``, optional
         Set which clean algorithm is used:
 
         * ``'median'``: An umasked 5x5 median filter
@@ -173,7 +173,7 @@ def crrej(
 
         Default: ``"medmask"``.
 
-    fs : {'median', 'gauss', 'gaussx', 'gaussy', 'moffat'}, `~numpy.ndarray`, `None`, optional.
+    fs : ``{'median', 'gauss', 'gaussx', 'gaussy', 'moffat'}``, `~numpy.ndarray`, `None`, optional.
         Method to generate the fine structure. Combination of `fsmode`,
         `psfmodel`, `psfk` of `astroscrappy`.
 
@@ -266,7 +266,6 @@ def crrej(
 
 
     >>> import astroscrappy
-
     >>> astroscrappy.detect_cosmics?
 
     Examples
@@ -416,9 +415,9 @@ def medfilt_bpm(
     cadd : `float`, optional.
         A very small const to be added to the input array to avoid resulting
         value of 0.0 in the median filtered image which raises zero-division in
-        median ratio (image/|median_filtered|).
+        median ratio ``(image/|median_filtered|)``.
 
-    std_model : {"std", "ccd"}, `~numpy.ndarray`, numeric, optional.
+    std_model : ``{"std", "ccd"}``, `~numpy.ndarray`, numeric, optional.
         The model used to calculate the std (standard deviation) map.
 
         - ``"std"``: Simple standard deviation is calculated.
@@ -496,7 +495,7 @@ def medfilt_bpm(
     dark frames (no light) for some special circumstances. ::
 
     1. Median additive difference (data-medfilt) generated,
-    2. Median ratio (data/|medfilt|) generated,
+    2. Median ratio ``(data/|medfilt|)`` generated,
     3. Stddev ratio ((data-medfilt)/std) generated,
     4. posmask and negmask calculated by clips MB_[ADD/RAT/STD]_[U/L] and
       logic MB_[N/P]LOG (see keywords),
@@ -1055,7 +1054,7 @@ def frincor(
     mfringe : `~astropy.nddata.CCDData`
         The fringe frame.
 
-    fringe_scale : `int`, `float`, ndarry, function object, {"exp", "exposure", "exptime"}, optional.
+    fringe_scale : `int`, `float`, ndarry, function object, ``{"exp", "exposure", "exptime"}``, optional.
         The scale to be applied to the fringe frame. If numeric or `~numpy.ndarray`, it
         will directly be multiplied to the fringe before fringe subtraction. If
         function object, it will be applied to the fringe before fringe
@@ -1071,7 +1070,7 @@ def frincor(
         it will be forced to be changed into `bool` array. The scale will be
         ``fringe_scale(object_frame[fringe_scale_region]) /
         fringe_scale(frin_frame[fringe_scale_region])``.
-        default: `None`.
+        Default: `None`.
 
     fringe_scale_kw : `dict`, optional.
         The kwargs that can be passed to `fringe_scale` if it is a function.
@@ -1080,16 +1079,12 @@ def frincor(
         The header keyword for exposure time. Used only if `fringe_scale` is in
         ``{"exp", "exposure", "exptime"}``.
 
-    exptime_data, exptime_frin, : `None`, numeric, optional.
+    exptime_data, exptime_frin : `None`, numeric, optional.
         The exposure time of the data and the fringe frame in the same unit. If
         `None`, ``exptime = header.get(exptime_key, 1)`` is used for data and
         fringe, respectively. Otherwise, header information is ignored.
         Used only if when `fringe_scale` is exposure time mode.
         Default: `None`
-
-        The exposure times of data and fringe frame, respectively. Any header
-        information will be ignored (i.e., `xxx_exposure` has higher priority
-        than `xxx.header[exptime_key]`).
 
     copy : `bool`, optional
         Whether to return a copy of the data (`True`) or a reference to the
@@ -1265,7 +1260,7 @@ def ccdred(
         header (``BIASFRM``, ``DARKFRM``, ``FLATFRM`` and/or ``FRINFRM``). If
         the paths are not given, ``xxxxFRM`` will be ``<User>``.
 
-    fringe_scale : `int`, `float`, ndarry, function object, {"exp", "exposure", "exptime"}, optional.
+    fringe_scale : `int`, `float`, ndarry, function object, ``{"exp", "exposure", "exptime"}``, optional.
         The scale to be applied to the fringe frame. If numeric or `~numpy.ndarray`, it
         will directly be multiplied to the fringe before fringe subtraction. If
         function object, it will be applied to the fringe before fringe
@@ -1281,7 +1276,7 @@ def ccdred(
         it will be forced to be changed into `bool` array. The scale will be
         ``fringe_scale(object_frame[fringe_scale_region]) /
         fringe_scale(fringe_frame[fringe_scale_region])``.
-        default: `None`.
+        Default: `None`.
 
     fringe_scale_kw : `dict`, optional.
         The kwargs that can be passed to `fringe_scale` if it is a function.
@@ -1366,7 +1361,7 @@ def ccdred(
         always discouraged to use default except for quick validity-checking,
         because even the official L.A. Cosmic codes in different versions
         (IRAF, IDL, Python, etc) have different default parameters, i.e., there
-        is nothing which can be regarded as _the default_. To see all possible
+        is nothing which can be regarded as *the default*. To see all possible
         keywords, do ``print(astroscrappy.detect_cosmics.__doc__)`` Also refer
         to
         https://nbviewer.jupyter.org/github/ysbach/AO2019/blob/master/Notebooks/07-Cosmic_Ray_Rejection.ipynb
@@ -1606,7 +1601,7 @@ def bdf_process(
         header (``BIASFRM``, ``DARKFRM``, ``FLATFRM`` and/or ``FRINFRM``). If
         the paths are not given, ``xxxxFRM`` will be ``<User>``.
 
-    fringe_scale : `int`, `float`, ndarry, function object, {"exp", "exposure", "exptime"}, optional.
+    fringe_scale : `int`, `float`, ndarry, function object, ``{"exp", "exposure", "exptime"}``, optional.
         The scale to be applied to the fringe frame. If numeric or `~numpy.ndarray`, it
         will directly be multiplied to the fringe before fringe subtraction. If
         function object, it will be applied to the fringe before fringe
@@ -1622,7 +1617,7 @@ def bdf_process(
         it will be forced to be changed into `bool` array. The scale will be
         ``fringe_scale(object_frame[fringe_scale_region]) /
         fringe_scale(fringe_frame[fringe_scale_region])``.
-        default: `None`.
+        Default: `None`.
 
     fringe_scale_kw : `dict`, optional.
         The kwargs that can be passed to `fringe_scale` if it is a function.
@@ -1713,7 +1708,7 @@ def bdf_process(
         always discouraged to use default except for quick validity-checking,
         because even the official L.A. Cosmic codes in different versions
         (IRAF, IDL, Python, etc) have different default parameters, i.e., there
-        is nothing which can be regarded as _the default_. To see all possible
+        is nothing which can be regarded as *the default*. To see all possible
         keywords, do ``print(astroscrappy.detect_cosmics.__doc__)`` Also refer
         to
         https://nbviewer.jupyter.org/github/ysbach/AO2019/blob/master/Notebooks/07-Cosmic_Ray_Rejection.ipynb

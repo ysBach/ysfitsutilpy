@@ -108,7 +108,7 @@ def group_combine(
 
           * 0: print nothing
           * 1: Only very essential things from this function
-          * 2: + verbose from each `~ysfitsutilpy.imutil.imcombine`
+          * 2: + verbose from each ysfitsutilpy.imutil.imcombine
 
     fmt : `str`, optinal.
         The f-string for the output file names.
@@ -902,7 +902,7 @@ imcombine.__doc__ = """A helper function for `~ysfitsutilpy.imutil.ndcombine` to
         .. note::
             If the user ever want to use masking, it's more convenient to use
             ``'MASK'`` extension to the FITS files or replace bad pixel to very
-            large or small numbers and use `thresholds`.
+            large or small numbers and use thresholds.
 
     extension, extension_uncertainty, extension_mask : `int`, `str`, (`str`, `int`)
         The extension of FITS, uncertainty, and mask to be used. It can be

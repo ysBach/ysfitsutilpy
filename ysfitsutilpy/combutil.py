@@ -93,22 +93,15 @@ def group_fits(
     --------
 
     >>> allfits = list(Path('.').glob("*.fits"))
-
     >>> summary_table = make_summary(allfits)
-
     >>> type_key = ["OBJECT"]
-
     >>> type_val = ["dark"]
-
     >>> group_key = ["EXPTIME"]
-
     >>> gs, g_key = group_fits(summary_table,
     ...                        type_key,
     ...                        type_val,
     ...                        group_key)
-
     >>> for g_val, group in gs:
-
     >>>     _ = combine_ccd(group["file"],
     ...                     type_key=g_key,
     ...                     type_val=g_val)
@@ -733,7 +726,7 @@ def combine_ccd(
         Default is `None`.
 
     combine_method : `str` or `None`, optinal.
-        The `method` for `ccdproc.combine`, i.e., {'average', 'median', 'sum'}
+        The `method` for `ccdproc.combine`, i.e., ``{'average', 'median', 'sum'}``
         Default is `None`.
 
     reject_method : `str`
@@ -795,23 +788,25 @@ def combine_ccd(
     **kwarg:
         kwargs for the `ccdproc.combine`. See its documentation. This includes
         (RHS are the default values)
-        ```
-        weights=`None`,
-        scale=`None`,
-        mem_limit=16000000000.0,
-        clip_extrema=`False`,
-        nlow=1,
-        nhigh=1,
-        minmax_clip=`False`,
-        minmax_clip_min=`None`,
-        minmax_clip_max=`None`,
-        sigma_clip=`False`,
-        sigma_clip_low_thresh=3,
-        sigma_clip_high_thresh=3,
-        sigma_clip_func=<numpy.ma.core._frommethod instance>,
-        sigma_clip_dev_func=<numpy.ma.core._frommethod instance>,
-        combine_uncertainty_function=`None`, **ccdkwargs
-        ```
+
+        .. code-block:: python
+
+            weights=None,
+            scale=None,
+            mem_limit=16000000000.0,
+            clip_extrema=False,
+            nlow=1,
+            nhigh=1,
+            minmax_clip=False,
+            minmax_clip_min=None,
+            minmax_clip_max=None,
+            sigma_clip=False,
+            sigma_clip_low_thresh=3,
+            sigma_clip_high_thresh=3,
+            sigma_clip_func=<numpy.ma.core._frommethod instance>,
+            sigma_clip_dev_func=<numpy.ma.core._frommethod instance>,
+            combine_uncertainty_function=None, **ccdkwargs
+
 
     Returns
     -------

@@ -75,36 +75,23 @@ def imcopy(
     -------
 
     >>> from ysfitsutilpy import imcopy
-
     >>> from pathlib import Path
-
     >>>
     >>> datapath = Path("./data")
-
     >>> files = datapath.glob("*.pcr.fits")
-
     >>> sections = ["[50:100, 50:100]", "[50:100, 50:150]"]
-
     >>> outputs = [datapath/"test1.fits", datapath/"test2.fits"]
-
     >>>
     >>> # single file, single section
-
     >>> trim = imcopy(pcrfits[0], sections[0])
-
     >>>
     >>> # single file, multi sections
-
     >>> trims = imcopy(pcrfits[0], sections)
-
     >>>
     >>> # Save with overwrite option
-
     >>> imcopy(pcrfits[0], sections, outputs=outputs, overwrite=True)
-
     >>>
     >>> # multi file multi section
-
     >>> trims2d = imcopy(pcrfits[:2], trimsecs=sections, outputs=None)
     """
     to_trim = False

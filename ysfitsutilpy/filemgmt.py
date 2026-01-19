@@ -59,19 +59,12 @@ def load_if_exists(path, loader, if_not=None, verbose=True, **kwargs):
     -------
 
     >>> from astropy.nddata import CCDData
-
     >>> from pathlib import Path
-
     >>> ccd = load_if_exists(
-
     >>>     Path(".", "test.fits"),
-
     >>>     loader=CCDData.read,
-
     >>>     unit='adu',
-
     >>>     if_not="print('File not found')"
-
     >>> )
     """
     path = Path(path)
@@ -132,7 +125,7 @@ def make_summary(
         Whether to do ``.verify('fix')`` to all FITS files to avoid
         VerifyError. It may take some time if turned on. Default is `False`.
 
-    fname_option : `str` {'absolute', 'relative', 'name'}, optional
+    fname_option : `str` ``{'absolute', 'relative', 'name'}``, optional
         Whether to save full absolute/relative path or only the filename.
 
     output : `str` or path-like, optional
@@ -197,39 +190,22 @@ def make_summary(
     -------
 
     >>> from pathlib import Path
-
     >>> import ysfitsutilpy as yfu
-
     >>> keys = ["OBS-TIME", "FILTER", "OBJECT"]
-
     >>> # actually it is case-insensitive
-
     >>> # The keywords you want to extract
-
     >>> # (from the headers of FITS files)
-
     >>> TOPPATH = Path(".", "observation_2018-01-01")
-
     >>> # The toppath
-
     >>> savepath = TOPPATH / "summary_20180101.csv"
-
     >>> # list of all the fits files in TOPPATH/rawdata:
-
     >>> summary = yfu.make_summary(
-
     >>>     TOPPATH/"rawdata/*.fits",
-
     >>>     keywords=keys,
-
     >>>     fname_option='name',
-
     >>>     pandas=True,
-
     >>>     sort_by="DATE-OBS",
-
     >>>     output=savepath
-
     >>> )
 
     Select all rows with ``OBJECT`` starts with "DA":
@@ -239,7 +215,6 @@ def make_summary(
     ``EXPTIME`` is 2 or 3:
 
     >>> # fullmatch = {"OBJECT": "Ves.*", "FILTER": "J"},
-
     >>> # querystr="EXPTIME in [2, 3]
     """
     if inputs is None:
@@ -462,7 +437,6 @@ def df_selector(
     ``EXPTIME`` is 2 or 3:
 
     >>> # fullmatch = {"OBJECT": "Ves.*", "FILTER": "J"},
-
     >>> # querystr="EXPTIME in [2, 3]"
 
     """
@@ -575,7 +549,7 @@ def make_reduc_planner(
 
         .. note::
             If the file path is relative, the reference of these paths must be
-            identical to that in `summary`. If not, future reduction has no way
+            identical to that in summary. If not, future reduction has no way
             to find the corresponding calibration file.
 
     newcolname : `str` or `list` of `str` The column name(s) to be added to
@@ -599,7 +573,7 @@ def make_reduc_planner(
         The action to take when there are more than one calibration frames
         found::
 
-          * ``"error"``: raise a `ValueError`
+          * ``"error"``: raise a ValueError
           * ``"ignore"``: ignore the calibration frames for this row
           * ``"first"``: use the first calibration frame
           * ``"last"``: use the last calibration frame
@@ -632,59 +606,37 @@ def make_reduc_planner(
     column:
 
     >>> df1  # OBJECTS file  EXPTIME FILTER 0    h0001.fits     20.0      H 1
-
     >>>            h0002.fits     20.0      H
-
     >>> ..            ...      ...    ...
-
     >>> 238  k0079.fits     20.0      K 239  k0080.fits     20.0      K [240
-
     >>> rows x 3 columns]
 
 
     >>> df2  # DARKS
-
     >>> #   FILTER  EXPTIME FRM
-
     >>> # 0      J       20   a.fits
-
     >>> # 1      J       30   b.fits
-
     >>> # 2      H       20   c.fits
-
     >>> # 3      H       30   d.fits
-
     >>> # 4      K       20   e.fits
-
     >>> # 5      K       30   f.fits
 
 
     >>> df3  # FLATS
-
     >>> #   FILTER  EXPTIME FRM
-
     >>> # 0      J       30   A.fits
-
     >>> # 1      H       30   B.fits
-
     >>> # 2      K       30   C.fits
 
     (1) While preparing for making master calibration frames:
 
     >>> df_flat = make_reduc_planner( df3, cal_summary=df2,
-
     >>>     newcolname="DARKFRM", match_by=[["FILTER", "EXPTIME"]],
-
     >>>     cal_column="FRM"
-
     >>> )
-
     >>> #   FILTER  EXPTIME FRM  REMOVEIT DARKFRM
-
     >>> # 0      J       30   A         0       b
-
     >>> # 1      H       30   B         0       d
-
     >>> # 2      K       30   C         0       f
     After this, one may make the master flat frame by
 
@@ -693,52 +645,36 @@ def make_reduc_planner(
     corresponding calibration frame's path, by using (matching by) "FILTER":
 
     >>> df1_d = make_reduc_planner( df1, cal_summary=df3, newcolname="FLATFRM",
-
     >>>     match_by="FILTER",  # also possible: [["FILTER"]] cal_column="FRM"
-
     >>> )
 
     (2) Then add ``"DARKFRM"`` column to `df1_d`, fill with the corresponding
     calibration frame's path, by using (matching by) "EXPTIME", and "FILTER":
 
     >>> df1_df = make_reduc_planner( df1_d, cal_summary=df2,
-
     >>>     newcolname="DARKFRM", match_by=[["EXPTIME", "FILTER"]],  # Note:
-
     >>>     list of list to avoid length mismatch cal_column="FRM"
-
     >>> )
 
     (3) The above two steps can be combined into one step:
 
     >>> df1_df_onestep = make_reduc_planner( df1, cal_summary=[df3, df2],
-
     >>>     newcolname=["FLATFRM", "DARKFRM"], match_by=["FILTER", ["EXPTIME",
-
     >>>     "FILTER"]], cal_column="FRM"  # also possible: ["FRM", "FRM"]
-
     >>> )
 
 
     >>> df1_df_onestep
-
     >>> #            file  EXPTIME FILTER REMOVEIT FLATFRM DARKFRM
-
     >>> # 0    h0001.fits     20.0      H        0 B.fits  c.fits
-
     >>> # 1    h0002.fits     20.0      H        0 B.fits  c.fits
-
     >>> # ..          ...      ...    ...      ...    ...     ...
-
     >>> # 238  k0079.fits     20.0      K        0 C.fits  e.fits
-
     >>> # 239  k0080.fits     20.0      K        0 C.fits  e.fits
-
     >>> # [240 rows x 5 columns]
 
 
     >>> np.all(df1_df == df1_df_onestep)
-
     >>> # True
 
     Notes
@@ -747,15 +683,10 @@ def make_reduc_planner(
     core, GPU 16-core, RAM 16GB]
 
     >>> %%timeit df1_df_onestep = make_reduc_planner( df1, cal_summary=[df3,
-
     >>> df2], newcolname=["FLATFRM", "DARKFRM"], match_by=["FILTER",
-
     >>> ["EXPTIME", "FILTER"]], cal_column="FRM"  # also possible: ["FRM",
-
     >>> "FRM"]
-
     >>> )
-
     >>> # 403 ms +- 11.2 ms per loop (mean +- std. dev. of 7 runs, 1 loop each)
     """
     df = summary.copy()

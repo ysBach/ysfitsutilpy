@@ -313,19 +313,12 @@ def _parse_image(
 
 
     >>> np.random.RandomState(123)
-
     >>> data = np.random.normal(size=(100,100))
-
     >>> ccd = CCDData(data, unit='adu')
-
     >>> fpath = "img/0001.fits"  # doctest: +SKIP
-
     >>> %timeit yfu._parse_image(data, name="test", force_ccddata=True)
-
     >>> %timeit yfu._parse_image(ccd, name="test", force_ccddata=True)
-
     >>> %timeit yfu._parse_image(fpath, name="test", force_ccddata=True) # doctest: +SKIP
-
     >>> %timeit yfu._parse_image(fpath, name="test", force_ccddata=False)[0]*1.0 # doctest: +SKIP
     # 14.2 µs +- 208 ns per loop (mean +- std. dev. of 7 runs, 100000 loops each)
     # 16.6 µs +- 298 ns per loop (mean +- std. dev. of 7 runs, 100000 loops each)
@@ -640,20 +633,20 @@ def load_ccd(
         Used only if ``ccddata=True``.
 
         .. warning::
-            `~astropy.nddata.fits_ccdddata_reader` uses
-            ``_generate_wcs_and_update_header``, which **removes** all
-            `~astropy.wcs.WCS`-specific keywords from the header and extract information and
-            save it into the attribute, `ccd.wcs`. Following this rule,
-            `load_ccd` will save `~astropy.wcs.WCS` information in `ccd.wcs`, and the
-            corresponding keywords will not present in `ccd.header`. They will
-            correctly be saved when writing it into a file (N.B. `ccd.write` is
-            a combination of `ccd.to_hdu(wcs_relax=`True`)` & `hdu.writeto`.
+            astropy.nddata.fits_ccdddata_reader uses
+            _generate_wcs_and_update_header, which **removes** all
+            astropy.wcs.WCS-specific keywords from the header and extract information and
+            save it into the attribute, ccd.wcs. Following this rule,
+            load_ccd will save astropy.wcs.WCS information in ccd.wcs, and the
+            corresponding keywords will not present in ccd.header. They will
+            correctly be saved when writing it into a file (N.B. ccd.write is
+            a combination of `ccd.to_hdu(wcs_relax=True)` & hdu.writeto.
             Here, `.to_hdu()` internally uses
             `header.extend(ccd.wcs.to_header())`)
 
         .. warning::
-            Use ``ccd.wcs``, but not ``~astropy.wcs.WCS(ccd.header)``. astropy often parses
-            `~astropy.wcs.WCS` erroneously for some non-standard ones.
+            Use ccd.wcs, but not ``~astropy.wcs.WCS(ccd.header)``. astropy often parses
+            astropy.wcs.WCS erroneously for some non-standard ones.
 
     unit : `~astropy.units.Unit`, optional
         Units of the image data. If this argument is provided and there is a
@@ -664,7 +657,7 @@ def load_ccd(
 
         .. note::
             The behavior differs from astropy's original fits_ccddata_reader:
-            If no ``BUNIT`` is found and `unit` is `None`, ADU is assumed.
+            If no BUNIT is found and unit is None, ADU is assumed.
 
     full : `bool`, optional.
         Whether to return full `(data, unc, mask, flag)` when using
@@ -699,7 +692,7 @@ def load_ccd(
 
         .. warning::
             If ``ccddata=False`` and ``load_primary_only_fitsio=False``, the
-            uncertainty type by `key_uncertainty_type` will be completely
+            uncertainty type by key_uncertainty_type will be completely
             ignored.
 
     memmap : `bool`, optional
@@ -733,8 +726,10 @@ def load_ccd(
 
     `~astropy.nddata.CCDData.read` cannot read TPV `~astropy.wcs.WCS`:
     https://github.com/astropy/astropy/issues/7650
+
     Also memory map must be set `False` to avoid memory problem
     https://github.com/astropy/astropy/issues/9096
+
     Plus, `~astropy.wcs.WCS` info from astrometry.net solve-field sometimes not understood by
     `~astropy.nddata.CCDData.read....` 2020-05-31 16:39:51 (KST: GMT+09:00) ysBach
     Why the name of the argument is different (`hdu`) in
@@ -748,47 +743,54 @@ def load_ccd(
     enormous by using FITSIO. This also boosts the speed of some processes
     which have to open the same FITS file repeatedly due to the memory limit.
 
-    ```
+    .. code-block:: python
+
         !fitsinfo test.fits
         Filename: test.fits
         No.    Name      Ver    Type      Cards   Dimensions   Format
-          0  PRIMARY       1 `~astropy.io.fits.PrimaryHDU`       6   (1,)   int64
-          1  a             1 `~astropy.io.fits.ImageHDU`         7   (1,)   int64
-          2  a             1 `~astropy.io.fits.ImageHDU`         7   (1,)   int64
-          3  a             2 `~astropy.io.fits.ImageHDU`         8   (1,)   int64
+          0  PRIMARY       1 astropy.io.fits.PrimaryHDU       6   (1,)   int64
+          1  a             1 astropy.io.fits.ImageHDU         7   (1,)   int64
+          2  a             1 astropy.io.fits.ImageHDU         7   (1,)   int64
+          3  a             2 astropy.io.fits.ImageHDU         8   (1,)   int64
 
         %timeit fitsio.FITS("test.fits")["a", 2].read()
         %timeit fitsio.FITS("test.fits")[0].read()
         118 µs +/- 564 ns per loop (mean +/- std. dev. of 7 runs, 10000 loops each)
         117 µs +/- 944 ns per loop (mean +/- std. dev. of 7 runs, 10000 loops each)
 
-        %timeit `~astropy.nddata.CCDData.read`("test.fits")
-        %timeit `~astropy.nddata.CCDData.read`("test.fits", hdu=("a", 2), unit='adu')
+        %timeit astropy.nddata.CCDData.read("test.fits")
+        %timeit astropy.nddata.CCDData.read("test.fits", hdu=("a", 2), unit='adu')
         10.7 ms +/- 113 µs per loop (mean +/- std. dev. of 7 runs, 100 loops each)
         11 ms +/- 114 µs per loop (mean +/- std. dev. of 7 runs, 100 loops each)
-    ```
+
+
     For a 1k by 1k image, it's ~ 6 times faster
-    ```
+
+    .. code-block:: python
+
         np.random.seed(123)
-        ccd = `~astropy.nddata.CCDData`(data=np.random.normal(
+        ccd = astropy.nddata.CCDData(data=np.random.normal(
             size=(1000, 1000)).astype('float32'), unit='adu'
         )
         ccd.write("test1k_32bit.fits")
         %timeit fitsio.FITS("test10k_32bit.fits")[0].read()
         1.49 ms +/- 91.1 µs per loop (mean +/- std. dev. of 7 runs, 1000 loops each)
-        %timeit `~astropy.nddata.CCDData.read`("test10k_32bit.fits")
+        %timeit astropy.nddata.CCDData.read("test10k_32bit.fits")
         8.9 ms +/- 97.6 µs per loop (mean +/- std. dev. of 7 runs, 100 loops each)
-    ```
+
+
     For a 10k by 10k image, it's still ~ 6 times faster
-    ```
-        ccd = `~astropy.nddata.CCDData`(data=np.random.normal(
+
+    .. code-block:: python
+
+        ccd = astropy.nddata.CCDData(data=np.random.normal(
             size=(10000, 10000)).astype('float32'), unit='adu'
         )
         %timeit fitsio.FITS("test10k_32bit.fits")[0].read()
         1.4 ms +/- 123 µs per loop (mean +/- std. dev. of 7 runs, 1000 loops each)
-        %timeit `~astropy.nddata.CCDData.read`("test10k_32bit.fits")
+        %timeit astropy.nddata.CCDData.read("test10k_32bit.fits")
         9.42 ms +/- 391 µs per loop (mean +/- std. dev. of 7 runs, 100 loops each)
-    ```
+
     """
 
     def _ext_umf(ext):
@@ -939,7 +941,7 @@ def inputs2list(
         ``outlist = `list`(inputs["file"])`` is possible. Otherwise, please use,
         e.g., ``inputs = `list`(that_table["filenamecolumn"])``. If a `str` starts
         with ``"@"`` (e.g., ``"@darks.`list`"``), it assumes the file contains a
-        `list` of paths separated by ``"\n"``, as in IRAF.
+        `list` of paths separated by ``"\\n"``, as in IRAF.
 
     sort : `bool`, optional.
         Whether to sort the output `list`.
@@ -1049,8 +1051,11 @@ def load_ccds(
     -----
     Timing on MBP 14" [2021, macOS 12.2, M1Pro(6P+2E/G16c/N16c/32G)] using 10
     FITS (each 4.3 MB) with ~ 100 header cards:
-    %timeit ccds = yfu.load_ccds("h_20191021_000*")
-    105 ms +- 2.11 ms per loop (mean +- std. dev. of 7 runs, 10 loops each)
+
+    .. code-block:: python
+
+        %timeit ccds = yfu.load_ccds("h_20191021_000*")
+        105 ms +- 2.11 ms per loop (mean +- std. dev. of 7 runs, 10 loops each)
     """
     paths2load = []
     for p in listify(paths):
@@ -1095,13 +1100,9 @@ def CCDData_astype(ccd, dtype="float32", uncertainty_dtype=None, copy=True):
     -------
 
     >>> from astropy.nddata import CCDData
-
     >>> import numpy as np
-
     >>> ccd = CCDData.read("image_unitygain001.fits", 0)
-
     >>> ccd.uncertainty = np.sqrt(ccd.data)
-
     >>> ccd = yfu.CCDData_astype(ccd, dtype='int16', uncertainty_dtype='float32')
     """
     if copy:
@@ -1176,7 +1177,6 @@ def set_ccd_attribute(
     -------
 
     >>> set_ccd_attribute(ccd, 'gain', value=2, unit='electron/adu')
-
     >>> set_ccd_attribute(ccd, 'ra', key='RA', unit=u.deg, default=0)
 
     Notes
@@ -1500,9 +1500,9 @@ def cut_ccd(
         details on the final cutout size.
 
         .. note::
-            If `size` is in angular units, the cutout size is converted to
+            If size is in angular units, the cutout size is converted to
             pixels using the pixel scales along each axis of the image at the
-            ``CRPIX`` location.  Projection and other non-linear distortions
+            CRPIX location.  Projection and other non-linear distortions
             are not taken into account.
 
     wcs : `~astropy.wcs.WCS`, optional
@@ -1510,7 +1510,7 @@ def cut_ccd(
         `None`, then the returned cutout object will contain a copy of the
         updated `~astropy.wcs.WCS` for the cutout data array.
 
-    mode : {'trim', 'partial', 'strict'}, optional
+    mode : ``{'trim', 'partial', 'strict'}``, optional
         The mode used for creating the cutout data array.  For the
         ``'partial'`` and ``'trim'`` modes, a partial overlap of the cutout
         array and the input `data` array is sufficient. For the ``'strict'``
@@ -1607,31 +1607,18 @@ def bin_ccd(
     block_reduce:
 
     >>> from astropy.nddata.blocks import block_reduce
-
     >>> import ysfitsutilpy as yfu
-
     >>> from astropy.nddata import CCDData
-
     >>> import numpy as np
-
     >>> ccd = CCDData(data=np.arange(1000).reshape(20, 50), unit='adu')
-
     >>> kw = dict(factor_x=5, factor_y=5, binfunc=np.sum, trim_end=True)
-
     >>> %timeit yfu.binning(ccd.data, **kw)
-
     >>> # 10.9 +- 0.216 us (7 runs, 100000 loops each)
-
     >>> %timeit yfu.bin_ccd(ccd, **kw, update_header=False)
-
     >>> # 32.9 µs +- 878 ns per loop (7 runs, 10000 loops each)
-
     >>> %timeit -r 1 -n 1 block_reduce(ccd, block_size=5)
-
     >>> # 518 ms, 2.13 ms, 250 us, 252 us, 257 us, 267 us
-
     >>> # 5.e+5   ...      ...     ...     ...     27  -- times slower
-
     >>> # some strange chaching happens?
     Tested on  MBP 15" [2018, macOS 10.14.6, i7-8850H (2.6 GHz; 6-core), RAM 16
     GB (2400MHz DDR4), Radeon Pro 560X (4GB)]
@@ -1722,13 +1709,9 @@ def fixpix(
     GMT+09:00)
 
     >>> np.random.RandomState(123)  # RandomState(MT19937) at 0x7FAECA768D40
-
     >>> data = np.random.normal(size=(1000, 1000))
-
     >>> mask = np.zeros_like(data).astype(bool)
-
     >>> mask[10, 10] = True
-
     >>> %timeit yfu.fixpix(data, mask)
     19.7 ms +- 1.53 ms per loop (mean +- std. dev. of 7 runs, 100 loops each)
 
@@ -2210,17 +2193,11 @@ def errormap(
     -------
 
     >>> from astropy.nddata import CCDData, StdDevUncertainty
-
     >>> ccd = CCDData.read("obj001.fits", 0)
-
     >>> hdr = ccd.header
-
     >>> dark = CCDData.read("master_dark.fits", 0)
-
     >>> params = dict(gain_epadu=hdr["GAIN"], rdnoise_electron=hdr["RDNOISE"],
-
     >>>               subtracted_dark=dark.data)
-
     >>> ccd.uncertainty = StdDevUncertainty(errormap(ccd, **params))
 
     """
@@ -2603,29 +2580,32 @@ def valinhdr(val=None, header=None, key=None, default=None, unit=None):
 
     Tests
     -----
-    real_q = 20*u.s
-    real_v = 20
-    default_q = 0*u.s
-    default_v = 0
-    test_q = 3*u.s
-    test_v = 3
 
-    # w/o unit  Times are the %timeit result of the LHS
-    assert valinhdr(`None`,   hdr, "EXPTIME", default=0) == real_v  # ~ 6.5 us
-    assert valinhdr(`None`,   hdr, "EXPTIxx", default=0) == default_v # ~ 3.5 us
-    assert valinhdr(test_v, hdr, "EXPTIxx", default=0) == test_v  # ~ 0.3 us
-    assert valinhdr(test_q, hdr, "EXPTIxx", default=0) == test_v  # ~ 0.6 us
-    # w/ unit  Times are the %timeit result of the LHS
-    assert valinhdr(`None`,   hdr, "EXPTIME", default=0, unit='s') == real_q  # ~ 23 us
-    assert valinhdr(`None`,   hdr, "EXPTIxx", default=0, unit='s') == default_q # ~ 16 us
-    assert valinhdr(test_v, hdr, "EXPTIxx", default=0, unit='s') == test_q  # ~ 11 us
-    assert valinhdr(test_q, hdr, "EXPTIxx", default=0, unit='s') == test_q  # ~ 15 us
+    .. code-block:: python
 
-    For a test `~astropy.nddata.CCDData`, the following timing gave ~ 0.5 ms on MBP 15" [2018,
-    macOS 11.6, i7-8850H (2.6 GHz; 6-core), RAM 16 GB (2400MHz DDR4), Radeon
-    Pro 560X (4GB)]
-    %timeit ((yfu.valinhdr(`None`, ccd.header, "EXPTIME", unit=u.s)
-             / yfu.valinhdr(3*u.s, ccd.header, "EXPTIME", unit=u.s)).si.value)
+        real_q = 20*u.s
+        real_v = 20
+        default_q = 0*u.s
+        default_v = 0
+        test_q = 3*u.s
+        test_v = 3
+
+        # w/o unit  Times are the %timeit result of the LHS
+        assert valinhdr(None,   hdr, "EXPTIME", default=0) == real_v  # ~ 6.5 us
+        assert valinhdr(None,   hdr, "EXPTIxx", default=0) == default_v # ~ 3.5 us
+        assert valinhdr(test_v, hdr, "EXPTIxx", default=0) == test_v  # ~ 0.3 us
+        assert valinhdr(test_q, hdr, "EXPTIxx", default=0) == test_v  # ~ 0.6 us
+        # w/ unit  Times are the %timeit result of the LHS
+        assert valinhdr(None,   hdr, "EXPTIME", default=0, unit='s') == real_q  # ~ 23 us
+        assert valinhdr(None,   hdr, "EXPTIxx", default=0, unit='s') == default_q # ~ 16 us
+        assert valinhdr(test_v, hdr, "EXPTIxx", default=0, unit='s') == test_q  # ~ 11 us
+        assert valinhdr(test_q, hdr, "EXPTIxx", default=0, unit='s') == test_q  # ~ 15 us
+
+        For a test astropy.nddata.CCDData, the following timing gave ~ 0.5 ms on MBP 15" [2018,
+        macOS 11.6, i7-8850H (2.6 GHz; 6-core), RAM 16 GB (2400MHz DDR4), Radeon
+        Pro 560X (4GB)]
+        %timeit ((yfu.valinhdr(None, ccd.header, "EXPTIME", unit=u.s)
+                 / yfu.valinhdr(3*u.s, ccd.header, "EXPTIME", unit=u.s)).si.value)
     """
     uu = 1 if unit is None else u.Unit(unit)
     #    ^ NOT 1.0 to preserve the original dtype (e.g., int)
@@ -2930,13 +2910,13 @@ def wcsremove(
         `extension`.
 
         .. note::
-            If there is no need to use the returned `~astropy.nddata.CCDData`, it is better to
+            If there is no need to use the returned astropy.nddata.CCDData, it is better to
             set `ccddata=False` to improve the performance.
 
         .. warning::
-            The returned `~astropy.nddata.CCDData` will have `ccd.wcs` as `None`, while if the
-            saved `output` is read by `~astropy.nddata.CCDData.read(filename)`, it will have
-            the proper `ccd.wcs`.
+            The returned astropy.nddata.CCDData will have ccd.wcs as None, while if the
+            saved output is read by `~astropy.nddata.CCDData.read(filename)`, it will have
+            the proper ccd.wcs.
 
     extension: `int`, `str`, (`str`, `int`)
         The extension of FITS to be used. It can be given as integer
@@ -2963,10 +2943,12 @@ def wcsremove(
         of all HDU's written to the file.
 
     Notes
-    ----
+    -----
     For ``yfu.wcsremove("test.fit")`` with a simple 33.6MB FITS file (71
     keywords, 20 `~astropy.wcs.WCS`-related keywords, 5 COMMENTs) on MBP 14" [2021, macOS
     13.1, M1Pro(6P+2E/G16c/N16c/32G)]:
+
+    .. code-block:: text
 
         V A C
         O X O = 10.6 ± 0.2 ms (DEFAULT)
@@ -2975,16 +2957,21 @@ def wcsremove(
     Here::
 
         * A : additional_keys=["COMMEnT"]
-        * V : verbose=`True`
-        * C : ccddata=`True`
+        * V : verbose=True
+        * C : ccddata=True
 
     With `additional_keys` (the payoff is not that big):
+
+    .. code-block:: text
 
         V A C
         O O O = 11.2 ± 0.4 ms
         X O O = 10.6 ± 0.2 ms
 
     Return `~astropy.io.fits.PrimaryHDU` without converting to `~astropy.nddata.CCDData` (almost 5x faster):
+
+    .. code-block:: text
+
         V A C
         X X X =  1.9 ± 0.0 ms
         X O X =  2.1 ± 0.0 ms
@@ -3298,13 +3285,9 @@ def give_stats(
     -------
 
     >>> bias = CCDData.read("bias_bin11.fits")
-
     >>> dark = CCDData.read("pdark_300s_27C_bin11.fits")
-
     >>> percentiles = [0.1, 1, 5, 95, 99, 99.9]
-
     >>> give_stats(bias, percentiles=percentiles, N_extrema=5)
-
     >>> give_stats(dark, percentiles=percentiles, N_extrema=5)
     Or just simply
 
@@ -3312,9 +3295,7 @@ def give_stats(
     To update the header
 
     >>> ccd = CCDData.read("bias_bin11.fits", unit='adu')
-
     >>> _, hdr = (ccd, N_extrema=10, update_header=True)
-
     >>> ccd.header = hdr
     # To read the stringfied `list` into python `list` (e.g., percentiles):
     # >>> import json
