@@ -631,6 +631,8 @@ def circular_mask_2d(
     try:
         apertures = CircularAperture(center, radius)
         apmasks = apertures.to_mask(method=method, subpixels=subpixels)
+        if not isinstance(apmasks, list):
+            apmasks = [apmasks]
     except ValueError:
         # multiple radii and "ValueError: 'r' must be a positive scalar" happens.
         if center.shape[0] != np.size(radius):
