@@ -71,7 +71,7 @@ def imcopy(
     All the sections will be flattened if they are higher than 1-d. I think it
     will only increase the complexity of the code if I accept that...?
 
-    Example
+    Examples
     -------
     >>> from ysfitsutilpy import imcopy
     >>> from pathlib import Path

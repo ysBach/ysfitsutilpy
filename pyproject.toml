@@ -38,8 +38,17 @@ dependencies = [
 ]
 
 [project.urls]
+"Documentation" = "https://ysfitsutilpy.readthedocs.io"
 "Source" = "https://github.com/ysBach/ysfitsutilpy"
 "Tracker" = "https://github.com/ysBach/ysfitsutilpy/issues"
+
+[project.optional-dependencies]
+docs = [
+    "sphinx>=7.0",
+    "pydata-sphinx-theme",
+    "numpydoc",
+    "sphinx-copybutton",
+]
 
 [tool.setuptools]
 packages = ["ysfitsutilpy"]
