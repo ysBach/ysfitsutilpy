@@ -112,7 +112,7 @@ def write2fits(data, header, output, return_ccd=False, **kwargs):
     output : path-like
         The output file path
 
-    return_ccd : bool, optional.
+    return_ccd : `bool`, optional.
         Whether to return the generated `~astropy.nddata.CCDData`.
 
     **kwargs :
@@ -143,13 +143,13 @@ def _parse_data_header(
     ccdlike : `~astropy.nddata.CCDData`, `~astropy.io.fits.PrimaryHDU`, `~astropy.io.fits.ImageHDU`, `~astropy.io.fits.HDUList`, `~astropy.io.fits.Header`, `~numpy.ndarray`, number-like, path-like, `None`
         The object to be parsed into data and header.
 
-    extension: int, str, (str, int)
+    extension: `int`, `str`, (`str`, `int`)
         The extension of FITS to be used. It can be given as integer
-        (0-indexing) of the extension, ``EXTNAME`` (single str), or a tuple of
-        str and int: ``(EXTNAME, EXTVER)``. If `None` (default), the *first
+        (0-indexing) of the extension, ``EXTNAME`` (single `str`), or a `tuple` of
+        `str` and `int`: ``(EXTNAME, EXTVER)``. If `None` (default), the *first
         extension with data* will be used.
 
-    parse_data, parse_header : bool, optional.
+    parse_data, parse_header : `bool`, optional.
         Because this function uses ``.copy()`` for safety, it may take a bit of
         time if this function is used iteratively. One then can turn off one of
         these to ignore either data or header part.
@@ -265,25 +265,26 @@ def _parse_image(
     copy=True,
 ):
     """Parse and return input image as desired format (`~numpy.ndarray` or `~astropy.nddata.CCDData`)
+
     Parameters
     ----------
     ccdlike : `~astropy.nddata.CCDData`-like (e.g., `~astropy.io.fits.PrimaryHDU`, `~astropy.io.fits.ImageHDU`, `~astropy.io.fits.HDUList`), `~numpy.ndarray`, path-like, or number-like
         The "image" that will be parsed. A string that can be converted to
-        float (``float(im)``) will be interpreted as numbers; if not, it will
+        `float` (``float(im)``) will be interpreted as numbers; if not, it will
         be interpreted as a path to the FITS file.
 
-    extension: int, str, (str, int)
+    extension: `int`, `str`, (`str`, `int`)
         The extension of FITS to be used. It can be given as integer
-        (0-indexing) of the extension, ``EXTNAME`` (single str), or a tuple of
-        str and int: ``(EXTNAME, EXTVER)``. If `None` (default), the *first
+        (0-indexing) of the extension, ``EXTNAME`` (single `str`), or a `tuple` of
+        `str` and `int`: ``(EXTNAME, EXTVER)``. If `None` (default), the *first
         extension with data* will be used.
 
-    force_ccddata: bool, optional.
+    force_ccddata: `bool`, optional.
         To force the retun im as `~astropy.nddata.CCDData` object. This is
         useful when error calculation is turned on.
         Default is `False`.
 
-    prefer_ccddata: bool, optional.
+    prefer_ccddata: `bool`, optional.
         Mildly use `~astropy.nddata.CCDData`, i.e., return
         `~astropy.nddata.CCDData` only if `im` was `~astropy.nddata.CCDData`,
         HDU object, or `~pathlib.Path`-like to a FITS file, but **not** if it was `~numpy.ndarray`
@@ -295,10 +296,10 @@ def _parse_image(
     new_im : `~numpy.ndarray` or `~astropy.nddata.CCDData`
         Depending on the options `force_ccddata` and `prefer_ccddata`.
 
-    imname : str
+    imname : `str`
         The name of the image.
 
-    imtype : str
+    imtype : `str`
         The type of the image.
 
     Notes
@@ -440,14 +441,14 @@ def _has_header(ccdlike, extension=None, open_if_file=True):
     ccdlike : `~astropy.nddata.CCDData`, `~astropy.io.fits.PrimaryHDU`, `~astropy.io.fits.ImageHDU`, `~astropy.io.fits.HDUList`, `~numpy.ndarray`, number-like, path-like
         The object to be parsed into data and header.
 
-    extension: int, str, (str, int)
+    extension: `int`, `str`, (`str`, `int`)
         The extension of FITS to be used. It can be given as integer
-        (0-indexing) of the extension, ``EXTNAME`` (single str), or a tuple of
-        str and int: ``(EXTNAME, EXTVER)``. If `None` (default), the *first
+        (0-indexing) of the extension, ``EXTNAME`` (single `str`), or a `tuple` of
+        `str` and `int`: ``(EXTNAME, EXTVER)``. If `None` (default), the *first
         extension with data* will be used. Used only if `ccdlike` is `~astropy.io.fits.HDUList` or
         path-like.
 
-    open_if_file : bool, optional.
+    open_if_file : `bool`, optional.
         Whether to open the file to check if it has a header when `ccdlike` is
         path-like. Any FITS file has a header, so this means it will check the
         existence and validity of the file. If set to `False`, all path-like
@@ -610,26 +611,26 @@ def load_ccd(
     path : path-like
         The path to the FITS file to load.
 
-    trimsec : str, optional.
+    trimsec : `str`, optional.
         Region of `~astropy.nddata.CCDData` from which the data is extracted.
         Default: `None`.
 
-    extension: int, str, (str, int)
+    extension: `int`, `str`, (`str`, `int`)
         The extension of FITS to be used. It can be given as integer
-        (0-indexing) of the extension, ``EXTNAME`` (single str), or a tuple of
-        str and int: ``(EXTNAME, EXTVER)``. If `None` (default), the *first
+        (0-indexing) of the extension, ``EXTNAME`` (single `str`), or a `tuple` of
+        `str` and `int`: ``(EXTNAME, EXTVER)``. If `None` (default), the *first
         extension with data* will be used.
 
-    ccddata : bool, optional.
+    ccddata : `bool`, optional.
         Whether to return `~astropy.nddata.CCDData`. Default is `True`. If it
         is `False`, **all the arguments below are ignored**, except for the
         keyword arguments that will be passed to `fitsio.read`, and an `~numpy.ndarray`
         will be returned without astropy unit.
 
-    as_ccd : bool, optional.
+    as_ccd : `bool`, optional.
         Deprecated. (identical to `ccddata`)
 
-    use_wcs : bool, optional.
+    use_wcs : `bool`, optional.
         Whether to load `~astropy.wcs.WCS` by `fits.getheader`, **not** by
         `~astropy.nddata.fits_ccdddata_reader`. This is necessary as of now
         because TPV `~astropy.wcs.WCS` is not properly understood by the latter. It can
@@ -665,32 +666,32 @@ def load_ccd(
             The behavior differs from astropy's original fits_ccddata_reader:
             If no ``BUNIT`` is found and `unit` is `None`, ADU is assumed.
 
-    full : bool, optional.
+    full : `bool`, optional.
         Whether to return full `(data, unc, mask, flag)` when using
         `fitsio` (i.e., when `ccddata=False`). If `False`(default), only `data`
         will be returned.
         Default: `False`.
 
-    extension_uncertainty : str or `None`, optional
+    extension_uncertainty : `str` or `None`, optional
         FITS extension from which the uncertainty should be initialized. If the
         extension does not exist the uncertainty is `None`. Name is changed
         from `hdu_uncertainty` in ccdproc to `extension_uncertainty` here. See
         explanation of `extension`.
         Default: ``'UNCERT'``.
 
-    extension_mask : str or `None`, optional
+    extension_mask : `str` or `None`, optional
         FITS extension from which the mask should be initialized. If the
         extension does not exist the mask is `None`. Name is changed from
         `hdu_mask` in ccdproc to `extension_mask` here.  See explanation of
         `extension`.
         Default: ``'MASK'``.
 
-    hdu_flags : str or `None`, optional
+    hdu_flags : `str` or `None`, optional
         Currently not implemented.N ame is changed from `hdu_flags` in ccdproc
         to `extension_flags` here.
         Default: `None`.
 
-    key_uncertainty_type : str, optional
+    key_uncertainty_type : `str`, optional
         The header key name where the class name of the uncertainty is stored
         in the hdu of the uncertainty (if any).
         Default: ``UTYPE``.
@@ -701,7 +702,7 @@ def load_ccd(
             uncertainty type by `key_uncertainty_type` will be completely
             ignored.
 
-    memmap : bool, optional
+    memmap : `bool`, optional
         Is memory mapping to be used? This value is obtained from the
         configuration item `astropy.io.fits.Conf.use_memmap`.
         Default: `False` (**opposite of astropy**).
@@ -720,7 +721,7 @@ def load_ccd(
     returned as well as the one specified by `extension`.
 
     If ``ccddata=False``, the returned object can be an `~numpy.ndarray` (`full_fitsio`
-    is `False`) or a tuple of arrays ``(data, unc, mask, flag)`` (`full_fitsio`
+    is `False`) or a `tuple` of arrays ``(data, unc, mask, flag)`` (`full_fitsio`
     is `True`).
 
     Notes
@@ -928,32 +929,32 @@ def load_ccd(
 def inputs2list(
     inputs, sort=True, accept_ccdlike=True, path_to_text=False, check_coherency=False
 ):
-    """Convert glob pattern or list-like of path-like to list of `~pathlib.Path`
+    """Convert glob pattern or `list`-like of path-like to `list` of `~pathlib.Path`
 
     Parameters
     ----------
-    inputs : str, path-like, `~astropy.nddata.CCDData`, `~astropy.io.fits.PrimaryHDU`, `~astropy.io.fits.ImageHDU`, `~pandas.DataFrame`-convertable.
-        If `~pandas.DataFrame`-convertable, e.g., dict, `~pandas.DataFrame` or
+    inputs : `str`, path-like, `~astropy.nddata.CCDData`, `~astropy.io.fits.PrimaryHDU`, `~astropy.io.fits.ImageHDU`, `~pandas.DataFrame`-convertable.
+        If `~pandas.DataFrame`-convertable, e.g., `dict`, `~pandas.DataFrame` or
         `~astropy.table.Table`, it must have column named ``"file"``, such that
-        ``outlist = list(inputs["file"])`` is possible. Otherwise, please use,
-        e.g., ``inputs = list(that_table["filenamecolumn"])``. If a str starts
-        with ``"@"`` (e.g., ``"@darks.list"``), it assumes the file contains a
-        list of paths separated by ``"\n"``, as in IRAF.
+        ``outlist = `list`(inputs["file"])`` is possible. Otherwise, please use,
+        e.g., ``inputs = `list`(that_table["filenamecolumn"])``. If a `str` starts
+        with ``"@"`` (e.g., ``"@darks.`list`"``), it assumes the file contains a
+        `list` of paths separated by ``"\n"``, as in IRAF.
 
-    sort : bool, optional.
-        Whether to sort the output list.
+    sort : `bool`, optional.
+        Whether to sort the output `list`.
         Default: `True`.
 
-    accept_ccdlike: bool, optional.
+    accept_ccdlike: `bool`, optional.
         Whether to accept `~astropy.nddata.CCDData`-like objects and simpley
         return ``[inputs]``.
         Default: `True`.
 
-    path_to_text: bool, optional.
+    path_to_text: `bool`, optional.
         Whether to convert the `pathlib.Path` object to `str`.
         Default: `True`.
 
-    check_coherence: bool, optional.
+    check_coherence: `bool`, optional.
         Whether to check if all elements of the `inputs` have the identical
         type.
         Default: `False`.
@@ -1040,8 +1041,8 @@ def load_ccds(
 
     Parameters
     ---------
-    paths : [list of] path-like
-        The path, glob pattern, or list of such, e.g., ``"a.fits"``,
+    paths : [`list` of] path-like
+        The path, glob pattern, or `list` of such, e.g., ``"a.fits"``,
         ``"c*.fits"``, ``["a.fits", "c*.fits"]``
 
     Notes
@@ -1148,16 +1149,16 @@ def set_ccd_attribute(
         The value to be set as the attribute. If `None`, the
         ``ccd.header[key]`` will be searched.
 
-    name : str, optional.
+    name : `str`, optional.
         The name of the attribute.
 
-    key : str, optional.
+    key : `str`, optional.
         The key in the ``ccd.header`` to be searched if ``value=None``.
 
-    unit : astropy.Unit, optional.
+    unit : astropy.`~astropy.units.Unit`, optional.
         The unit that will be applied to the found value.
 
-    header_comment : str, optional.
+    header_comment : `str`, optional.
         The comment string to the header if ``update_header=True``. If `None`
         (default), search for existing comment in the original header by
         ``ccd.comments[key]`` and only overwrite the value by
@@ -1166,9 +1167,9 @@ def set_ccd_attribute(
 
     wrapper : function object, `None`, optional.
         The wrapper function that will be applied to the found value. Other
-        keyword arguments should be given as a dict to `wrapper_kw`.
+        keyword arguments should be given as a `dict` to `wrapper_kw`.
 
-    wrapper_kw : dict, optional.
+    wrapper_kw : `dict`, optional.
         The keyword argument to `wrapper`.
 
     Examples
@@ -1244,23 +1245,23 @@ def set_ccd_gain_rdnoise(
 
     Parameters
     ----------
-    gain, rdnoise : `None`, float, astropy.Quantity, optional.
+    gain, rdnoise : `None`, `float`, astropy.`~astropy.units.Quantity`, optional.
         The gain and readnoise value. If `gain` or `readnoise` is specified,
         they are interpreted with `gain_unit` and `rdnoise_unit`, respectively.
         If they are not specified, this function will seek for the header with
         keywords of `gain_key` and `rdnoise_key`, and interprete the header
         value in the unit of `gain_unit` and `rdnoise_unit`, respectively.
 
-    gain_key, rdnoise_key : str, optional.
+    gain_key, rdnoise_key : `str`, optional.
         See `gain`, `rdnoise` explanation above.
 
-    gain_unit, rdnoise_unit : str, astropy.Unit, optional.
+    gain_unit, rdnoise_unit : `str`, astropy.`~astropy.units.Unit`, optional.
         See `gain`, `rdnoise` explanation above.
 
-    verbose : bool, optional.
+    verbose : `bool`, optional.
         The verbose option.
 
-    update_header : bool, optional
+    update_header : `bool`, optional
         Whether to update the given header.
     """
     gain_str = f"[{gain_unit:s}] Gain of the detector"
@@ -1334,7 +1335,7 @@ def imslice(
         The ccd to be sliced. If `~numpy.ndarray`, it will be converted to `~astropy.nddata.CCDData` with
         dummy unit ("ADU").
 
-    trimsec : str, int, list of int, list of slice, `None`, optional
+    trimsec : `str`, `int`, `list` of `int`, `list` of slice, `None`, optional
         It can have several forms::
 
           * str: The FITS convention section to trim (e.g., IRAF TRIMSEC).
@@ -1343,16 +1344,16 @@ def imslice(
           * [list of] slice: The slice of each axis (`slice(start, stop,
             step)`)
 
-        If a single int/slice is given, it will be applied to all the axes.
+        If a single `int`/slice is given, it will be applied to all the axes.
 
-    order_xyz : bool, optional
+    order_xyz : `bool`, optional
         Whether the order of trimsec is in xyz order. Works only if the
-        `trimsec` is bezel-like (int or list of int). If it is slice-like,
+        `trimsec` is bezel-like (`int` or `list` of `int`). If it is slice-like,
         `trimsec` must be in the pythonic order (i.e., ``[slice_for_axis0,
         slice_for_axis1, ...]``).
 
-    fill_value : `None`, float-like, optinoal.
-        If `None`, it removes the pixels outside of it. If given as float-like
+    fill_value : `None`, `float`-like, optinoal.
+        If `None`, it removes the pixels outside of it. If given as `float`-like
         (including `np.nan`), the bezel pixels will be replaced with this
         value.
 
@@ -1422,16 +1423,16 @@ def trim_overlap(inputs, extension=None, coordinate="image"):
 
     Parameters
     ----------
-    coordinate : str, optional.
+    coordinate : `str`, optional.
         Ways to find the overlapping region. If ``'image'`` (default), output
         size will be ``np.min([ccd.shape for ccd in ccds], axis=0)``. If
         ``'physical'``, overlapping region will be found based on the physical
         coordinates.
 
-    extension: int, str, (str, int)
+    extension: `int`, `str`, (`str`, `int`)
         The extension of FITS to be used. It can be given as integer
-        (0-indexing) of the extension, ``EXTNAME`` (single str), or a tuple of
-        str and int: ``(EXTNAME, EXTVER)``. If `None` (default), the *first
+        (0-indexing) of the extension, ``EXTNAME`` (single `str`), or a `tuple` of
+        `str` and `int`: ``(EXTNAME, EXTVER)``. If `None` (default), the *first
         extension with data* will be used.
 
     Notes
@@ -1480,13 +1481,13 @@ def cut_ccd(
     ccd: `~astropy.nddata.CCDDat`a
         The ccd to be trimmed.
 
-    position : tuple or `~astropy.coordinates.SkyCoord`
+    position : `tuple` or `~astropy.coordinates.SkyCoord`
         The position of the cutout array's center with respect to the ``data``
-        array. The position can be specified either as a ``(x, y)`` tuple of
+        array. The position can be specified either as a ``(x, y)`` `tuple` of
         pixel coordinates or a `~astropy.coordinates.SkyCoord`, in which case
         wcs is a required input.
 
-    size : int, array-like, `~astropy.units.Quantity`
+    size : `int`, array-like, `~astropy.units.Quantity`
         The size of the cutout array along each axis. If `size` is a scalar
         number or a scalar `~astropy.units.Quantity`, then a square cutout of
         `size` will be created. If `size` has two elements, they should be in
@@ -1586,18 +1587,18 @@ def bin_ccd(
     ccd : `~astropy.nddata.CCDData`
         The ccd to be binned
 
-    factor_x, factor_y : int, optional.
+    factor_x, factor_y : `int`, optional.
         The binning factors in x, y direction.
 
     binfunc : funciton object, optional.
         The function to be applied for binning, such as ``np.sum``,
         ``np.mean``, and ``np.median``.
 
-    trim_end : bool, optional.
+    trim_end : `bool`, optional.
         Whether to trim the end of x, y axes such that binning is done without
         error.
 
-    update_header : bool, optional.
+    update_header : `bool`, optional.
         Whether to update header. Defaults to `True`.
 
     Notes
@@ -1687,6 +1688,7 @@ def fixpix(
     verbose=True,
 ):
     """Interpolate the masked location (N-D generalization of IRAF PROTO.FIXPIX)
+
     Parameters
     ----------
     ccd : `~astropy.nddata.CCDData`-like (e.g., `~astropy.io.fits.PrimaryHDU`, `~astropy.io.fits.ImageHDU`, `~astropy.io.fits.HDUList`), `~numpy.ndarray`, path-like, or number-like
@@ -1697,14 +1699,14 @@ def fixpix(
         `mask` is `True`). If `None`, nothing will happen and `ccd` is
         returned.
 
-    extension, mask_extension: int, str, (str, int), `None`
+    extension, mask_extension: `int`, `str`, (`str`, `int`), `None`
         The extension of FITS to be used. It can be given as integer
-        (0-indexing) of the extension, ``EXTNAME`` (single str), or a tuple of
-        str and int: ``(EXTNAME, EXTVER)``. If `None` (default), the *first
+        (0-indexing) of the extension, ``EXTNAME`` (single `str`), or a `tuple` of
+        `str` and `int`: ``(EXTNAME, EXTVER)``. If `None` (default), the *first
         extension with data* will be used.
 
-    priority: tuple of int, `None`, optional.
-        The priority of axis as a tuple of non-repeating `int` from ``0`` to
+    priority: `tuple` of `int`, `None`, optional.
+        The priority of axis as a `tuple` of non-repeating `int` from ``0`` to
         `ccd.ndim`. It will be used if the mask has the same size along two or
         more of the directions. To specify, use the integers for axis
         directions, descending priority. For example,  ``(2, 1, 0)`` will be
@@ -1953,30 +1955,30 @@ def find_extpix(
         The mask to be used. To reduce file I/O time, better to provide
         `~numpy.ndarray`.
 
-    npixs : length-2 tuple of int, optional
+    npixs : length-2 `tuple` of `int`, optional
         The numbers of extrema to find, in the form of ``[small, large]``, so
         that ``small`` number of smallest and ``large`` number of largest pixel
         values will be found. If `None`, no extrema is found (`None` is
         returned for that extremum).
         Deafult: ``(1, 1)`` (find minimum and maximum)
 
-    bezels : list of list of int, optional.
-        If given, must be a list of list of int. Each list of int is in the
+    bezels : `list` of `list` of `int`, optional.
+        If given, must be a `list` of `list` of `int`. Each `list` of `int` is in the
         form of ``[lower, upper]``, i.e., the first ``lower`` and last
         ``upper`` rows/columns are ignored.
 
-    order_xyz : bool, optional.
+    order_xyz : `bool`, optional.
         Whether `bezel` in xyz order or not (python order:
         ``xyz_order[::-1]``).
         Default: `True`.
 
-    sort: bool, optional.
+    sort: `bool`, optional.
         Whether to sort the extrema in ascending order.
 
     Returns
     -------
     min
-        The list of extrema pixel values.
+        The `list` of extrema pixel values.
     """
     if not len(npixs) == 2:
         raise ValueError("npixs must be a length-2 tuple of int.")
@@ -2064,12 +2066,12 @@ def find_satpix(
         The saturation level. Pixels >= `satlevel` will be retarded as
         saturated pixels, except for those masked by `mask`.
 
-    bezels : list of list of int, optional.
-        If given, must be a list of list of int. Each list of int is in the
+    bezels : `list` of `list` of `int`, optional.
+        If given, must be a `list` of `list` of `int`. Each `list` of `int` is in the
         form of ``[lower, upper]``, i.e., the first ``lower`` and last
         ``upper`` rows/columns are ignored.
 
-    order_xyz : bool, optional.
+    order_xyz : `bool`, optional.
         Whether `bezel` in xyz order or not (python order:
         ``xyz_order[::-1]``).
         Default: `True`.
@@ -2077,7 +2079,7 @@ def find_satpix(
     Returns
     -------
     min
-        The list of extrema pixel values.
+        The `list` of extrema pixel values.
     """
     _t = Time.now()
     if isinstance(ccd, CCDData):
@@ -2164,7 +2166,7 @@ def errormap(
         Poisson noise term. If the amount of this subtracted dark is
         negligible, you may just set ``subtracted_dark = None`` (default).
 
-    gain_epadu, rdnoise_electron : float, array-like, or Quantity, optional.
+    gain_epadu, rdnoise_electron : `float`, array-like, or `~astropy.units.Quantity`, optional.
         The effective gain factor in ``electron/ADU`` unit and the readout
         noise in ``electron`` unit.
 
@@ -2176,7 +2178,7 @@ def errormap(
         The flat field value. There is no need that flat values are normalized.
         Default: 1.
 
-    flat_err : float, array-like optional.
+    flat_err : `float`, array-like optional.
         The uncertainty of the flat, which is obtained by the central limit
         theorem (sample standard deviation of the pixel divided by the square
         root of the number of flat frames). An example in IRAF and DAOPHOT: the
@@ -2187,19 +2189,19 @@ def errormap(
         http://stsdas.stsci.edu/cgi-bin/gethelp.cgi?daopars
         Default: 0.
 
-    dark_std : float, array-like, optional.
+    dark_std : `float`, array-like, optional.
         The sample standard deviation of dark pixels. It **should not be
         divided by the number of dark frames**, because we are interested in
         the uncertainty in the dark (prediction), not the confidence interval
         of the *mean* of the dark.
         Default: 0.
 
-    dark_std_min : 'rdnoise', float, optional.
+    dark_std_min : 'rdnoise', `float`, optional.
         The minimum value for `dark_std`. Any `dark_std` value below this will
         be replaced by this value. If ``'rdnoise'`` (default), the
         ``rdnoise_electron/gain_epadu`` will be used.
 
-    return_variance: bool, optional
+    return_variance: `bool`, optional
         Whether to return as variance map. Default is `False`, i.e., return the
         square-rooted standard deviation map. It's better to use variance for
         large image size (computation speed issue).
@@ -2295,26 +2297,26 @@ def hedit(
         The FITS file or header to edit. If `~astropy.io.fits.Header`, it is updated
         **inplace**.
 
-    keys : str, list-like of str
+    keys : `str`, `list`-like of `str`
         The key to edit.
 
-    values : str, numeric, or list-like of such
+    values : `str`, numeric, or `list`-like of such
         The new value. To pass one single iterable (e.g., `[1, 2, 3]`) for one
-        single `key`, use a list of it (e.g., `[[1, 2, 3]]`) to circumvent
+        single `key`, use a `list` of it (e.g., `[[1, 2, 3]]`) to circumvent
         problem.
 
-    comment : str, list-like of str optional.
+    comment : `str`, `list`-like of `str` optional.
         The comment to add.
 
-    add : bool, optional.
+    add : `bool`, optional.
         Whether to add the key if it is not in the header.
 
-    befores : str, int, list-like of such, optional
+    befores : `str`, `int`, `list`-like of such, optional
         Name of the keyword, or index of the `Card` before which this card
         should be located in the header. The argument `before` takes
         precedence over `after` if both specified.
 
-    after : str, int, list-like of such, optional
+    after : `str`, `int`, `list`-like of such, optional
         Name of the keyword, or index of the `Card` after which this card
         should be located in the header.
 
@@ -2386,7 +2388,7 @@ def key_remover(header, remove_keys, deepremove=True):
     header : `~astropy.io.fits.Header`
         The header to be modified
 
-    remove_keys : list of str
+    remove_keys : `list` of `str`
         The header keywords to be removed.
 
     deepremove : `True`, optional
@@ -2424,19 +2426,19 @@ def key_mapper(header, keymap=None, deprecation=False, remove=False):
     header : `~astropy.io.fits.Header`
         The header to be modified
 
-    keymap : dict
+    keymap : `dict`
         The dictionary contains ``{<standard_key>:<original_key>}``
         information. If it is `None` (default), the copied version of the
         header is returned without any change.
 
-    deprecation : bool, optional
+    deprecation : `bool`, optional
         Whether to change the original keywords' comments to contain
         deprecation warning. If `True`, the original keywords' comments will
         become ``DEPRECATED. See <standard_key>.``. It has no effect if
         ``remove=True``.
         Default is `False`.
 
-    remove : bool, optional.
+    remove : `bool`, optional.
         Whether to remove the original keyword. `deprecation` is ignored if
         ``remove=True``.
         Default is `False`.
@@ -2488,14 +2490,14 @@ def chk_keyval(type_key, type_val, group_key):
 
     Parameters
     ----------
-    type_key : `None`, str, list of str, optional
+    type_key : `None`, `str`, `list` of `str`, optional
         The header keyword for the ccd type you want to use for match.
 
-    type_val : `None`, int, str, float, etc and list of such
+    type_val : `None`, `int`, `str`, `float`, etc and `list` of such
         The header keyword values for the ccd type you want to match.
 
 
-    group_key : `None`, str, list of str, optional
+    group_key : `None`, `str`, `list` of `str`, optional
         The header keyword which will be used to make groups for the CCDs that
         have selected from `type_key` and `type_val`. If `None` (default), no
         grouping will occur, but it will return the `~pandas.DataFrameGroupBy`
@@ -2582,14 +2584,14 @@ def valinhdr(val=None, header=None, key=None, default=None, unit=None):
     header : `~astropy.io.fits.Header`, optional.
         The header to extract the value if `value` is `None`.
 
-    key : str, optional.
+    key : `str`, optional.
         The header keyword to extract if `value` is `None`.
 
     default : object, optional.
         The default value. If `value` is `None`, then ``header.get(key,
         default)``.
 
-    unit : str, optional.
+    unit : `str`, optional.
         `None` to ignore unit. ``''`` (empty string) means `Unit(dimensionless)`.
         Better to leave it as `None` unless astropy unit is truely needed.
 
@@ -2646,19 +2648,19 @@ def get_from_header(header, key, unit=None, verbose=True, default=0):
     header : astropy.Header
         The header to extract the value.
 
-    key : str
+    key : `str`
         The header keyword to extract.
 
     unit : astropy unit
         The unit of the value.
 
-    default : str, int, float, ..., or Quantity
+    default : `str`, `int`, `float`, ..., or `~astropy.units.Quantity`
         The default if not found from the header.
 
     Returns
     -------
-    q: Quantity or any object
-        The extracted quantity from the header. It's a Quantity if the unit is
+    q: `~astropy.units.Quantity` or any object
+        The extracted quantity from the header. It's a `~astropy.units.Quantity` if the unit is
         given. Otherwise, appropriate type will be assigned.
     """
     # If using q = header.get(key, default=default),
@@ -2696,6 +2698,7 @@ def get_if_none(value, header, key, unit=None, verbose=True, default=0, to_value
 
 def wcs_crota(wcs, degree=True):
     """
+
     Notes
     -----
     https://iraf.net/forum/viewtopic.php?showtopic=108893
@@ -2738,14 +2741,14 @@ def midtime_obs(
     header : astropy.Header, optional.
         The header to extract the value. `midtime_obs` can be used without
         header. But to do so, `dateobs` must be in `~astropy.time.Time` and
-        `exptime` must be given as float or `~astropy.units.Quantity`.
+        `exptime` must be given as `float` or `~astropy.units.Quantity`.
 
-    dateobs : str, `~astropy.Time`, optional.
+    dateobs : `str`, `~astropy.Time`, optional.
         The header keyword for DATE-OBS (start of exposure) or the
         `~astropy.Time` object.
 
-    exptime : str, float, `~astropy.units.Quantity`, optional.
-        The header keyword for exposure time or the exposure time as float (in
+    exptime : `str`, `float`, `~astropy.units.Quantity`, optional.
+        The header keyword for exposure time or the exposure time as `float` (in
         seconds) or `~astropy.units.Quantity`.
 
     """
@@ -2805,21 +2808,21 @@ def center_radec(
     ccd_or_header : CCD-like, `~astropy.io.fits.Header`
         The ccd or header to extract the central RA/DEC from keywords or `~astropy.wcs.WCS`.
 
-    center_of_image : bool, optional
+    center_of_image : `bool`, optional
         If `True`, `~astropy.wcs.WCS` information will be extracted from the ccd or header,
         rather than relying on the `ra_key` and `dec_key` keywords directly. If
         `False`, `ra_key` and `dec_key` from the header will be understood as
         the "center" and the RA, DEC of that location will be returned.
 
-    equinox, frame : str, optional
+    equinox, frame : `str`, optional
         The `equinox` and `frame` for SkyCoord. Default (`None`) will use the
         default of SkyCoord. Important only if ``usewcs=False``.
 
-    XX_key : str, optional
+    XX_key : `str`, optional
         The header key to find XX if ``XX`` is `None`. Important only if
         ``usewcs=False``.
 
-    XX_unit : Quantity, optional
+    XX_unit : `~astropy.units.Quantity`, optional
         The unit of ``XX``. Important only if ``usewcs=False``.
 
     mode : 'all' or 'wcs', optional
@@ -2827,7 +2830,7 @@ def center_radec(
         only including only the core `~astropy.wcs.WCS` transformation (``'wcs'``). Important
         only if ``usewcs=True``.
 
-    plain : bool
+    plain : `bool`
         If `True`, only the values of RA/DEC in degrees will be returned.
     """
     if isinstance(ccd_or_header, CCDData):
@@ -2912,16 +2915,16 @@ def wcsremove(
 
     Parameters
     ---------
-    path_or_header : str, `~astropy.io.fits.Header`
+    path_or_header : `str`, `~astropy.io.fits.Header`
         The path to the FITS file, or the header to be modified. If it is
         header, `ccddata`, `extension`, `output`, `output_verify`, `overwrite`,
         and `checksum` will be ignored.
 
-    additional_keys : list of regex str, optional
+    additional_keys : `list` of regex `str`, optional
         Additional keys given by the user to be 'reset'. It must be in regex
         expression. Of course regex accepts just string, like 'NAXIS1'.
 
-    ccddata : bool, optional.
+    ccddata : `bool`, optional.
         Whether to return `~astropy.nddata.CCDData`. Default is `True`. If
         `False`, it will return `~astropy.io.fits.PrimaryHDU` of the
         `extension`.
@@ -2935,27 +2938,27 @@ def wcsremove(
             saved `output` is read by `~astropy.nddata.CCDData.read(filename)`, it will have
             the proper `ccd.wcs`.
 
-    extension: int, str, (str, int)
+    extension: `int`, `str`, (`str`, `int`)
         The extension of FITS to be used. It can be given as integer
-        (0-indexing) of the extension, ``EXTNAME`` (single str), or a tuple of
-        str and int: ``(EXTNAME, EXTVER)``. If `None` (default), the *first
+        (0-indexing) of the extension, ``EXTNAME`` (single `str`), or a `tuple` of
+        `str` and `int`: ``(EXTNAME, EXTVER)``. If `None` (default), the *first
         extension with data* will be used.
 
-    output: str or `~pathlib.Path`
+    output: `str` or `~pathlib.Path`
         The output file path.
 
-    output_verify : str
+    output_verify : `str`
         Output verification option.  Must be one of ``"fix"``, ``"silentfix"``,
         ``"ignore"``, ``"warn"``, or ``"exception"``.  May also be any
         combination of ``"fix"`` or ``"silentfix"`` with ``"+ignore"``,
         ``+warn``, or ``+exception" (e.g. ``"fix+warn"``).  See
         :ref:`astropy:verify` for more info.
 
-    overwrite : bool, optional
+    overwrite : `bool`, optional
         If `True`, overwrite the output file if it exists. Raises an `OSError`
         if `False` and the output file exists. Default is `False`.
 
-    checksum : bool, optional
+    checksum : `bool`, optional
         If `True`, adds both ``DATASUM`` and ``CHECKSUM`` cards to the headers
         of all HDU's written to the file.
 
@@ -3143,7 +3146,7 @@ def pixel_scale(header=None, wcs=None, unit=u.arcsec, position=None):
         The desired output unit. Default is arcsec. If `None`, the output will be
         in radians.
 
-    position : tuple of float, optional
+    position : `tuple` of `float`, optional
         The position (x, y) in pixel coordinates to calculate the pixel scale.
         If `None` (default), the center of the image will be used.
         If `"physical"`, the physical center, i.e., the center of the image
@@ -3151,7 +3154,7 @@ def pixel_scale(header=None, wcs=None, unit=u.arcsec, position=None):
 
     Returns
     -------
-    pscale: `~astropy.Quantity` or float
+    pscale: `~astropy.Quantity` or `float`
         The pixel scale in `unit`/pixel. If `unit` is `None`, it will be in radians.
     """
     if wcs is None:
@@ -3192,15 +3195,15 @@ def convert_bit(
     ccd: `~astropy.nddata.CCDDat`a
         The `~astropy.nddata.CCDData` object to be converted.
 
-    original_bit, target_bit: int
+    original_bit, target_bit: `int`
         The original and target bit of the `~astropy.nddata.CCDData` object. For example, if
         these are 12 and 16, respectively, the effect will be dividing the
         original data by 2^4 = 16.
 
-    dtype: str
+    dtype: `str`
         The data type of the output `~astropy.nddata.CCDData` object.
 
-    bunit: str
+    bunit: `str`
         The unit of the output `~astropy.nddata.CCDData` object. Set it to `None` to keep the
         original ``"BUNIT"`` in the header.
 
@@ -3251,35 +3254,35 @@ def give_stats(
         The mask to be used. If given, it must have the same size as `item`
         **before** applying `statsecs`.
 
-    extension: int, str, (str, int)
+    extension: `int`, `str`, (`str`, `int`)
         The extension of FITS to be used. It can be given as integer
-        (0-indexing) of the extension, ``EXTNAME`` (single str), or a tuple of
-        str and int: ``(EXTNAME, EXTVER)``. If `None` (default), the *first
+        (0-indexing) of the extension, ``EXTNAME`` (single `str`), or a `tuple` of
+        `str` and `int`: ``(EXTNAME, EXTVER)``. If `None` (default), the *first
         extension with data* will be used.
 
-    statsecs : str, slice, int, list of such, optional.
+    statsecs : `str`, slice, `int`, `list` of such, optional.
         The section information to calculate the statistics. It can be given
         as a string (FITS-convention section, e.g., "[1:100,2:200]"), a slice
         object (e.g., slice(1,100,2)), or as a bezel (e.g., 10 or (5, 10),
         etc.). See `~ysfitsutilpy.slicefy` for more details.
 
-    percentiles: list-like, optional
+    percentiles: `list`-like, optional
         The percentiles to be calculated.
 
-    N_extrema: int, optinoal
+    N_extrema: `int`, optinoal
         The number of low and high elements to be returned when the whole data
         are sorted. If `None`, it will not be calculated. If ``1``, it is
         identical to min/max values.
 
-    return_header : bool, optional.
+    return_header : `bool`, optional.
         Works only if you gave `item` as FITS file path or
         `~astropy.nddata.CCDData`. The statistics information will be added to
         the header and the updated header will be returned.
 
     Returns
     -------
-    result : dict
-        The dict which contains all the statistics.
+    result : `dict`
+        The `dict` which contains all the statistics.
 
     hdr : `~astropy.io.fits.Header`
         The updated header. Returned only if `update_header` is `True` and
@@ -3313,7 +3316,7 @@ def give_stats(
     >>> _, hdr = (ccd, N_extrema=10, update_header=True)
 
     >>> ccd.header = hdr
-    # To read the stringfied list into python list (e.g., percentiles):
+    # To read the stringfied `list` into python `list` (e.g., percentiles):
     # >>> import json
     # >>> percentiles = json.loads(ccd.header['percentiles'])
     """

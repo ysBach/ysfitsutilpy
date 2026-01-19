@@ -50,11 +50,11 @@ def _iter_rej(
         The array to find the mask. It must be gain-corrected if
         ``ccdclip=True``.
 
-    rdnoise_ref, snoise_ref : float
+    rdnoise_ref, snoise_ref : `float`
         The representative readnoise and sensitivity noise to estimate the
         error-bar for ``ccdclip=True``.
 
-    scale_ref, zero_ref : float
+    scale_ref, zero_ref : `float`
         The representative scaling and zeroing value to estimate the error-bar
         for ``ccdclip=True``.
     """

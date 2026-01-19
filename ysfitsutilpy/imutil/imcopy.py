@@ -22,20 +22,20 @@ def imcopy(
 
     Parameters
     ----------
-    inputs : glob pattern, list-like of path-like, list-like of `~astropy.nddata.CCDData`
-        The `~glob` pattern for files (e.g., ``"2020*[012].fits"``) or list of
+    inputs : glob pattern, `list`-like of path-like, `list`-like of `~astropy.nddata.CCDData`
+        The `~glob` pattern for files (e.g., ``"2020*[012].fits"``) or `list` of
         files (each element must be path-like or `~astropy.nddata.CCDData`). Although it is not a
-        good idea, a mixed list of `~astropy.nddata.CCDData` and paths to the files is also
+        good idea, a mixed `list` of `~astropy.nddata.CCDData` and paths to the files is also
         acceptable. For the purpose of `~ysfitsutilpy.imutil.imcombine` function, the best use is to
-        use the `~glob` pattern or list of paths.
+        use the `~glob` pattern or `list` of paths.
 
-    extension : int, str, (str, int)
+    extension : `int`, `str`, (`str`, `int`)
         The extension of FITS to be used. It can be given as integer
-        (0-indexing) of the extension, ``EXTNAME`` (single str), or a tuple of
-        str and int: ``(EXTNAME, EXTVER)``. If `None` (default), the *first
+        (0-indexing) of the extension, ``EXTNAME`` (single `str`), or a `tuple` of
+        `str` and `int`: ``(EXTNAME, EXTVER)``. If `None` (default), the *first
         extension with data* will be used.
 
-    trimsecs : str or array-like of such, optional.
+    trimsecs : `str` or array-like of such, optional.
         The section specified by FITS convention, i.e., bracket embraced, comma
         separated, XY order, 1-indexing, and including the end index. If given
         as array-like format of length ``N``, all such sections in all FITS
@@ -46,7 +46,7 @@ def imcopy(
         have the shape of ``(M, N)`` where ``M`` and ``N`` are the sizes of
         `fpaths` and `trimsecs`, respectively.
 
-    return_ccd : bool, optional.
+    return_ccd : `bool`, optional.
         Whether to load the FITS files as `~astropy.nddata.CCDData` and return it.
 
     dtype : dtype, optional.
@@ -58,10 +58,10 @@ def imcopy(
 
     Returns
     -------
-    results: `~astropy.nddata.CCDData` or list of `~astropy.nddata.CCDDat`a
+    results: `~astropy.nddata.CCDData` or `list` of `~astropy.nddata.CCDDat`a
         Only if `return_ccd` is set `True`. A sinlge `~astropy.nddata.CCDData
         will be returned if only one was input. Otherwise, the same number of
-        `~astropy.nddata.CCDData will be gathered as a list and returned.
+        `~astropy.nddata.CCDData will be gathered as a `list` and returned.
 
     Notes
     -----

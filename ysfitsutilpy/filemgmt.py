@@ -40,15 +40,15 @@ def load_if_exists(path, loader, if_not=None, verbose=True, **kwargs):
 
     Parameters
     ----------
-    path : `~pathlib.Path` of `~pathlib.Path`-like str
+    path : `~pathlib.Path` of `~pathlib.Path`-like `str`
         The path to be searched.
 
     loader : a function
         The loader to load `path`. Can be ``~astropy.nddata.CCDData.read``, ``np.loadtxt``,
         etc.
 
-    if_not : str
-        Give a python code as a str to be run if the loading failed.
+    if_not : `str`
+        Give a python code as a `str` to be run if the loading failed.
 
     Returns
     -------
@@ -112,34 +112,34 @@ def make_summary(
 
     Parameters
     ----------
-    inputs : glob pattern, list-like of path-like, list-like of `~astropy.nddata.CCDData`, `~pandas.DataFrame` convertible
-        The `~glob` pattern for files (e.g., ``"2020*[012].fits"``) or list of
+    inputs : glob pattern, `list`-like of path-like, `list`-like of `~astropy.nddata.CCDData`, `~pandas.DataFrame` convertible
+        The `~glob` pattern for files (e.g., ``"2020*[012].fits"``) or `list` of
         files (each element must be path-like or `~astropy.nddata.CCDData`). Although it is not a
-        good idea, a mixed list of `~astropy.nddata.CCDData` and paths to the files is also
+        good idea, a mixed `list` of `~astropy.nddata.CCDData` and paths to the files is also
         acceptable. If a `~pandas.DataFrame` or convertible (especially
         `~astropy.table.Table`) is given, it finds the ``"file"`` column and
         use it as the input files, make a summary table from the headers of
         those files.
         If `inputs` is `None`, any `output` is ignored and `None` is returned.
 
-    extension: int, str, (str, int)
+    extension: `int`, `str`, (`str`, `int`)
         The extension of FITS to be used. It can be given as integer
-        (0-indexing) of the extension, ``EXTNAME`` (single str), or a tuple of
-        str and int: ``(EXTNAME, EXTVER)``. If `None` (default), the *first
+        (0-indexing) of the extension, ``EXTNAME`` (single `str`), or a `tuple` of
+        `str` and `int`: ``(EXTNAME, EXTVER)``. If `None` (default), the *first
         extension with data* will be used.
 
-    verify_fix : bool, optional.
+    verify_fix : `bool`, optional.
         Whether to do ``.verify('fix')`` to all FITS files to avoid
         VerifyError. It may take some time if turned on. Default is `False`.
 
-    fname_option : str {'absolute', 'relative', 'name'}, optional
+    fname_option : `str` {'absolute', 'relative', 'name'}, optional
         Whether to save full absolute/relative path or only the filename.
 
-    output : str or path-like, optional
+    output : `str` or path-like, optional
         The directory and file name of the output summary file.
 
-    keywords : list or str(``"*"``), optional
-        The list of the keywords to extract (keywords should be in str).
+    keywords : `list` or `str`(``"*"``), optional
+        The `list` of the keywords to extract (keywords should be in `str`).
 
     example_header : `None` or path-like, optional
         The path including the filename of the output summary text file. If
@@ -147,38 +147,38 @@ def make_summary(
         (if glob-pattern is given, the 0-th element is random, so be careful)
         and saved to `example_header`. Use `None` (default) to skip this.
 
-    sort_by : str, optional
+    sort_by : `str`, optional
         The column name to sort the results. It can be any element of
         `keywords` or `'file'`, which sorts the table by the file name.
 
-    sort_map: dict, optional
+    sort_map: `dict`, optional
         A subset of `key` parameter in `pandas.DataFrame.sort_values()`. If a
-        dict is given, then ``key = lambda x: x.map(sort_map)`` is passed into
+        `dict` is given, then ``key = lambda x: x.map(sort_map)`` is passed into
         `.sort_values()`.
 
-    fullmatch : dict, optional
-        The ``{column: regex}`` style dict to be used for selecting rows by
-        ``summarytab[column].str.fullmatch(regex, case=`True`)``.
+    fullmatch : `dict`, optional
+        The ``{column: regex}`` style `dict` to be used for selecting rows by
+        ``summarytab[column].`str`.fullmatch(regex, case=`True`)``.
         Default: `None`
 
-    negate_fullmatch: bool, optional.
+    negate_fullmatch: `bool`, optional.
         Whether to negate the mask by `fullmatch`, in case the user does not
         want to think much about regex to negate it.
 
-    flags: int, optional.
+    flags: `int`, optional.
         Regex module flags, e.g. re.IGNORECASE. Default: 0
 
-    querystr : str, optional
+    querystr : `str`, optional
         The query string used for ``summarytab.query(querystr)``. See
         `~pandas.DataFrame.query`.
 
-    nonunique_keys : bool, optional
+    nonunique_keys : `bool`, optional
         Whether to remove the keys that have only one unique value throughout
         *ALL* input objects. Even if it is unique, keys specified in `keywords`
         will not be removed.
         Default is `False`.
 
-    verbose : bool, optional
+    verbose : `bool`, optional
         Whether to print the progress. Default is `True`.
 
     **kwargs :
@@ -422,22 +422,22 @@ def df_selector(
     summarytab : `~pandas.DataFrame`
         The summary table to select from. Normally the table made from header
         information.
-    fullmatch : dict, optional
-        The ``{column: regex}`` style dict to be used for selecting rows by
-        ``summarytab[column].str.fullmatch(regex, case=`True`)``. An example:
+    fullmatch : `dict`, optional
+        The ``{column: regex}`` style `dict` to be used for selecting rows by
+        ``summarytab[column].`str`.fullmatch(regex, case=`True`)``. An example:
         ``{"OBJECT": "Ves.*"}``. All corresponding columns must have dtype of
         `str` to apply regex.
         Default: `None`
-    negate_fullmatch: bool, optional.
+    negate_fullmatch: `bool`, optional.
         Whether to negate the mask by `fullmatch`, in case the user does not
         want to think much about regex to negate it.
-    flags: int, optional.
+    flags: `int`, optional.
         Regex module flags, e.g. re.IGNORECASE. Default: 0
-    querystr : str, optional
+    querystr : `str`, optional
         The query string used for ``summarytab.query(querystr)``. See
         `~pandas.DataFrame.query`.
-    columns, columns_drop: str, list, optional.
-        The list of columns to be returned/dropped after selection. No need to
+    columns, columns_drop: `str`, `list`, optional.
+        The `list` of columns to be returned/dropped after selection. No need to
         setup both, but no Error will be raised even the user does so.
 
     Returns
@@ -569,7 +569,7 @@ def make_reduc_planner(
     ----------
     summary : `~pandas.DataFrame` The summary table of the files to be reduced.
 
-    cal_summary : `~pandas.DataFrame` or list of such. The summary table of the
+    cal_summary : `~pandas.DataFrame` or `list` of such. The summary table of the
         calibration files. If `list`, lengths of `cal_summary` and `column`
         must be the same.
 
@@ -578,24 +578,24 @@ def make_reduc_planner(
             identical to that in `summary`. If not, future reduction has no way
             to find the corresponding calibration file.
 
-    newcolname : str or list of str The column name(s) to be added to
+    newcolname : `str` or `list` of `str` The column name(s) to be added to
         `summary`, which will contain the correspondong calibration frame
         information (file name). If `list`, lengths of `cal_summary` and
         `newcolname` must be the same.
 
-    match_by : str or list of str, optional The column name(s) to be used for
+    match_by : `str` or `list` of `str`, optional The column name(s) to be used for
         matching calibration frames. If `list`, lengths of `match_by` and
         `newcolname` must be the same. To give multiple column names, use a
-        list of lists, so that ``(len(match_by))`` is the same as
+        `list` of lists, so that ``(len(match_by))`` is the same as
         ``len(newcolname)``. Rows that have no matching calibration frames will
         be filled with `None`. Default: `None` (all of the columns in
         `cal_summary` are used to match the calibration frames)
 
-    cal_column : str, optional The column name which contains the "value" (file
-        name) in `cal_summary`. If str, it is assumed all `cal_summary` have
+    cal_column : `str`, optional The column name which contains the "value" (file
+        name) in `cal_summary`. If `str`, it is assumed all `cal_summary` have
         the information at that column. Default: ``"file"``
 
-    ifmany : str, optional
+    ifmany : `str`, optional
         The action to take when there are more than one calibration frames
         found::
 
@@ -609,11 +609,11 @@ def make_reduc_planner(
         used among them (the default behavior of `~numpy.argmin`). `timecol`
         must be specified if `ifmany` is ``"time"``.
 
-    timecol : str, optional.
+    timecol : `str`, optional.
         The column contains the time of the observation. The FITS standard is
         `"DATE-OBS"`. **Used only if `ifmany` is ``"time"``**.
 
-    timefmt : str, optional
+    timefmt : `str`, optional
         The format of the time in `timecol`. **Used only if `ifmany` is
         ``"time"``**. Usually ``"isot"`` or ``"jd"``. All possible formats are::
 
@@ -910,10 +910,10 @@ def fits_newpath(
     fpath : path-like
         The path to the original FITS file.
 
-    rename_by : list of str, optional
+    rename_by : `list` of `str`, optional
         The keywords of the FITS header to rename by.
 
-    mkdir_by : list of str, optional
+    mkdir_by : `list` of `str`, optional
         The keys which will be used to make subdirectories to classify files.
         If given, subdirectories will be made with the header value of the
         keys.
@@ -922,14 +922,14 @@ def fits_newpath(
         The header to extract `rename_by` and `mkdir_by`. If `None`, the
         function will do ``header = fits.getheader(fpath)``.
 
-    delimiter : str, optional
+    delimiter : `str`, optional
         The delimiter for the renaming.
 
-    fillnan : str, optional
+    fillnan : `str`, optional
         The string that will be inserted if the keyword is not found from the
         header.
 
-    fileext : str, optional
+    fileext : `str`, optional
         The extension of the file name to be returned. Normally it should be
         ``'.fits'`` since this function is `fits_newname`, but you may prefer,
         e.g., ``'.fit'`` for some reason. If `fileext` does not start with a
@@ -994,15 +994,15 @@ def fitsrenamer(
         The top path for the new FITS file. If `None`, the new path will share
         the parent path with `fpath`.
 
-    rename_by : list of str, optional
+    rename_by : `list` of `str`, optional
         The keywords of the FITS header to rename by.
 
-    mkdir_by : list of str, optional
+    mkdir_by : `list` of `str`, optional
         The keys which will be used to make subdirectories to classify files.
         If given, subdirectories will be made with the header value of the
         keys.
 
-    delimiter : str, optional
+    delimiter : `str`, optional
         The delimiter for the renaming.
 
     archive_dir : path-like or `None`, optional
@@ -1010,24 +1010,24 @@ def fitsrenamer(
         remain there. Deleting original FITS is dangerous so it is only
         supported to move the files. You may delete files manually if needed.
 
-    keymap : dict or `None`, optional
-        If not `None`, the keymapping is done by using the dict of `keymap` in
+    keymap : `dict` or `None`, optional
+        If not `None`, the keymapping is done by using the `dict` of `keymap` in
         the format of ``{<standard_key>:<original_key>}``.
 
-    key_deprecation : bool, optional
+    key_deprecation : `bool`, optional
         Whether to change the original keywords' comments to contain
         deprecation warning. If `True`, the original keywords' comments will
         become ``Deprecated. See <standard_key>.``.
 
-    trimsec : str or `None`, optional
+    trimsec : `str` or `None`, optional
         Region of ``~astropy.nddata.CCDData`` from which the overscan is extracted; see
         `~ccdproc.subtract_overscan` for details. Default is `None`.
 
-    fillnan : str, optional
+    fillnan : `str`, optional
         The string that will be inserted if the keyword is not found from the
         header.
 
-    remove_keys : list of str
+    remove_keys : `list` of `str`
         The header keywords to be removed.
 
     add_header : header or Card object

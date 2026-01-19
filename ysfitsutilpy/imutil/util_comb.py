@@ -71,6 +71,7 @@ def get_zsw(
     # TODO: add sigma-clipped mean, med, std as scale, zero, or weight.
     def _nanfun2nonnan(fun):
         """
+
         Returns
         -------
         nonnan_function: The function without NaN policy
@@ -270,6 +271,7 @@ def _setup_reject(arr, mask, nkeep, maxrej, cenfunc):
 
 def _calculate_step_sizes(x_size, y_size, num_chunks):
     """Calculate the strides in x and y.
+
     Notes
     -----
     Calculate the strides in x and y to achieve at least the

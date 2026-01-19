@@ -23,10 +23,10 @@ mask : `~numpy.ndarray`, optional.
     The initial mask provided prior to any rejection. `arr` and `mask` must have the identical
     shape.
 
-axis : int, optional.
+axis : `int`, optional.
     The axis to combine the image.
 
-full : bool, optional.
+full : `bool`, optional.
     Whether to return full results. See Return.
 """
 )
@@ -35,33 +35,33 @@ full : bool, optional.
 def REJECT_PARAMETERS_SIGMA(indent=0):
     return _fix(
         """
-sigma : float-like, optional.
+sigma : `float`-like, optional.
     The sigma-factors to be muiltiplied to the sigma values. Overridden by `sigma_lower` and/or
     `sigma_upper`, if input.
 
-sigma_lower : float or `None`, optional
+sigma_lower : `float` or `None`, optional
     The number of standard deviations to use as the lower bound for the clipping limit. If `None` then
     the value of `sigma` is used. The default is `None`.
 
-sigma_upper : float or `None`, optional
+sigma_upper : `float` or `None`, optional
     The number of standard deviations to use as the upper bound for the clipping limit. If `None` then
     the value of `sigma` is used. The default is `None`.
 
-maxiters : int, optional.
-    The maximum number of iterations to do the rejection. It is silently converted to int if it is not.
+maxiters : `int`, optional.
+    The maximum number of iterations to do the rejection. It is silently converted to `int` if it is not.
 
-ddof : int, optional.
-    The delta-degrees of freedom (see `numpy.std`). It is silently converted to int if it is not.
+ddof : `int`, optional.
+    The delta-degrees of freedom (see `numpy.std`). It is silently converted to `int` if it is not.
 
-nkeep : float or int, optional.
+nkeep : `float` or `int`, optional.
     The minimum number of pixels that should be left after rejection. If ``nkeep < 1``, it is regarded
     as fraction of the total number of pixels along the axis to combine.
 
-maxrej : float or int, optional.
+maxrej : `float` or `int`, optional.
     The maximum number of pixels that can be rejected during the rejection. If ``maxrej < 1``, it is
     regarded as fraction of the total number of pixels along the axis to combine.
 
-cenfunc : str, optional.
+cenfunc : `str`, optional.
     The centering function to be used.
 
         * median if  `cenfunc` in ``{'med', 'medi', 'median'}``
@@ -71,7 +71,7 @@ cenfunc : str, optional.
     The lower median means the median which takes the lower value when even number of data is left.
     This is suggested to be robust against cosmic-ray hit according to IRAF IMCOMBINE manual.
 
-irafmode : bool, optional.
+irafmode : `bool`, optional.
         Whether to use IRAF-like pixel restoration scheme. Default is `True`.
 
 """, indent)
@@ -79,14 +79,14 @@ irafmode : bool, optional.
 
 def REJECT_RETURNS_SIGMA(indent=0):
     return _fix("""
-o_mask : `~numpy.ndarray` of bool
+o_mask : `~numpy.ndarray` of `bool`
     The mask of the same shape as `arr` and `mask`.
 
 o_low, o_upp : `~numpy.ndarray` of `dtype`
     Returned only if ``full = True``. The lower and upper bounds used for sigma clipping. Data with
     ``(arr < o_low) | (o_upp < arr)`` are masked. Shape of ``arr.shape[1:]``.
 
-o_nit : `~numpy.ndarray` of int or int
+o_nit : `~numpy.ndarray` of `int` or `int`
     Returned only if `full` is `True`. The number of iterations until it is halted.
 
 o_code : `~numpy.ndarray` of uint8
@@ -121,12 +121,12 @@ def NDCOMB_NOT_IMPLEMENTED(indent=0):
 
 def NDCOMB_PARAMETERS_COMMON(indent=0):
     return _fix('''
-thresholds : 2-float list-like, optional.
+thresholds : 2-`float` `list`-like, optional.
     The thresholds ``(lower, upper)`` applied to all images before any rejection/combination. Default
     is no thresholding, ``(-np.inf, +np.inf)``. One possible usage is to replace bad pixel to very
     large or small numbers and use this thresholding.
 
-zero : str or 1-d array
+zero : `str` or 1-d array
     The *zero* value to subtract from each image *after* thresholding, but *before* scaling/offset
     shifting/rejection/combination. If an array, it is directly subtracted from each image, (so it must
     have size identical to the number of images). If `str`, the zero-level is:
@@ -144,7 +144,7 @@ zero : str or 1-d array
         By using `zero` of ``"med_sc"``, the user can crudely subtract sky value from each frame before
         combining.
 
-scale : str or 1-d array
+scale : `str` or 1-d array
     The way to scale each image *after* thresholding/zeroing, but *before* offset
     shifting/rejection/combination. If an array, it is directly understood as the **raw scales**, and
     it must have size identical to the number of images. If `str`, the raw scale is:
@@ -165,20 +165,20 @@ scale : str or 1-d array
     .. note::
         Using ``scale="avg_sc", scale_to_0th=False`` is useful for flat combining.
 
-zero_to_0th : bool, optional.
+zero_to_0th : `bool`, optional.
     Whether to re-base the zero values such that all images have identical zero values as that of the
     0-th image (in python, ``zero - zero[0]``). This is the behavior of IRAF, so `zero_to_0th` is
     `True` by default.
 
-scale_to_0th : bool, optional.
+scale_to_0th : `bool`, optional.
     Whether to re-scale the scales such that ``scale[0]`` is unity (in python, ``scale/scale[0]``).
     This is the behavior of IRAF, so `scale_to_0th` is `True` by default.
 
-zero_section, scale_section : str, optional.
+zero_section, scale_section : `str`, optional.
     The sections used for zeroing and scaling. These must be in FITS section
     format, and are the sections **AFTER** trimming based on `trimsec`.
 
-zero_kw, scale_kw : dict
+zero_kw, scale_kw : `dict`
     Used only if `scale` or `zero` are sigma-clipped mean, median, etc (ending with ``_sc`` such as
     ``median_sc``, ``avg_sc``). The keyword arguments for `astropy.stats.sigma_clipped_stats`. By
     default, ``std_ddof=1`` (note that `~astropy.stats.sigma_clipped_stats` has default
@@ -192,33 +192,33 @@ zero_kw, scale_kw : dict
            (around 1), but this is not likely a problem since both zero and scale will be determined
            from all the pixels, which is usually more than an order of a million.
 
-sigma : 2-float list-like, optional.
+sigma : 2-`float` `list`-like, optional.
     The sigma-factors to be used for sigma-clip rejeciton in ``(sigma_lower, sigma_upper)``. Defaults
     to ``(3, 3)``, which means 3-sigma clipping from the "sigma" values determined by the method
-    specified by `reject`. If a single float, it will be used for both the lower and upper values.
+    specified by `reject`. If a single `float`, it will be used for both the lower and upper values.
 
-maxiters : int, optional.
+maxiters : `int`, optional.
     The maximum number of iterations to do the rejection (for sigma-clipping). It is silently converted
     to `int` if it is not.
 
-ddof : int, optional.
+ddof : `int`, optional.
     The delta-degrees of freedom (see `numpy.std`). It is silently converted to `int` if it is not.
 
-nkeep : float or int, optional.
+nkeep : `float` or `int`, optional.
     The minimum number of pixels that should be left after rejection. If ``nkeep < 1``, it is regarded
     as fraction of the total number of pixels along the axis to combine. This corresponds to *positive*
     `nkeep` parameter of IRAF `IMCOMBINE`_. If number of remaining non-nan value is fewer than
     `nkeep`, the masks at that position will be reverted to the previous iteration, and rejection
     code will be added by number 4.
 
-maxrej : float or int, optional.
+maxrej : `float` or `int`, optional.
     The maximum number of pixels that can be rejected during the rejection. If ``maxrej < 1``, it is
     regarded as fraction of the total number of pixels along the axis to combine. This corresponds to
     *negative* `nkeep` parameter of IRAF `IMCOMBINE`_. In IRAF, only one of `nkeep` and `maxrej`
     can be set. If number of rejected pixels at a position exceeds `maxrej`, the masks at that
     position will be reverted to the previous iteration, and rejection code will be added by number 8.
 
-cenfunc : str, optional.
+cenfunc : `str`, optional.
     The centering function to be used in rejection algorithm.
 
         - median if  ``'med'|'medi'|'median'``
@@ -227,14 +227,14 @@ cenfunc : str, optional.
 
     For lower median, see note in `combine`.
 
-n_minmax : 2-float or 2-int list-like, optional.
+n_minmax : 2-`float` or 2-`int` `list`-like, optional.
     The number of low and high pixels to be rejected by the "minmax" algorithm. These numbers are
     converted to fractions of the total number of input images so that if no rejections have taken
     place the specified number of pixels are rejected while if pixels have been rejected by masking,
     thresholding, or non-overlap, then the fraction of the remaining pixels, truncated to an integer,
     is used.
 
-rdnoise, gain, snoise : float, optional.
+rdnoise, gain, snoise : `float`, optional.
     The readnoise of the detector in the unit of electrons, electron gain of the detector in the unit
     of elctrons/DN (or electrons/ADU), and sensitivity noise as a fraction. Used only if
     ``reject="ccdclip"`` and/or ``combine="nmodel"``.
@@ -253,7 +253,7 @@ rdnoise, gain, snoise : float, optional.
         + (\mathtt{gain} * \mathrm{DN})^2
         + (\mathtt{snoise} * \mathtt{gain} * \mathrm{DN})^2
 
-pclip : float, optional.
+pclip : `float`, optional.
     The parameter for ``reject="pclip"``. If ``abs(pclip) >= 1``, then it specifies a number of pixels
     above or below the median to use for computing the clipping sigma. If ``abs(pclip) < 1``, then it
     specifies the fraction of the pixels above or below the median to use. A positive value selects a
@@ -261,7 +261,7 @@ pclip : float, optional.
     ``-0.5`` selects approximately the quartile point. Better to use negative value to avoid cosmic-ray
     contamination.
 
-combine: str, optional.
+combine: `str`, optional.
     The function to be used for the final combining after thresholding, zeroing, scaling, rejection,
     and offset shifting.
 
@@ -289,12 +289,12 @@ err : `~numpy.ndarray`
     The standard deviation map (if `return_variance` is `False`) or the variance map (if
     `return_variance` is `True`) of the survived pixels (with `ddof`).
 
-mask_total : `~numpy.ndarray` (dtype bool)
+mask_total : `~numpy.ndarray` (dtype `bool`)
     The full mask, ``N+1``-D. Identical to original FITS files' masks propagated with ``| mask_rej |
     mask_thresh`` below. The total number of rejected pixels at each position can be obtained by
     ``np.count_nonzero(mask_total, axis=0)``.
 
-mask_rej, mask_thresh : `~numpy.ndarray`(dtype bool)
+mask_rej, mask_thresh : `~numpy.ndarray`(dtype `bool`)
     The masks (``N``-D) from the rejection process and thresholding process (`thresholds`). Threshold
     is done prior to any rejection or scaling/zeroing. Number of rejected pixels at each position for
     each process can be obtained by, e.g., ``nrej = np.count_nonzero(mask_rej, axis=0)``. Note that
@@ -328,7 +328,7 @@ offsets : (n, m)-d array
 
 def OFFSETS_LONG(indent=0):
     return _fix('''
-offsets : str or (n, m)-d array
+offsets : `str` or (n, m)-d array
     If array, it must have shape such that ``n`` is the number of images and ``m`` is the dimension of
     the images (if ``m=3``, offsets in x, y, z, ... order, not pythonic order), and it is directly
     regarded as the **raw offsets**. If ``str``, the raw offsets are obtained by the followings:
@@ -341,7 +341,7 @@ offsets : str or (n, m)-d array
         offsets. Currently, only the cases when ``LTMi_j`` is 0 or 1 can be managed. Otherwise, we
         need scaling and it is not supported now.
 
-    For both wcs or physical cases, the raw offsets for *each* frame is nothing but an ``m``-D tuple
+    For both wcs or physical cases, the raw offsets for *each* frame is nothing but an ``m``-D `tuple`
     consists of ``offset_raw[i] = CRPIX{m-i}`` or ``LTV{m-i}[_{m-i}]``. The reason to subtract ``i`` is
     because python has ``z, y, x`` order of indexing while `~astropy.wcs.WCS` information is in ``x, y, z`` order. If
     it is a ``j``-th image, ``offsets[j, :] = offset_raw``, and `offsets` has shape of ``(n, m)``.

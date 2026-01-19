@@ -148,16 +148,16 @@ def cmt2hdr(
     header : `~astropy.io.fits.Header`
         The header.
 
-    histcomm : str in ['h', 'hist', 'history', 'c', 'comm', 'comment']
+    histcomm : `str` in ['h', 'hist', 'history', 'c', 'comm', 'comment']
         Whether to add history or comment.
 
-    s : str or list of str
+    s : `str` or `list` of `str`
         The string to add as history or comment.
 
-    precision : int, optional.
+    precision : `int`, optional.
         The precision of the isot format time.
 
-    time_fmt : str, `None`, optional.
+    time_fmt : `str`, `None`, optional.
         The Python 3 format string to format the time in the header. If `None`,
         the timestamp string will not be added.
 
@@ -169,13 +169,13 @@ def cmt2hdr(
     t_ref : `~astropy.time.Time`
         The reference time. If not `None`, delta time is calculated.
 
-    dt_fmt : str, optional.
+    dt_fmt : `str`, optional.
         The Python 3 format string to format the delta time in the header.
 
-    verbose : bool, optional.
+    verbose : `bool`, optional.
         Whether to print the same information on the output terminal.
 
-    set_kw : dict, optional.
+    set_kw : `dict`, optional.
         The keyword arguments added to `~astropy.io.fits.Header.set()`. Default is
         ``{'after':-1}``, i.e., the history or comment will be appended to the
         very last part of the header.
@@ -270,22 +270,22 @@ def update_process(
         The header to update the ``PROCESS`` (tunable by `key` parameter)
         keyword.
 
-    process : str or list-like of str
+    process : `str` or `list`-like of `str`
         The additional process keys to add to the header.
 
-    key : str, optional.
+    key : `str`, optional.
         The key for the process-related header keyword.
 
-    delimiter : str, optional.
+    delimiter : `str`, optional.
         The delimiter for each process. It can be null string (``''``). The
         best is to match it with the pre-existing delimiter of the
         ``header[key]``.
 
-    add_comment : bool, optional.
+    add_comment : `bool`, optional.
         Whether to add a comment to the header if there was no `key`
         (``"PROCESS"`` by default) in the header.
 
-    additional_comment : dict, optional.
+    additional_comment : `dict`, optional.
         The additional comment to add. For instance, ``dict(v="vertical
         pattern", f="fourier pattern")`` will add a new line of comment which
         reads "User added items for `key`: v=vertical pattern, f=fourier
@@ -325,18 +325,19 @@ def update_process(
 def parse_crrej_psf(
     fs="median", psffwhm=2.5, psfsize=7, psfbeta=4.765, fill_with_none=True
 ):
-    """Return a dict of minimal keyword arguments for
+    """Return a `dict` of minimal keyword arguments for
             `~astroscrappy.detect_cosmics`.
-        fs : str, `~numpy.ndarray`, list of such, optional.
-            If it is a list-like of kernels, it must **NOT** be an `~numpy.ndarray` of
+        fs : `str`, `~numpy.ndarray`, `list` of such, optional.
+            If it is a `list`-like of kernels, it must **NOT** be an `~numpy.ndarray` of
             ``N-by-2`` or ``2-by-N``, etc. You may use `list`, `tuple`, or even
             `~pandas.Series` of ndarrays.
-        fill_with_none : bool, optional.
+        fill_with_none : `bool`, optional.
             If `True`, the unnecessary keywords will be filled with `None`, rather
             than default parameter values (IRAF version of LACosmics). Works only
-            if any of the input parmeters is list-like. If all input parameters are
-            scalar (or `fs` is a single `~numpy.ndarray`), only minimal dict is returned
+            if any of the input parmeters is `list`-like. If all input parameters are
+            scalar (or `fs` is a single `~numpy.ndarray`), only minimal `dict` is returned
             without filling with `None`.
+
         Notes
         -----
         assert parse_crrej_psf() == {'fsmode': 'median'}
@@ -512,18 +513,18 @@ def circular_mask(shape, center=None, radius=None, center_xyz=True):
 
     Parameters
     ----------
-    shape : tuple
+    shape : `tuple`
         The pythonic shape, i.e., `arr.shape` (not xyz order).
 
-    center : tuple, `None`, optional.
+    center : `tuple`, `None`, optional.
         The center of the circular mask. If `None` (default), the central
         position is used.
 
-    radius : float, `None`, optional.
+    radius : `float`, `None`, optional.
         The radius of the mask. If `None`, the distance to the closest edge of
         the image is used.
 
-    center_xyz : bool, optional.
+    center_xyz : `bool`, optional.
         Whether the center is in xyz order.
 
     Notes
@@ -569,7 +570,7 @@ def circular_mask_2d(
 
     Parameters
     ----------
-    shape : tuple
+    shape : `tuple`
         The shape of the 2-D image in *pythonic* order, i.e., `arr.shape`
         (height, width).
 
@@ -577,14 +578,14 @@ def circular_mask_2d(
         The pixel coordinates of the aperture center(s) in one of the
         following formats:
 
-        * single ``(x, y)`` pair as a tuple, list, or `~numpy.ndarray`
-        * tuple, list, or `~numpy.ndarray` of ``(x, y)`` pairs
+        * single ``(x, y)`` pair as a `tuple`, `list`, or `~numpy.ndarray`
+        * `tuple`, `list`, or `~numpy.ndarray` of ``(x, y)`` pairs
 
         If `None`, the center is set to the middle of the image, i.e.,
         ``(shape[0] / 2, shape[1] / 2)``.
         Default is `None`.
 
-    radius : float, array-like optional.
+    radius : `float`, array-like optional.
         The radius (radii) of the circular mask(s).
 
     method : {'exact', 'center', 'subpixel'}, optional
@@ -609,17 +610,17 @@ def circular_mask_2d(
         ``subpixels=1``, this method is equivalent to ``'center'``. The
         aperture weights will contain values between 0 and 1.
 
-    subpixels : int, optional
+    subpixels : `int`, optional
         For the ``'subpixel'`` method, resample pixels by this factor in each
         dimension. That is, each pixel is divided into ``subpixels**2``
         subpixels. This keyword is ignored unless ``method='subpixel'``.
 
-    maskmin : float, optional
+    maskmin : `float`, optional
         The minimum value for the mask. If the aperture weights are greater
         than this value, the pixel is considered to be in the aperture. This
         keyword is ignored unless ``method='exact'`` or ``method='subpixel'``.
 
-    return_apertures : bool, optional
+    return_apertures : `bool`, optional
         If `True`, return the `CircularAperture` objects and the masks
         instead of the 2D mask. This is useful if you want to use the
     """
@@ -693,8 +694,8 @@ def enclosing_circle_radius(segm, center, segm_id=None):
         The (x, y) coordinates of the center of the circles. If not provided,
         the center will be calculated as the centroid of the masked region.
 
-    segm_id : list of int, optional
-        The list of segmentation IDs to calculate the radius for. If not provided,
+    segm_id : `list` of `int`, optional
+        The `list` of segmentation IDs to calculate the radius for. If not provided,
         it defaults to `[1]`, which is equivalent to `True` for binary masks.
 
     Returns
@@ -732,10 +733,10 @@ def str_now(
 
     Parameters
     ----------
-    precision : int, optional.
+    precision : `int`, optional.
         The precision of the isot format time.
 
-    fmt : str, optional.
+    fmt : `str`, optional.
         The Python 3 format string to format the time. Examples::
 
           * ``"{:s}"``: plain time ``2020-01-01T01:01:01.23``
@@ -745,10 +746,10 @@ def str_now(
     t_ref : `~astropy.time.Time`, optional.
         The reference time. If not `None`, delta time is calculated.
 
-    dt_fmt : str, optional.
+    dt_fmt : `str`, optional.
         The Python 3 format string to format the delta time.
 
-    return_time : bool, optional.
+    return_time : `bool`, optional.
         Whether to return the time at the start of this function and the delta
         time (`dt`), as well as the time information string. If `t_ref` is
         `None`, `dt` is automatically set to `None`.
@@ -768,29 +769,29 @@ def str_now(
 
 
 def change_to_quantity(x, desired="", to_value=False):
-    """Change the non-Quantity object to astropy Quantity or vice versa.
+    """Change the non-`~astropy.units.Quantity` object to astropy `~astropy.units.Quantity` or vice versa.
 
     Parameters
     ----------
-    x : object changable to astropy Quantity
-        The input to be changed to a Quantity. If a Quantity is given, `x` is
+    x : object changable to astropy `~astropy.units.Quantity`
+        The input to be changed to a `~astropy.units.Quantity`. If a `~astropy.units.Quantity` is given, `x` is
         changed to the `desired`, i.e., ``x.to(desired)``.
 
-    desired : str or astropy Unit
+    desired : `str` or astropy `~astropy.units.Unit`
         The desired unit for `x`. If `''` (default), it will be interpreted as
         `Unit(dimensionless)`.
 
-    to_value : bool, optional.
+    to_value : `bool`, optional.
         Whether to return as scalar value. If `True`, just the value(s) of the
         `desired` unit will be returned after conversion.
 
     Returns
     -------
-    ux: Quantity
+    ux: `~astropy.units.Quantity`
 
     Notes
     -----
-    If Quantity, transform to `desired`. If `desired` is `None`, return it as
+    If `~astropy.units.Quantity`, transform to `desired`. If `desired` is `None`, return it as
     is. If not `Quantity`, multiply the `desired`. `desired` is `None`, return
     `x` with dimensionless unscaled unit.
     """
@@ -846,14 +847,14 @@ def binning(
     arr: 2d array
         The array to be binned
 
-    factor_x, factor_y: int or `None`, optional.
+    factor_x, factor_y: `int` or `None`, optional.
         The binning factors in x, y direction. This is left as legacy and for
         clarity, because mostly this function is used for 2-D CCD data. If any
         of these is given, `order_xyz` is overridden as `True`.
 
-    factors : list-like of int, optional.
+    factors : `list`-like of `int`, optional.
         The factors in pythonic axis order (``order_xyz=False``) or in the xyz
-        order (``order_xyz=True``). If any of the tuple is `None`, that will be
+        order (``order_xyz=True``). If any of the `tuple` is `None`, that will be
         replaced by the size of the array along that axis, i.e., collapse along
         that axis.
 
@@ -861,7 +862,7 @@ def binning(
         The function to be applied for binning, such as ``np.sum``,
         ``np.mean``, and ``np.median``.
 
-    trim_end: bool
+    trim_end: `bool`
         Whether to trim the end of x, y axes such that binning is done without
         error.
 
@@ -963,19 +964,20 @@ def quantile_lh(
     hinterp=None,
 ):
     """Find quantiles for lower and higher values
+
     Parameters
     ----------
     a : `~numpy.ndarray`
 
-    lq, hq : array_like of float
+    lq, hq : array_like of `float`
         Quantile or sequence of quantiles to compute, which must be between 0
         and 1 inclusive.
 
-    axis : {int, tuple of int, `None`}, optional
+    axis : {`int`, `tuple` of `int`, `None`}, optional
         Axis or axes along which the quantiles are computed. The default is to
         compute the quantile(s) along a flattened version of the array.
 
-    nanfunc : bool, optional.
+    nanfunc : `bool`, optional.
         Whether to use `~np.nanquantile` instead of `~np.qualtile`.
         Default: `False`.
 
@@ -1023,11 +1025,11 @@ def quantile_sigma(
     ----------
     a : `~numpy.ndarray`
 
-    axis : {int, tuple of int, `None`}, optional
+    axis : {`int`, `tuple` of `int`, `None`}, optional
         Axis or axes along which the quantiles are computed. The default is to
         compute the quantile(s) along a flattened version of the array.
 
-    nanfunc : bool, optional.
+    nanfunc : `bool`, optional.
         Whether to use `~np.nanquantile` instead of `~np.quantile`.
         Default: `False`.
 

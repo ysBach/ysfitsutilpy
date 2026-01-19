@@ -192,14 +192,15 @@ def imarith(
     verbose=True,
 ):
     """Similar to IRAF IMARITH
+
     Parameters
     ----------
     im1, im2 : `~astropy.nddata.CCDData`, `~numpy.ndarray`, number-like, path-like
-        The images to be operated. A string that can be converted to float
+        The images to be operated. A string that can be converted to `float`
         (``float(im)``) will be interpreted as numbers; if not, it will be
         interpreted as a path to the FITS file.
 
-    op : str in ['**', '%', '//', '+', '-', '*', '/']
+    op : `str` in ['**', '%', '//', '+', '-', '*', '/']
         The operation to be done. Unlike IRAF, 'min' and 'max' are not
         implemented (easy to implement in the future but I don't know the
         necessity). ``['**', '%', '//']`` are not supported when
@@ -208,41 +209,41 @@ def imarith(
     output : path-like, optional.
         The path for the resulting file to be saved.
 
-    extension1, extension2 : int, str, (str, int)
+    extension1, extension2 : `int`, `str`, (`str`, `int`)
         The extension of FITS to be used. It can be given as integer
-        (0-indexing) of the extension, ``EXTNAME`` (single str), or a tuple of
-        str and int: ``(EXTNAME, EXTVER)``. If `None` (default), the *first
+        (0-indexing) of the extension, ``EXTNAME`` (single `str`), or a `tuple` of
+        `str` and `int`: ``(EXTNAME, EXTVER)``. If `None` (default), the *first
         extension with data* will be used.
 
-    name1, name2: str, optional.
+    name1, name2: `str`, optional.
         The names of the images that will be logged into the header
         (``HISTORY``). If `None`, function automatically chooses appropriate
         name for it: the number (if `im` is number-like), the path (if `im` is
         path-like), or explanatory strings (if `im` is either `~numpy.ndarray` or
         `~astropy.nddata.CCDData`)
 
-    replace : np.nan, float-like, optional.
+    replace : np.nan, `float`-like, optional.
         The value to replace pixels where the value is NaN or Inf (i.e.,
         `~np.isfinite(ccd.data)`). Use `None` to keep the ``nan`` and ``inf``
         as is. Default is ``0``, following IRAF. Note that both nan and inf are
         **not** representable in integer data types.
 
-    header_params : str or dict, optional.
+    header_params : `str` or `dict`, optional.
         If a string, the output file's ``OBJECT`` keyword will be replaced by
-        `headdr_params`. If a dict, it must be a dict of header keyword and
+        `headdr_params`. If a `dict`, it must be a `dict` of header keyword and
         value pairs, so that the output file's header will have those key-value
         pairs (care is needed since it overwrites the pre-existing keys). If
-        dict, it can be ``{key:value}`` or ``{key:(value, comment)}``.
+        `dict`, it can be ``{key:value}`` or ``{key:(value, comment)}``.
 
         .. note::
             The behavior is different from IRAF. In IRAF, ``hparams`` is used
             to propagate the header keyword. This is used mainly for
             ``"EXPTIME"`` to sum the exposure time if two images are combined.
 
-    dtype : str, dtype, optional.
+    dtype : `str`, dtype, optional.
         The data type of the output `~astropy.nddata.CCDData` and/or file.
 
-    error_calc : bool, optional.
+    error_calc : `bool`, optional.
         If `True`, the uncertainties are propagated by `~astropy.nddata`
         arithmetics. If `False` (default), there is no need to load data as
         `~astropy.nddata.CCDData` (because header parsing time gets enromous if
@@ -250,7 +251,7 @@ def imarith(
         `fitsio` is used. Error calculation is done only if
         ``ignore_header=False`` at the moment.
 
-    ignore_header : bool, optional.
+    ignore_header : `bool`, optional.
         Whether to ignore all the header informations of `im1` and `im2`. This
         will boost the speed of the code because none of the effort will be put
         to find/parse header of any file. A cost is that virtually no

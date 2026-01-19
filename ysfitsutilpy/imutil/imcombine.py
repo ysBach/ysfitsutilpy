@@ -63,8 +63,8 @@ outlimits              : trimsec
 expname                : exposure_key
 
 # ALGORITHM PARAMETERS ====================================================== #
-lthreshold, hthreshold : thresholds (tuple)
-nlow      , nhigh      : n_minmax (tuple)
+lthreshold, hthreshold : thresholds (`tuple`)
+nlow      , nhigh      : n_minmax (`tuple`)
 nkeep                  : nkeep & maxrej
                         (IRAF nkeep > 0 && < 0 case, resp.)
 mclip                  : cenfunc
@@ -83,40 +83,41 @@ def group_combine(
     **kwargs,
 ):
     """Combine sub-groups of FITS files from the given input.
+
     Parameters
     ----------
-    inputs : `~pandas.DataFrame`, glob pattern, list-like of path-like
+    inputs : `~pandas.DataFrame`, glob pattern, `list`-like of path-like
         If `DataFrame`, it must be the summary table made by `make_summary`.
-        The `~glob` pattern for files (e.g., ``"2020*[012].fits"``) or list of
+        The `~glob` pattern for files (e.g., ``"2020*[012].fits"``) or `list` of
         files (each element must be path-like or `~astropy.nddata.CCDData`). Although it is not a
-        good idea, a mixed list of `~astropy.nddata.CCDData` and paths to the files is also
+        good idea, a mixed `list` of `~astropy.nddata.CCDData` and paths to the files is also
         acceptable. For the purpose of `~ysfitsutilpy.imutil.imcombine` function, the best use is to
-        use the `~glob` pattern or list of paths.
+        use the `~glob` pattern or `list` of paths.
 
-    type_key, type_val : str, list of str
+    type_key, type_val : `str`, `list` of `str`
         The header keyword for the ccd type, and the value you want to match.
 
-    group_key : `None`, str, list of str, optional
+    group_key : `None`, `str`, `list` of `str`, optional
         The header keyword which will be used to make groups for the CCDs that
         have selected from `type_key` and `type_val`. If `None` (default), no
         grouping will occur, but it will return the `~pandas.DataFrameGroupBy`
         object will be returned for the sake of consistency.
 
-    verbose : int
+    verbose : `int`
         Larger number means it becomes more verbose::
 
           * 0: print nothing
           * 1: Only very essential things from this function
           * 2: + verbose from each `~ysfitsutilpy.imutil.imcombine`
 
-    fmt : str, optinal.
+    fmt : `str`, optinal.
         The f-string for the output file names.
 
         ..example:: If `group_key="EXPTIME"` and we had two groups of
           ``EXPTIME`` is 1.0 and 2.0,
 
           * ``"dark_{:.1f}s"`` --> ``dark_1.0s.fits`` and ``dark_2.0s.fits``
-          * For float, non-specification such as ``"d{}"`` is not recommended
+          * For `float`, non-specification such as ``"d{}"`` is not recommended
             (filename can be ``0.3000...``).
 
         ..example:: If two `group_key`'s are used, resulting in ``("B", 2.0)``,
@@ -133,10 +134,10 @@ def group_combine(
 
     Returns
     -------
-    combined : dict of `~astropy.nddata.CCDData`
-        The dict object where keys are the header value of the `group_key` and
+    combined : `dict` of `~astropy.nddata.CCDData`
+        The `dict` object where keys are the header value of the `group_key` and
         the values are the combined images in `~astropy.nddata.CCDData` object. If multiple keys
-        for `group_key` is given, the key of this dict is a tuple.
+        for `group_key` is given, the key of this `dict` is a `tuple`.
     """
 
     def _group_save(ccd, groupname, fmt=None, verbose=1, outdir=None):
@@ -232,7 +233,7 @@ def group_save(combined, fmt="", verbose=1, outdir=None):
     """Saves the group_combine results.
     Parameters
     ---------
-    combined : dict
+    combined : `dict`
         The result from `group_combine` function.
     """
     outdir = Path(".") if outdir is None else Path(outdir)
@@ -887,12 +888,12 @@ imcombine.__doc__ = """A helper function for `~ysfitsutilpy.imutil.ndcombine` to
     Parameters
     ----------
 
-    inputs : glob pattern, list-like of path-like, list-like of `~astropy.nddata.CCDData`-like
-        The `~glob` pattern for files (e.g., ``"2020*[012].fits"``) or list of
+    inputs : glob pattern, `list`-like of path-like, `list`-like of `~astropy.nddata.CCDData`-like
+        The `~glob` pattern for files (e.g., ``"2020*[012].fits"``) or `list` of
         files (each element must be path-like or `~astropy.nddata.CCDData`). Although it is not a
-        good idea, a mixed list of `~astropy.nddata.CCDData` and paths to the files is also
+        good idea, a mixed `list` of `~astropy.nddata.CCDData` and paths to the files is also
         acceptable. For the purpose of `~ysfitsutilpy.imutil.imcombine` function, the best use is to
-        use the `~glob` pattern or list of paths.
+        use the `~glob` pattern or `list` of paths.
 
     mask : `~numpy.ndarray`, optional.
         The mask of bad pixels. If given, it must satisfy
@@ -903,10 +904,10 @@ imcombine.__doc__ = """A helper function for `~ysfitsutilpy.imutil.ndcombine` to
             ``'MASK'`` extension to the FITS files or replace bad pixel to very
             large or small numbers and use `thresholds`.
 
-    extension, extension_uncertainty, extension_mask : int, str, (str, int)
+    extension, extension_uncertainty, extension_mask : `int`, `str`, (`str`, `int`)
         The extension of FITS, uncertainty, and mask to be used. It can be
         given as integer (0-indexing) of the extension, ``EXTNAME`` (single
-        str), or a tuple of str and int: ``(EXTNAME, EXTVER)``. If `None`
+        `str`), or a `tuple` of `str` and `int`: ``(EXTNAME, EXTVER)``. If `None`
         (default), the *first extension with data* will be used. If
         `extension_uncertainty` or `extension_mask` is `None` (default),
         uncertainty and mask are all ignored (turned off). Currently
@@ -917,7 +918,7 @@ imcombine.__doc__ = """A helper function for `~ysfitsutilpy.imutil.ndcombine` to
 
     {}
 
-    imcmb_key : str
+    imcmb_key : `str`
         The thing to add as ``IMCMBnnn`` in the output FITS file header. If
         ``"$I"``, following the default of IRAF, the file's name will be added.
         Otherwise, it should be a header keyword. If the key does not exist in
@@ -929,12 +930,12 @@ imcombine.__doc__ = """A helper function for `~ysfitsutilpy.imutil.ndcombine` to
             If more than 999 files are combined, only the first 999 files will
             be recorded in the header.
 
-    exposure_key : str, optional.
+    exposure_key : `str`, optional.
         The header keyword which contains the information about the exposure
         time of each FITS file. This is used only if scaling is done for
         exposure time (see `scale`).
 
-    irafmode : bool, optional.
+    irafmode : `bool`, optional.
         Whether to use IRAF-like pixel restoration scheme.
 
     output : path-like, optional
@@ -951,8 +952,8 @@ imcombine.__doc__ = """A helper function for `~ysfitsutilpy.imutil.ndcombine` to
         (see `mask_total`, `mask_rej`, `err`, `low`, `upp`, and `rejcode` in
         Returns.)
 
-    return_dict : bool, optional.
-        Whether to return the results as dict (works only if ``full=True``).
+    return_dict : `bool`, optional.
+        Whether to return the results as `dict` (works only if ``full=True``).
 
     Returns
     -------
@@ -1188,7 +1189,7 @@ ndcombine.__doc__ = """ Combines the given arr assuming no additional offsets.
         The mask of bad pixels. If given, it must satisfy ``mask.shape[0]``
         identical to the number of images.
 
-    copy : bool, optional.
+    copy : `bool`, optional.
         Whether to copy the input array. Set to `True` if you want to keep the
         original array unchanged. Otherwise, the original array may be
         destroyed.

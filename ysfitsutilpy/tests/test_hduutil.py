@@ -81,7 +81,7 @@ class TestParseDataHeader:
         assert hdr["OBJECT"] == "TestObject"
 
     def test_parse_number(self):
-        """Test parsing a number (float)."""
+        """Test parsing a number (`float`)."""
         data, hdr = hduutil._parse_data_header(42.0)
         assert data == 42.0
         assert hdr is None
@@ -107,7 +107,7 @@ class TestInputs2List:
         assert str(result[0]) == str(temp_fits_file)
 
     def test_list_of_paths(self, temp_fits_files):
-        """Test list of paths input."""
+        """Test `list` of paths input."""
         result = hduutil.inputs2list(temp_fits_files, sort=True)
         assert isinstance(result, list)
         assert len(result) == 5

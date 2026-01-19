@@ -91,7 +91,7 @@ class TestAirmassObs:
         return SkyCoord(ra=180 * u.deg, dec=30 * u.deg, frame="icrs")
 
     def test_airmass_obs_returns_float(self, observatory, target):
-        """Test that airmass_obs returns a float value."""
+        """Test that airmass_obs returns a `float` value."""
         ut = Time("2024-01-15T06:00:00", scale="utc")
         result = airmass.airmass_obs(
             targetcoord=target,
@@ -104,7 +104,7 @@ class TestAirmassObs:
         assert result >= 1.0
 
     def test_airmass_obs_with_full(self, observatory, target):
-        """Test full output mode returns (am_eff, dict)."""
+        """Test full output mode returns (am_eff, `dict`)."""
         ut = Time("2024-01-15T06:00:00", scale="utc")
         am_eff, info_dict = airmass.airmass_obs(
             targetcoord=target,

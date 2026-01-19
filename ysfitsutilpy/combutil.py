@@ -70,10 +70,10 @@ def group_fits(
         the astropy table format, it will be converted to `~pandas.DataFrame`
         object.
 
-    type_key, type_val: `None`, str, list of str, optional
+    type_key, type_val: `None`, `str`, `list` of `str`, optional
         The header keyword for the ccd type, and the value you want to match.
 
-    group_key : `None`, str, list of str, optional
+    group_key : `None`, `str`, `list` of `str`, optional
         The header keyword which will be used to make groups for the CCDs that
         have selected from `type_key` and `type_val`. If `None` (default), no
         grouping will occur, but it will return the `~pandas.DataFrameGroupBy`
@@ -84,7 +84,7 @@ def group_fits(
     grouped : `~pandas.DataFrameGroupBy`
         The table after the grouping process.
 
-    group_type_key : list of str
+    group_type_key : `list` of `str`
         The `type_key` that can directly be used for `stack_FITS` for each
         element of `grouped.groups`. Basically this is ``type_key +
         group_key``.
@@ -169,44 +169,44 @@ def select_fits(
         CCD-like, the header information will be used for selecting elements to
         select.
 
-    extension: int, str, (str, int)
+    extension: `int`, `str`, (`str`, `int`)
         The extension of FITS to be used. It can be given as integer
-        (0-indexing) of the extension, ``EXTNAME`` (single str), or a tuple of
-        str and int: ``(EXTNAME, EXTVER)``. If `None` (default), the *first
+        (0-indexing) of the extension, ``EXTNAME`` (single `str`), or a `tuple` of
+        `str` and `int`: ``(EXTNAME, EXTVER)``. If `None` (default), the *first
         extension with data* will be used.
         Ignored if `inputs` is table-like.
 
-    unit: Unit or str, optional
+    unit: `~astropy.units.Unit` or `str`, optional
         The unit of the CCDs to be loaded.
-        Used only when `fitslist` is not a list of `~astropy.nddata.CCDData`
+        Used only when `fitslist` is not a `list` of `~astropy.nddata.CCDData`
         and `prefer_ccddata` is `True`.
         Ignored if `inputs` is table-like.
 
-    trimsec : str, [list of] int, [list of] slice, optional
+    trimsec : `str`, [`list` of] `int`, [`list` of] slice, optional
         Section of the data to be extracted by `~ysfitsutilpy.hduutil.imslice`.
         Default is `None`.
         Ignored if `inputs` is table-like.
 
-    table_filecol: str
+    table_filecol: `str`
         The column name of the `summary_table` which contains the path to the
         FITS files. Ignored if `inputs` is CCD-like.
 
-    prefer_ccddata: bool, optional
+    prefer_ccddata: `bool`, optional
         Whether to prefer to return `~astropy.nddata.CCDData` objects if possible. If `True`,
-        path-like, `~numpy.ndarray`, or table-like input will return a list of `~astropy.nddata.CCDData`.
+        path-like, `~numpy.ndarray`, or table-like input will return a `list` of `~astropy.nddata.CCDData`.
         If `False` (default), only the paths will be returned unless the
         `inputs` is consist of `~astropy.nddata.CCDData.` Ignored if `inputs` is already
         CCD-like.
 
-    type_key, type_val: str, list of str
+    type_key, type_val: `str`, `list` of `str`
         The header keyword for the ccd type, and the value you want to match.
 
     Returns
     -------
-    matched: list of `~pathlib.Path` or list of `~astropy.nddata.CCDDat`a
-        list containing `~pathlib.Path` to files if `prefer_ccddata` is `False`. Otherwise
-        it is a list containing loaded `~astropy.nddata.CCDData` after loading the files. If
-        `ccdlist` is given a priori, list of `~astropy.nddata.CCDData` will be returned
+    matched: `list` of `~pathlib.Path` or `list` of `~astropy.nddata.CCDDat`a
+        `list` containing `~pathlib.Path` to files if `prefer_ccddata` is `False`. Otherwise
+        it is a `list` containing loaded `~astropy.nddata.CCDData` after loading the files. If
+        `ccdlist` is given a priori, `list` of `~astropy.nddata.CCDData` will be returned
         regardless of `prefer_ccddata`.
     """
 
@@ -430,13 +430,13 @@ def stack_FITS(
 
     Parameters
     ----------
-    fitslist: `None`, [list of] path-like, or [list of] `~astropy.nddata.CCDDat`a
-        The list of path to FITS files or the list of `~astropy.nddata.CCDData` to be stacked. It
-        is useful to give list of `~astropy.nddata.CCDData` if you have already stacked/loaded
-        FITS file into a list by your own criteria. If `None` (default), you
+    fitslist: `None`, [`list` of] path-like, or [`list` of] `~astropy.nddata.CCDDat`a
+        The `list` of path to FITS files or the `list` of `~astropy.nddata.CCDData` to be stacked. It
+        is useful to give `list` of `~astropy.nddata.CCDData` if you have already stacked/loaded
+        FITS file into a `list` by your own criteria. If `None` (default), you
         must give `fitslist` or `summary_table`. If it is not `None`, this
         function will do very similar job to that of `ccdproc.combine`.
-        Although it is not a good idea, a mixed list of `~astropy.nddata.CCDData` and paths to
+        Although it is not a good idea, a mixed `list` of `~astropy.nddata.CCDData` and paths to
         the files is also acceptable.
 
     summary_table: `None`, `~pandas.DataFrame` or `~astropy.table.Table`
@@ -448,44 +448,44 @@ def stack_FITS(
         ``ccddata=True``, you must not have `None` or ``NaN`` value in the
         ``summary_table[table_filecol]``.
 
-    extension: int, str, (str, int)
+    extension: `int`, `str`, (`str`, `int`)
         The extension of FITS to be used. It can be given as integer
-        (0-indexing) of the extension, ``EXTNAME`` (single str), or a tuple of
-        str and int: ``(EXTNAME, EXTVER)``. If `None` (default), the *first
+        (0-indexing) of the extension, ``EXTNAME`` (single `str`), or a `tuple` of
+        `str` and `int`: ``(EXTNAME, EXTVER)``. If `None` (default), the *first
         extension with data* will be used.
 
-    unit: Unit or str, optional
+    unit: `~astropy.units.Unit` or `str`, optional
         The unit of the CCDs to be loaded.
-        Used only when `fitslist` is not a list of `~astropy.nddata.CCDData`
+        Used only when `fitslist` is not a `list` of `~astropy.nddata.CCDData`
         and `ccddata` is `True`.
 
-    table_filecol: str
+    table_filecol: `str`
         The column name of the `summary_table` which contains the path to the FITS files.
 
-    trimsec : str, [list of] int, [list of] slice, optional
+    trimsec : `str`, [`list` of] `int`, [`list` of] slice, optional
         Section of the data to be extracted by `~ysfitsutilpy.hduutil.imslice`.
         Default is `None`.
 
-    ccddata: bool, optional
+    ccddata: `bool`, optional
         Whether to return file paths or loaded `~astropy.nddata.CCDData.` If `False`, it is a
         function to select FITS files using `type_key` and `type_val` without
         using much memory.
         This is ignored if `fitslist` is given and composed of
         `~astropy.nddata.CCDData` objects.
 
-    type_key, type_val: str, list of str
+    type_key, type_val: `str`, `list` of `str`
         The header keyword for the ccd type, and the value you want to match.
 
-    asccd : bool, optional.
+    asccd : `bool`, optional.
         Whether to load as `~astropy.nddata.CCDData`. If `False`, numpy `~numpy.ndarray`
         will be used. Works only if ``ccddata = True``.
 
     Returns
     -------
-    matched: list of `~pathlib.Path` or list of `~astropy.nddata.CCDDat`a
-        list containing `~pathlib.Path` to files if `ccddata` is `False`. Otherwise it is
-        a list containing loaded `~astropy.nddata.CCDData` after loading the files. If `ccdlist`
-        is given a priori, list of `~astropy.nddata.CCDData` will be returned regardless of
+    matched: `list` of `~pathlib.Path` or `list` of `~astropy.nddata.CCDDat`a
+        `list` containing `~pathlib.Path` to files if `ccddata` is `False`. Otherwise it is
+        a `list` containing loaded `~astropy.nddata.CCDData` after loading the files. If `ccdlist`
+        is given a priori, `list` of `~astropy.nddata.CCDData` will be returned regardless of
         `ccddata`.
     """
     warn("stack_FITS is deprecated; use select_fits.", DeprecationWarning)
@@ -690,13 +690,13 @@ def combine_ccd(
 
     Parameters
     ----------
-    fitslist: path-like, list of path-like, or list of `~astropy.nddata.CCDDat`a
-        The list of path to FITS files or the list of `~astropy.nddata.CCDData` to be stacked. It
-        is useful to give list of `~astropy.nddata.CCDData` if you have already stacked/loaded
-        FITS file into a list by your own criteria. If `None` (default), you
+    fitslist: path-like, `list` of path-like, or `list` of `~astropy.nddata.CCDDat`a
+        The `list` of path to FITS files or the `list` of `~astropy.nddata.CCDData` to be stacked. It
+        is useful to give `list` of `~astropy.nddata.CCDData` if you have already stacked/loaded
+        FITS file into a `list` by your own criteria. If `None` (default), you
         must give `fitslist` or `summary_table`. If it is not `None`, this
         function will do very similar job to that of `ccdproc.combine`.
-        Although it is not a good idea, a mixed list of `~astropy.nddata.CCDData` and paths to
+        Although it is not a good idea, a mixed `list` of `~astropy.nddata.CCDData` and paths to
         the files is also acceptable.
 
     summary_table: `~pandas.DataFrame` or `~astropy.table.Table`
@@ -708,11 +708,11 @@ def combine_ccd(
         ``ccddata=True``, you must not have `None` or ``NaN`` value in the
         ``summary_table[table_filecol]``.
 
-    table_filecol: str
+    table_filecol: `str`
         The column name of the `summary_table` which contains the path to the
         FITS files.
 
-    trimsec : str, [list of] int, [list of] slice, optional
+    trimsec : `str`, [`list` of] `int`, [`list` of] slice, optional
         Section of the data to be extracted by `~ysfitsutilpy.hduutil.imslice`.
         Default is `None`.
 
@@ -721,7 +721,7 @@ def combine_ccd(
         object.
         Default is `None`.
 
-    unit : `~astropy.units.Unit` or str, optional.
+    unit : `~astropy.units.Unit` or `str`, optional.
         The units of the data.
         Default is `None`.
 
@@ -732,28 +732,28 @@ def combine_ccd(
         TODO: This maybe unnecessary.
         Default is `None`.
 
-    combine_method : str or `None`, optinal.
+    combine_method : `str` or `None`, optinal.
         The `method` for `ccdproc.combine`, i.e., {'average', 'median', 'sum'}
         Default is `None`.
 
-    reject_method : str
+    reject_method : `str`
         Made for simple use of `ccdproc.combine`, [`None`, 'minmax', 'sigclip' ==
         'sigma_clip', 'extrema' == 'ext']. Automatically turns on the option,
         e.g., ``clip_extrema = True`` or ``sigma_clip = True``. Leave it blank
         for no rejection.
         Default is `None`.
 
-    normalize_exposure : bool, optional.
+    normalize_exposure : `bool`, optional.
         Whether to normalize the values by the exposure time of each frame
         before combining.
         Default is `False`.
 
-    normalize_average, normalize_median : bool, optional.
+    normalize_average, normalize_median : `bool`, optional.
         Whether to normalize the values by the average or median value of each
         frame before combining. Only up to one of these must be `True`.
         Default is `False`.
 
-    exposure_key : str, optional
+    exposure_key : `str`, optional
         The header keyword for the exposure time.
         Default is ``"EXPTIME"``.
 
@@ -763,24 +763,24 @@ def combine_ccd(
         combine, otherwise use the function provided.
         Default is `None`.
 
-    extension: int, str, (str, int)
+    extension: `int`, `str`, (`str`, `int`)
         The extension of FITS to be used. It can be given as integer
-        (0-indexing) of the extension, ``EXTNAME`` (single str), or a tuple of
-        str and int: ``(EXTNAME, EXTVER)``. If `None` (default), the *first
+        (0-indexing) of the extension, ``EXTNAME`` (single `str`), or a `tuple` of
+        `str` and `int`: ``(EXTNAME, EXTVER)``. If `None` (default), the *first
         extension with data* will be used.
 
-    dtype : str or `numpy.dtype` or `None`, optional
+    dtype : `str` or `numpy.dtype` or `None`, optional
         Allows user to set dtype. See `numpy.array` ``dtype`` parameter
         description. If `None` it uses ``np.float64``.
         Default is `None`.
 
-    type_key, type_val: str, list of str
+    type_key, type_val: `str`, `list` of `str`
         The header keyword for the ccd type, and the value you want to match.
         For an open HDU named `hdu`, e.g., only the files which satisfies
         ``hdu[extension].header[type_key] == type_val`` among all the
         `fitslist` will be used.
 
-    output_verify : str
+    output_verify : `str`
         Output verification option.  Must be one of ``"fix"``, ``"silentfix"``,
         ``"ignore"``, ``"warn"``, or ``"exception"``. May also be any
         combination of ``"fix"`` or ``"silentfix"`` with ``"+ignore"``,
@@ -788,7 +788,7 @@ def combine_ccd(
         documentation below:
         http://docs.astropy.org/en/stable/io/fits/api/verification.html#verify
 
-    mem_limit : float, optional
+    mem_limit : `float`, optional
         Maximum memory which should be used while combining (in bytes).
         Default is ``2.e9``.
 

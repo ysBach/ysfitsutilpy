@@ -57,8 +57,8 @@ class Client(object):
 
     def send_request(self, service, args={}, file_args=None):
         '''
-        service: str
-        args: dict
+        service: `str`
+        args: `dict`
         '''
         if self.session is not None:
             args.update({'session': self.session})
@@ -289,12 +289,13 @@ def query_nova(server=Client.default_url, apikey=None, upload=None,
                jobs_by_exact_tag=None, jobs_by_tag=None, public=None,
                allow_mod=None, allow_commercial=None, sleep_interval=5):
     '''
+
     Parameters
     ----------
-    server: str, optional
+    server: `str`, optional
         Set server base URL (e.g., ``Client.default_url``).
 
-    apikey: str, optional
+    apikey: `str`, optional
         API key for Astrometry.net web service;
         if not given will check AN_API_KEY environment variable
 
@@ -304,7 +305,7 @@ def query_nova(server=Client.default_url, apikey=None, upload=None,
     upload_xy: path-like, optional
         Upload a FITS x,y table as JSON
 
-    wait: bool, optional
+    wait: `bool`, optional
         After submitting, monitor job status
 
     wcs: path-like, optional
@@ -323,77 +324,77 @@ def query_nova(server=Client.default_url, apikey=None, upload=None,
         Store information about annotations in give file, JSON format;
         Implies ``wait=True`` if ``urlupload`` or ``upload`` is not `None`.
 
-    upload_url: str, optional
+    upload_url: `str`, optional
         Upload a file at specified url.
 
-    scale_units: str in ['arcsecperpix', 'arcminwidth', 'degwidth', 'focalmm']
+    scale_units: `str` in ['arcsecperpix', 'arcminwidth', 'degwidth', 'focalmm']
         Units for scale estimate.
 
-    scale_lower, scale_upper: float, optional
+    scale_lower, scale_upper: `float`, optional
         The lower and upper bounds for the size of the image scale. The unit
         is specified by ``scale_units``.
 
-    scale_est: float, optional
+    scale_est: `float`, optional
         Estimate of the size of the image scale. The unit is specified by
         ``scale_units``.
 
-    scale_err: float, optional
+    scale_err: `float`, optional
         Scale estimate error (in PERCENT), e.g., 10 if you estimate can be off
         by 10%.
 
-    center_ra, center_dec: float, optional
+    center_ra, center_dec: `float`, optional
         RA center and DEC center in the units of degree.
 
-    radius: float, optional
+    radius: `float`, optional
         Search radius around RA, Dec center in the units of degree.
 
-    downsample_factor: int, optional
+    downsample_factor: `int`, optional
         Downsample image by this factor.
 
-    parity: str or int in [0, 1, '0', '1'], optional
+    parity: `str` or `int` in [0, 1, '0', '1'], optional
         Parity (flip) of image.
 
-    tweak_order: int, optional
+    tweak_order: `int`, optional
         SIP distortion order (if `None`, defaults to 2).
 
-    crpix_center: bool, optional
+    crpix_center: `bool`, optional
         Set reference point to center of image?
 
-    sdss_wcs: list of two str, optional
+    sdss_wcs: `list` of two `str`, optional
         Plot SDSS image for the given `~astropy.wcs.WCS` file; write plot to given PNG filename
 
-    galex_wcs: list of two str, optional
+    galex_wcs: `list` of two `str`, optional
         Plot GALEX image for the given `~astropy.wcs.WCS` file; write plot to given PNG filename
 
-    solved_id: int, optional
+    solved_id: `int`, optional
         retrieve result for jobId instead of submitting new image
 
-    sub_id, job_id: str, optional
+    sub_id, job_id: `str`, optional
         Get status of a submission or job
 
-    myjobs: bool, optional
+    myjobs: `bool`, optional
         Get all my jobs
 
-    jobs_by_exact_tab: bool, optional
-        Get a list of jobs associated with a given tag--exact match
+    jobs_by_exact_tab: `bool`, optional
+        Get a `list` of jobs associated with a given tag--exact match
 
-    jobs_by_tag: bool, optional
-        Get a list of jobs associated with a given tag
+    jobs_by_tag: `bool`, optional
+        Get a `list` of jobs associated with a given tag
 
-    public: str, optional
+    public: `str`, optional
         Hide this submission from other users. If `None` (default), code
         ``'y'`` is used, i.e., it is a public submission. Otherwise, code
         ``'n'`` is used, i.e., private submission, and the input value (which
-        is not necessarily ``'n'``) will be added to a list called ``args``.
+        is not necessarily ``'n'``) will be added to a `list` called ``args``.
 
-    allow_mod: str, optional
+    allow_mod: `str`, optional
         Select license to allow derivative works of submission, but only if
         shared under same conditions of original license
 
-    allow_commercial: str in ['n', 'd'], optional
+    allow_commercial: `str` in ['n', 'd'], optional
         Select license to disallow commercial use of submission
 
-    sleep_interval: int or float, optional
+    sleep_interval: `int` or `float`, optional
         How long to wait for printing the information.
     '''
 

@@ -26,13 +26,13 @@ class TestGetSize:
         assert size > 0
 
     def test_list_larger_than_elements(self):
-        """Test that list size > sum of element sizes due to overhead."""
+        """Test that `list` size > sum of element sizes due to overhead."""
         lst = [1, 2, 3]
         size = misc.get_size(lst)
         assert size > 0
 
     def test_nested_dict(self):
-        """Test recursive size calculation for nested dict."""
+        """Test recursive size calculation for nested `dict`."""
         d = {"a": {"b": {"c": 1}}}
         size = misc.get_size(d)
         assert size > 0
@@ -124,14 +124,14 @@ class TestChangeToQuantity:
     """Tests for change_to_quantity function."""
 
     def test_float_to_quantity(self):
-        """Test converting float to Quantity."""
+        """Test converting `float` to `~astropy.units.Quantity`."""
         from astropy import units as u
         result = misc.change_to_quantity(5.0, u.m, to_value=False)
         assert hasattr(result, "unit")
         assert result.value == 5.0
 
     def test_quantity_passthrough(self):
-        """Test that Quantity is passed through."""
+        """Test that `~astropy.units.Quantity` is passed through."""
         from astropy import units as u
         q = 5.0 * u.m
         result = misc.change_to_quantity(q, u.m, to_value=False)
@@ -139,7 +139,7 @@ class TestChangeToQuantity:
         assert result.unit == u.m
 
     def test_to_value_true(self):
-        """Test extracting value from Quantity."""
+        """Test extracting value from `~astropy.units.Quantity`."""
         from astropy import units as u
         result = misc.change_to_quantity(5.0 * u.km, u.m, to_value=True)
         np.testing.assert_allclose(result, 5000.0, rtol=RTOL, atol=ATOL)

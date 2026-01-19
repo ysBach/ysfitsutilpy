@@ -24,13 +24,13 @@ def calc_airmass(zd_deg=None, cos_zd=None, scale=750.0):
 
     Parameters
     ----------
-    zd_deg : float, optional
+    zd_deg : `float`, optional
         The zenithal distance in degrees
 
-    cos_zd : float, optional
+    cos_zd : `float`, optional
         The cosine of zenithal distance. If given, ``zd_deg`` is not used.
 
-    scale : float, optional
+    scale : `float`, optional
         Earth radius divided by the atmospheric height (usually scale height)
         of the atmosphere. In IRAF documentation, it is mistakenly written that
         this ``scale`` is the "scale height".
@@ -87,15 +87,15 @@ def airmass_obs(
     ut : astropy.Time
         The time when the exposure is started.
 
-    exptime : astropy.Quantity
+    exptime : astropy.`~astropy.units.Quantity`
         The exposure time.
 
-    scale : float, optional
+    scale : `float`, optional
         Earth radius divided by the atmospheric height (usually scale height)
         of the atmosphere. In IRAF documentation, it is mistakenly written that
         this `scale` is the "scale height".
 
-    in_deg : bool, optional
+    in_deg : `bool`, optional
         If `True`, return alt/az in degrees. Otherwise, return in string with separation ":".
 
     Notes
@@ -175,26 +175,26 @@ def airmass_to_hdr(
         The coordinate of the target. If not given, it will be calculated from
         the header.
 
-    ra, dec : str|float|u.Quantity, optional
+    ra, dec : `str`|`float`|u.`~astropy.units.Quantity`, optional
         The name of the header keyword or the value of the RA and DEC of the
-        target. If float, it should be in [deg].
+        target. If `float`, it should be in [deg].
 
-    time_start : str|`~astropy.time.Time`, optional
+    time_start : `str`|`~astropy.time.Time`, optional
         The name of the header keyword or the value of the time when the
         exposure started.
 
-    time_scale : str, optional
+    time_scale : `str`, optional
         The scale of the time if it is read from header. Default is "utc".
 
-    exptime : str|float|u.Quantity, optional
+    exptime : `str`|`float`|u.`~astropy.units.Quantity`, optional
         The name of the header keyword or the value of the exposure time. If
-        given as float, it should be in [sec].
+        given as `float`, it should be in [sec].
 
-    scale : float, optional
+    scale : `float`, optional
         Earth radius divided by the atmospheric height (usually scale height)
         of the atmosphere. In IRAF documentation, it is mistakenly written that
         this `scale` is the "scale height".
-    in_deg : bool, optional
+    in_deg : `bool`, optional
         If `True`, return alt/az in degrees. Otherwise, return in string with separation ":".
 
     """
@@ -287,39 +287,40 @@ def airmass_from_hdr(
     verbose=False,
 ):
     """Calculate airmass using the header.
+
     Parameters
     ----------
-    ra, dec: float or Quantity, optional
+    ra, dec: `float` or `~astropy.units.Quantity`, optional
         The RA and DEC of the target. If not specified, it tries to find them
         in the header using ``ra_key`` and ``dec_key``.
 
-    ut: str or `~astropy.time.Time`, optional
+    ut: `str` or `~astropy.time.Time`, optional
         The *starting* time of the observation in UT.
 
-    exptime: float or `~astropy.time.Time`, optional
+    exptime: `float` or `~astropy.time.Time`, optional
         The exposure time.
 
-    lon, lat, height: str, float, or Quantity
+    lon, lat, height: `str`, `float`, or `~astropy.units.Quantity`
         The longitude, latitude, and height of the observatory. See
         astropy.coordinates.EarthLocation.
 
-    equinox, frame: str, optional
+    equinox, frame: `str`, optional
         The `equinox` and `frame` for SkyCoord.
 
-    scale: float, optional
+    scale: `float`, optional
         Earth radius divided by the atmospheric height (usually scale height)
         of the atmosphere.
 
-    XX_key: str, optional
+    XX_key: `str`, optional
         The header key to find XX if ``XX`` is `None`.
 
-    XX_unit: Quantity, optional
+    XX_unit: `~astropy.units.Quantity`, optional
         The unit of ``XX``
 
-    ut_format, ut_scale: str, optional
+    ut_format, ut_scale: `str`, optional
         The `format` and `scale` for `~astropy.time.Time`.
 
-    return_header: bool, optional
+    return_header: `bool`, optional
         Whether to return the updated header.
     """
 

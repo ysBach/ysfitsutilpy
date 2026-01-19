@@ -105,7 +105,7 @@ def get_fitter(fitter_name="LM", /, **kwargs):
 
     Parameters
     ----------
-    name : str, optional.
+    name : `str`, optional.
         The name of the fitter. Only the first 2-3 letters are used for
         determining the fitter (case-insensitive)::
 
@@ -177,9 +177,9 @@ def fit_model(
 
     Parameters
     ----------
-    model_name : str
+    model_name : `str`
         The model to fit. See `get_model`.
-    ndim : int, optional.
+    ndim : `int`, optional.
         The dimension of the data. If not given, it is inferred from the model.
 
     **kwargs :
@@ -230,7 +230,7 @@ def fit_model_iter(
 
     Parameters
     ----------
-    model_name : str or `astropy.modeling.Model`
+    model_name : `str` or `astropy.modeling.Model`
         The model to fit. If already a Model instance, it will be used as is.
         See `get_model`.
 
@@ -242,7 +242,7 @@ def fit_model_iter(
         each model separately; otherwise, the same filtering must be performed
         in a loop over models, which is almost an order of magnitude slower.
 
-    maxiters : int, optional
+    maxiters : `int`, optional
         Maximum number of iterations.
 
     **kwargs :
