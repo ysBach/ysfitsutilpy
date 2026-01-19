@@ -824,7 +824,7 @@ def biascor(ccd, mbias=None, mbiaspath=None, copy=True, verbose=1):
 
     _t = Time.now()
     nccd = ccd.copy() if copy else ccd
-    mbias, mbiasname, _ = _parse_image(mbias, name=mbiaspath)
+    mbias, mbiasname, _ = _parse_image(mbias or mbiaspath, name=mbiaspath)
     # For BIAS, header information is not needed at all... I guess?
     nccd.data = nccd.data - mbias
     _addfrm(nccd, "BIAS", mbiasname)
@@ -893,28 +893,30 @@ def darkcor(
     _t = Time.now()
     nccd = ccd.copy() if copy else ccd
     use_ccddata = dark_scale and exptime_dark is None
-    mdark, mdarkname, _ = _parse_image(mdark, name=mdarkpath, force_ccddata=use_ccddata)
+    mdark, mdarkname, _ = _parse_image(mdark or mdarkpath, name=mdarkpath, force_ccddata=use_ccddata)
 
     if dark_scale:
         exptime_data = exptime_data or ccd.header.get(exptime_key, None)
         exptime_dark = exptime_dark or mdark.header.get(exptime_key, None)
+
+        msg = "[yfu.darkcor] Dark scaled by exptime: "
         if exptime_data is None or exptime_dark is None:
             warn(
                 f"exptime_data={exptime_data}, exptime_dark={exptime_dark}. Fix scale=1."
             )
             scale = 1
+            msg += "Fixed scale=1 (metadata missing)."
         else:
             scale = exptime_data / exptime_dark
+            msg += f"({exptime_data:.3f}/{exptime_dark:.3f}) = {scale:.3f}"
+
         mdark = mdark.data * scale if use_ccddata else mdark * scale
         # ^ mdark is now ndarray regardless of use_ccddata
         cmt2hdr(
             ccd.header,
             "h",
             verbose=verbose >= 1,
-            s=(
-                "[yfu.darkcor] Dark scaled by exptime: (t_data/t_dark) = "
-                + f"({exptime_data:.3f}/{exptime_dark:.3f}) = {scale:.3f}"
-            ),
+            s=msg,
         )
     nccd.data = nccd.data - mdark
     _addfrm(nccd, "DARK", mdarkname)
@@ -978,7 +980,7 @@ def flatcor(
 
     _t = Time.now()
     nccd = ccd.copy() if copy else ccd
-    mflat, mflatname, _ = _parse_image(mflat, name=mflatpath, force_ccddata=False)
+    mflat, mflatname, _ = _parse_image(mflat or mflatpath, name=mflatpath, force_ccddata=False)
     # For FLAT, header information is not needed at all... I guess?
     if flat_mask is not None:
         if isinstance(flat_mask, np.ndarray):
