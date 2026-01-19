@@ -401,24 +401,25 @@ def _parse_image(
             imtype = "num"
             # imname can be "int", "float", "str", etc, so imtype might be useful.
         except (ValueError, TypeError):
-            try:  # IF path-like
-                # force_ccddata: CCDData // prefer_ccddata: CCDData // else: ndarray
+            try:
                 fpath = Path(ccdlike)
-                imname = f"{str(fpath)}{extstr}" if has_no_name else name
-                # set redundant extensions to None so that only the part
-                # specified by `extension` be loaded:
-                new_im = load_ccd(
-                    fpath,
-                    extension,
-                    ccddata=prefer_ccddata or force_ccddata,
-                    extension_uncertainty=None,
-                    extension_mask=None,
-                )
-                imtype = "path"
             except TypeError:
                 raise TypeError(
                     "input must be CCDData-like, ndarray, path-like (to FITS), or a number."
                 )
+
+            # If we are here, it is a path-like.
+            imname = f"{str(fpath)}{extstr}" if has_no_name else name
+            # set redundant extensions to None so that only the part
+            # specified by `extension` be loaded:
+            new_im = load_ccd(
+                fpath,
+                extension,
+                ccddata=prefer_ccddata or force_ccddata,
+                extension_uncertainty=None,
+                extension_mask=None,
+            )
+            imtype = "path"
 
     return new_im, imname, imtype
 
@@ -819,7 +820,7 @@ def load_ccd(
 
             if trimsec is not None:
                 # Do imslice AFTER loading the data to easily add LTV/LTM...
-                ccd = imslice(trimsec)
+                ccd = imslice(ccd, trimsec)
 
             if full:  # Just for API consistency
                 return ccd, ccd.uncertainty, ccd.mask, ccd.flags
