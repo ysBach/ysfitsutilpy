@@ -157,7 +157,7 @@ def cmt2hdr(
     precision : int, optional.
         The precision of the isot format time.
 
-    time_fmt : str, None, optional.
+    time_fmt : str, `None`, optional.
         The Python 3 format string to format the time in the header. If `None`,
         the timestamp string will not be added.
 
@@ -350,7 +350,7 @@ def parse_crrej_psf(
         assert (parse_crrej_psf("moffat", psffwhm=2, psfsize=3, psfbeta=[1, 2])
             == {'fsmode': ['convolve', 'convolve'],
      'psfmodel': ['moffat', 'moffat'],
-     'psfk': [None, None],
+     'psfk': [`None`, `None`],
      'psffwhm': [2, 2],
      'psfsize': [3, 3],
      'psfbeta': [1, 2]}
@@ -358,7 +358,7 @@ def parse_crrej_psf(
 
         assert (parse_crrej_psf([np.eye(3), np.eye(5)])
         == {'fsmode': ['convolve', 'convolve'],
-     'psfmodel': [None, None],
+     'psfmodel': [`None`, `None`],
      'psfk': [np.array([[1., 0., 0.],
              [0., 1., 0.],
              [0., 0., 1.]]),
@@ -367,21 +367,21 @@ def parse_crrej_psf(
              [0., 0., 1., 0., 0.],
              [0., 0., 0., 1., 0.],
              [0., 0., 0., 0., 1.]])],
-     'psffwhm': [None, None],
-     'psfsize': [None, None],
-     'psfbeta': [None, None]}
+     'psffwhm': [`None`, `None`],
+     'psfsize': [`None`, `None`],
+     'psfbeta': [`None`, `None`]}
     )
 
         with pytest.raises(ValueError):
             parse_crrej_psf("moffat", psffwhm=2, psfsize=[3, 3, 3], psfbeta=[1, 2])
 
-        assert (parse_crrej_psf("gaussx", fill_with_none=False)
+        assert (parse_crrej_psf("gaussx", fill_with_none=`False`)
         == {'fsmode': 'convolve', 'psfmodel': 'gaussx', 'psffwhm': 2.5, 'psfsize': 7})
 
-        assert (parse_crrej_psf("moffat", psffwhm=[2, 3, 4], fill_with_none=False)
+        assert (parse_crrej_psf("moffat", psffwhm=[2, 3, 4], fill_with_none=`False`)
         == {'fsmode': ['convolve', 'convolve', 'convolve'],
      'psfmodel': ['moffat', 'moffat', 'moffat'],
-     'psfk': [None, None, None],
+     'psfk': [`None`, `None`, `None`],
      'psffwhm': [2, 3, 4],
      'psfsize': [7, 7, 7],
      'psfbeta': [4.765, 4.765, 4.765]}
@@ -515,11 +515,11 @@ def circular_mask(shape, center=None, radius=None, center_xyz=True):
     shape : tuple
         The pythonic shape, i.e., `arr.shape` (not xyz order).
 
-    center : tuple, None, optional.
+    center : tuple, `None`, optional.
         The center of the circular mask. If `None` (default), the central
         position is used.
 
-    radius : float, None, optional.
+    radius : float, `None`, optional.
         The radius of the mask. If `None`, the distance to the closest edge of
         the image is used.
 
@@ -573,7 +573,7 @@ def circular_mask_2d(
         The shape of the 2-D image in *pythonic* order, i.e., `arr.shape`
         (height, width).
 
-    center : array-like, None, optional.
+    center : array-like, `None`, optional.
         The pixel coordinates of the aperture center(s) in one of the
         following formats:
 
@@ -846,7 +846,7 @@ def binning(
     arr: 2d array
         The array to be binned
 
-    factor_x, factor_y: int or None, optional.
+    factor_x, factor_y: int or `None`, optional.
         The binning factors in x, y direction. This is left as legacy and for
         clarity, because mostly this function is used for 2-D CCD data. If any
         of these is given, `order_xyz` is overridden as `True`.
@@ -971,7 +971,7 @@ def quantile_lh(
         Quantile or sequence of quantiles to compute, which must be between 0
         and 1 inclusive.
 
-    axis : {int, tuple of int, None}, optional
+    axis : {int, tuple of int, `None`}, optional
         Axis or axes along which the quantiles are computed. The default is to
         compute the quantile(s) along a flattened version of the array.
 
@@ -1023,7 +1023,7 @@ def quantile_sigma(
     ----------
     a : ~numpy.ndarray
 
-    axis : {int, tuple of int, None}, optional
+    axis : {int, tuple of int, `None`}, optional
         Axis or axes along which the quantiles are computed. The default is to
         compute the quantile(s) along a flattened version of the array.
 
@@ -1103,7 +1103,7 @@ def min_max_med_1d(arr):
     [this] 86.3 µs ± 4.78 µs per loop (mean ± std. dev. of 7 runs, 10,000 loops each)
     [ np ] 25.6 µs ± 143 ns per loop (mean ± std. dev. of 7 runs, 10,000 loops each)
 
-    fig, axs = plt.subplots(1, 1, figsize=(8, 5), sharex=False, sharey=False, gridspec_kw=None)
+    fig, axs = plt.subplots(1, 1, figsize=(8, 5), sharex=`False`, sharey=`False`, gridspec_kw=`None`)
 
     #axs[0].
     axs.plot( [10, 100, 200, 300, 500, 800, 1000, 2000, 3000], t1s)

@@ -96,7 +96,7 @@ def group_combine(
     type_key, type_val : str, list of str
         The header keyword for the ccd type, and the value you want to match.
 
-    group_key : None, str, list of str, optional
+    group_key : `None`, str, list of str, optional
         The header keyword which will be used to make groups for the CCDs that
         have selected from `type_key` and `type_val`. If `None` (default), no
         grouping will occur, but it will return the `~pandas.DataFrameGroupBy`
@@ -133,7 +133,7 @@ def group_combine(
 
     Returns
     -------
-    combined : dict of ~astropy.nddata.~astropy.nddata.CCDData
+    combined : dict of ~astropy.nddata.CCDData
         The dict object where keys are the header value of the `group_key` and
         the values are the combined images in `~astropy.nddata.CCDData` object. If multiple keys
         for `group_key` is given, the key of this dict is a tuple.
@@ -887,7 +887,7 @@ imcombine.__doc__ = """A helper function for `~ysfitsutilpy.imutil.ndcombine` to
     Parameters
     ----------
 
-    inputs : glob pattern, list-like of path-like, list-like of ~astropy.nddata.~astropy.nddata.CCDData-like
+    inputs : glob pattern, list-like of path-like, list-like of ~astropy.nddata.CCDData-like
         The `~glob` pattern for files (e.g., ``"2020*[012].fits"``) or list of
         files (each element must be path-like or `~astropy.nddata.CCDData`). Although it is not a
         good idea, a mixed list of `~astropy.nddata.CCDData` and paths to the files is also

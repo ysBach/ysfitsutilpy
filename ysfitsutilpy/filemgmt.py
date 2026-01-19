@@ -40,7 +40,7 @@ def load_if_exists(path, loader, if_not=None, verbose=True, **kwargs):
 
     Parameters
     ----------
-    path : pathlib.~pathlib.Path of ~pathlib.Path-like str
+    path : ~pathlib.Path of ~pathlib.Path-like str
         The path to be searched.
 
     loader : a function
@@ -112,7 +112,7 @@ def make_summary(
 
     Parameters
     ----------
-    inputs : glob pattern, list-like of path-like, list-like of ~astropy.nddata.~astropy.nddata.CCDData, `~pandas.DataFrame` convertible
+    inputs : glob pattern, list-like of path-like, list-like of ~astropy.nddata.CCDData, `~pandas.DataFrame` convertible
         The `~glob` pattern for files (e.g., ``"2020*[012].fits"``) or list of
         files (each element must be path-like or `~astropy.nddata.CCDData`). Although it is not a
         good idea, a mixed list of `~astropy.nddata.CCDData` and paths to the files is also
@@ -141,7 +141,7 @@ def make_summary(
     keywords : list or str(``"*"``), optional
         The list of the keywords to extract (keywords should be in str).
 
-    example_header : None or path-like, optional
+    example_header : `None` or path-like, optional
         The path including the filename of the output summary text file. If
         specified, the header of the 0-th element of `inputs` will be extracted
         (if glob-pattern is given, the 0-th element is random, so be careful)
@@ -158,7 +158,7 @@ def make_summary(
 
     fullmatch : dict, optional
         The ``{column: regex}`` style dict to be used for selecting rows by
-        ``summarytab[column].str.fullmatch(regex, case=True)``.
+        ``summarytab[column].str.fullmatch(regex, case=`True`)``.
         Default: `None`
 
     negate_fullmatch: bool, optional.
@@ -424,7 +424,7 @@ def df_selector(
         information.
     fullmatch : dict, optional
         The ``{column: regex}`` style dict to be used for selecting rows by
-        ``summarytab[column].str.fullmatch(regex, case=True)``. An example:
+        ``summarytab[column].str.fullmatch(regex, case=`True`)``. An example:
         ``{"OBJECT": "Ves.*"}``. All corresponding columns must have dtype of
         `str` to apply regex.
         Default: `None`
@@ -573,7 +573,7 @@ def make_reduc_planner(
         calibration files. If `list`, lengths of `cal_summary` and `column`
         must be the same.
 
-        ..note::
+        .. note::
             If the file path is relative, the reference of these paths must be
             identical to that in `summary`. If not, future reduction has no way
             to find the corresponding calibration file.
@@ -1005,12 +1005,12 @@ def fitsrenamer(
     delimiter : str, optional
         The delimiter for the renaming.
 
-    archive_dir : path-like or None, optional
+    archive_dir : path-like or `None`, optional
         Where to move the original FITS file. If `None`, the original file will
         remain there. Deleting original FITS is dangerous so it is only
         supported to move the files. You may delete files manually if needed.
 
-    keymap : dict or None, optional
+    keymap : dict or `None`, optional
         If not `None`, the keymapping is done by using the dict of `keymap` in
         the format of ``{<standard_key>:<original_key>}``.
 
@@ -1019,7 +1019,7 @@ def fitsrenamer(
         deprecation warning. If `True`, the original keywords' comments will
         become ``Deprecated. See <standard_key>.``.
 
-    trimsec : str or None, optional
+    trimsec : str or `None`, optional
         Region of ``~astropy.nddata.CCDData`` from which the overscan is extracted; see
         `~ccdproc.subtract_overscan` for details. Default is `None`.
 

@@ -234,7 +234,7 @@ def imarith(
         pairs (care is needed since it overwrites the pre-existing keys). If
         dict, it can be ``{key:value}`` or ``{key:(value, comment)}``.
 
-        ..note::
+        .. note::
             The behavior is different from IRAF. In IRAF, ``hparams`` is used
             to propagate the header keyword. This is used mainly for
             ``"EXPTIME"`` to sum the exposure time if two images are combined.

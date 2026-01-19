@@ -53,13 +53,13 @@ class TestParseDataHeader:
         assert hdr["OBJECT"] == "TestObject"
 
     def test_parse_none(self):
-        """Test parsing None returns None, None."""
+        """Test parsing `None` returns `None`, `None`."""
         data, hdr = hduutil._parse_data_header(None)
         assert data is None
         assert hdr is None
 
     def test_parse_empty_string(self):
-        """Test parsing empty string returns None, None."""
+        """Test parsing empty string returns `None`, `None`."""
         data, hdr = hduutil._parse_data_header("")
         assert data is None
         assert hdr is None
@@ -146,7 +146,7 @@ class TestLoadCcd:
         assert ccd.unit == u.adu
 
     def test_load_ccddata_false(self, temp_fits_file):
-        """Test loading as raw arrays (ccddata=False)."""
+        """Test loading as raw arrays (ccddata=`False`)."""
         result = hduutil.load_ccd(temp_fits_file, ccddata=False, full=True)
         # Returns (data, var, mask, flags) tuple
         data, var, mask, flags = result
@@ -179,7 +179,7 @@ class TestWriteFits:
             assert hdul[0].header["OBJECT"] == "TestObject"
 
     def test_write_return_ccd(self, sample_data_2d, sample_header, tmp_path):
-        """Test write2fits with return_ccd=True."""
+        """Test write2fits with return_ccd=`True`."""
         outpath = tmp_path / "output.fits"
         result = hduutil.write2fits(
             sample_data_2d, sample_header, outpath, return_ccd=True

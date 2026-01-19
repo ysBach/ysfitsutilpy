@@ -65,15 +65,15 @@ def group_fits(
 
     Parameters
     ----------
-    summary_table: pandas.DataFrame or astropy.table.Table
+    summary_table: ~pandas.DataFrame or ~astropy.table.Table
         The table which contains the metadata (header) of files. If it is in
         the astropy table format, it will be converted to `~pandas.DataFrame`
         object.
 
-    type_key, type_val: None, str, list of str, optional
+    type_key, type_val: `None`, str, list of str, optional
         The header keyword for the ccd type, and the value you want to match.
 
-    group_key : None, str, list of str, optional
+    group_key : `None`, str, list of str, optional
         The header keyword which will be used to make groups for the CCDs that
         have selected from `type_key` and `type_val`. If `None` (default), no
         grouping will occur, but it will return the `~pandas.DataFrameGroupBy`
@@ -164,7 +164,7 @@ def select_fits(
 
     Parameters
     ----------
-    inputs : path-like, ~astropy.nddata.~astropy.nddata.CCDData, fits.PrimaryHDU, fits.ImageHDU,pandas.~pandas.DataFrame or astropy.table.Table
+    inputs : path-like, ~astropy.nddata.CCDData, ~astropy.io.fits.PrimaryHDU, ~astropy.io.fits.ImageHDU, ~pandas.DataFrame or ~astropy.table.Table
         If it is path-like, it must contain FITS files to extract header. If
         CCD-like, the header information will be used for selecting elements to
         select.
@@ -430,7 +430,7 @@ def stack_FITS(
 
     Parameters
     ----------
-    fitslist: None, [list of] path-like, or [list of] `~astropy.nddata.CCDDat`a
+    fitslist: `None`, [list of] path-like, or [list of] `~astropy.nddata.CCDDat`a
         The list of path to FITS files or the list of `~astropy.nddata.CCDData` to be stacked. It
         is useful to give list of `~astropy.nddata.CCDData` if you have already stacked/loaded
         FITS file into a list by your own criteria. If `None` (default), you
@@ -439,7 +439,7 @@ def stack_FITS(
         Although it is not a good idea, a mixed list of `~astropy.nddata.CCDData` and paths to
         the files is also acceptable.
 
-    summary_table: None, pandas.DataFrame or astropy.table.Table
+    summary_table: `None`, ~pandas.DataFrame or ~astropy.table.Table
         The table which contains the metadata of files. If there are many FITS
         files and you want to use stacking many times, it is better to make a
         summary table by `filemgmt.make_summary` and use that instead of
@@ -699,7 +699,7 @@ def combine_ccd(
         Although it is not a good idea, a mixed list of `~astropy.nddata.CCDData` and paths to
         the files is also acceptable.
 
-    summary_table: pandas.DataFrame or astropy.table.Table
+    summary_table: ~pandas.DataFrame or ~astropy.table.Table
         The table which contains the metadata of files. If there are many FITS
         files and you want to use stacking many times, it is better to make a
         summary table by `filemgmt.make_summary` and use that instead of
@@ -716,7 +716,7 @@ def combine_ccd(
         Section of the data to be extracted by `~ysfitsutilpy.hduutil.imslice`.
         Default is `None`.
 
-    output : path-like or None, optional.
+    output : path-like or `None`, optional.
         The path if you want to save the resulting `~astropy.nddata.CCDData`
         object.
         Default is `None`.
@@ -732,12 +732,12 @@ def combine_ccd(
         TODO: This maybe unnecessary.
         Default is `None`.
 
-    combine_method : str or None, optinal.
+    combine_method : str or `None`, optinal.
         The `method` for `ccdproc.combine`, i.e., {'average', 'median', 'sum'}
         Default is `None`.
 
     reject_method : str
-        Made for simple use of `ccdproc.combine`, [None, 'minmax', 'sigclip' ==
+        Made for simple use of `ccdproc.combine`, [`None`, 'minmax', 'sigclip' ==
         'sigma_clip', 'extrema' == 'ext']. Automatically turns on the option,
         e.g., ``clip_extrema = True`` or ``sigma_clip = True``. Leave it blank
         for no rejection.
@@ -757,7 +757,7 @@ def combine_ccd(
         The header keyword for the exposure time.
         Default is ``"EXPTIME"``.
 
-    combine_uncertainty_function : callable, None, optional
+    combine_uncertainty_function : callable, `None`, optional
         The uncertainty calculation function of `~ccdproc.combine`. If `None`
         use the default uncertainty func when using average, median or sum
         combine, otherwise use the function provided.
@@ -769,7 +769,7 @@ def combine_ccd(
         str and int: ``(EXTNAME, EXTVER)``. If `None` (default), the *first
         extension with data* will be used.
 
-    dtype : str or `numpy.dtype` or None, optional
+    dtype : str or `numpy.dtype` or `None`, optional
         Allows user to set dtype. See `numpy.array` ``dtype`` parameter
         description. If `None` it uses ``np.float64``.
         Default is `None`.
@@ -796,21 +796,21 @@ def combine_ccd(
         kwargs for the `ccdproc.combine`. See its documentation. This includes
         (RHS are the default values)
         ```
-        weights=None,
-        scale=None,
+        weights=`None`,
+        scale=`None`,
         mem_limit=16000000000.0,
-        clip_extrema=False,
+        clip_extrema=`False`,
         nlow=1,
         nhigh=1,
-        minmax_clip=False,
-        minmax_clip_min=None,
-        minmax_clip_max=None,
-        sigma_clip=False,
+        minmax_clip=`False`,
+        minmax_clip_min=`None`,
+        minmax_clip_max=`None`,
+        sigma_clip=`False`,
         sigma_clip_low_thresh=3,
         sigma_clip_high_thresh=3,
         sigma_clip_func=<numpy.ma.core._frommethod instance>,
         sigma_clip_dev_func=<numpy.ma.core._frommethod instance>,
-        combine_uncertainty_function=None, **ccdkwargs
+        combine_uncertainty_function=`None`, **ccdkwargs
         ```
 
     Returns

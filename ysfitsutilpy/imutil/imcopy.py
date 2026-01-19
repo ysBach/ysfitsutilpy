@@ -22,7 +22,7 @@ def imcopy(
 
     Parameters
     ----------
-    inputs : glob pattern, list-like of path-like, list-like of ~astropy.nddata.~astropy.nddata.CCDData
+    inputs : glob pattern, list-like of path-like, list-like of ~astropy.nddata.CCDData
         The `~glob` pattern for files (e.g., ``"2020*[012].fits"``) or list of
         files (each element must be path-like or `~astropy.nddata.CCDData`). Although it is not a
         good idea, a mixed list of `~astropy.nddata.CCDData` and paths to the files is also
@@ -65,8 +65,8 @@ def imcopy(
 
     Notes
     -----
-    To make imcopy faster, use  update_header=False (2.8 ms -> 2.3 ms) and
-    dtype=None.
+    To make imcopy faster, use  update_header=`False` (2.8 ms -> 2.3 ms) and
+    dtype=`None`.
 
     All the sections will be flattened if they are higher than 1-d. I think it
     will only increase the complexity of the code if I accept that...?

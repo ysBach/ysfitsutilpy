@@ -309,19 +309,19 @@ def query_nova(server=Client.default_url, apikey=None, upload=None,
 
     wcs: path-like, optional
         Download resulting wcs.fits file, saving to given filename.
-        Implies ``wait=True`` if ``urlupload`` or ``upload`` is not None.
+        Implies ``wait=True`` if ``urlupload`` or ``upload`` is not `None`.
 
     newfits: path-like, optional
         Download resulting new-image.fits file, saving to given filename.
-        Implies ``wait=True`` if ``urlupload`` or ``upload`` is not None.
+        Implies ``wait=True`` if ``urlupload`` or ``upload`` is not `None`.
 
     kmz: path-like, optional
         Download resulting kmz file, saving to given filename;
-        Implies ``wait=True`` if ``urlupload`` or ``upload`` is not None.
+        Implies ``wait=True`` if ``urlupload`` or ``upload`` is not `None`.
 
     annotate: path-like, optional
         Store information about annotations in give file, JSON format;
-        Implies ``wait=True`` if ``urlupload`` or ``upload`` is not None.
+        Implies ``wait=True`` if ``urlupload`` or ``upload`` is not `None`.
 
     upload_url: str, optional
         Upload a file at specified url.
@@ -354,7 +354,7 @@ def query_nova(server=Client.default_url, apikey=None, upload=None,
         Parity (flip) of image.
 
     tweak_order: int, optional
-        SIP distortion order (if None, defaults to 2).
+        SIP distortion order (if `None`, defaults to 2).
 
     crpix_center: bool, optional
         Set reference point to center of image?

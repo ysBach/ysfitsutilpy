@@ -96,7 +96,7 @@ def airmass_obs(
         this `scale` is the "scale height".
 
     in_deg : bool, optional
-        If True, return alt/az in degrees. Otherwise, return in string with separation ":".
+        If `True`, return alt/az in degrees. Otherwise, return in string with separation ":".
 
     Notes
     -----
@@ -165,7 +165,7 @@ def airmass_to_hdr(
 
     Parameters
     ----------
-    header : fits.Header
+    header : ~astropy.io.fits.Header
         The header of the image to calculate airmass from.
 
     obscoord : EarthLocation
@@ -195,7 +195,7 @@ def airmass_to_hdr(
         of the atmosphere. In IRAF documentation, it is mistakenly written that
         this `scale` is the "scale height".
     in_deg : bool, optional
-        If True, return alt/az in degrees. Otherwise, return in string with separation ":".
+        If `True`, return alt/az in degrees. Otherwise, return in string with separation ":".
 
     """
     _t = Time.now()

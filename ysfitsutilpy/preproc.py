@@ -89,7 +89,7 @@ def crrej(
     """Do cosmic-ray rejection using L.A.Cosmic default parameters.
     Parameters
     ----------
-    ccd : ~astropy.nddata.~astropy.nddata.CCDData
+    ccd : ~astropy.nddata.CCDData
         The ccd to be processed. The data must be in ADU, not electrons.
 
     propagate_crmask : bool, optional.
@@ -106,7 +106,7 @@ def crrej(
         "counts", the same units of `ccd`. `inbkg` should be free from cosmic
         rays. When estimating the cosmic-ray free noise of the image, we will
         treat `inbkg` as a constant Poisson contribution to the variance.
-        Default: None.
+        Default: `None`.
 
         ..note:
             Originally `pssl`, which stood for "previously subtracted sky
@@ -124,7 +124,7 @@ def crrej(
         absence of cosmic rays. This should be in units of "counts" squared.
         (it was `var` in == 1.1.0, which is a hasty bug in argument naming)
 
-    gain, rdnoise : None, float, astropy.Quantity, optional.
+    gain, rdnoise : `None`, float, astropy.Quantity, optional.
         The gain and readnoise value. If not ``Quantity``, they must be in
         electrons per adu and electron unit, respectively.
 
@@ -177,13 +177,13 @@ def crrej(
         `psfmodel`, `psfk` of `astroscrappy`.
 
         * ``'median'``: Use the median filter in the standard LA Cosmic
-          algorithm. None of `psffwhm`, `psfsize`, and `psfbeta` are used.
+          algorithm. `None` of `psffwhm`, `psfsize`, and `psfbeta` are used.
         * other str: Use a Gaussian/Moffat model to generate the psf kernel.
           ``'gauss'|'moffat'`` produce circular PSF kernels.
           ``'gaussx'|'gaussy'`` produce Gaussian kernels in the x and y
           directions respectively. `psffwhm`, `psfsize` (plus `psfbeta` if
           "moffat") are used.
-        * `~numpy.ndarray`: PSF kernel array to use for the fine structure image. None
+        * `~numpy.ndarray`: PSF kernel array to use for the fine structure image. `None`
           of `psffwhm`, `psfsize`, and `psfbeta` are used.
 
         Summary of `astroscrappy` VS `ysfitsutilpy`:
@@ -216,7 +216,7 @@ def crrej(
 
     Returns
     -------
-    _ccd : ~astropy.nddata.~astropy.nddata.CCDData
+    _ccd : ~astropy.nddata.CCDData
         The cosmic-ray cleaned `~astropy.nddata.CCDData` in ADU. `~astroscrappy` automatically
         does a gain correction, so I divided the `~astroscrappy` result by
         gain to restore to ADU (not to surprise the users).
@@ -476,7 +476,7 @@ def medfilt_bpm(
 
     Returns
     -------
-    ccd : ~astropy.nddata.~astropy.nddata.CCDData
+    ccd : ~astropy.nddata.CCDData
         The badpixel removed result.
 
     The followings are returned as dict only if ``full=True``.
@@ -774,12 +774,12 @@ def scancor(
         "[1:10, :]" in FITS section format. One and only one of `overscan` or
         `scansec` should be given.
 
-    scanax : int, None, optional.
+    scanax : int, `None`, optional.
         Axis along which overscan should combined with mean or median. Axis
         numbering follows the *python* convention for ordering, so 0 is the
         first axis and 1 is the second axis.
 
-        If overscan_axis is explicitly set to None, the axis is set to
+        If overscan_axis is explicitly set to `None`, the axis is set to
         the shortest dimension of the overscan section (or 1 in case
         of a square overscan).
         Default is ``0``.
@@ -816,11 +816,11 @@ def biascor(ccd, mbias=None, mbiaspath=None, copy=True, verbose=1):
         The path to the master calibration (bias) frame.
 
     copy : bool, optional
-        Whether to return a copy of the data (True) or a reference to the
-        original data (False). Using `False` will be slightly faster (few ms
+        Whether to return a copy of the data (`True`) or a reference to the
+        original data (`False`). Using `False` will be slightly faster (few ms
         order) and memory efficient, but the original data may be modified
         unintentionally.
-        Default is True.
+        Default is `True`.
     """
     if mbias is None and mbiaspath is None:
         return ccd.copy() if copy else ccd
@@ -883,11 +883,11 @@ def darkcor(
         Default: `False`
 
     copy : bool, optional
-        Whether to return a copy of the data (True) or a reference to the
-        original data (False). Using `False` will be slightly faster (few ms
+        Whether to return a copy of the data (`True`) or a reference to the
+        original data (`False`). Using `False` will be slightly faster (few ms
         order) and memory efficient, but the original data may be modified
         unintentionally.
-        Default is True.
+        Default is `True`.
     """
 
     if mdark is None and mdarkpath is None:
@@ -958,7 +958,7 @@ def flatcor(
     mflatpath : path-like
         The path to the master calibration (dark) frame.
 
-    flat_mask : numeric, ~numpy.ndarray, None, optional.
+    flat_mask : numeric, ~numpy.ndarray, `None`, optional.
         Mask to replace bad flat pixels by ``mflat[flat_mask] = flat_fill``. If
         numeric, ``mflat[mflat < flat_mask] = flat_fill``. Skipped if `None`.
         Default: ``0``
@@ -967,11 +967,11 @@ def flatcor(
         The value to fill the masked pixels.
 
     copy : bool, optional
-        Whether to return a copy of the data (True) or a reference to the
-        original data (False). Using `False` will be slightly faster (few ms
+        Whether to return a copy of the data (`True`) or a reference to the
+        original data (`False`). Using `False` will be slightly faster (few ms
         order) and memory efficient, but the original data may be modified
         unintentionally.
-        Default is True.
+        Default is `True`.
 
     flat_norm_value : numeric, optional.
         The value to normalize the flat frame. If `None`, the flat frame will
@@ -1046,10 +1046,10 @@ def frincor(
     """Subtract fringe frame
     Parameters
     ----------
-    ccd : ~astropy.nddata.~astropy.nddata.CCDData
+    ccd : ~astropy.nddata.CCDData
         The ccd to processed.
 
-    mfringe : ~astropy.nddata.~astropy.nddata.CCDData
+    mfringe : ~astropy.nddata.CCDData
         The fringe frame.
 
     fringe_scale : int, float, ndarry, function object, {"exp", "exposure", "exptime"}, optional.
@@ -1077,7 +1077,7 @@ def frincor(
         The header keyword for exposure time. Used only if `fringe_scale` is in
         ``{"exp", "exposure", "exptime"}``.
 
-    exptime_data, exptime_frin, : None, numeric, optional.
+    exptime_data, exptime_frin, : `None`, numeric, optional.
         The exposure time of the data and the fringe frame in the same unit. If
         `None`, ``exptime = header.get(exptime_key, 1)`` is used for data and
         fringe, respectively. Otherwise, header information is ignored.
@@ -1089,11 +1089,11 @@ def frincor(
         than `xxx.header[exptime_key]`).
 
     copy : bool, optional
-        Whether to return a copy of the data (True) or a reference to the
-        original data (False). Using `False` will be slightly faster (few ms
+        Whether to return a copy of the data (`True`) or a reference to the
+        original data (`False`). Using `False` will be slightly faster (few ms
         order) and memory efficient, but the original data may be modified
         unintentionally.
-        Default is True.
+        Default is `True`.
     """
     if mfrin is None and mfrinpath is None:
         return ccd.copy() if copy else ccd
@@ -1235,14 +1235,14 @@ def ccdred(
 
     Parameters
     ----------
-    ccd : ~astropy.nddata.~astropy.nddata.CCDData-like (e.g., ~astropy.io.fits.PrimaryHDU, ~astropy.io.fits.ImageHDU, ~astropy.io.fits.HDUList), ~numpy.ndarray, path-like, or number-like
+    ccd : ~astropy.nddata.CCDData-like (e.g., ~astropy.io.fits.PrimaryHDU, ~astropy.io.fits.ImageHDU, ~astropy.io.fits.HDUList), ~numpy.ndarray, path-like, or number-like
         The ccd to be processed.
 
-    output : path-like or None, optional.
+    output : path-like or `None`, optional.
         The path if you want to save the resulting `ccd` object.
         Default: `None`.
 
-    extension : int, str, or None, optional.
+    extension : int, str, or `None`, optional.
         The extension of the FITS file to be processed. If `None`, the first
         extension is used. Default: `None`.
 
@@ -1255,7 +1255,7 @@ def ccdred(
         the corresponding process is not done. These can be provided in
         addition to `mbias`, `mdark`, `mflat`, and/or `mfringe`.
 
-    mbias, mdark, mflat, mfringe : ~astropy.nddata.~astropy.nddata.CCDData, optional.
+    mbias, mdark, mflat, mfringe : ~astropy.nddata.CCDData, optional.
         The master bias, dark, and flat in `~astropy.nddata.CCDData`. If this
         is given, the files provided by `mbiaspath`, `mdarkpath`, `mflatpath`
         and/or `mfringe` are **not** loaded, but these paths will be used for
@@ -1292,7 +1292,7 @@ def ccdred(
         Whether to calculate the error map based on Poisson and readnoise error
         propagation.
 
-        ..note::
+        .. note::
             Currently it's encouraged to make error-map manually, as the API is
             not stable.
 
@@ -1300,7 +1300,7 @@ def ccdred(
         The units of the data.
         Default is `None`.
 
-    gain, rdnoise : None, float, astropy.Quantity, optional.
+    gain, rdnoise : `None`, float, astropy.Quantity, optional.
         The gain and readnoise value. These are not used if `do_crrej` is
         `False`. If `gain` or `readnoise` is specified, they are interpreted
         with `gain_unit` and `rdnoise_unit`, respectively. If they are not
@@ -1316,7 +1316,7 @@ def ccdred(
         See `gain`, `rdnoise` explanation above.
         These are not used if ``do_crrej=False``.
 
-    dark_exposure, data_exposure : None, float, astropy Quantity, optional.
+    dark_exposure, data_exposure : `None`, float, astropy Quantity, optional.
         The exposure times of dark and data frame, respectively. They should
         both be specified or both `None`. These are not used if
         ``mdarkpath=None``. If both are not specified while `mdarkpath` is
@@ -1339,18 +1339,18 @@ def ccdred(
 
     normalize_average, normalize_median : bool, optional.
         Whether to normalize the values by the average or median value of each
-        frame before combining. Only up to one of these must be True. Maybe
+        frame before combining. Only up to one of these must be `True`. Maybe
         useful for flat.
         Default is `False`.
 
-    flat_min_value : float or None, optional.
+    flat_min_value : float or `None`, optional.
         min_value of `ccdproc.flat_correct`. Minimum value for flat field. The
-        value can either be None and no minimum value is applied to the flat or
+        value can either be `None` and no minimum value is applied to the flat or
         specified by a float which will replace all values in the flat by the
         min_value.
         Default is `None`.
 
-    flat_norm_value : float or None, optional.
+    flat_norm_value : float or `None`, optional.
         The norm_value of `ccdproc.flat_correct`. If `None`, the flat is
         internally normalized by its mean before the flat correction, i.e., the
         flat correction will be like ``image/flat*mean(flat)``.
@@ -1358,7 +1358,7 @@ def ccdred(
         ``image/flat*flat_norm_value``. Default is 1 (**different** from
         `ccdproc` which uses `None` as default).
 
-    crrej_kwargs : dict or None, optional.
+    crrej_kwargs : dict or `None`, optional.
         If `None` (default), uses some default values (see `crrej`). It is
         always discouraged to use default except for quick validity-checking,
         because even the official L.A. Cosmic codes in different versions
@@ -1380,7 +1380,7 @@ def ccdred(
         documentation below:
         http://docs.astropy.org/en/stable/io/fits/api/verification.html#verify
 
-    dtype : str or `numpy.dtype` or None, optional.
+    dtype : str or `numpy.dtype` or `None`, optional.
         Allows user to set dtype. See `numpy.array` `dtype` parameter
         description. If `None` it uses ``np.float64``.
         Default is `None`.
@@ -1583,10 +1583,10 @@ def bdf_process(
     """Do bias, dark and flat process.
     Parameters
     ----------
-    ccd : ~astropy.nddata.~astropy.nddata.CCDData-like (e.g., ~astropy.io.fits.PrimaryHDU, ~astropy.io.fits.ImageHDU, ~astropy.io.fits.HDUList), ~numpy.ndarray, path-like, or number-like
+    ccd : ~astropy.nddata.CCDData-like (e.g., ~astropy.io.fits.PrimaryHDU, ~astropy.io.fits.ImageHDU, ~astropy.io.fits.HDUList), ~numpy.ndarray, path-like, or number-like
         The ccd to be processed.
 
-    output : path-like or None, optional.
+    output : path-like or `None`, optional.
         The path if you want to save the resulting `ccd` object.
         Default: `None`.
 
@@ -1595,7 +1595,7 @@ def bdf_process(
         the corresponding process is not done. These can be provided in
         addition to `mbias`, `mdark`, `mflat`, and/or `mfringe`.
 
-    mbias, mdark, mflat, mfringe : ~astropy.nddata.~astropy.nddata.CCDData, optional.
+    mbias, mdark, mflat, mfringe : ~astropy.nddata.CCDData, optional.
         The master bias, dark, and flat in `~astropy.nddata.CCDData`. If this
         is given, the files provided by `mbiaspath`, `mdarkpath`, `mflatpath`
         and/or `mfringe` are **not** loaded, but these paths will be used for
@@ -1636,7 +1636,7 @@ def bdf_process(
         Whether to calculate the error map based on Poisson and readnoise error
         propagation.
 
-        ..note::
+        .. note::
             Currently it's encouraged to make error-map manually, as the API is
             not stable.
 
@@ -1644,7 +1644,7 @@ def bdf_process(
         The units of the data.
         Default is `None`.
 
-    gain, rdnoise : None, float, astropy.Quantity, optional.
+    gain, rdnoise : `None`, float, astropy.Quantity, optional.
         The gain and readnoise value. These are all ignored if
         ``calc_err=False`` and ``do_crrej=False``. If ``calc_err=True``, it
         automatically seeks for suitable gain and readnoise value. If `gain` or
@@ -1662,7 +1662,7 @@ def bdf_process(
         See `gain`, `rdnoise` explanation above.
         These are all ignored if ``calc_err=False``.
 
-    dark_exposure, data_exposure : None, float, astropy Quantity, optional.
+    dark_exposure, data_exposure : `None`, float, astropy Quantity, optional.
         The exposure times of dark and data frame, respectively. They should
         both be specified or both `None`. These are all ignored if
         ``mdarkpath=None``. If both are not specified while `mdarkpath` is
@@ -1685,18 +1685,18 @@ def bdf_process(
 
     normalize_average, normalize_median : bool, optional.
         Whether to normalize the values by the average or median value of each
-        frame before combining. Only up to one of these must be True. Maybe
+        frame before combining. Only up to one of these must be `True`. Maybe
         useful for flat.
         Default is `False`.
 
-    flat_min_value : float or None, optional.
+    flat_min_value : float or `None`, optional.
         min_value of `ccdproc.flat_correct`. Minimum value for flat field. The
-        value can either be None and no minimum value is applied to the flat or
+        value can either be `None` and no minimum value is applied to the flat or
         specified by a float which will replace all values in the flat by the
         min_value.
         Default is `None`.
 
-    flat_norm_value : float or None, optional.
+    flat_norm_value : float or `None`, optional.
         The norm_value of `ccdproc.flat_correct`. If `None`, the flat is
         internally normalized by its mean before the flat correction, i.e., the
         flat correction will be like ``image/flat*mean(flat)``.
@@ -1704,7 +1704,7 @@ def bdf_process(
         ``image/flat*flat_norm_value``. Default is 1 (**different** from
         `ccdproc` which uses `None` as default).
 
-    crrej_kwargs : dict or None, optional.
+    crrej_kwargs : dict or `None`, optional.
         If `None` (default), uses some default values (see `crrej`). It is
         always discouraged to use default except for quick validity-checking,
         because even the official L.A. Cosmic codes in different versions
@@ -1726,7 +1726,7 @@ def bdf_process(
         documentation below:
         http://docs.astropy.org/en/stable/io/fits/api/verification.html#verify
 
-    dtype : str or `numpy.dtype` or None, optional.
+    dtype : str or `numpy.dtype` or `None`, optional.
         Allows user to set dtype. See `numpy.array` `dtype` parameter
         description. If `None` it uses ``np.float64``.
         Default is `None`.
@@ -2052,9 +2052,9 @@ def run_reduc_plan(
         Default: `False`.
 
     verbose : bool, optional
-        [description], by default False
+        [description], by default `False`
     verbose_bdf : bool, optional
-        [description], by default True
+        [description], by default `True`
     """
 
     def _get_frms(df, col):
@@ -2066,7 +2066,7 @@ def run_reduc_plan(
         return ccds
 
     if not isinstance(plan, pd.DataFrame):
-        raise TypeError("plan must be a pandas.DataFrame.")
+        raise TypeError("plan must be a ~pandas.DataFrame.")
 
     if output is None and not return_ccd:
         raise ValueError(
