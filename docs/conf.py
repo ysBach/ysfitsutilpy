@@ -12,12 +12,11 @@ author = "Yoonsoo P. Bach"
 release = "0.2"
 
 # -- General configuration ---------------------------------------------------
-extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
     "sphinx.ext.intersphinx",
-    "numpydoc",
+    # "numpydoc",  # Conflict with napoleon
     "sphinx_copybutton",
 ]
 
@@ -36,7 +35,7 @@ napoleon_use_param = True
 napoleon_use_rtype = True
 
 # Numpydoc settings
-numpydoc_show_class_members = False
+# numpydoc_show_class_members = False
 
 # Intersphinx mapping to external docs
 intersphinx_mapping = {
