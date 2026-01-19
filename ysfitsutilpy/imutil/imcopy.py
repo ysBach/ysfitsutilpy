@@ -58,7 +58,7 @@ def imcopy(
 
     Returns
     -------
-    results: `~astropy.nddata.CCDData` or `list` of `~astropy.nddata.CCDDat`a
+    results: `~astropy.nddata.CCDData` or `list` of `~astropy.nddata.CCDData`
         Only if `return_ccd` is set `True`. A sinlge `~astropy.nddata.CCDData
         will be returned if only one was input. Otherwise, the same number of
         `~astropy.nddata.CCDData will be gathered as a `list` and returned.

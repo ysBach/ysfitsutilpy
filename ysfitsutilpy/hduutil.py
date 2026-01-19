@@ -1478,7 +1478,7 @@ def cut_ccd(
 
     Parameters
     ----------
-    ccd: `~astropy.nddata.CCDDat`a
+    ccd: `~astropy.nddata.CCDData`
         The ccd to be trimmed.
 
     position : `tuple` or `~astropy.coordinates.SkyCoord`
@@ -3192,7 +3192,7 @@ def convert_bit(
 
     Parameters
     ----------
-    ccd: `~astropy.nddata.CCDDat`a
+    ccd: `~astropy.nddata.CCDData`
         The `~astropy.nddata.CCDData` object to be converted.
 
     original_bit, target_bit: `int`

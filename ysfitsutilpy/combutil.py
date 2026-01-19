@@ -203,7 +203,7 @@ def select_fits(
 
     Returns
     -------
-    matched: `list` of `~pathlib.Path` or `list` of `~astropy.nddata.CCDDat`a
+    matched: `list` of `~pathlib.Path` or `list` of `~astropy.nddata.CCDData`
         `list` containing `~pathlib.Path` to files if `prefer_ccddata` is `False`. Otherwise
         it is a `list` containing loaded `~astropy.nddata.CCDData` after loading the files. If
         `ccdlist` is given a priori, `list` of `~astropy.nddata.CCDData` will be returned
@@ -430,7 +430,7 @@ def stack_FITS(
 
     Parameters
     ----------
-    fitslist: `None`, [`list` of] path-like, or [`list` of] `~astropy.nddata.CCDDat`a
+    fitslist: `None`, [`list` of] path-like, or [`list` of] `~astropy.nddata.CCDData`
         The `list` of path to FITS files or the `list` of `~astropy.nddata.CCDData` to be stacked. It
         is useful to give `list` of `~astropy.nddata.CCDData` if you have already stacked/loaded
         FITS file into a `list` by your own criteria. If `None` (default), you
@@ -482,7 +482,7 @@ def stack_FITS(
 
     Returns
     -------
-    matched: `list` of `~pathlib.Path` or `list` of `~astropy.nddata.CCDDat`a
+    matched: `list` of `~pathlib.Path` or `list` of `~astropy.nddata.CCDData`
         `list` containing `~pathlib.Path` to files if `ccddata` is `False`. Otherwise it is
         a `list` containing loaded `~astropy.nddata.CCDData` after loading the files. If `ccdlist`
         is given a priori, `list` of `~astropy.nddata.CCDData` will be returned regardless of
@@ -690,7 +690,7 @@ def combine_ccd(
 
     Parameters
     ----------
-    fitslist: path-like, `list` of path-like, or `list` of `~astropy.nddata.CCDDat`a
+    fitslist: path-like, `list` of path-like, or `list` of `~astropy.nddata.CCDData`
         The `list` of path to FITS files or the `list` of `~astropy.nddata.CCDData` to be stacked. It
         is useful to give `list` of `~astropy.nddata.CCDData` if you have already stacked/loaded
         FITS file into a `list` by your own criteria. If `None` (default), you
