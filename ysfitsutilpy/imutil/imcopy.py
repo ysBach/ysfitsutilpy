@@ -22,11 +22,11 @@ def imcopy(
 
     Parameters
     ----------
-    inputs : glob pattern, list-like of path-like, list-like of ~astropy.nddata.CCDData
+    inputs : glob pattern, list-like of path-like, list-like of ~astropy.nddata.~astropy.nddata.CCDData
         The `~glob` pattern for files (e.g., ``"2020*[012].fits"``) or list of
-        files (each element must be path-like or ~astropy.nddata.CCDData). Although it is not a
-        good idea, a mixed list of ~astropy.nddata.CCDData and paths to the files is also
-        acceptable. For the purpose of imcombine function, the best use is to
+        files (each element must be path-like or `~astropy.nddata.CCDData`). Although it is not a
+        good idea, a mixed list of `~astropy.nddata.CCDData` and paths to the files is also
+        acceptable. For the purpose of `~ysfitsutilpy.imutil.imcombine` function, the best use is to
         use the `~glob` pattern or list of paths.
 
     extension : int, str, (str, int)
@@ -58,7 +58,7 @@ def imcopy(
 
     Returns
     -------
-    results: ~astropy.nddata.CCDData or list of ~astropy.nddata.CCDData
+    results: `~astropy.nddata.CCDData` or list of `~astropy.nddata.CCDDat`a
         Only if `return_ccd` is set `True`. A sinlge `~astropy.nddata.CCDData
         will be returned if only one was input. Otherwise, the same number of
         `~astropy.nddata.CCDData will be gathered as a list and returned.

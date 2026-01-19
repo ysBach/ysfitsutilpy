@@ -30,7 +30,7 @@ __all__ = [
 
 
 def mkdir(fpath, mode=0o777, exist_ok=True):
-    """Convenience function for Path.mkdir()"""
+    """Convenience function for `~pathlib.Path`.mkdir()"""
     fpath = Path(fpath)
     Path.mkdir(fpath, mode=mode, exist_ok=exist_ok)
 
@@ -40,7 +40,7 @@ def load_if_exists(path, loader, if_not=None, verbose=True, **kwargs):
 
     Parameters
     ----------
-    path : pathlib.Path of Path-like str
+    path : pathlib.~pathlib.Path of ~pathlib.Path-like str
         The path to be searched.
 
     loader : a function
@@ -112,10 +112,10 @@ def make_summary(
 
     Parameters
     ----------
-    inputs : glob pattern, list-like of path-like, list-like of ~astropy.nddata.CCDData, `~pandas.DataFrame` convertible
+    inputs : glob pattern, list-like of path-like, list-like of ~astropy.nddata.~astropy.nddata.CCDData, `~pandas.DataFrame` convertible
         The `~glob` pattern for files (e.g., ``"2020*[012].fits"``) or list of
-        files (each element must be path-like or ~astropy.nddata.CCDData). Although it is not a
-        good idea, a mixed list of ~astropy.nddata.CCDData and paths to the files is also
+        files (each element must be path-like or `~astropy.nddata.CCDData`). Although it is not a
+        good idea, a mixed list of `~astropy.nddata.CCDData` and paths to the files is also
         acceptable. If a `~pandas.DataFrame` or convertible (especially
         `~astropy.table.Table`) is given, it finds the ``"file"`` column and
         use it as the input files, make a summary table from the headers of
@@ -191,7 +191,7 @@ def make_summary(
     Notes
     -----
     I want to use ccdproc.ImageFileCollection instead of this, but it is about
-    4 times slower than my make_summary, so I cannot use it yet.
+    4 times slower than my `~ysfitsutilpy.filemgmt.make_summary`, so I cannot use it yet.
 
     Examples
     -------

@@ -43,7 +43,15 @@ intersphinx_mapping = {
     "numpy": ("https://numpy.org/doc/stable/", None),
     "astropy": ("https://docs.astropy.org/en/stable/", None),
     "scipy": ("https://docs.scipy.org/doc/scipy/", None),
+    "matplotlib": ("https://matplotlib.org/stable/", None),
+    "pandas": ("https://pandas.pydata.org/pandas-docs/stable/", None),
+    "photutils": ("https://photutils.readthedocs.io/en/stable/", None),
+    "ccdproc": ("https://ccdproc.readthedocs.io/en/latest/", None),
+    "astroscrappy": ("https://astroscrappy.readthedocs.io/en/stable/", None),
 }
+
+# Default role for backticks
+default_role = "obj"
 
 # -- Options for HTML output -------------------------------------------------
 html_theme = "pydata_sphinx_theme"

@@ -7,7 +7,7 @@ from astropy import units as u
 from ysfitsutilpy.imutil import imcombine, ndcombine
 
 class TestNDCombine:
-    """Tests for ndcombine function (core algorithmic logic)."""
+    """Tests for `~ysfitsutilpy.imutil.ndcombine` function (core algorithmic logic)."""
 
     def test_basic_average(self):
         """Test simple average combination."""
@@ -78,7 +78,7 @@ class TestNDCombine:
 
 
 class TestImCombine:
-    """Tests for imcombine wrapper with FITS files."""
+    """Tests for `~ysfitsutilpy.imutil.imcombine` wrapper with FITS files."""
 
     def test_imcombine_files(self, tmp_path):
         """Test combining FITS files."""

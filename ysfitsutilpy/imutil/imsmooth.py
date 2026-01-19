@@ -14,7 +14,7 @@ def smooth_med(
     ccd : `~astropy.nddata.CCDData`
         The CCD to find the bad pixels.
 
-    cadd : float, ndarray, optional.
+    cadd : float, ~numpy.ndarray, optional.
         A very small const to be added to the input array to avoid 0-valued
         pixel after median filtering. This is to avoid the problem when doing
         ``image/|median_filtered|``.

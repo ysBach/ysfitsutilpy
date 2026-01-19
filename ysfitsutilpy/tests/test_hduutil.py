@@ -22,20 +22,20 @@ class TestParseDataHeader:
     """Tests for _parse_data_header function."""
 
     def test_parse_ccddata(self, sample_ccddata):
-        """Test parsing ~astropy.nddata.CCDData object."""
+        """Test parsing `~astropy.nddata.CCDData` object."""
         data, hdr = hduutil._parse_data_header(sample_ccddata)
         np.testing.assert_array_equal(data, sample_ccddata.data)
         assert hdr["OBJECT"] == "TestObject"
         assert hdr["EXPTIME"] == 60.0
 
     def test_parse_ccddata_no_copy(self, sample_ccddata):
-        """Test parsing ~astropy.nddata.CCDData without copying (shares memory)."""
+        """Test parsing `~astropy.nddata.CCDData` without copying (shares memory)."""
         data, hdr = hduutil._parse_data_header(sample_ccddata, copy=False)
         # When copy=False, data should be the same object (views share memory)
         assert np.shares_memory(data, sample_ccddata.data)
 
     def test_parse_ccddata_with_copy(self, sample_ccddata):
-        """Test parsing ~astropy.nddata.CCDData with copying (independent memory)."""
+        """Test parsing `~astropy.nddata.CCDData` with copying (independent memory)."""
         data, hdr = hduutil._parse_data_header(sample_ccddata, copy=True)
         # When copy=True, data should be independent
         assert not np.shares_memory(data, sample_ccddata.data)
@@ -98,7 +98,7 @@ class TestInputs2List:
         assert result[0] == str(temp_fits_file)
 
     def test_single_path_object(self, temp_fits_file):
-        """Test single Path object input."""
+        """Test single `~pathlib.Path` object input."""
         result = hduutil.inputs2list(temp_fits_file, path_to_text=False)
         assert isinstance(result, list)
         assert len(result) == 1
@@ -120,7 +120,7 @@ class TestInputs2List:
         assert len(result) == 5
 
     def test_ccddata_input(self, sample_ccddata):
-        """Test ~astropy.nddata.CCDData input (passthrough)."""
+        """Test `~astropy.nddata.CCDData` input (passthrough)."""
         result = hduutil.inputs2list(sample_ccddata, accept_ccdlike=True)
         # Function returns list of inputs if accept_ccdlike is True
         assert isinstance(result, list)
@@ -136,7 +136,7 @@ class TestInputs2List:
 
 
 class TestLoadCcd:
-    """Tests for load_ccd function."""
+    """Tests for `~ysfitsutilpy.hduutil.load_ccd` function."""
 
     def test_load_basic(self, temp_fits_file):
         """Test basic FITS loading."""

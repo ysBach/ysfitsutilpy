@@ -64,7 +64,7 @@ def get_zsw(
 ):
     """
     Originally this was designed to get zero/scale values for (N+1)-D stacked
-    array for N-D images. However, imcombine uses it only for one image at a
+    array for N-D images. However, `~ysfitsutilpy.imutil.imcombine` uses it only for one image at a
     time.
     """
 

@@ -51,7 +51,7 @@ partial removal:
     * combine in ["quadrature", "nmodel"]
 replaced
     * reject in ["crreject", "avsigclip"] --> ccdclip with certain params
-    * offsets in ["grid", <filename>]  --> offsets in ndarray
+    * offsets in ["grid", <filename>]  --> offsets in `~numpy.ndarray`
 
 bpmasks                : ?
 rejmask                : output_mask
@@ -85,12 +85,12 @@ def group_combine(
     """Combine sub-groups of FITS files from the given input.
     Parameters
     ----------
-    inputs : DataFrame, glob pattern, list-like of path-like
+    inputs : ~pandas.DataFrame, glob pattern, list-like of path-like
         If `DataFrame`, it must be the summary table made by `make_summary`.
         The `~glob` pattern for files (e.g., ``"2020*[012].fits"``) or list of
-        files (each element must be path-like or ~astropy.nddata.CCDData). Although it is not a
-        good idea, a mixed list of ~astropy.nddata.CCDData and paths to the files is also
-        acceptable. For the purpose of imcombine function, the best use is to
+        files (each element must be path-like or `~astropy.nddata.CCDData`). Although it is not a
+        good idea, a mixed list of `~astropy.nddata.CCDData` and paths to the files is also
+        acceptable. For the purpose of `~ysfitsutilpy.imutil.imcombine` function, the best use is to
         use the `~glob` pattern or list of paths.
 
     type_key, type_val : str, list of str
@@ -107,7 +107,7 @@ def group_combine(
 
           * 0: print nothing
           * 1: Only very essential things from this function
-          * 2: + verbose from each imcombine
+          * 2: + verbose from each `~ysfitsutilpy.imutil.imcombine`
 
     fmt : str, optinal.
         The f-string for the output file names.
@@ -133,9 +133,9 @@ def group_combine(
 
     Returns
     -------
-    combined : dict of ~astropy.nddata.CCDData
+    combined : dict of ~astropy.nddata.~astropy.nddata.CCDData
         The dict object where keys are the header value of the `group_key` and
-        the values are the combined images in ~astropy.nddata.CCDData object. If multiple keys
+        the values are the combined images in `~astropy.nddata.CCDData` object. If multiple keys
         for `group_key` is given, the key of this dict is a tuple.
     """
 
@@ -880,21 +880,21 @@ def imcombine(
         return comb
 
 
-imcombine.__doc__ = """A helper function for ndcombine to cope with FITS files.
+imcombine.__doc__ = """A helper function for `~ysfitsutilpy.imutil.ndcombine` to cope with FITS files.
 
     {}
 
     Parameters
     ----------
 
-    inputs : glob pattern, list-like of path-like, list-like of ~astropy.nddata.CCDData-like
+    inputs : glob pattern, list-like of path-like, list-like of ~astropy.nddata.~astropy.nddata.CCDData-like
         The `~glob` pattern for files (e.g., ``"2020*[012].fits"``) or list of
-        files (each element must be path-like or ~astropy.nddata.CCDData). Although it is not a
-        good idea, a mixed list of ~astropy.nddata.CCDData and paths to the files is also
-        acceptable. For the purpose of imcombine function, the best use is to
+        files (each element must be path-like or `~astropy.nddata.CCDData`). Although it is not a
+        good idea, a mixed list of `~astropy.nddata.CCDData` and paths to the files is also
+        acceptable. For the purpose of `~ysfitsutilpy.imutil.imcombine` function, the best use is to
         use the `~glob` pattern or list of paths.
 
-    mask : ndarray, optional.
+    mask : ~numpy.ndarray, optional.
         The mask of bad pixels. If given, it must satisfy
         ``mask.shape[0]`` identical to the number of images.
 
@@ -1177,14 +1177,14 @@ def ndcombine(
 ndcombine.__doc__ = """ Combines the given arr assuming no additional offsets.
 
     {}
-    #. offsets is not implemented to ndcombine (only to fitscombine).
+    #. offsets is not implemented to `~ysfitsutilpy.imutil.ndcombine` (only to fitscombine).
 
     Parameters
     ----------
-    arr : ndarray
+    arr : ~numpy.ndarray
         The array to be combined along axis 0.
 
-    mask : ndarray, optional.
+    mask : ~numpy.ndarray, optional.
         The mask of bad pixels. If given, it must satisfy ``mask.shape[0]``
         identical to the number of images.
 
@@ -1199,7 +1199,7 @@ ndcombine.__doc__ = """ Combines the given arr assuming no additional offsets.
 
     Returns
     -------
-    comb : ndarray
+    comb : ~numpy.ndarray
         The combined array.
 
     {}

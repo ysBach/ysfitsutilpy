@@ -327,15 +327,15 @@ def parse_crrej_psf(
 ):
     """Return a dict of minimal keyword arguments for
             `~astroscrappy.detect_cosmics`.
-        fs : str, ndarray, list of such, optional.
-            If it is a list-like of kernels, it must **NOT** be an ndarray of
+        fs : str, ~numpy.ndarray, list of such, optional.
+            If it is a list-like of kernels, it must **NOT** be an `~numpy.ndarray` of
             ``N-by-2`` or ``2-by-N``, etc. You may use `list`, `tuple`, or even
             `~pandas.Series` of ndarrays.
         fill_with_none : bool, optional.
             If `True`, the unnecessary keywords will be filled with `None`, rather
             than default parameter values (IRAF version of LACosmics). Works only
             if any of the input parmeters is list-like. If all input parameters are
-            scalar (or `fs` is a single ndarray), only minimal dict is returned
+            scalar (or `fs` is a single `~numpy.ndarray`), only minimal dict is returned
             without filling with `None`.
         Notes
         -----
@@ -699,7 +699,7 @@ def enclosing_circle_radius(segm, center, segm_id=None):
 
     Returns
     -------
-    ndarray
+    `~numpy.ndarray`
         The radius of the smallest enclosing circle.
 
     Notes
@@ -965,7 +965,7 @@ def quantile_lh(
     """Find quantiles for lower and higher values
     Parameters
     ----------
-    a : ndarray
+    a : ~numpy.ndarray
 
     lq, hq : array_like of float
         Quantile or sequence of quantiles to compute, which must be between 0
@@ -1021,7 +1021,7 @@ def quantile_sigma(
 
     Parameters
     ----------
-    a : ndarray
+    a : ~numpy.ndarray
 
     axis : {int, tuple of int, None}, optional
         Axis or axes along which the quantiles are computed. The default is to

@@ -360,10 +360,10 @@ def query_nova(server=Client.default_url, apikey=None, upload=None,
         Set reference point to center of image?
 
     sdss_wcs: list of two str, optional
-        Plot SDSS image for the given ~astropy.wcs.WCS file; write plot to given PNG filename
+        Plot SDSS image for the given `~astropy.wcs.WCS` file; write plot to given PNG filename
 
     galex_wcs: list of two str, optional
-        Plot GALEX image for the given ~astropy.wcs.WCS file; write plot to given PNG filename
+        Plot GALEX image for the given `~astropy.wcs.WCS` file; write plot to given PNG filename
 
     solved_id: int, optional
         retrieve result for jobId instead of submitting new image

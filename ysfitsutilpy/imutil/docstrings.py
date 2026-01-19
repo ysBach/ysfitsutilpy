@@ -19,7 +19,7 @@ def _fix(content, indent=0):
 def REJECT_PARAMETERS_COMMON(indent=0):
     return _fix(
         """
-mask : ndarray, optional.
+mask : `~numpy.ndarray`, optional.
     The initial mask provided prior to any rejection. `arr` and `mask` must have the identical
     shape.
 
@@ -79,17 +79,17 @@ irafmode : bool, optional.
 
 def REJECT_RETURNS_SIGMA(indent=0):
     return _fix("""
-o_mask : ndarray of bool
+o_mask : `~numpy.ndarray` of bool
     The mask of the same shape as `arr` and `mask`.
 
-o_low, o_upp : ndarray of `dtype`
+o_low, o_upp : `~numpy.ndarray` of `dtype`
     Returned only if ``full = True``. The lower and upper bounds used for sigma clipping. Data with
     ``(arr < o_low) | (o_upp < arr)`` are masked. Shape of ``arr.shape[1:]``.
 
-o_nit : ndarray of int or int
+o_nit : `~numpy.ndarray` of int or int
     Returned only if `full` is `True`. The number of iterations until it is halted.
 
-o_code : ndarray of uint8
+o_code : `~numpy.ndarray` of uint8
     Returned only if `full` is `True`. Each element is a ``uint8`` value with::
 
         *      (0): maxiters reached without any flag below
@@ -285,30 +285,30 @@ combine: str, optional.
 
 def NDCOMB_RETURNS_COMMON(indent=0):
     return _fix("""
-err : ndarray
+err : `~numpy.ndarray`
     The standard deviation map (if `return_variance` is `False`) or the variance map (if
     `return_variance` is `True`) of the survived pixels (with `ddof`).
 
-mask_total : ndarray (dtype bool)
+mask_total : `~numpy.ndarray` (dtype bool)
     The full mask, ``N+1``-D. Identical to original FITS files' masks propagated with ``| mask_rej |
     mask_thresh`` below. The total number of rejected pixels at each position can be obtained by
     ``np.count_nonzero(mask_total, axis=0)``.
 
-mask_rej, mask_thresh : ndarray(dtype bool)
+mask_rej, mask_thresh : `~numpy.ndarray`(dtype bool)
     The masks (``N``-D) from the rejection process and thresholding process (`thresholds`). Threshold
     is done prior to any rejection or scaling/zeroing. Number of rejected pixels at each position for
     each process can be obtained by, e.g., ``nrej = np.count_nonzero(mask_rej, axis=0)``. Note that
     `mask_rej` consumes less memory than `nrej`.
 
-low, upp : ndarray (dtype `dtype`)
+low, upp : `~numpy.ndarray` (dtype `dtype`)
     The lower and upper bounds (``N``-D) to reject pixel values at each position (``(data < low) | (upp
     < data)`` are removed).
 
-nit : ndarray (dtype uint8)
+nit : `~numpy.ndarray` (dtype uint8)
     The number of iterations (``N``-D) used in rejection process. I cannot think of iterations larger
     than 100, so set the dtype to ``uint8`` to reduce memory and filesize.
 
-rejcode : ndarray (dtype uint8)
+rejcode : `~numpy.ndarray` (dtype uint8)
     The exit code from rejection (``N``-D). See each rejection's docstring.
 """, indent)
 
@@ -343,7 +343,7 @@ offsets : str or (n, m)-d array
 
     For both wcs or physical cases, the raw offsets for *each* frame is nothing but an ``m``-D tuple
     consists of ``offset_raw[i] = CRPIX{m-i}`` or ``LTV{m-i}[_{m-i}]``. The reason to subtract ``i`` is
-    because python has ``z, y, x`` order of indexing while ~astropy.wcs.WCS information is in ``x, y, z`` order. If
+    because python has ``z, y, x`` order of indexing while `~astropy.wcs.WCS` information is in ``x, y, z`` order. If
     it is a ``j``-th image, ``offsets[j, :] = offset_raw``, and `offsets` has shape of ``(n, m)``.
 
     This raw `offsets` are then modified such that the minimum offsets in each axis becomes zero (in
@@ -353,7 +353,7 @@ offsets : str or (n, m)-d array
     .. note::
         Though IRAF `IMCOMBINE`_ says it calculates offsets from the 0-th image center if
         ``offsets="wcs"``, it seems it acutally uses ``CRPIX`` from the header... I couldn't find how
-        IRAF does offset calculation for ~astropy.wcs.WCS, it's not reproducible using rounding. Even using ~astropy.wcs.WCS info
+        IRAF does offset calculation for `~astropy.wcs.WCS`, it's not reproducible using rounding. Even using `~astropy.wcs.WCS` info
         correctly, it's not reproducible. Also, if we only use ``CRPIX``, the offset calculations are
         completely wrong if ``CRPIX`` is not centered at the identical world coordinate (e.g., RA/DEC).
         **IRAF indeed wrongly combines images** if this happens.
@@ -362,5 +362,5 @@ offsets : str or (n, m)-d array
 
 def IMCOMBINE_LINK(indent=0):
     return _fix("""
-.. _IMCOMBINE: https://iraf.net/irafhelp.php?val=imcombine&help=Help+Page
+.. _IMCOMBINE: https://iraf.net/irafhelp.php?val=`~ysfitsutilpy.imutil.imcombine`&help=Help+Page
 """, indent)

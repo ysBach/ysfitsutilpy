@@ -7,7 +7,7 @@ from ysfitsutilpy import preproc
 
 
 class TestBiasCor:
-    """Tests for biascor function."""
+    """Tests for `~ysfitsutilpy.preproc.biascor` function."""
 
     def test_bias_subtraction(self):
         """Test simple bias subtraction."""
@@ -35,7 +35,7 @@ class TestBiasCor:
 
 
 class TestDarkCor:
-    """Tests for darkcor function."""
+    """Tests for `~ysfitsutilpy.preproc.darkcor` function."""
 
     def test_dark_subtraction_no_scaling(self):
         """Test dark subtraction without exposure scaling."""
@@ -80,7 +80,7 @@ class TestDarkCor:
 
 
 class TestFlatCor:
-    """Tests for flatcor function."""
+    """Tests for `~ysfitsutilpy.preproc.flatcor` function."""
 
     def test_flat_correction(self):
         """Test simple flat field correction."""
@@ -107,10 +107,10 @@ class TestFlatCor:
 
 
 class TestCCDRed:
-    """Tests for the main ccdred wrapper."""
+    """Tests for the main `~ysfitsutilpy.preproc.ccdred` wrapper."""
 
     def test_full_reduction_chain(self, tmp_path):
-        """Test bias -> dark -> flat chain via ccdred."""
+        """Test bias -> dark -> flat chain via `~ysfitsutilpy.preproc.ccdred`."""
         # Setup data
         shape = (10, 10)
         # Raw data: 1000 ADU flat background + signal

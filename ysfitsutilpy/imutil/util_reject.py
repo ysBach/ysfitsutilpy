@@ -46,7 +46,7 @@ def _iter_rej(
 
     Parameters
     ----------
-    arr : ndarray
+    arr : ~numpy.ndarray
         The array to find the mask. It must be gain-corrected if
         ``ccdclip=True``.
 
@@ -264,7 +264,7 @@ sigclip_mask.__doc__ = """ Finds masks of `arr` by sigma-clipping.
 
     Parameters
     ----------
-    arr : ndarray
+    arr : ~numpy.ndarray
         The array to be subjected for masking. `arr` and `mask` must
         have the identical shape.
 
@@ -345,7 +345,7 @@ minmax_mask.__doc__ = """ Finds masks of `arr` after rejecting `n_minmax` pixels
 
     Parameters
     ----------
-    arr : ndarray
+    arr : ~numpy.ndarray
         The array to be subjected for masking. `arr` and `mask` must have the
         identical shape. It must be in DN, i.e., **not** gain corrected.
 
@@ -439,7 +439,7 @@ ccdclip_mask.__doc__ = """ Finds masks of `arr` by CCD noise model.
 
     Parameters
     ----------
-    arr : ndarray
+    arr : ~numpy.ndarray
         The array to be subjected for masking. `arr` and `mask` must have the
         identical shape. It must be in DN, i.e., **not** gain corrected.
 
