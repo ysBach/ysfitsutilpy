@@ -21,6 +21,7 @@ from .hduutil import (
     inputs2list,
     load_ccd,
 )
+from .logging import logger
 
 __all__ = [
     "sstd",
@@ -256,7 +257,7 @@ def select_fits(
     selecting = True if len(type_key) > 0 else False
 
     if verbose:
-        print("Analyzing FITS... ", end="")
+        logger.info("Analyzing FITS...")
 
     if isinstance(inputs, Table):
         summary_table = inputs.to_pandas()
@@ -293,7 +294,7 @@ def select_fits(
             pass
 
     if verbose:
-        print("Done.")
+        logger.info("Done.")
 
     # ************************************************************************************ #
     # *                             SELECT AND LOAD TO MATCHED                           * #
@@ -395,12 +396,12 @@ def select_fits(
             vs = str(type_val)
             if verbose:
                 if prefer_ccddata:
-                    print(f'{N} FITS files with "{ks} = {vs}" are loaded.')
+                    logger.info('%d FITS files with "%s = %s" are loaded.', N, ks, vs)
                 else:
-                    print(f'{N} FITS files with "{ks} = {vs}" are selected.')
+                    logger.info('%d FITS files with "%s = %s" are selected.', N, ks, vs)
         else:
             if verbose and prefer_ccddata:
-                print("{:d} FITS files are loaded.".format(len(matched)))
+                logger.info("%d FITS files are loaded.", len(matched))
 
     return matched
 
@@ -518,7 +519,7 @@ def stack_FITS(
     selecting = True if len(type_key) > 0 else False
 
     if verbose:
-        print("Analyzing FITS... ", end="")
+        logger.info("Analyzing FITS...")
 
     # ************************************************************************************ #
     # *                            MAKE FITSLIST AND SUMMARY_TABLE                       * #
@@ -556,11 +557,10 @@ def stack_FITS(
         fitslist = summary_table[table_filecol].tolist()
 
     if verbose:
-        print("Done", end="")
         if ccddata:
-            print(" and loading FITS... ")
+            logger.info("Done and loading FITS...")
         else:
-            print(".")
+            logger.info("Done.")
 
     # ************************************************************************************ #
     # *                             SELECT AND LOAD TO MATCHED                           * #
@@ -642,12 +642,12 @@ def stack_FITS(
             vs = str(type_val)
             if verbose:
                 if ccddata:
-                    print(f'{N} FITS files with "{ks} = {vs}" are loaded.')
+                    logger.info('%d FITS files with "%s = %s" are loaded.', N, ks, vs)
                 else:
-                    print(f'{N} FITS files with "{ks} = {vs}" are selected.')
+                    logger.info('%d FITS files with "%s = %s" are selected.', N, ks, vs)
         else:
             if verbose and ccddata:
-                print("{:d} FITS files are loaded.".format(len(matched)))
+                logger.info("%d FITS files are loaded.", len(matched))
 
     return matched
 
@@ -857,10 +857,10 @@ def combine_ccd(
     #     print(dict(**kwargs))
     #     return
 
-    def _add_and_print(s, header, verbose):
+    def _add_and_log(s, header, verbose):
         header.add_history(s)
         if verbose:
-            print(s)
+            logger.info(s)
 
     # Give only one
     if (fitslist is not None) + (summary_table is not None) != 1:
@@ -901,10 +901,10 @@ def combine_ccd(
     if (output is not None) and (Path(output).exists()):
         if overwrite:
             if verbose:
-                print(f"{output} already exists:\n\tBut will be overridden.")
+                logger.info("%s already exists: But will be overridden.", output)
         else:
             if verbose:
-                print(f"{output} already exists:")
+                logger.info("%s already exists", output)
             return load_if_exists(output, loader=CCDData.read, if_not=None)
 
     # Do we really need to accept all three of normalize & scale?
@@ -1052,9 +1052,9 @@ def combine_ccd(
 
     if output is not None:
         if verbose:
-            print(f"Writing FITS to {output}... ", end="")
+            logger.info("Writing FITS to %s...", output)
         master.write(output, output_verify=output_verify, overwrite=overwrite)
         if verbose:
-            print("Saved.")
+            logger.info("Saved.")
 
     return master

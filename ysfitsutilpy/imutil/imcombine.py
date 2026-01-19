@@ -27,6 +27,7 @@ from ..hduutil import (
     write2fits,
 )
 from ..misc import cmt2hdr, get_size, str_now, update_tlm
+from ..logging import logger
 from . import docstrings
 from .util_comb import (
     _set_cenfunc,
@@ -144,8 +145,8 @@ def group_combine(
         """Saves the results."""
         outdir = Path(".") if outdir is None else Path(outdir)
         if verbose >= 1 and not outdir.exists():
-            print(
-                f"\tOutput directory: '{outdir}' <- does not exist! It will be newly made."
+            logger.info(
+                "Output directory: '%s' <- does not exist! It will be newly made.", outdir
             )
 
         outdir.mkdir(exist_ok=True, parents=True)
@@ -154,8 +155,8 @@ def group_combine(
             nk = len(group_key) if is_list_like(group_key) else 1  # 1 if str
             fmt = "_".join(["{}"] * nk)
             if verbose >= 1:
-                print(
-                    "\tWarning: fmt is not specified! Output file names might be ugly."
+                logger.warning(
+                    "fmt is not specified! Output file names might be ugly."
                 )
 
         if isinstance(groupname, tuple):
@@ -168,9 +169,9 @@ def group_combine(
         fpath = outdir / fname
         if verbose >= 1:
             if fpath.exists():
-                print(f"\t{fpath} will be overridden.")
+                logger.info("%s will be overridden.", fpath)
             else:
-                print(f"\t{fpath}")
+                logger.info("%s", fpath)
         ccd.write(fpath, overwrite=True)
 
     _t = Time.now()
@@ -191,7 +192,7 @@ def group_combine(
         summary, type_key=type_key, type_val=type_val, group_key=group_key
     )
     if verbose >= 1:
-        print(f"Group and combine by {group_key} (total {len(gs)} groups)")
+        logger.info("Group and combine by %s (total %d groups)", group_key, len(gs))
 
     combined = {}
     for g_val, group in gs:
@@ -200,14 +201,14 @@ def group_combine(
                 g_val = g_val[0]
         files = group["file"].to_list()
         if verbose >= 1:
-            print(f"* {g_val}... ({len(files)} files)")
+            logger.info("* %s... (%d files)", g_val, len(files))
         if len(files) == 0:
             if verbose >= 1:
-                print("No FITS to combine.")
+                logger.info("No FITS to combine.")
             combined[g_val] = None
         elif len(files) == 1:
             if verbose >= 1:
-                print(
+                logger.info(
                     "Only 1 FITS to combine -- returning it without any modification."
                 )
             combined[g_val] = load_ccd(files[0]) if load_fits else inputs[0]
@@ -224,7 +225,7 @@ def group_combine(
                 _group_save(combined[g_val], g_val, fmt=fmt, outdir=outdir)
 
     if verbose >= 1:
-        print(str_now(t_ref=_t))
+        logger.info(str_now(t_ref=_t))
 
     return combined
 
@@ -238,8 +239,8 @@ def group_save(combined, fmt="", verbose=1, outdir=None):
     """
     outdir = Path(".") if outdir is None else Path(outdir)
     if verbose and not outdir.exists():
-        print(
-            f"\tOutput directory: '{outdir}' <- does not exist! It will be newly made."
+        logger.info(
+            "Output directory: '%s' <- does not exist! It will be newly made.", outdir
         )
 
     outdir.mkdir(exist_ok=True, parents=True)
@@ -247,7 +248,7 @@ def group_save(combined, fmt="", verbose=1, outdir=None):
     if not fmt:
         fmt = "_".join(["{}"] * len(list(combined.keys())[0]))
         if verbose:
-            print("\tWarning: fmt is not specified! Output file names might be ugly.")
+            logger.warning("fmt is not specified! Output file names might be ugly.")
 
     for k, ccd in combined.items():
         if isinstance(k, tuple):
@@ -256,7 +257,7 @@ def group_save(combined, fmt="", verbose=1, outdir=None):
             fname = fmt.format(k) + ".fits"
         fpath = outdir / fname
         if verbose >= 1 and fpath.exists():
-            print(f"The pre-existing file {fpath} will be overridden.")
+            logger.info("The pre-existing file %s will be overridden.", fpath)
         ccd.write(fpath, overwrite=True)
 
 
@@ -376,8 +377,8 @@ def imcombine(
 ):
     if verbose:
         _t1 = Time.now()
-        print(_t1.iso)
-        print("- Organizing", end="... ")
+        logger.info(_t1.iso)
+        logger.info("- Organizing...")
 
     full = (
         full
@@ -591,14 +592,14 @@ def imcombine(
             + "or use combine='avg' than 'median'."
         )
     if verbose:
-        print("Done.")
+        logger.info("Done.")
         if num_chunk > 1:
-            print(f"memlimit reached: Split combine by {num_chunk} chunks.")
+            logger.info("memlimit reached: Split combine by %d chunks.", num_chunk)
 
     # == Setup offset-ed array =========================================================== #
     # NOTE: Using NaN does not set array with dtype of int... Any solution?
     if verbose:
-        print("- Loading, calculating offsets with zero/scale", end="... ")
+        logger.info("- Loading, calculating offsets with zero/scale...")
 
     if extension_uncertainty is not None:
         var_full = np.nan * np.zeros(shape=(ncombine, *sh_comb), dtype=dtype)
@@ -689,20 +690,20 @@ def imcombine(
             var_full[slices] = _var
 
     if verbose:
-        print("Done.")
+        logger.info("Done.")
         if isinstance(items[0], str):
-            print()
-            print("-" * 80)
-            print(
+            logger.info("")
+            logger.info("-" * 80)
+            logger.info(
                 "{:^45s}|{:^9s}|{:^9s}|{:^9s}".format(
                     "input", "zero", "scale", "weight"
                 )
             )
-            print("-" * 80)
+            logger.info("-" * 80)
             for item, z, s, w in zip(items, zeros, scales, weights):
-                print("{:>45s}|{:3e}|{:3e}|{:3e}".format(item[-45:], z, s, w))
-            print("-" * 80)
-            print()
+                logger.info("{:>45s}|{:3e}|{:3e}|{:3e}".format(item[-45:], z, s, w))
+            logger.info("-" * 80)
+            logger.info("")
         else:
             pass
     # ------------------------------------------------------------------------------------ #
@@ -786,7 +787,7 @@ def imcombine(
     comb = CCDData(data=comb, header=hdr0, unit=unit)
 
     if verbose:
-        print("\n- Writing output FITS", end="... ")
+        logger.info("- Writing output FITS...")
 
     # == Save FITS files ================================================================= #
     write_kw = dict(output_verify=output_verify, overwrite=overwrite, checksum=checksum)
@@ -822,7 +823,7 @@ def imcombine(
         write2fits(rejcode, hdr0, output_rejcode, return_ccd=False, **write_kw)
 
     if verbose:
-        print("Done.")
+        logger.info("Done.")
 
     # == Return memroy... ================================================================ #
     del hdr0, arr_full, mask_full
@@ -830,7 +831,7 @@ def imcombine(
     # == Write logfile =================================================================== #
     if logfile is not None:
         if verbose:
-            print("\n- Writing summary table", end="...")
+            logger.info("- Writing summary table...")
         # Use astropy table rather than import pandas
         for name in ["scales", "zeros", "weights"]:
             table_dict[name] = eval(f"list({name})")
@@ -844,12 +845,12 @@ def imcombine(
             table[f"offset{i}"] = offsets[:, ndim - i]
         table.write(logfile, format="csv")
         if verbose:
-            print("Done.")
+            logger.info("Done.")
 
     if verbose:
         _t2 = Time.now()
-        print()
-        print(_t2.iso, f"(TOTAL dt = {(_t2 - _t1).sec:5.3} sec)")
+        logger.info("")
+        logger.info("%s (TOTAL dt = %.3f sec)", _t2.iso, (_t2 - _t1).sec)
 
     # == Return ========================================================================== #
     if full:
@@ -1028,15 +1029,15 @@ def ndcombine(
     combfunc = _set_combfunc(combine, nameonly=False, nan=True)
 
     if verbose and reject is not None:
-        print("- Rejection")
+        logger.info("- Rejection")
         if thresholds != [-np.inf, np.inf]:
-            print(f"-- thresholds (low, upp) = {thresholds}")
-        print(f"-- {reject=} ({irafmode=})")
-        print(f"--       params: {nkeep=}, {maxrej=}, {maxiters=}, {cenfunc=}")
+            logger.info("-- thresholds (low, upp) = %s", thresholds)
+        logger.info("-- reject=%s (irafmode=%s)", reject, irafmode)
+        logger.info("--       params: nkeep=%s, maxrej=%s, maxiters=%s, cenfunc=%s", nkeep, maxrej, maxiters, cenfunc)
         if reject_fullname == "sigclip":
-            print(f"  (for sigclip): {sigma=}, {ddof=}")
+            logger.info("  (for sigclip): sigma=%s, ddof=%s", sigma, ddof)
         elif reject_fullname == "ccdclip":
-            print(f"  (for ccdclip): {gain=}, {rdnoise=}, {snoise=}")
+            logger.info("  (for ccdclip): gain=%s, rdnoise=%s, snoise=%s", gain, rdnoise, snoise)
         # elif reject_fullnme == "pclip":
         #   print(f"    (for pclip)  : spclip={pclip}")
         # elif reject_fullname == "minmax":
@@ -1134,7 +1135,7 @@ def ndcombine(
         raise ValueError("reject not understood.")
 
     if reject is not None and verbose:
-        print("Done.")
+        logger.info("Done.")
 
     _mask |= mask_rej
 
@@ -1147,29 +1148,29 @@ def ndcombine(
     # This is done to reduce memory (instead of doing _arr = arr.copy())
     # backup_nan = arr[_mask]
     if verbose:
-        print("- Combining")
-        print(f"-- combine = {combine}")
+        logger.info("- Combining")
+        logger.info("-- combine = %s", combine)
     arr[_mask] = np.nan
 
     # Combine and calc sigma
     comb = combfunc(arr, axis=0)
     if verbose:
-        print("Done.")
+        logger.info("Done.")
 
     # Restore NaN-replaced pixels of arr for debugging purpose.
     # arr[_mask] = backup_nan
     # arr[mask_thresh] = backup_thresh_inmask
     if full:
         if verbose:
-            print("- Error calculation")
-            print("-- to skip this, use `full=False`")
-            print(f"-- return_variance={return_variance}, ddof={ddof}")
+            logger.info("- Error calculation")
+            logger.info("-- to skip this, use `full=False`")
+            logger.info("-- return_variance=%s, ddof=%s", return_variance, ddof)
         if return_variance:
             err = bn.nanvar(arr, ddof=ddof, axis=0)
         else:
             err = bn.nanstd(arr, ddof=ddof, axis=0)
         if verbose:
-            print("Done.")
+            logger.info("Done.")
         return comb, err, mask_rej, mask_thresh, low, upp, nit, rejcode
     else:
         return comb

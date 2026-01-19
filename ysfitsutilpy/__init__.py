@@ -1,3 +1,4 @@
+from .logging import logger, set_log_level, enable_console_logging
 from .astrometry import *
 from .airmass import *
 from .combutil import *

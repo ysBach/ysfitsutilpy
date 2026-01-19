@@ -12,6 +12,8 @@ from astro_ndslice import is_list_like, listify
 from astropy import units as u
 from astropy.time import Time
 
+from .logging import logger
+
 __all__ = [
     "MEDCOMB_KEYS_INT",
     "SUMCOMB_KEYS_INT",
@@ -220,13 +222,13 @@ def cmt2hdr(
     for _s in listify(s):
         _add_content(header, _s)
         if verbose:
-            print(f"{histcomm:<8s} {_s}")
+            logger.info("%-8s %s", histcomm, _s)
 
     if time_fmt is not None:
         timestr = str_now(precision=precision, fmt=time_fmt, t_ref=t_ref, dt_fmt=dt_fmt)
         _add_content(header, timestr)
         if verbose:
-            print(f"{histcomm:<8s} {timestr}")
+            logger.info("%-8s %s", histcomm, timestr)
     update_tlm(header)
 
 

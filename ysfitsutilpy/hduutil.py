@@ -29,6 +29,7 @@ from astropy.wcs import WCS, Wcsprm
 # from scipy.interpolate import griddata
 from scipy.ndimage import label as ndlabel
 
+from .logging import logger
 from .misc import binning, change_to_quantity, cmt2hdr, update_process, update_tlm
 
 try:
@@ -125,7 +126,7 @@ def write2fits(data, header, output, return_ccd=False, **kwargs):
     try:
         ccd.write(output, **kwargs)
     except fits.VerifyError:
-        print("Try using output_verify='fix' to avoid this error.")
+        logger.warning("Try using output_verify='fix' to avoid this error.")
     if return_ccd:
         return ccd
 
@@ -860,7 +861,7 @@ def load_ccd(
                             arr = _hdul[_ext].read()
                     return arr
                 except (OSError, ValueError) as e:
-                    print(e)
+                    logger.debug("Error reading extension: %s", e)
                     # "Extension `{_ext}` is not found (file: {_path})")
                     return None
 
@@ -2319,7 +2320,7 @@ def hedit(
     if isinstance(item, fits.header.Header):
         header = item
         if verbose:
-            print("item is astropy Header. (any `output` is igrnoed).")
+            logger.info("item is astropy Header. (any `output` is ignored).")
         output = None
         ccd = None
     elif isinstance(item, ASTROPY_CCD_TYPES):
@@ -2345,14 +2346,14 @@ def hedit(
                 infostr = f"[yfu.HEDIT add] {key}= {val} ({type(val).__name__})"
                 _add_key(header, key, val, infostr, cmt=cmt, before=bef, after=aft)
             elif verbose:
-                print(
-                    f"{key = } does not exist in the header. Skipped. (add=True to proceed)"
+                logger.info(
+                    "%s does not exist in the header. Skipped. (add=True to proceed)", key
                 )
 
     if output is not None:
         ccd.write(output, overwrite=overwrite, output_verify=output_verify)
         if verbose:
-            print(f"{imname} --> {output}")
+            logger.info("%s --> %s", imname, output)
 
     return ccd
 
@@ -2651,7 +2652,7 @@ def get_from_header(header, key, unit=None, verbose=True, default=0):
     try:
         q = change_to_quantity(header[key], desired=unit)
         if verbose:
-            print(f"header: {key:<8s} = {q}")
+            logger.info("header: %-8s = %s", key, q)
     except (KeyError, IndexError):
         q = change_to_quantity(default, desired=unit)
         warn(f"The key {key} not found in header: setting to {default}.")
@@ -3047,8 +3048,10 @@ def wcsremove(
     candidate_re = ["wcs", "axis", "axes", "coord", "distortion", "reference"]
     candidate_key = []
 
+    removed_keys = []  # Collect removed keys for logging
+
     if verbose:
-        print("Removed keywords: ")
+        logger.info("Removed keywords: ")
 
     if isinstance(path_or_header, fits.Header):
         hdu = None
@@ -3064,8 +3067,7 @@ def wcsremove(
             if re.match(re_i, k) is not None and not deleted:
                 hdr.remove(k)
                 deleted = True
-                if verbose:
-                    print(f"{k}", end=" ")
+                removed_keys.append(k)
                 continue
         if not deleted and com:  # do only if com != ""
             for re_cand in candidate_re:
@@ -3073,8 +3075,10 @@ def wcsremove(
                     candidate_key.append(k)
                     break  # break here for minor performance boost
     if verbose:
+        if removed_keys:
+            logger.info("%s", " ".join(removed_keys))
         if len(candidate_key) != 0:
-            print(f"\nFollowing keys may be related to WCS too:\n\t{candidate_key}")
+            logger.info("Following keys may be related to WCS too: %s", candidate_key)
 
     if hdu is None:
         return hdr  # Do not save. Do not try to return CCDData.

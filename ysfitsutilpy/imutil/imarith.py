@@ -14,6 +14,7 @@ from ..hduutil import (
     imslice,
 )
 from ..misc import cmt2hdr, update_tlm
+from ..logging import logger
 
 __all__ = ["imarith"]
 
@@ -152,7 +153,7 @@ def _load_im_name_hdr(
 
         trimsecs = offsets2slice(shapes, offsets, method="inner", fits_convention=True)
         if verbose:
-            print(f"Using offsets {offsets_name}, trimming happened for im1 and im2:")
+            logger.info("Using offsets %s, trimming happened for im1 and im2:", offsets_name)
 
         if force_ccddata:
             im1 = imslice(im1, trimsecs[0], verbose=verbose)
@@ -295,7 +296,7 @@ def imarith(
 
     if ignore_header:  # Only work with ndarray
         if error_calc and verbose:
-            print(
+            logger.warning(
                 "Error propagation is not supported (yet...?) when ignore_header is True."
             )
         # Never use CCDData-like format for input data ndarray

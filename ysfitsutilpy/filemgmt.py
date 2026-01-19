@@ -16,6 +16,7 @@ from astropy.nddata import CCDData
 from astropy.time import Time
 
 from .hduutil import _parse_extension, cut_ccd, inputs2list, key_mapper, key_remover
+from .logging import logger
 
 __all__ = [
     "mkdir",
@@ -71,10 +72,10 @@ def load_if_exists(path, loader, if_not=None, verbose=True, **kwargs):
 
     if path.exists():
         if verbose:
-            print(f"Loading the existing {str(path)}...", end="")
+            logger.info("Loading the existing %s...", path)
         loaded = loader(path, **kwargs)
         if verbose:
-            print(" Done")
+            logger.info("Done")
     elif if_not is not None:
         loaded = eval(if_not)
     else:
@@ -240,18 +241,18 @@ def make_summary(
             **kwargs,
         )
         if verbose:
-            print("Unique keys that will be removed:")
+            logger.info("Unique keys that will be removed:")
         for key in summ.keys():
             if keywords is not None and key in keywords:
                 continue
             if len(_uniq := summ[key].unique()) == 1:
                 if verbose:
-                    print(f" * {key:8s}: {_uniq[0]}")
+                    logger.info(" * %-8s: %s", key, _uniq[0])
                 summ.pop(key)
         if output is not None:
             output = Path(output)
             if verbose:
-                print(f'Saving the summary to "{str(output)}"')
+                logger.info('Saving the summary to "%s"', output)
             summ.to_csv(output, index=False)
         return summ
 
@@ -265,7 +266,7 @@ def make_summary(
 
     if len(fitslist) == 0:
         if verbose:
-            print("No FITS file found.")
+            logger.info("No FITS file found.")
         return None
 
     def _get_fname_fsize_hdr(item, idx, extension):
@@ -298,9 +299,9 @@ def make_summary(
 
     if verbose and keywords is not None:
         if keywords == "*":
-            print("Extracting all keywords...")
+            logger.info("Extracting all keywords...")
         else:
-            print("Extracting keys: ", keywords)
+            logger.info("Extracting keys: %s", keywords)
 
     extension = _parse_extension(extension)
 
@@ -308,7 +309,7 @@ def make_summary(
     if example_header is not None:
         fname0, _, hdr0 = _get_fname_fsize_hdr(fitslist[0], 0, extension=extension)
         if verbose:
-            print(f"Header of 0-th: {fname0} -> {example_header}")
+            logger.info("Header of 0-th: %s -> %s", fname0, example_header)
         hdr0.totextfile(example_header, overwrite=True)
 
     # load ALL keywords for special cases
@@ -330,8 +331,8 @@ def make_summary(
             keywords.append(key_i)
 
         if verbose:
-            print(
-                f"All {len(keywords)} keywords (guessed from {fname0}) will be loaded."
+            logger.info(
+                "All %d keywords (guessed from %s) will be loaded.", len(keywords), fname0
             )
 
     # Initialize
@@ -374,7 +375,7 @@ def make_summary(
     if output is not None:
         output = Path(output)
         if verbose:
-            print(f'Saving the summary to "{str(output)}"')
+            logger.info('Saving the summary to "%s"', output)
         summarytab.to_csv(output, index=False)
 
     return summarytab
@@ -1027,18 +1028,16 @@ def fitsrenamer(
 
     # Set the new path
     if verbose:
-        print("Renaming file by ", end="")
         form = ""
         for rn in rename_by:
             form = form + f"<{rn:s}>{delimiter:s}"
         ndelimiter = len(delimiter)
-        print(form[:-ndelimiter])
+        logger.info("Renaming file by %s", form[:-ndelimiter])
         if mkdir_by is not None:
-            print("Make by ", end="")
             form = ""
             for md in mkdir_by:
                 form = form + f"<{md:s}>/"
-            print(form[:-1])
+            logger.info("Make by %s", form[:-1])
 
     newpath = fits_newpath(
         fpath,
@@ -1055,7 +1054,7 @@ def fitsrenamer(
     mkdir(newpath.parent)
 
     if verbose:
-        print(f"Rename {fpath.name} to {newpath}")
+        logger.info("Rename %s to %s", fpath.name, newpath)
 
     newhdul.writeto(newpath, output_verify="fix", overwrite=overwrite)
 
@@ -1064,7 +1063,7 @@ def fitsrenamer(
         archive_path = archive_dir / fpath.name
         mkdir(archive_path.parent)
         if verbose:
-            print(f"Moving {fpath.name} to {archive_path}")
+            logger.info("Moving %s to %s", fpath.name, archive_path)
         fpath.rename(archive_path)
 
     return newpath

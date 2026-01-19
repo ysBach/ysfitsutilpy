@@ -31,6 +31,7 @@ from .misc import (
     update_process,
     update_tlm,
 )
+from .logging import logger
 
 __all__ = [
     "crrej",
@@ -371,7 +372,7 @@ def crrej(
     else:
         if verbose:
             nrej_cr = np.sum(crmask)
-            print(str_cr.format(nrej_cr, astroscrappy.__version__, crrej_kwargs))
+            logger.info(str_cr.format(nrej_cr, astroscrappy.__version__, crrej_kwargs))
 
     update_tlm(_ccd.header)
 
@@ -1523,10 +1524,10 @@ def ccdred(
 
     if output is not None:
         if verbose_bdf:
-            print(f"Writing FITS to {output}... ", end="")
+            logger.info("Writing FITS to %s...", output)
         proc.write(output, output_verify=output_verify, overwrite=overwrite)
         if verbose_bdf:
-            print("Saved.")
+            logger.info("Saved.")
     return proc
 
 
@@ -1730,7 +1731,7 @@ def bdf_process(
         description. If `None` it uses ``np.float64``.
         Default is `None`.
     """
-    print("bdf_process is deprecated in favor of ``ccdred``.")
+    warn("bdf_process is deprecated in favor of ``ccdred``.", DeprecationWarning)
 
     def _load_master(path, master, simple=True, unit=None, calc_err=False):
         if path is None and master is None:
@@ -2010,10 +2011,10 @@ def bdf_process(
 
     if output is not None:
         if verbose_bdf:
-            print(f"Writing FITS to {output}... ", end="")
+            logger.info("Writing FITS to %s...", output)
         proc.write(output, output_verify=output_verify, overwrite=overwrite)
         if verbose_bdf:
-            print("Saved.")
+            logger.info("Saved.")
     return proc
 
 
