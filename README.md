@@ -1,8 +1,11 @@
-IMPORTANT NOTE
+# ⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️
 
-This repo was maintained by @ysBach since they were a graduate student. The main development started around 2017 while they were the TA of [Astronomical Observation class at SNU](https://github.com/ysBach/SNU_AOclass). This has been the main tool they used for multiple publications.
+**⚠️ IMPORTANT NOTE**: This repository was maintained by @ysBach since their graduate-student years. Its main development began around 2017 while they were serving as a TA for the [Astronomical Observation class at SNU](https://github.com/ysBach/SNU_AOclass). This package has also been one of the primary tools used in multiple publications.
 
-In 2026, this package is completely superseded by [`astroimred` (short name `air`)](https://github.com/ysBach/astroimred) with many breaking changes and reorganization. Hence, this repo is permanently archived.
+In 2026, this package was completely superseded by [`astroimred` (short name: `air`)](https://github.com/ysBach/astroimred), which introduced many breaking changes and substantial reorganization. Therefore, this repository has been permanently archived.
+
+# ⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️
+
 
 # ysfitsutilpy
 
